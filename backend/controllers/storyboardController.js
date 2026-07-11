@@ -361,7 +361,16 @@ async function generateStoryboard(req, res) {
             child.stderr.on('data', (d) => stderr += d.toString());
             child.on('close', (code) => {
               if (code !== 0) {
-                return reject(new Error(`CLI Halaman ${pageNum} gagal: ${stderr.trim() || code}`));
+                let errMsg = stderr.trim();
+                if (!errMsg && stdout) {
+                  try {
+                    const parsed = JSON.parse(stdout.trim());
+                    errMsg = parsed.message || parsed.msg || parsed.error?.message || stdout.trim();
+                  } catch (e) {
+                    errMsg = stdout.trim();
+                  }
+                }
+                return reject(new Error(`CLI Halaman ${pageNum} gagal: ${errMsg || code}`));
               }
               try {
                 const genJson = JSON.parse(stdout.trim());
@@ -439,7 +448,16 @@ async function generateStoryboard(req, res) {
 
               childStatus.on('close', async (statusCode) => {
                 if (statusCode !== 0) {
-                  activeTasks[taskId].logs += `[WARNING][Halaman ${pageNum}] Gagal memeriksa status: ${statusStderr || statusCode}\n`;
+                  let errMsg = statusStderr.trim();
+                  if (!errMsg && statusStdout) {
+                    try {
+                      const parsed = JSON.parse(statusStdout.trim());
+                      errMsg = parsed.message || parsed.msg || parsed.error?.message || statusStdout.trim();
+                    } catch (e) {
+                      errMsg = statusStdout.trim();
+                    }
+                  }
+                  activeTasks[taskId].logs += `[WARNING][Halaman ${pageNum}] Gagal memeriksa status: ${errMsg || statusCode}\n`;
                   if (pollCount >= maxPolls) {
                     clearInterval(pollInterval);
                     reject(new Error(`Timeout pada Halaman ${pageNum}`));
