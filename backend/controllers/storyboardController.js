@@ -468,24 +468,8 @@ async function generateStoryboard(req, res) {
                         return reject(new Error(`URL hasil Halaman ${pageNum} tidak ditemukan.`));
                       }
                       
-                      activeTasks[taskId].logs += `[Halaman ${pageNum}] Sukses! Mengunduh gambar...\n`;
-                      
-                      const filename = `storyboard_${Date.now()}_page${pageNum}.png`;
-                      const publicDir = path.join(__dirname, '..', 'public', 'uploads');
-                      if (!fs.existsSync(publicDir)) {
-                        fs.mkdirSync(publicDir, { recursive: true });
-                      }
-                      
-                      const localPath = path.join(publicDir, filename);
-                      try {
-                        await downloadFile(remoteUrl, localPath);
-                        const finalPath = `/uploads/${filename}`;
-                        activeTasks[taskId].logs += `[Halaman ${pageNum}] Berhasil diunduh: ${finalPath}\n`;
-                        resolve(finalPath);
-                      } catch (dlErr) {
-                        activeTasks[taskId].logs += `[WARNING][Halaman ${pageNum}] Gagal unduh lokal, menggunakan URL remote.\n`;
-                        resolve(remoteUrl);
-                      }
+                      activeTasks[taskId].logs += `[Halaman ${pageNum}] Sukses! Menggunakan link asli Freebeat: ${remoteUrl}\n`;
+                      resolve(remoteUrl);
                     } else if (renderStatus === 'FAILED' || renderStatus === 'ERROR') {
                       clearInterval(pollInterval);
                       reject(new Error(item.errorMessage || `Gagal render Halaman ${pageNum}`));
