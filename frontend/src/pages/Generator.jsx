@@ -62,7 +62,7 @@ export default function Generator() {
   const [loadingKeys, setLoadingKeys] = useState(true);
   
   const pollIntervalRef = useRef(null);
-  const logEndRef = useRef(null);
+  const logContainerRef = useRef(null);
   const fileInputRef = useRef(null);
 
   const fetchKeys = async () => {
@@ -119,7 +119,9 @@ export default function Generator() {
   }, []);
 
   useEffect(() => {
-    if (logEndRef.current) logEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (logContainerRef.current) {
+      logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
+    }
   }, [taskLogs, showLogModal]);
 
   useEffect(() => {
@@ -477,7 +479,7 @@ export default function Generator() {
               <X className="w-4 h-4" />
             </button>
           </div>
-          <div className="flex-grow bg-black/60 border border-[#2a2725] rounded-2xl p-4 overflow-y-auto font-mono text-[10px] text-emerald-400 leading-relaxed scrollbar-thin">
+          <div ref={logContainerRef} className="flex-grow bg-black/60 border border-[#2a2725] rounded-2xl p-4 overflow-y-auto font-mono text-[10px] text-emerald-400 leading-relaxed scrollbar-thin">
             {taskLogs ? (
               taskLogs.split('\n').filter(l => l.trim()).map((line, idx) => (
                 <div key={idx} className="mb-0.5 opacity-90">{line}</div>
@@ -485,7 +487,6 @@ export default function Generator() {
             ) : (
               <div className="text-slate-600">Menunggu proses...</div>
             )}
-            <div ref={logEndRef} />
           </div>
         </div>
       )}
