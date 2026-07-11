@@ -36,7 +36,7 @@ export default function Settings({ onLogout }) {
   };
 
   return (
-    <div className="p-8 max-w-2xl mx-auto space-y-8 animate-fadeIn">
+    <div className="p-8 max-w-4xl space-y-8 animate-fadeIn">
       {/* Header */}
       <div className="bg-[#1a1918]/60 border border-[#2a2725] p-6 rounded-3xl backdrop-blur-md relative">
         <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#cfae80]/25 to-transparent"></div>

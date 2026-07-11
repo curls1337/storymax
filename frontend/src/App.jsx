@@ -177,7 +177,7 @@ export default function App() {
 
       {/* MAIN VIEW AREA */}
       <main className="flex-grow overflow-y-auto bg-darkBg relative z-10">
-        <div className="max-w-[1600px] mx-auto w-full min-h-full flex flex-col justify-start px-6 md:px-8">
+        <div className="w-full min-h-full flex flex-col justify-start px-6 md:px-8">
           {tab === 'dashboard' && <Dashboard setTab={setTab} />}
           {tab === 'generator' && <Generator />}
           {tab === 'settings' && <Settings onLogout={handleLogout} />}
