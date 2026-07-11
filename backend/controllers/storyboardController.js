@@ -236,8 +236,12 @@ async function generateStoryboard(req, res) {
         return;
       }
 
-      const winPath = 'C:\\Users\\mnkpr\\AppData\\Roaming\\npm\\node_modules\\freebeat-cli\\dist\\index.js';
-      const hasWinPath = process.platform === 'win32' && fs.existsSync(winPath);
+      // Retrieve custom Freebeat API host from AI settings
+      const aiSettings = await db.get('SELECT * FROM ai_settings LIMIT 1');
+      let apiHost = '';
+      if (aiSettings && aiSettings.endpoint) {
+        apiHost = aiSettings.endpoint.replace(/\/v1\/?$/, ''); // Strip trailing /v1 or /v1/
+      }
 
       // Save Reference Image if provided (Base64 or URL)
       let refImagePath = '';
@@ -305,34 +309,37 @@ async function generateStoryboard(req, res) {
 
           activeTasks[taskId].logs += `[Halaman ${pageNum}] Prompt: ${pagePrompt.substring(0, 120)}...\n`;
 
-          let spawnArgs;
+          const spawnArgs = [
+            'freebeat',
+            '--api-key', keyRecord.key_value
+          ];
+          if (apiHost) {
+            spawnArgs.push('--api-host', apiHost);
+          }
+
           if (cleanRefImagePath) {
-            spawnArgs = [
-              hasWinPath ? winPath : 'freebeat',
-              '--api-key', keyRecord.key_value,
+            spawnArgs.push(
               'image', 'edit',
               '--model', selectedModel,
               '--image', cleanRefImagePath,
               '--prompt', pagePrompt,
               '--count', '1',
               '--json'
-            ];
+            );
           } else {
-            spawnArgs = [
-              hasWinPath ? winPath : 'freebeat',
-              '--api-key', keyRecord.key_value,
+            spawnArgs.push(
               'image', 'generate',
               '--model', selectedModel,
               '--prompt', pagePrompt,
               '--count', '1',
               '--json'
-            ];
+            );
           }
 
-          const spawnCmd = hasWinPath ? 'node' : spawnArgs.shift();
+          const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
 
           return new Promise((resolve, reject) => {
-            const child = spawn(spawnCmd, spawnArgs);
+            const child = spawn(npxCmd, spawnArgs);
             let stdout = '';
             let stderr = '';
             child.stdout.on('data', (d) => stdout += d.toString());
@@ -385,16 +392,17 @@ async function generateStoryboard(req, res) {
               activeTasks[taskId].logs += `[Halaman ${pageNum}] Memeriksa status render (${pollCount}/${maxPolls})...\n`;
 
               const statusArgs = [
-                hasWinPath ? winPath : 'freebeat',
-                '--api-key', keyRecord.key_value,
-                'task', 'status',
-                batchId,
-                '--json'
+                'freebeat',
+                '--api-key', keyRecord.key_value
               ];
+              if (apiHost) {
+                statusArgs.push('--api-host', apiHost);
+              }
+              statusArgs.push('task', 'status', batchId, '--json');
               if (serialNo) statusArgs.push('--serial-no', serialNo);
 
-              const statusCmd = hasWinPath ? 'node' : statusArgs.shift();
-              const childStatus = spawn(statusCmd, statusArgs);
+              const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+              const childStatus = spawn(npxCmd, statusArgs);
 
               let statusStdout = '';
               let statusStderr = '';
