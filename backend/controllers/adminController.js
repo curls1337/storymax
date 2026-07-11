@@ -1,0 +1,340 @@
+const bcrypt = require('bcryptjs');
+const { getDb } = require('../db');
+const http = require('http');
+const https = require('https');
+
+// --- User Management ---
+
+async function getAllUsers(req, res) {
+  try {
+    const db = getDb();
+    const users = await db.all('SELECT id, username, role FROM users');
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching users.', error: error.message });
+  }
+}
+
+async function createUser(req, res) {
+  const { username, password, role } = req.body;
+
+  if (!username || !password || !role) {
+    return res.status(400).json({ message: 'Username, password, and role are required.' });
+  }
+
+  try {
+    const db = getDb();
+    const existingUser = await db.get('SELECT * FROM users WHERE username = ?', [username]);
+    if (existingUser) {
+      return res.status(400).json({ message: 'Username already taken.' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    await db.run(
+      'INSERT INTO users (username, password, role) VALUES (?, ?, ?)',
+      [username, hashedPassword, role]
+    );
+
+    res.status(201).json({ message: 'User created successfully.' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error creating user.', error: error.message });
+  }
+}
+
+async function updateUser(req, res) {
+  const { id } = req.params;
+  const { username, role, password } = req.body;
+
+  if (!username || !role) {
+    return res.status(400).json({ message: 'Username and role are required.' });
+  }
+
+  try {
+    const db = getDb();
+    const user = await db.get('SELECT * FROM users WHERE id = ?', [id]);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    // Check username uniqueness if changed
+    if (username !== user.username) {
+      const existingUser = await db.get('SELECT * FROM users WHERE username = ?', [username]);
+      if (existingUser) {
+        return res.status(400).json({ message: 'Username already taken.' });
+      }
+    }
+
+    if (password) {
+      // If password provided, update it too
+      const hashedPassword = await bcrypt.hash(password, 10);
+      await db.run(
+        'UPDATE users SET username = ?, role = ?, password = ? WHERE id = ?',
+        [username, role, hashedPassword, id]
+      );
+    } else {
+      await db.run(
+        'UPDATE users SET username = ?, role = ? WHERE id = ?',
+        [username, role, id]
+      );
+    }
+
+    res.json({ message: 'User updated successfully.' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error updating user.', error: error.message });
+  }
+}
+
+async function deleteUser(req, res) {
+  const { id } = req.params;
+
+  if (parseInt(id) === req.user.id) {
+    return res.status(400).json({ message: 'You cannot delete your own admin account.' });
+  }
+
+  try {
+    const db = getDb();
+    await db.run('DELETE FROM users WHERE id = ?', [id]);
+    res.json({ message: 'User deleted successfully.' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error deleting user.', error: error.message });
+  }
+}
+
+// --- API Key Management ---
+
+async function getAllKeys(req, res) {
+  try {
+    const db = getDb();
+    // Return key_value but masked in standard responses (or fully to admin so they can verify/edit, but we'll mask partially for safety)
+    const keys = await db.all('SELECT id, key_value, label, is_active FROM api_keys');
+    
+    // Mask keys before sending
+    const maskedKeys = keys.map(k => {
+      const val = k.key_value;
+      const masked = val.length > 8 ? `${val.substring(0, 4)}...${val.substring(val.length - 4)}` : '****';
+      return {
+        id: k.id,
+        key_value: val, // Keep full value for admin UI management, or mask if preferred. We'll send full so admin can view/copy.
+        masked_value: masked,
+        label: k.label,
+        is_active: k.is_active
+      };
+    });
+    
+    res.json(maskedKeys);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching API keys.', error: error.message });
+  }
+}
+
+async function addKey(req, res) {
+  const { key_value, label } = req.body;
+
+  if (!key_value || !label) {
+    return res.status(400).json({ message: 'API Key and label are required.' });
+  }
+
+  try {
+    const db = getDb();
+    await db.run(
+      'INSERT INTO api_keys (key_value, label, is_active) VALUES (?, ?, 1)',
+      [key_value, label]
+    );
+    res.status(201).json({ message: 'API Key added successfully.' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error adding API Key.', error: error.message });
+  }
+}
+
+async function addKeysBulk(req, res) {
+  const { bulk_data } = req.body; // Multiline text containing: KEY or KEY,LABEL
+
+  if (!bulk_data) {
+    return res.status(400).json({ message: 'Bulk data is empty.' });
+  }
+
+  const lines = bulk_data.split('\n');
+  const db = getDb();
+  let addedCount = 0;
+  let errorCount = 0;
+
+  try {
+    await db.run('BEGIN TRANSACTION');
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+
+      let keyVal = line;
+      let labelVal = `Bulk Key ${Date.now()}-${i}`;
+
+      if (line.includes(',')) {
+        const parts = line.split(',');
+        keyVal = parts[0].trim();
+        labelVal = parts[1].trim();
+      }
+
+      try {
+        await db.run(
+          'INSERT INTO api_keys (key_value, label, is_active) VALUES (?, ?, 1)',
+          [keyVal, labelVal]
+        );
+        addedCount++;
+      } catch (err) {
+        errorCount++;
+      }
+    }
+    await db.run('COMMIT');
+    res.json({
+      message: `Bulk import completed. Added: ${addedCount}, Failed/Duplicates: ${errorCount}`
+    });
+  } catch (error) {
+    await db.run('ROLLBACK');
+    res.status(500).json({ message: 'Error during bulk import.', error: error.message });
+  }
+}
+
+async function toggleKeyStatus(req, res) {
+  const { id } = req.params;
+  const { is_active } = req.body; // 1 or 0
+
+  try {
+    const db = getDb();
+    await db.run('UPDATE api_keys SET is_active = ? WHERE id = ?', [is_active, id]);
+    res.json({ message: 'API Key status updated.' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error updating API Key status.', error: error.message });
+  }
+}
+
+async function deleteKey(req, res) {
+  const { id } = req.params;
+
+  try {
+    const db = getDb();
+    await db.run('DELETE FROM api_keys WHERE id = ?', [id]);
+    res.json({ message: 'API Key deleted successfully.' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error deleting API Key.', error: error.message });
+  }
+}
+
+function httpRequest(url, headers, body) {
+  return new Promise((resolve, reject) => {
+    try {
+      const urlParsed = new URL(url);
+      const client = url.startsWith('https') ? https : http;
+      const port = urlParsed.port || (url.startsWith('https') ? 443 : 80);
+
+      const options = {
+        hostname: urlParsed.hostname,
+        port: port,
+        path: urlParsed.pathname + urlParsed.search,
+        method: 'POST',
+        headers: headers,
+        timeout: 10000 // 10s timeout
+      };
+
+      const req = client.request(options, (res) => {
+        let data = '';
+        res.on('data', (chunk) => { data += chunk; });
+        res.on('end', () => {
+          resolve({ statusCode: res.statusCode, body: data });
+        });
+      });
+
+      req.on('error', (err) => reject(err));
+      req.on('timeout', () => { req.destroy(); reject(new Error('Timeout (10s)')); });
+
+      req.write(JSON.stringify(body));
+      req.end();
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
+
+async function getAiSettings(req, res) {
+  try {
+    const db = getDb();
+    let settings = await db.get('SELECT * FROM ai_settings LIMIT 1');
+    if (!settings) {
+      await db.run(
+        'INSERT INTO ai_settings (endpoint, api_key, model) VALUES (?, ?, ?)',
+        ['http://localhost:8045/v1', 'ag_api_55bd6bfe5c3b771a', 'gemini-3-flash']
+      );
+      settings = await db.get('SELECT * FROM ai_settings LIMIT 1');
+    }
+    res.json(settings);
+  } catch (error) {
+    res.status(500).json({ message: 'Gagal mengambil pengaturan AI.', error: error.message });
+  }
+}
+
+async function updateAiSettings(req, res) {
+  const { endpoint, api_key, model } = req.body;
+  if (!endpoint || !api_key || !model) {
+    return res.status(400).json({ message: 'Endpoint, API Key, dan Model wajib diisi.' });
+  }
+
+  try {
+    const db = getDb();
+    let settings = await db.get('SELECT * FROM ai_settings LIMIT 1');
+    if (settings) {
+      await db.run(
+        'UPDATE ai_settings SET endpoint = ?, api_key = ?, model = ? WHERE id = ?',
+        [endpoint, api_key, model, settings.id]
+      );
+    } else {
+      await db.run(
+        'INSERT INTO ai_settings (endpoint, api_key, model) VALUES (?, ?, ?)',
+        [endpoint, api_key, model]
+      );
+    }
+    res.json({ message: 'Pengaturan AI berhasil diperbarui.' });
+  } catch (error) {
+    res.status(500).json({ message: 'Gagal memperbarui pengaturan AI.', error: error.message });
+  }
+}
+
+async function testAiSettings(req, res) {
+  const { endpoint, api_key, model } = req.body;
+  if (!endpoint || !api_key || !model) {
+    return res.status(400).json({ message: 'Endpoint, API Key, dan Model wajib diisi untuk tes.' });
+  }
+
+  try {
+    const payload = {
+      model: model,
+      messages: [{ role: 'user', content: 'Hello' }],
+      max_tokens: 5
+    };
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${api_key}`
+    };
+
+    const response = await httpRequest(`${endpoint}/chat/completions`, headers, payload);
+    if (response.statusCode === 200) {
+      res.json({ success: true, message: 'Koneksi AI berhasil terautentikasi (200 OK).' });
+    } else {
+      res.status(400).json({ success: false, message: `Server mengembalikan status ${response.statusCode}`, error: response.body });
+    }
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Gagal menghubungi Endpoint AI.', error: error.message });
+  }
+}
+
+module.exports = {
+  getAllUsers,
+  createUser,
+  updateUser,
+  deleteUser,
+  getAllKeys,
+  addKey,
+  addKeysBulk,
+  toggleKeyStatus,
+  deleteKey,
+  getAiSettings,
+  updateAiSettings,
+  testAiSettings
+};

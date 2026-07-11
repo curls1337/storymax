@@ -1,0 +1,10 @@
+node_modules/
+.env
+*.log
+database.sqlite
+backend/database.sqlite
+frontend/dist/
+.DS_Store
+.gemini/
+build/
+.history/

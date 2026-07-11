@@ -1,0 +1,108 @@
+const sqlite3 = require('sqlite3');
+const { open } = require('sqlite');
+const bcrypt = require('bcryptjs');
+const path = require('path');
+
+const dbPath = path.resolve(__dirname, 'database.sqlite');
+
+let db;
+
+async function initDb() {
+  db = await open({
+    filename: dbPath,
+    driver: sqlite3.Database
+  });
+
+  // Enable foreign keys
+  await db.run('PRAGMA foreign_keys = ON');
+
+  // Create Users Table
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT UNIQUE NOT NULL,
+      password TEXT NOT NULL,
+      role TEXT CHECK(role IN ('admin', 'user')) NOT NULL DEFAULT 'user'
+    )
+  `);
+
+  // Create API Keys Table
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS api_keys (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      key_value TEXT UNIQUE NOT NULL,
+      label TEXT NOT NULL,
+      is_active INTEGER DEFAULT 1
+    )
+  `);
+
+  // Create Storyboards Table
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS storyboards (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      title TEXT NOT NULL,
+      prompt TEXT NOT NULL,
+      image_path TEXT NOT NULL,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+
+  // Create AI Settings Table
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS ai_settings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      endpoint TEXT NOT NULL,
+      api_key TEXT NOT NULL,
+      model TEXT NOT NULL DEFAULT 'gemini-3-flash'
+    )
+  `);
+
+  // Ensure model column exists if table was already created (migration support)
+  try {
+    await db.exec('ALTER TABLE ai_settings ADD COLUMN model TEXT NOT NULL DEFAULT "gemini-3-flash"');
+  } catch (e) {
+    // Column already exists, safe to ignore
+  }
+
+  // Seed default admin if no users exist
+  const adminExists = await db.get('SELECT * FROM users WHERE role = "admin"');
+  if (!adminExists) {
+    const defaultPassword = 'adminpassword';
+    const hashedPassword = await bcrypt.hash(defaultPassword, 10);
+    await db.run(
+      'INSERT INTO users (username, password, role) VALUES (?, ?, ?)',
+      ['admin', hashedPassword, 'admin']
+    );
+    console.log('--- Default Admin User Seeded ---');
+    console.log('Username: admin');
+    console.log('Password: adminpassword');
+    console.log('--------------------------------');
+  }
+
+  // Seed default AI settings if none exist
+  const aiSettingsExists = await db.get('SELECT * FROM ai_settings LIMIT 1');
+  if (!aiSettingsExists) {
+    await db.run(
+      'INSERT INTO ai_settings (endpoint, api_key, model) VALUES (?, ?, ?)',
+      ['http://localhost:8045/v1', 'ag_api_55bd6bfe5c3b771a', 'gemini-3-flash']
+    );
+    console.log('--- Default AI Settings Seeded ---');
+  }
+
+  console.log('Database initialized successfully.');
+  return db;
+}
+
+function getDb() {
+  if (!db) {
+    throw new Error('Database not initialized. Call initDb() first.');
+  }
+  return db;
+}
+
+module.exports = {
+  initDb,
+  getDb
+};

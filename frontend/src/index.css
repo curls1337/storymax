@@ -1,0 +1,60 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;0,9..144,800;1,9..144,350;1,9..144,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-darkBg: #131211;
+  --color-darkCard: #1a1918;
+  --color-electricBlue: #8c827a;
+  --color-royalPurple: #cfae80;
+  --color-accentText: #d6c5b3;
+}
+
+body {
+  margin: 0;
+  background-color: #131211;
+  color: #edebe7;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  overflow-x: hidden;
+  letter-spacing: -0.01em;
+}
+
+/* Custom premium scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: #131211;
+}
+::-webkit-scrollbar-thumb {
+  background: #2a2725;
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #cfae80;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { opacity: 0.15; transform: scale(1); }
+  50% { opacity: 0.25; transform: scale(1.03); }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-pulseGlow {
+  animation: pulseGlow 10s ease-in-out infinite;
+}
+
+/* Serif helper */
+.font-editorial {
+  font-family: 'Fraunces', serif;
+}
+
