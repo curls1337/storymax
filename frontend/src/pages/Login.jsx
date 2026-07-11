@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Zap, ShieldAlert, KeyRound, UserPlus, LogIn, Sparkles } from 'lucide-react';
+import { Zap, ShieldAlert, KeyRound, UserPlus, LogIn, Sparkles, Loader } from 'lucide-react';
 import api from '../utils/api';
 
 export default function Login({ onLoginSuccess }) {
