@@ -1,10 +1,29 @@
 const fs = require('fs');
 const path = require('path');
 
-// Direct require from pre-installed path in user's D: drive
-const { chromium } = require('D:/UGC2/reference/tokopedia-scraper/node_modules/playwright-extra');
-const stealth = require('D:/UGC2/reference/tokopedia-scraper/node_modules/puppeteer-extra-plugin-stealth')();
-chromium.use(stealth);
+// Load playwright-extra with fallback to local D: drive for backward compatibility
+let chromium;
+try {
+  const extra = require('playwright-extra');
+  const stealth = require('puppeteer-extra-plugin-stealth')();
+  extra.chromium.use(stealth);
+  chromium = extra.chromium;
+} catch (e) {
+  console.warn('[scraper] failed to load playwright-extra from standard path, trying local D: fallback:', e.message);
+  try {
+    const extra = require('D:/UGC2/reference/tokopedia-scraper/node_modules/playwright-extra');
+    const stealth = require('D:/UGC2/reference/tokopedia-scraper/node_modules/puppeteer-extra-plugin-stealth')();
+    extra.chromium.use(stealth);
+    chromium = extra.chromium;
+  } catch (err) {
+    console.error('[scraper] all playwright-extra load paths failed, trying standard playwright-chromium:', err.message);
+    try {
+      chromium = require('playwright-chromium').chromium;
+    } catch (err2) {
+      console.error('[scraper] standard playwright-chromium is also missing:', err2.message);
+    }
+  }
+}
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36";
 
