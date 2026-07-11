@@ -243,6 +243,9 @@ async function generateStoryboard(req, res) {
         apiHost = aiSettings.endpoint.replace(/\/v1\/?$/, ''); // Strip trailing /v1 or /v1/
       }
 
+      const localCliPath = path.join(__dirname, '..', 'node_modules', 'freebeat-cli', 'dist', 'index.js');
+      const hasLocalCli = fs.existsSync(localCliPath);
+
       // Save Reference Image if provided (Base64 or URL)
       let refImagePath = '';
       if (refImageBase64) {
@@ -309,10 +312,24 @@ async function generateStoryboard(req, res) {
 
           activeTasks[taskId].logs += `[Halaman ${pageNum}] Prompt: ${pagePrompt.substring(0, 120)}...\n`;
 
-          const spawnArgs = [
-            'freebeat',
-            '--api-key', keyRecord.key_value
-          ];
+          let spawnCmd;
+          let spawnArgs;
+
+          if (hasLocalCli) {
+            spawnCmd = 'node';
+            spawnArgs = [
+              localCliPath,
+              '--api-key', keyRecord.key_value
+            ];
+          } else {
+            spawnCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+            spawnArgs = [
+              '-p', 'freebeat-cli',
+              'freebeat',
+              '--api-key', keyRecord.key_value
+            ];
+          }
+
           if (apiHost) {
             spawnArgs.push('--api-host', apiHost);
           }
@@ -336,10 +353,8 @@ async function generateStoryboard(req, res) {
             );
           }
 
-          const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-
           return new Promise((resolve, reject) => {
-            const child = spawn(npxCmd, spawnArgs);
+            const child = spawn(spawnCmd, spawnArgs);
             let stdout = '';
             let stderr = '';
             child.stdout.on('data', (d) => stdout += d.toString());
@@ -391,18 +406,31 @@ async function generateStoryboard(req, res) {
               pollCount++;
               activeTasks[taskId].logs += `[Halaman ${pageNum}] Memeriksa status render (${pollCount}/${maxPolls})...\n`;
 
-              const statusArgs = [
-                'freebeat',
-                '--api-key', keyRecord.key_value
-              ];
+              let statusCmd;
+              let statusArgs;
+
+              if (hasLocalCli) {
+                statusCmd = 'node';
+                statusArgs = [
+                  localCliPath,
+                  '--api-key', keyRecord.key_value
+                ];
+              } else {
+                statusCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+                statusArgs = [
+                  '-p', 'freebeat-cli',
+                  'freebeat',
+                  '--api-key', keyRecord.key_value
+                ];
+              }
+
               if (apiHost) {
                 statusArgs.push('--api-host', apiHost);
               }
               statusArgs.push('task', 'status', batchId, '--json');
               if (serialNo) statusArgs.push('--serial-no', serialNo);
 
-              const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-              const childStatus = spawn(npxCmd, statusArgs);
+              const childStatus = spawn(statusCmd, statusArgs);
 
               let statusStdout = '';
               let statusStderr = '';
