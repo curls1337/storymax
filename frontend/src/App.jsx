@@ -72,7 +72,7 @@ export default function App() {
       <div className="absolute bottom-[-10%] left-[-10%] w-[550px] h-[550px] bg-[#8c827a] opacity-[0.03] rounded-full blur-[150px] pointer-events-none"></div>
 
       {/* SIDEBAR PANEL */}
-      <aside className="w-64 bg-[#1a1918]/90 border-r border-[#2a2725] flex flex-col justify-between h-full shrink-0 relative z-20 backdrop-blur-md">
+      <aside className="w-64 bg-[#1a1918]/90 border-r border-[#2a2725] flex flex-col justify-between h-full shrink-0 relative z-20 backdrop-blur-md overflow-y-auto">
         <div>
           {/* Logo Brand */}
           <div className="p-6 border-b border-[#2a2725] flex items-center justify-between">

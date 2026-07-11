@@ -20,14 +20,14 @@ body {
 
 /* Custom premium scrollbar */
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
   background: #131211;
 }
 ::-webkit-scrollbar-thumb {
-  background: #2a2725;
+  background: #4a4542;
   border-radius: 99px;
 }
 ::-webkit-scrollbar-thumb:hover {
