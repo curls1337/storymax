@@ -236,12 +236,6 @@ async function generateStoryboard(req, res) {
         return;
       }
 
-      // Retrieve custom Freebeat API host from AI settings
-      const aiSettings = await db.get('SELECT * FROM ai_settings LIMIT 1');
-      let apiHost = '';
-      if (aiSettings && aiSettings.endpoint) {
-        apiHost = aiSettings.endpoint.replace(/\/v1\/?$/, ''); // Strip trailing /v1 or /v1/
-      }
 
       const localCliPath = path.join(__dirname, '..', 'node_modules', 'freebeat-cli', 'dist', 'index.js');
       const hasLocalCli = fs.existsSync(localCliPath);
@@ -330,9 +324,6 @@ async function generateStoryboard(req, res) {
             ];
           }
 
-          if (apiHost) {
-            spawnArgs.push('--api-host', apiHost);
-          }
 
           if (cleanRefImagePath) {
             spawnArgs.push(
@@ -433,9 +424,6 @@ async function generateStoryboard(req, res) {
                 ];
               }
 
-              if (apiHost) {
-                statusArgs.push('--api-host', apiHost);
-              }
               statusArgs.push('task', 'status', batchId, '--json');
               if (serialNo) statusArgs.push('--serial-no', serialNo);
 
