@@ -40,9 +40,7 @@ export default function Generator() {
   const [hoveredStyle, setHoveredStyle] = useState(null);
   const dropdownRef = useRef(null);
   
-  const [refImageBase64, setRefImageBase64] = useState('');
-  const [refImageUrl, setRefImageUrl] = useState('');
-  const [refImagePreview, setRefImagePreview] = useState('');
+  const [selectedRefImages, setSelectedRefImages] = useState([]);
   
   const [tokopediaUrl, setTokopediaUrl] = useState('');
   const [scraping, setScraping] = useState(false);
@@ -140,22 +138,43 @@ export default function Generator() {
   }, []);
 
   const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setRefImagePreview(reader.result);
-      setRefImageBase64(reader.result);
-      setRefImageUrl('');
-    };
-    reader.readAsDataURL(file);
+    const files = Array.from(e.target.files);
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSelectedRefImages(prev => [
+          ...prev,
+          {
+            id: 'local_' + Date.now() + '_' + Math.random(),
+            type: 'base64',
+            value: reader.result,
+            preview: reader.result
+          }
+        ]);
+      };
+      reader.readAsDataURL(file);
+    });
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const clearRefImage = () => {
-    setRefImageBase64('');
-    setRefImageUrl('');
-    setRefImagePreview('');
-    if (fileInputRef.current) fileInputRef.current.value = '';
+  const toggleTokopediaImage = (imgUrl) => {
+    setSelectedRefImages(prev => {
+      const exists = prev.find(item => item.value === imgUrl);
+      if (exists) {
+        return prev.filter(item => item.value !== imgUrl);
+      } else {
+        return [...prev, {
+          id: imgUrl,
+          type: 'url',
+          value: imgUrl,
+          preview: imgUrl
+        }];
+      }
+    });
+  };
+
+  const removeSelectedImage = (id) => {
+    setSelectedRefImages(prev => prev.filter(item => item.id !== id));
   };
 
   const handleScrape = async (e) => {
@@ -171,9 +190,12 @@ export default function Generator() {
       setPrompt(scrapedDesc ? scrapedDesc.substring(0, 500) + '...' : '');
       setScrapedImages(images || []);
       if (images && images.length > 0) {
-        setRefImageUrl(images[0]);
-        setRefImagePreview(images[0]);
-        setRefImageBase64('');
+        setSelectedRefImages([{
+          id: images[0],
+          type: 'url',
+          value: images[0],
+          preview: images[0]
+        }]);
       }
     } catch (err) {
       setError(err.response?.data?.message || 'Gagal mengambil data dari Tokopedia.');
@@ -209,14 +231,24 @@ export default function Generator() {
     setResult(null);
     setTaskLogs('');
     setGenerating(true);
+
+    const firstRef = selectedRefImages[0];
+    const legacyBase64 = firstRef?.type === 'base64' ? firstRef.value : '';
+    const legacyUrl = firstRef?.type === 'url' ? firstRef.value : '';
+    const refImages = selectedRefImages.map(item => {
+      if (item.type === 'base64') return { base64: item.value };
+      return { url: item.value };
+    });
+
     try {
       const res = await api.post('/storyboards/generate', { 
         title, 
         prompt, 
         style, 
         apiKeyId, 
-        refImageBase64, 
-        refImageUrl, 
+        refImageBase64: legacyBase64, 
+        refImageUrl: legacyUrl, 
+        refImages,
         gridCount, 
         model, 
         duration,
@@ -276,11 +308,25 @@ export default function Generator() {
               <div className="space-y-2 pt-2.5 border-t border-[#2a2725]">
                 <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Pilih Gambar Produk:</span>
                 <div className="flex gap-2 overflow-x-auto pb-1.5 scrollbar-thin">
-                  {scrapedImages.map((imgUrl, idx) => (
-                    <button key={idx} type="button" onClick={() => { setRefImageUrl(imgUrl); setRefImagePreview(imgUrl); setRefImageBase64(''); }} className={`relative shrink-0 w-12 h-12 rounded-lg overflow-hidden border transition-all ${refImageUrl === imgUrl ? 'border-[#cfae80] ring-1 ring-[#cfae80]/30' : 'border-[#2a2725] hover:border-slate-650'}`}>
-                      <img src={imgUrl} alt={`Scraped ${idx}`} className="w-full h-full object-cover" />
-                    </button>
-                  ))}
+                  {scrapedImages.map((imgUrl, idx) => {
+                    const isSelected = selectedRefImages.some(item => item.value === imgUrl);
+                    const selectedIndex = selectedRefImages.findIndex(item => item.value === imgUrl) + 1;
+                    return (
+                      <button 
+                        key={idx} 
+                        type="button" 
+                        onClick={() => toggleTokopediaImage(imgUrl)} 
+                        className={`relative shrink-0 w-12 h-12 rounded-lg overflow-hidden border transition-all ${isSelected ? 'border-[#cfae80] ring-1 ring-[#cfae80]/30' : 'border-[#2a2725] hover:border-slate-650'}`}
+                      >
+                        <img src={imgUrl} alt={`Scraped ${idx}`} className="w-full h-full object-cover" />
+                        {isSelected && (
+                          <div className="absolute top-0.5 right-0.5 bg-[#cfae80] text-black text-[8px] font-extrabold w-4 h-4 rounded-full flex items-center justify-center shadow-md">
+                            {selectedIndex}
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -384,6 +430,61 @@ export default function Generator() {
               <option value="100">Wan V2.7 Pro (Model 100)</option>
               <option value="99">Wan V2.7 (Model 99)</option>
             </select>
+          </div>
+
+          {/* REFERENCE IMAGES SECTION */}
+          <div className="bg-[#131211]/50 border border-[#2a2725] rounded-2xl p-4 space-y-3">
+            <div className="flex justify-between items-center">
+              <label className="block text-slate-350 text-[10px] font-bold uppercase tracking-widest">Referensi Gambar ({selectedRefImages.length})</label>
+              <button 
+                type="button" 
+                onClick={() => fileInputRef.current?.click()} 
+                className="text-[10px] font-bold text-[#cfae80] hover:underline uppercase tracking-wider flex items-center gap-1"
+                disabled={generating}
+              >
+                <Upload className="w-3 h-3" /> Unggah File
+              </button>
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleFileChange} 
+                className="hidden" 
+                multiple 
+                accept="image/*" 
+              />
+            </div>
+
+            {selectedRefImages.length > 0 ? (
+              <div className="grid grid-cols-4 gap-2 pt-1">
+                {selectedRefImages.map((img) => (
+                  <div key={img.id} className="relative aspect-square rounded-lg overflow-hidden border border-[#2a2725] group bg-black/40">
+                    <img src={img.preview} alt="Preview" className="w-full h-full object-cover" />
+                    <button 
+                      type="button" 
+                      onClick={() => removeSelectedImage(img.id)} 
+                      className="absolute top-1 right-1 p-1 bg-black/85 text-red-400 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500 hover:text-white"
+                      disabled={generating}
+                    >
+                      <X className="w-2.5 h-2.5" />
+                    </button>
+                    {img.type === 'url' && (
+                      <span className="absolute bottom-1 left-1 px-1 py-0.5 bg-black/80 text-[7px] text-[#cfae80] rounded font-bold uppercase">
+                        Tokopedia
+                      </span>
+                    )}
+                    {img.type === 'base64' && (
+                      <span className="absolute bottom-1 left-1 px-1 py-0.5 bg-black/80 text-[7px] text-sky-400 rounded font-bold uppercase">
+                        Lokal
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-[10px] text-slate-650 text-center py-4 border border-dashed border-[#2a2725] rounded-xl">
+                Tidak ada referensi gambar terpilih. Klik gambar Tokopedia di atas atau unggah gambar lokal.
+              </div>
+            )}
           </div>
 
           {apiKeys.length > 0 && (

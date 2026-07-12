@@ -194,7 +194,7 @@ async function getUserStoryboards(req, res) {
 }
 
 async function generateStoryboard(req, res) {
-  const { title, prompt, style, apiKeyId, refImageBase64, refImageUrl, gridCount, model, duration, showFace } = req.body;
+  const { title, prompt, style, apiKeyId, refImageBase64, refImageUrl, refImages, gridCount, model, duration, showFace } = req.body;
 
   if (!title || !prompt || !style || !apiKeyId) {
     return res.status(400).json({ message: 'Title, prompt, style, and API Key ID are required.' });
@@ -240,42 +240,57 @@ async function generateStoryboard(req, res) {
       const localCliPath = path.join(__dirname, '..', 'node_modules', 'freebeat-cli', 'dist', 'index.js');
       const hasLocalCli = fs.existsSync(localCliPath);
 
-      // Save Reference Image if provided (Base64 or URL)
-      let refImagePath = '';
-      if (refImageBase64) {
-        activeTasks[taskId].logs += `Mengolah gambar referensi (Base64)...\n`;
-        const matches = refImageBase64.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-        if (matches && matches.length === 3) {
-          const buffer = Buffer.from(matches[2], 'base64');
-          const refFilename = `ref_${Date.now()}.png`;
-          const publicDir = path.join(__dirname, '..', 'public', 'uploads');
-          if (!fs.existsSync(publicDir)) {
-            fs.mkdirSync(publicDir, { recursive: true });
-          }
-          refImagePath = path.join(publicDir, refFilename);
-          fs.writeFileSync(refImagePath, buffer);
-        }
-      } else if (refImageUrl) {
-        activeTasks[taskId].logs += `Mengunduh gambar referensi dari URL: ${refImageUrl}...\n`;
-        const refFilename = `ref_${Date.now()}.png`;
-        const publicDir = path.join(__dirname, '..', 'public', 'uploads');
-        if (!fs.existsSync(publicDir)) {
-          fs.mkdirSync(publicDir, { recursive: true });
-        }
-        refImagePath = path.join(publicDir, refFilename);
-        try {
-          await downloadFile(refImageUrl, refImagePath);
-          activeTasks[taskId].logs += `Gambar referensi berhasil diunduh secara lokal.\n`;
-        } catch (err) {
-          console.warn('Could not download reference image from URL:', err.message);
-          activeTasks[taskId].logs += `[WARNING] Gagal mengunduh gambar referensi: ${err.message}. Melanjutkan tanpa gambar referensi.\n`;
-          refImagePath = '';
+      // Save Reference Images (Base64 or URL)
+      const savedRefImagePaths = [];
+      let refImagesList = refImages || [];
+      if (refImagesList.length === 0) {
+        if (refImageBase64) {
+          refImagesList.push({ base64: refImageBase64 });
+        } else if (refImageUrl) {
+          refImagesList.push({ url: refImageUrl });
         }
       }
 
-      // Convert backslashes to forward slashes for CLI compatibility
-      const cleanRefImagePath = refImagePath ? refImagePath.replace(/\\/g, '/') : '';
-      activeTasks[taskId].logs += (cleanRefImagePath ? `Ref Gambar   : ${path.basename(cleanRefImagePath)}\n\n` : `Ref Gambar   : Tidak ada\n\n`);
+      const publicDir = path.join(__dirname, '..', 'public', 'uploads');
+      if (refImagesList.length > 0 && !fs.existsSync(publicDir)) {
+        fs.mkdirSync(publicDir, { recursive: true });
+      }
+
+      for (let i = 0; i < refImagesList.length; i++) {
+        const item = refImagesList[i];
+        let refImagePath = '';
+        if (item.base64) {
+          activeTasks[taskId].logs += `Mengolah gambar referensi [${i+1}] (Base64)...\n`;
+          const matches = item.base64.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+          if (matches && matches.length === 3) {
+            const buffer = Buffer.from(matches[2], 'base64');
+            const refFilename = `ref_${Date.now()}_${i}.png`;
+            refImagePath = path.join(publicDir, refFilename);
+            fs.writeFileSync(refImagePath, buffer);
+          }
+        } else if (item.url) {
+          activeTasks[taskId].logs += `Mengunduh gambar referensi [${i+1}] dari URL: ${item.url}...\n`;
+          try {
+            const refFilename = `ref_${Date.now()}_${i}.png`;
+            refImagePath = path.join(publicDir, refFilename);
+            await downloadFile(item.url, refImagePath);
+            activeTasks[taskId].logs += `Gambar referensi [${i+1}] berhasil diunduh secara lokal.\n`;
+          } catch (err) {
+            console.warn('Could not download reference image from URL:', err.message);
+            activeTasks[taskId].logs += `[WARNING] Gagal mengunduh gambar referensi [${i+1}]: ${err.message}. Melanjutkan tanpa gambar referensi ini.\n`;
+            refImagePath = '';
+          }
+        }
+        if (refImagePath) {
+          savedRefImagePaths.push(refImagePath.replace(/\\/g, '/'));
+        }
+      }
+
+      if (savedRefImagePaths.length > 0) {
+        activeTasks[taskId].logs += `Ref Gambar   : ${savedRefImagePaths.map(p => path.basename(p)).join(', ')}\n\n`;
+      } else {
+        activeTasks[taskId].logs += `Ref Gambar   : Tidak ada\n\n`;
+      }
 
       activeTasks[taskId].logs += `[2/4] Mengirim perintah generate ke Freebeat (Batching Paralel maks. 2 Halaman)...\n`;
 
@@ -325,11 +340,15 @@ async function generateStoryboard(req, res) {
           }
 
 
-          if (cleanRefImagePath) {
+          const pageRefPath = savedRefImagePaths.length > 0
+            ? savedRefImagePaths[pageIdx % savedRefImagePaths.length]
+            : '';
+
+          if (pageRefPath) {
             spawnArgs.push(
               'image', 'edit',
               '--model', selectedModel,
-              '--image', cleanRefImagePath,
+              '--image', pageRefPath,
               '--prompt', pagePrompt,
               '--count', '1',
               '--json'
