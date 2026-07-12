@@ -22,6 +22,8 @@ async function getBrowser() {
           "--disable-blink-features=AutomationControlled",
           "--no-sandbox",
           "--disable-setuid-sandbox",
+          "--disable-http2",
+          "--disable-web-security",
         ],
       };
       
