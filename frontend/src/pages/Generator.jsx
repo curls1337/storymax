@@ -21,7 +21,8 @@ const LAYOUT_STYLES = [
   { value: 'mecha_review', label: 'Tech Mecha Action Figure Review Columns', desc: 'Gelap/Tech Blue (Gundam ASMR)' },
   { value: 'anime_lego_storyboard', label: '2D Anime Lego Assembly Storyboard', desc: 'Anime/Makoto Shinkai (Lego Beat)' },
   { value: 'toy_commercial', label: 'Toy Commercial Storyboard with Text Overlays', desc: 'Biru/Mobil Mainan (Die-Cast)' },
-  { value: 'cartoon_script_grid', label: 'Cute Cartoon Storyboard with Script Table', desc: 'Bersih/3D Kartun (Ibu Rumah Tangga)' }
+  { value: 'cartoon_script_grid', label: 'Cute Cartoon Storyboard with Script Table', desc: 'Bersih/3D Kartun (Ibu Rumah Tangga)' },
+  { value: 'single_premium_showcase', label: 'Single-Frame Premium Commercial Showcase', desc: 'Bersih/Foto Studio (Hanya Produk)' }
 ];
 
 export default function Generator() {

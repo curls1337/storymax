@@ -100,6 +100,9 @@ function getEnhancedPrompt(style, userPrompt, gridCount = 6, showFace = false) {
   if (style === 'cartoon_script_grid') {
     return `A cute 3D cartoon style storyboard and script sheet. Vertical 3:4 aspect ratio, clean white background. Top header with title 'STORYBOARD - ${userPrompt}'. The layout features a ${gridCount}-panel grid of horizontal 3D cartoon character images of ${userPrompt} with timestamps below each frame. Below the grid is an aesthetic quotes/narrative block. The bottom section features a detailed script table with columns: 'No', 'Time', 'Visual', 'Narasi', 'Suara / Musik', 'Keterangan'. ${faceClause}. --ar 3:4`;
   }
+  if (style === 'single_premium_showcase') {
+    return `An ultra-premium commercial studio product photograph of ${userPrompt}. Minimalist clean background with elegant soft studio lighting, delicate shadows, professional catalog style. Crisp details, sharp focus, professional color grading, high-end advertisement look. ${faceClause}. Shot on 8k RED camera, high-end editorial design. --ar 3:4`;
+  }
 
   return userPrompt + ", " + faceClause; // Default fallback
 }
@@ -190,6 +193,28 @@ async function createTemplatedRefImage(savedRefImagePaths, style, gridCount, pub
   
   const canvas = new Jimp({ width: canvasWidth, height: canvasHeight, color: 0xFFFFFFFF });
   const loadedImages = await Promise.all(savedRefImagePaths.map(p => Jimp.read(p)));
+
+  if (style === 'single_premium_showcase') {
+    if (loadedImages.length === 1) {
+      return savedRefImagePaths[0];
+    }
+    const targetHeight = 1600;
+    let totalWidth = 0;
+    for (const img of loadedImages) {
+      img.resize({ h: targetHeight });
+      totalWidth += img.width;
+    }
+    const canvasCombined = new Jimp({ width: totalWidth, height: targetHeight, color: 0xFFFFFFFF });
+    let currentX = 0;
+    for (const img of loadedImages) {
+      canvasCombined.composite(img, currentX, 0);
+      currentX += img.width;
+    }
+    const combinedFilename = `single_showcase_ref_${Date.now()}.png`;
+    const outputPath = path.join(publicDir, combinedFilename);
+    await canvasCombined.write(outputPath);
+    return outputPath.replace(/\\/g, '/');
+  }
 
   if (style === 'product_identity') {
     const bg = new Jimp({ width: canvasWidth, height: canvasHeight, color: 0xFFFFFFFF });
