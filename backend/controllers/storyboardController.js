@@ -482,9 +482,22 @@ async function generateStoryboard(req, res) {
                     
                     if (renderStatus === 'SUCCESS') {
                       clearInterval(pollInterval);
-                      const remoteUrl = item.imageUrl || item.videoUrl || item.url || dataObj.imageUrl || dataObj.url;
+                      const remoteUrl = item.imageUrl || 
+                                        item.image_url || 
+                                        item.videoUrl || 
+                                        item.video_url || 
+                                        item.url || 
+                                        item.image_path || 
+                                        item.imagePath || 
+                                        dataObj.imageUrl || 
+                                        dataObj.image_url || 
+                                        dataObj.url || 
+                                        dataObj.videoUrl || 
+                                        dataObj.video_url;
+
                       if (!remoteUrl) {
-                        return reject(new Error(`URL hasil Halaman ${pageNum} tidak ditemukan.`));
+                        console.error('[status check] SUCCESS but no URL found. Item:', JSON.stringify(item), 'DataObj:', JSON.stringify(dataObj));
+                        return reject(new Error(`URL hasil Halaman ${pageNum} tidak ditemukan. Respon: ${JSON.stringify(item || dataObj)}`));
                       }
                       
                       activeTasks[taskId].logs += `[Halaman ${pageNum}] Sukses! Menggunakan link asli Freebeat: ${remoteUrl}\n`;
