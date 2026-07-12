@@ -141,15 +141,17 @@ function downloadFile(url, destPath) {
     const req = client.get(options, (response) => {
       // Handle redirects (e.g. status code 301, 302)
       if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+        file.on('close', () => {
+          fs.unlink(destPath, () => {});
+          // Recurse to follow redirect URL
+          let redirectUrl = response.headers.location;
+          if (!redirectUrl.startsWith('http')) {
+            const origin = urlParsed.origin;
+            redirectUrl = origin + (redirectUrl.startsWith('/') ? '' : '/') + redirectUrl;
+          }
+          downloadFile(redirectUrl, destPath).then(resolve).catch(reject);
+        });
         file.close();
-        fs.unlink(destPath, () => {});
-        // Recurse to follow redirect URL
-        let redirectUrl = response.headers.location;
-        if (!redirectUrl.startsWith('http')) {
-          const origin = urlParsed.origin;
-          redirectUrl = origin + (redirectUrl.startsWith('/') ? '' : '/') + redirectUrl;
-        }
-        downloadFile(redirectUrl, destPath).then(resolve).catch(reject);
         return;
       }
 
@@ -664,5 +666,6 @@ module.exports = {
   getActiveKeys,
   getTaskStatus,
   scrapeProductUrl,
-  getActiveTasksDebug
+  getActiveTasksDebug,
+  activeTasks
 };
