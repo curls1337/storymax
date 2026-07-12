@@ -8,7 +8,7 @@ try {
   console.error('[scraper] standard playwright-chromium is missing:', e.message);
 }
 
-const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36";
+const UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1";
 
 let browserPromise = null;
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -51,13 +51,25 @@ async function scrapeTokopedia(url) {
   const browser = await getBrowser();
   const ctx = await browser.newContext({
     userAgent: UA,
-    viewport: { width: 1689, height: 1225 },
-    deviceScaleFactor: 1,
+    viewport: { width: 412, height: 915 },
+    deviceScaleFactor: 2,
+    isMobile: true,
+    hasTouch: true,
     locale: "id-ID",
+    extraHTTPHeaders: {
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
+      "Accept-Language": "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7",
+      "Upgrade-Insecure-Requests": "1",
+      "Sec-Fetch-Dest": "document",
+      "Sec-Fetch-Mode": "navigate",
+      "Sec-Fetch-Site": "none",
+      "Sec-Fetch-User": "?1"
+    }
   });
   const page = await ctx.newPage();
   try {
-    const response = await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45000 });
+    // Navigate with waitUntil: "commit" to resolve instantly when headers arrive, avoiding blocks/timeouts on analytics/scripts
+    const response = await page.goto(url, { waitUntil: "commit", timeout: 20000 });
     const status = response ? response.status() : null;
     if (status === 404) {
       throw new Error("Produk tidak ditemukan (404). Pastikan URL Tokopedia benar.");
@@ -73,8 +85,9 @@ async function scrapeTokopedia(url) {
       throw new Error("Produk tidak ditemukan di Tokopedia. Pastikan URL benar.");
     }
 
+    // Wait for the main H1 or product container to ensure the page starts rendering
     await page
-      .waitForSelector('h1[data-testid="lblPDPDetailProductName"], h1', { timeout: 20000 })
+      .waitForSelector('h1[data-testid="lblPDPDetailProductName"], h1, [data-testid="pdpProductName"]', { timeout: 12000 })
       .catch(() => {});
 
     // Scroll to trigger lazy hydration
@@ -165,15 +178,18 @@ async function scrapeTokopedia(url) {
         document.querySelector(sel)?.innerText?.trim() || "";
       const title =
         pickText('h1[data-testid="lblPDPDetailProductName"]') ||
+        pickText('[data-testid="pdpProductName"]') ||
         pickText("h1") ||
         document.title;
       const price =
         pickText('[data-testid="lblPDPDetailProductPrice"]') ||
         pickText('div[data-testid="lblPDPDetailProductPrice"]') ||
+        pickText('[data-testid="pdpProductPrice"]') ||
         "";
       const description =
         pickText('[data-testid="lblPDPDescriptionProduk"]') ||
         pickText('div[data-testid="lblPDPDescriptionProduk"]') ||
+        pickText('[data-testid="pdpDescriptionContainer"]') ||
         "";
       const rating =
         pickText('[data-testid="lblPDPDetailProductRatingNumber"]') || "";
