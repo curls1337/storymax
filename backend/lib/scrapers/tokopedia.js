@@ -3,9 +3,18 @@ const path = require('path');
 
 let chromium;
 try {
-  chromium = require('playwright-chromium').chromium;
+  const { chromium: extraChromium } = require('playwright-extra');
+  const stealth = require('puppeteer-extra-plugin-stealth')();
+  extraChromium.use(stealth);
+  chromium = extraChromium;
+  console.log('[scraper] successfully initialized playwright-extra with stealth plugin.');
 } catch (e) {
-  console.error('[scraper] standard playwright-chromium is missing:', e.message);
+  console.warn('[scraper] failed to initialize playwright-extra with stealth, falling back to standard playwright-chromium:', e.message);
+  try {
+    chromium = require('playwright-chromium').chromium;
+  } catch (err) {
+    console.error('[scraper] standard playwright-chromium is missing:', err.message);
+  }
 }
 
 const UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1";
