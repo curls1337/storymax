@@ -479,21 +479,42 @@ async function generateStoryboard(req, res) {
 
                   if (item) {
                     const renderStatus = item.status || dataObj.status;
-                    
-                    if (renderStatus === 'SUCCESS') {
+                                  if (renderStatus === 'SUCCESS') {
                       clearInterval(pollInterval);
-                      const remoteUrl = item.imageUrl || 
-                                        item.image_url || 
-                                        item.videoUrl || 
-                                        item.video_url || 
-                                        item.url || 
-                                        item.image_path || 
-                                        item.imagePath || 
-                                        dataObj.imageUrl || 
-                                        dataObj.image_url || 
-                                        dataObj.url || 
-                                        dataObj.videoUrl || 
-                                        dataObj.video_url;
+                      let remoteUrl = item.imageUrl || 
+                                      item.image_url || 
+                                      item.videoUrl || 
+                                      item.video_url || 
+                                      item.url || 
+                                      item.image_path || 
+                                      item.imagePath || 
+                                      dataObj.imageUrl || 
+                                      dataObj.image_url || 
+                                      dataObj.url || 
+                                      dataObj.videoUrl || 
+                                      dataObj.video_url;
+
+                      if (!remoteUrl) {
+                        const editImgs = item.editImages || item.edit_images || dataObj.editImages || dataObj.edit_images;
+                        if (editImgs) {
+                          if (Array.isArray(editImgs) && editImgs.length > 0) {
+                            remoteUrl = editImgs[0];
+                          } else if (typeof editImgs === 'string') {
+                            remoteUrl = editImgs;
+                          }
+                        }
+                      }
+
+                      if (!remoteUrl) {
+                        const imgs = item.images || item.generateImages || item.generate_images || dataObj.images || dataObj.generateImages || dataObj.generate_images;
+                        if (imgs) {
+                          if (Array.isArray(imgs) && imgs.length > 0) {
+                            remoteUrl = imgs[0];
+                          } else if (typeof imgs === 'string') {
+                            remoteUrl = imgs;
+                          }
+                        }
+                      }
 
                       if (!remoteUrl) {
                         console.error('[status check] SUCCESS but no URL found. Item:', JSON.stringify(item), 'DataObj:', JSON.stringify(dataObj));
