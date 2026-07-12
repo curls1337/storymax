@@ -288,8 +288,42 @@ async function generateStoryboard(req, res) {
         }
       }
 
-      if (savedRefImagePaths.length > 0) {
-        activeTasks[taskId].logs += `Ref Gambar   : ${savedRefImagePaths.map(p => path.basename(p)).join(', ')}\n\n`;
+      let finalRefImagePath = '';
+      if (savedRefImagePaths.length === 1) {
+        finalRefImagePath = savedRefImagePaths[0];
+        activeTasks[taskId].logs += `Ref Gambar   : ${path.basename(finalRefImagePath)}\n\n`;
+      } else if (savedRefImagePaths.length > 1) {
+        activeTasks[taskId].logs += `Ref Gambar Asli: ${savedRefImagePaths.map(p => path.basename(p)).join(', ')}\n`;
+        activeTasks[taskId].logs += `[1.5/4] Menggabungkan ${savedRefImagePaths.length} gambar referensi menjadi 1 kolase side-by-side untuk Freebeat...\n`;
+        try {
+          const combinedFilename = `combined_ref_${Date.now()}.png`;
+          const combinedPath = path.join(publicDir, combinedFilename);
+          
+          const { Jimp } = require('jimp');
+          const images = await Promise.all(savedRefImagePaths.map(p => Jimp.read(p)));
+          
+          const targetHeight = 600;
+          let totalWidth = 0;
+          for (const img of images) {
+            img.resize({ h: targetHeight });
+            totalWidth += img.width;
+          }
+
+          const canvas = new Jimp({ width: totalWidth, height: targetHeight, color: 0xFFFFFFFF });
+          let currentX = 0;
+          for (const img of images) {
+            canvas.composite(img, currentX, 0);
+            currentX += img.width;
+          }
+
+          await canvas.write(combinedPath);
+          finalRefImagePath = combinedPath.replace(/\\/g, '/');
+          activeTasks[taskId].logs += `Kolase referensi berhasil dibuat: ${combinedFilename}\n\n`;
+        } catch (stitchErr) {
+          console.error('Failed to stitch reference images:', stitchErr);
+          activeTasks[taskId].logs += `[WARNING] Gagal menggabungkan gambar referensi: ${stitchErr.message}. Menggunakan gambar pertama sebagai fallback.\n\n`;
+          finalRefImagePath = savedRefImagePaths[0];
+        }
       } else {
         activeTasks[taskId].logs += `Ref Gambar   : Tidak ada\n\n`;
       }
@@ -342,9 +376,7 @@ async function generateStoryboard(req, res) {
           }
 
 
-          const pageRefPath = savedRefImagePaths.length > 0
-            ? savedRefImagePaths[pageIdx % savedRefImagePaths.length]
-            : '';
+          const pageRefPath = finalRefImagePath;
 
           if (pageRefPath) {
             spawnArgs.push(
