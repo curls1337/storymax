@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import api from '../utils/api';
 import { Plus, Trash2, ExternalLink, Calendar, Loader, FolderOpen, X, ChevronRight, Download, Eye } from 'lucide-react';
 
@@ -207,7 +208,7 @@ export default function Dashboard({ setTab }) {
       {selectedStoryboard && (() => {
         const images = getResultImages(selectedStoryboard);
         const activeImg = images[modalCarouselIdx] || '';
-        return (
+        return createPortal(
           <div 
             className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-start md:items-center justify-center p-4 py-8 md:py-8 z-50 overflow-y-auto select-text animate-fadeIn"
             onClick={() => setSelectedStoryboard(null)}
@@ -391,7 +392,8 @@ export default function Dashboard({ setTab }) {
                 </div>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         );
       })()}
     </div>

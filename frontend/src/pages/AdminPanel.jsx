@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import api from '../utils/api';
 import { Users, Key, Plus, Trash2, ShieldAlert, Eye, EyeOff, Loader, Check, X, ShieldCheck, Terminal, UserPlus, Database, Sparkles } from 'lucide-react';
 
@@ -487,7 +488,7 @@ export default function AdminPanel() {
       )}
 
       {/* --- ADD USER MODAL --- */}
-      {showAddUserModal && (
+      {showAddUserModal && createPortal(
         <div 
           className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-start md:items-center justify-center p-4 py-8 md:py-8 z-50 overflow-y-auto animate-fadeIn"
           onClick={() => setShowAddUserModal(false)}
@@ -561,11 +562,12 @@ export default function AdminPanel() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* --- EDIT USER MODAL --- */}
-      {showEditUserModal && (
+      {showEditUserModal && createPortal(
         <div 
           className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-start md:items-center justify-center p-4 py-8 md:py-8 z-50 overflow-y-auto animate-fadeIn"
           onClick={() => setShowEditUserModal(false)}
@@ -634,11 +636,12 @@ export default function AdminPanel() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* --- ADD API KEY MODAL --- */}
-      {showAddKeyModal && (
+      {showAddKeyModal && createPortal(
         <div 
           className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-start md:items-center justify-center p-4 py-8 md:py-8 z-50 overflow-y-auto animate-fadeIn"
           onClick={() => setShowAddKeyModal(false)}
@@ -700,11 +703,12 @@ export default function AdminPanel() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* --- BULK IMPORT MODAL --- */}
-      {showBulkModal && (
+      {showBulkModal && createPortal(
         <div 
           className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-start md:items-center justify-center p-4 py-8 md:py-8 z-50 overflow-y-auto animate-fadeIn"
           onClick={() => setShowBulkModal(false)}
@@ -756,7 +760,8 @@ export default function AdminPanel() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
