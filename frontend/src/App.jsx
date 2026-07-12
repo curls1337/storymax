@@ -187,7 +187,7 @@ export default function App() {
         </div>
       </aside>
 
-      <main ref={mainRef} className="flex-grow h-full min-h-0 overflow-y-auto bg-darkBg relative z-10">
+      <main ref={mainRef} className="flex-grow h-full min-h-0 overflow-y-auto bg-darkBg">
         <div className="w-full min-h-full flex flex-col justify-start px-6 md:px-8">
           {tab === 'dashboard' && <Dashboard setTab={setTab} />}
           {tab === 'generator' && <Generator />}
