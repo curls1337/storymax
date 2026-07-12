@@ -182,6 +182,92 @@ function downloadFile(url, destPath) {
   });
 }
 
+async function createTemplatedRefImage(savedRefImagePaths, style, gridCount, publicDir) {
+  const { Jimp } = require('jimp');
+
+  const canvasWidth = 1200;
+  const canvasHeight = 1600;
+  
+  const canvas = new Jimp({ width: canvasWidth, height: canvasHeight, color: 0xFFFFFFFF });
+  const loadedImages = await Promise.all(savedRefImagePaths.map(p => Jimp.read(p)));
+
+  if (style === 'product_identity') {
+    const bg = new Jimp({ width: canvasWidth, height: canvasHeight, color: 0xFFFFFFFF });
+    canvas.composite(bg, 0, 0);
+
+    if (loadedImages.length > 0) {
+      const hero = loadedImages[0].clone();
+      hero.resize({ w: 800, h: 800 });
+      const heroX = Math.floor((canvasWidth - hero.width) / 2);
+      const heroY = 150;
+      canvas.composite(hero, heroX, heroY);
+
+      const remaining = loadedImages.slice(1);
+      if (remaining.length > 0) {
+        const thumbWidth = Math.floor((canvasWidth - 100) / remaining.length);
+        for (let i = 0; i < remaining.length; i++) {
+          const thumb = remaining[i].clone();
+          thumb.resize({ w: thumbWidth - 20, h: 300 });
+          const tx = 50 + i * thumbWidth + Math.floor((thumbWidth - thumb.width) / 2);
+          const ty = 1100 + Math.floor((300 - thumb.height) / 2);
+          canvas.composite(thumb, tx, ty);
+        }
+      }
+    }
+    const combinedFilename = `spec_ref_${Date.now()}.png`;
+    const outputPath = path.join(publicDir, combinedFilename);
+    await canvas.write(outputPath);
+    return outputPath.replace(/\\/g, '/');
+  }
+
+  let cols = 2, rows = 3;
+  if (gridCount === 4) { cols = 2; rows = 2; }
+  else if (gridCount === 6) { cols = 2; rows = 3; }
+  else if (gridCount === 8) { cols = 2; rows = 4; }
+  else if (gridCount === 9) { cols = 3; rows = 3; }
+  else if (gridCount === 12) { cols = 3; rows = 4; }
+
+  const borderThickness = 8;
+  const cellWidth = Math.floor((canvasWidth - (cols + 1) * borderThickness) / cols);
+  const cellHeight = Math.floor((canvasHeight - (rows + 1) * borderThickness) / rows);
+
+  const isDarkMode = style === 'cooking_grid';
+  const gridColor = isDarkMode ? 0x222222FF : 0xDDDDDDFF;
+  const cellBgColor = isDarkMode ? 0x000000FF : 0xFFFFFFFF;
+
+  const bgGrid = new Jimp({ width: canvasWidth, height: canvasHeight, color: gridColor });
+  canvas.composite(bgGrid, 0, 0);
+
+  let imgIdx = 0;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const x = borderThickness + c * (cellWidth + borderThickness);
+      const y = borderThickness + r * (cellHeight + borderThickness);
+
+      const cellBg = new Jimp({ width: cellWidth, height: cellHeight, color: cellBgColor });
+      canvas.composite(cellBg, x, y);
+
+      if (imgIdx < loadedImages.length) {
+        const refImg = loadedImages[imgIdx].clone();
+        refImg.resize({
+          w: cellWidth - 20,
+          h: cellHeight - 20
+        });
+        
+        const offsetX = Math.floor((cellWidth - refImg.width) / 2);
+        const offsetY = Math.floor((cellHeight - refImg.height) / 2);
+        canvas.composite(refImg, x + offsetX, y + offsetY);
+        imgIdx++;
+      }
+    }
+  }
+
+  const combinedFilename = `grid_ref_${Date.now()}.png`;
+  const outputPath = path.join(publicDir, combinedFilename);
+  await canvas.write(outputPath);
+  return outputPath.replace(/\\/g, '/');
+}
+
 async function getUserStoryboards(req, res) {
   try {
     const db = getDb();
@@ -289,39 +375,15 @@ async function generateStoryboard(req, res) {
       }
 
       let finalRefImagePath = '';
-      if (savedRefImagePaths.length === 1) {
-        finalRefImagePath = savedRefImagePaths[0];
-        activeTasks[taskId].logs += `Ref Gambar   : ${path.basename(finalRefImagePath)}\n\n`;
-      } else if (savedRefImagePaths.length > 1) {
+      if (savedRefImagePaths.length > 0) {
         activeTasks[taskId].logs += `Ref Gambar Asli: ${savedRefImagePaths.map(p => path.basename(p)).join(', ')}\n`;
-        activeTasks[taskId].logs += `[1.5/4] Menggabungkan ${savedRefImagePaths.length} gambar referensi menjadi 1 kolase side-by-side untuk Freebeat...\n`;
+        activeTasks[taskId].logs += `[1.5/4] Menyusun gambar referensi ke template Gaya Layout (${style || 'Default'})...\n`;
         try {
-          const combinedFilename = `combined_ref_${Date.now()}.png`;
-          const combinedPath = path.join(publicDir, combinedFilename);
-          
-          const { Jimp } = require('jimp');
-          const images = await Promise.all(savedRefImagePaths.map(p => Jimp.read(p)));
-          
-          const targetHeight = 600;
-          let totalWidth = 0;
-          for (const img of images) {
-            img.resize({ h: targetHeight });
-            totalWidth += img.width;
-          }
-
-          const canvas = new Jimp({ width: totalWidth, height: targetHeight, color: 0xFFFFFFFF });
-          let currentX = 0;
-          for (const img of images) {
-            canvas.composite(img, currentX, 0);
-            currentX += img.width;
-          }
-
-          await canvas.write(combinedPath);
-          finalRefImagePath = combinedPath.replace(/\\/g, '/');
-          activeTasks[taskId].logs += `Kolase referensi berhasil dibuat: ${combinedFilename}\n\n`;
-        } catch (stitchErr) {
-          console.error('Failed to stitch reference images:', stitchErr);
-          activeTasks[taskId].logs += `[WARNING] Gagal menggabungkan gambar referensi: ${stitchErr.message}. Menggunakan gambar pertama sebagai fallback.\n\n`;
+          finalRefImagePath = await createTemplatedRefImage(savedRefImagePaths, style, Number(gridCount) || 6, publicDir);
+          activeTasks[taskId].logs += `Template referensi berhasil dibuat: ${path.basename(finalRefImagePath)}\n\n`;
+        } catch (templateErr) {
+          console.error('Failed to compile templated reference image:', templateErr);
+          activeTasks[taskId].logs += `[WARNING] Gagal membuat template gambar referensi: ${templateErr.message}. Menggunakan gambar pertama sebagai fallback.\n\n`;
           finalRefImagePath = savedRefImagePaths[0];
         }
       } else {
