@@ -208,8 +208,14 @@ export default function Dashboard({ setTab }) {
         const images = getResultImages(selectedStoryboard);
         const activeImg = images[modalCarouselIdx] || '';
         return (
-          <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn select-text">
-            <div className="relative max-w-4xl w-full bg-[#1a1918] border border-[#2a2725] rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row max-h-[90vh]">
+          <div 
+            className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-start md:items-center justify-center p-4 py-8 md:py-8 z-50 overflow-y-auto select-text animate-fadeIn"
+            onClick={() => setSelectedStoryboard(null)}
+          >
+            <div 
+              className="relative max-w-4xl w-full bg-[#1a1918] border border-[#2a2725] rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row max-h-none md:max-h-[90vh] my-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
               {/* Top accent gold line */}
               <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#cfae80]/40 to-transparent"></div>
               

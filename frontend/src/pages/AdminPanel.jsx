@@ -488,8 +488,14 @@ export default function AdminPanel() {
 
       {/* --- ADD USER MODAL --- */}
       {showAddUserModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="relative max-w-md w-full bg-[#1a1918] border border-[#2a2725] rounded-3xl p-8 shadow-2xl">
+        <div 
+          className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-start md:items-center justify-center p-4 py-8 md:py-8 z-50 overflow-y-auto animate-fadeIn"
+          onClick={() => setShowAddUserModal(false)}
+        >
+          <div 
+            className="relative max-w-md w-full bg-[#1a1918] border border-[#2a2725] rounded-3xl p-8 shadow-2xl my-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#cfae80]/25 to-transparent"></div>
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-md font-bold text-white uppercase tracking-wider flex items-center gap-2">
@@ -560,8 +566,14 @@ export default function AdminPanel() {
 
       {/* --- EDIT USER MODAL --- */}
       {showEditUserModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="relative max-w-md w-full bg-[#1a1918] border border-[#2a2725] rounded-3xl p-8 shadow-2xl">
+        <div 
+          className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-start md:items-center justify-center p-4 py-8 md:py-8 z-50 overflow-y-auto animate-fadeIn"
+          onClick={() => setShowEditUserModal(false)}
+        >
+          <div 
+            className="relative max-w-md w-full bg-[#1a1918] border border-[#2a2725] rounded-3xl p-8 shadow-2xl my-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#cfae80]/25 to-transparent"></div>
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-md font-bold text-white uppercase tracking-wider">Perbarui Data Anggota</h3>
@@ -627,8 +639,14 @@ export default function AdminPanel() {
 
       {/* --- ADD API KEY MODAL --- */}
       {showAddKeyModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="relative max-w-md w-full bg-[#1a1918] border border-[#2a2725] rounded-3xl p-8 shadow-2xl">
+        <div 
+          className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-start md:items-center justify-center p-4 py-8 md:py-8 z-50 overflow-y-auto animate-fadeIn"
+          onClick={() => setShowAddKeyModal(false)}
+        >
+          <div 
+            className="relative max-w-md w-full bg-[#1a1918] border border-[#2a2725] rounded-3xl p-8 shadow-2xl my-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#cfae80]/25 to-transparent"></div>
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-md font-bold text-white uppercase tracking-wider flex items-center gap-2">
@@ -687,8 +705,14 @@ export default function AdminPanel() {
 
       {/* --- BULK IMPORT MODAL --- */}
       {showBulkModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="relative max-w-lg w-full bg-[#1a1918] border border-[#2a2725] rounded-3xl p-8 shadow-2xl">
+        <div 
+          className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-start md:items-center justify-center p-4 py-8 md:py-8 z-50 overflow-y-auto animate-fadeIn"
+          onClick={() => setShowBulkModal(false)}
+        >
+          <div 
+            className="relative max-w-lg w-full bg-[#1a1918] border border-[#2a2725] rounded-3xl p-8 shadow-2xl my-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#cfae80]/25 to-transparent"></div>
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-md font-bold text-white uppercase tracking-wider flex items-center gap-2">
