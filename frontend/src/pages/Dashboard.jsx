@@ -37,6 +37,30 @@ export default function Dashboard({ setTab }) {
     }
   };
 
+  const [videoPromptGenerating, setVideoPromptGenerating] = useState(false);
+  const [videoPromptError, setVideoPromptError] = useState('');
+
+  const handleGenerateVideoPrompts = async () => {
+    if (!selectedStoryboard) return;
+    setVideoPromptGenerating(true);
+    setVideoPromptError('');
+    try {
+      const res = await api.post('/ai/video-prompts', { storyboardId: selectedStoryboard.id });
+      const videoPromptsStr = JSON.stringify(res.data.videoPrompts);
+      
+      // Update selected storyboard in state
+      const updatedSb = { ...selectedStoryboard, video_prompts: videoPromptsStr };
+      setSelectedStoryboard(updatedSb);
+      
+      // Update storyboards list in state
+      setStoryboards(prev => prev.map(sb => sb.id === selectedStoryboard.id ? updatedSb : sb));
+    } catch (err) {
+      setVideoPromptError(err.response?.data?.message || 'Gagal membuat prompt video.');
+    } finally {
+      setVideoPromptGenerating(false);
+    }
+  };
+
   const getFullImageUrl = (pathString) => {
     if (!pathString) return '';
     let parsedPath = pathString;
@@ -255,6 +279,78 @@ export default function Dashboard({ setTab }) {
                     <div className="bg-[#131211]/50 border border-[#2a2725] rounded-xl p-3.5 text-slate-400 text-xs leading-relaxed max-h-48 overflow-y-auto scrollbar-thin">
                       {selectedStoryboard.prompt}
                     </div>
+                  </div>
+
+                  {/* Video Prompt Generator UI */}
+                  <div className="space-y-2 mt-4 pt-4 border-t border-[#2a2725]/60">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80]">
+                        Prompt Video AI (Panel {modalCarouselIdx + 1})
+                      </span>
+                      {selectedStoryboard.video_prompts && (
+                        <button
+                          onClick={handleGenerateVideoPrompts}
+                          disabled={videoPromptGenerating}
+                          className="text-[8px] text-slate-400 hover:text-[#cfae80] font-bold uppercase tracking-widest transition-colors disabled:opacity-50"
+                        >
+                          {videoPromptGenerating ? 'Memproses...' : 'Tulis Ulang'}
+                        </button>
+                      )}
+                    </div>
+
+                    {!selectedStoryboard.video_prompts ? (
+                      <button
+                        onClick={handleGenerateVideoPrompts}
+                        disabled={videoPromptGenerating}
+                        className="w-full bg-[#cfae80]/10 hover:bg-[#cfae80]/20 text-[#cfae80] border border-[#cfae80]/30 font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 text-[9px] uppercase tracking-widest transition-all disabled:opacity-50"
+                      >
+                        {videoPromptGenerating ? (
+                          <>
+                            <Loader className="animate-spin w-3.5 h-3.5" />
+                            Membuat Prompt Video...
+                          </>
+                        ) : (
+                          <>
+                            📝 Buat Prompt Video (AI)
+                          </>
+                        )}
+                      </button>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="bg-[#131211]/50 border border-[#2a2725] rounded-xl p-3.5 text-slate-350 text-[11px] leading-relaxed relative max-h-36 overflow-y-auto scrollbar-thin">
+                          {(() => {
+                            try {
+                              const prompts = JSON.parse(selectedStoryboard.video_prompts);
+                              const activePrompt = prompts.find(p => p.scene === (modalCarouselIdx + 1))?.prompt || prompts[modalCarouselIdx]?.prompt;
+                              return activePrompt || 'Prompt tidak ditemukan untuk adegan ini.';
+                            } catch (e) {
+                              return 'Format prompt salah atau rusak.';
+                            }
+                          })()}
+                        </div>
+                        <button
+                          onClick={() => {
+                            try {
+                              const prompts = JSON.parse(selectedStoryboard.video_prompts);
+                              const activePrompt = prompts.find(p => p.scene === (modalCarouselIdx + 1))?.prompt || prompts[modalCarouselIdx]?.prompt;
+                              if (activePrompt) {
+                                navigator.clipboard.writeText(activePrompt);
+                                alert('Prompt video berhasil disalin ke clipboard!');
+                              }
+                            } catch (e) {
+                              alert('Gagal menyalin prompt.');
+                            }
+                          }}
+                          className="w-full bg-[#131211] hover:bg-[#1a1918] text-slate-300 font-bold py-2.5 px-4 rounded-xl border border-[#2a2725] text-[9px] uppercase tracking-widest flex items-center justify-center gap-1.5 transition-all"
+                        >
+                          Salin Prompt Panel {modalCarouselIdx + 1}
+                        </button>
+                      </div>
+                    )}
+
+                    {videoPromptError && (
+                      <p className="text-[9px] text-red-450 font-semibold mt-1">{videoPromptError}</p>
+                    )}
                   </div>
                 </div>
 

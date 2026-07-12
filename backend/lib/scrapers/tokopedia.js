@@ -1,28 +1,11 @@
 const fs = require('fs');
 const path = require('path');
 
-// Load playwright-extra with fallback to local D: drive for backward compatibility
 let chromium;
 try {
-  const extra = require('playwright-extra');
-  const stealth = require('puppeteer-extra-plugin-stealth')();
-  extra.chromium.use(stealth);
-  chromium = extra.chromium;
+  chromium = require('playwright-chromium').chromium;
 } catch (e) {
-  console.warn('[scraper] failed to load playwright-extra from standard path, trying local D: fallback:', e.message);
-  try {
-    const extra = require('D:/UGC2/reference/tokopedia-scraper/node_modules/playwright-extra');
-    const stealth = require('D:/UGC2/reference/tokopedia-scraper/node_modules/puppeteer-extra-plugin-stealth')();
-    extra.chromium.use(stealth);
-    chromium = extra.chromium;
-  } catch (err) {
-    console.error('[scraper] all playwright-extra load paths failed, trying standard playwright-chromium:', err.message);
-    try {
-      chromium = require('playwright-chromium').chromium;
-    } catch (err2) {
-      console.error('[scraper] standard playwright-chromium is also missing:', err2.message);
-    }
-  }
+  console.error('[scraper] standard playwright-chromium is missing:', e.message);
 }
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36";
@@ -72,7 +55,22 @@ async function scrapeTokopedia(url) {
   });
   const page = await ctx.newPage();
   try {
-    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45000 });
+    const response = await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45000 });
+    const status = response ? response.status() : null;
+    if (status === 404) {
+      throw new Error("Produk tidak ditemukan (404). Pastikan URL Tokopedia benar.");
+    }
+
+    // Quick check for bot block or 404 page
+    const initialTitle = await page.title();
+    const initialBody = await page.evaluate(() => document.body?.innerText || "");
+    if (initialTitle.includes("Pasang Kuda-Kuda") || initialBody.includes("Pasang Kuda-Kuda") || initialBody.includes("Pardon Our Interruption")) {
+      throw new Error("Akses diblokir oleh sistem anti-bot Tokopedia. Silakan coba sesaat lagi.");
+    }
+    if (initialBody.includes("tujuanmu nggak ada") || initialBody.includes("tujuanmu tidak ditemukan")) {
+      throw new Error("Produk tidak ditemukan di Tokopedia. Pastikan URL benar.");
+    }
+
     await page
       .waitForSelector('h1[data-testid="lblPDPDetailProductName"], h1', { timeout: 20000 })
       .catch(() => {});
@@ -85,8 +83,12 @@ async function scrapeTokopedia(url) {
     await page.evaluate(() => window.scrollTo(0, 0));
     await sleep(400);
 
-    // Extract shopDomain & productKey from URL
-    const m = url.match(/tokopedia\.com\/([^/?#]+)\/([^/?#]+)/i);
+    // Extract shopDomain & productKey from redirected URL or original URL
+    const redirectedUrl = page.url();
+    let m = redirectedUrl.match(/tokopedia\.com\/([^/?#]+)\/([^/?#]+)/i);
+    if (!m) {
+      m = url.match(/tokopedia\.com\/([^/?#]+)\/([^/?#]+)/i);
+    }
     const shopDomain = m?.[1] || "";
     const productKey = m?.[2] || "";
     
@@ -277,7 +279,17 @@ async function scrapeTokopedia(url) {
       };
     }, Array.from(hdUrls));
 
-    if (!data.title) throw new Error("Gagal ekstrak judul Tokopedia");
+    if (!data.title) {
+      const finalTitle = await page.title();
+      const finalBody = await page.evaluate(() => document.body?.innerText || "");
+      if (finalTitle.includes("Pasang Kuda-Kuda") || finalBody.includes("Pasang Kuda-Kuda") || finalBody.includes("Pardon Our Interruption")) {
+        throw new Error("Akses diblokir oleh sistem anti-bot Tokopedia. Silakan coba sesaat lagi.");
+      }
+      if (finalBody.includes("tujuanmu nggak ada") || finalBody.includes("tujuanmu tidak ditemukan") || finalBody.includes("tujuanmu")) {
+        throw new Error("Produk tidak ditemukan di Tokopedia. Pastikan URL benar.");
+      }
+      throw new Error("Gagal mengekstrak detail produk Tokopedia. Coba periksa kembali URL.");
+    }
 
     return {
       platform: "tokopedia",

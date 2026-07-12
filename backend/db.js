@@ -51,6 +51,13 @@ async function initDb() {
     )
   `);
 
+  // Ensure video_prompts column exists if table was already created (migration support)
+  try {
+    await db.exec('ALTER TABLE storyboards ADD COLUMN video_prompts TEXT');
+  } catch (e) {
+    // Column already exists, safe to ignore
+  }
+
   // Create AI Settings Table
   await db.exec(`
     CREATE TABLE IF NOT EXISTS ai_settings (

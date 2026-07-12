@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Generator from './pages/Generator';
@@ -12,6 +12,7 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [tab, setTab] = useState('dashboard');
   const [loading, setLoading] = useState(true);
+  const mainRef = useRef(null);
 
   const fetchProfile = async () => {
     try {
@@ -47,6 +48,17 @@ export default function App() {
     setUser(null);
     setTab('dashboard');
   };
+
+  useEffect(() => {
+    if (document.activeElement && typeof document.activeElement.blur === 'function') {
+      document.activeElement.blur();
+    }
+    window.scrollTo(0, 0);
+    if (document.body) document.body.scrollTop = 0;
+    if (document.documentElement) document.documentElement.scrollTop = 0;
+    if (mainRef.current) mainRef.current.scrollTop = 0;
+  }, [tab]);
+
 
   if (loading) {
     return (
@@ -175,7 +187,7 @@ export default function App() {
         </div>
       </aside>
 
-      <main className="flex-grow h-full min-h-0 overflow-y-auto bg-darkBg relative z-10">
+      <main ref={mainRef} className="flex-grow h-full min-h-0 overflow-y-auto bg-darkBg relative z-10">
         <div className="w-full min-h-full flex flex-col justify-start px-6 md:px-8">
           {tab === 'dashboard' && <Dashboard setTab={setTab} />}
           {tab === 'generator' && <Generator />}

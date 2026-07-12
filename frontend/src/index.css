@@ -9,12 +9,13 @@
   --color-accentText: #d6c5b3;
 }
 
-body {
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
   margin: 0;
   background-color: #131211;
   color: #edebe7;
   font-family: 'Plus Jakarta Sans', sans-serif;
-  overflow-x: hidden;
   letter-spacing: -0.01em;
 }
 
