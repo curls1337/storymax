@@ -84,6 +84,7 @@ export default function Generator() {
         setTaskLogs(logs || '');
         if (status === 'success') {
           setResult(taskResult);
+          setCurrentCarouselIdx(0);
           setGenerating(false);
           localStorage.removeItem('activeTaskId');
           clearInterval(pollIntervalRef.current);
@@ -550,9 +551,27 @@ export default function Generator() {
                         <>
                           <button type="button" onClick={() => setCurrentCarouselIdx(prev => (prev > 0 ? prev - 1 : images.length - 1))} className="absolute left-4 p-2.5 bg-black/80 hover:bg-[#cfae80] hover:text-black text-white rounded-full transition-all opacity-0 group-hover:opacity-100 flex items-center"><ChevronRight className="rotate-180" /></button>
                           <button type="button" onClick={() => setCurrentCarouselIdx(prev => (prev < images.length - 1 ? prev + 1 : 0))} className="absolute right-4 p-2.5 bg-black/80 hover:bg-[#cfae80] hover:text-black text-white rounded-full transition-all opacity-0 group-hover:opacity-100 flex items-center"><ChevronRight /></button>
+                          
+                          {/* Page Indicator Badge */}
+                          <div className="absolute top-4 right-4 bg-black/85 text-[#cfae80] font-bold text-[10px] uppercase tracking-widest px-3 py-1.5 rounded-full border border-[#cfae80]/20">
+                            Halaman {currentCarouselIdx + 1} dari {images.length}
+                          </div>
                         </>
                       )}
                     </div>
+                    {/* Carousel Dots */}
+                    {images.length > 1 && (
+                      <div className="flex justify-center gap-2 mt-1">
+                        {images.map((_, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => setCurrentCarouselIdx(idx)}
+                            className={`w-2 h-2 rounded-full transition-all ${currentCarouselIdx === idx ? 'bg-[#cfae80] w-6' : 'bg-slate-700 hover:bg-slate-500'}`}
+                          />
+                        ))}
+                      </div>
+                    )}
                     <div className="flex flex-wrap gap-4 justify-end border-t border-[#2a2725] pt-5 w-full">
                       <a href={getFullImageUrl(activeImg)} target="_blank" rel="noopener noreferrer" className="bg-[#131211] hover:bg-[#1a1918] text-slate-200 font-bold py-3.5 px-5 rounded-2xl flex items-center gap-1.5 border border-[#2a2725] text-xs uppercase tracking-wider"><ExternalLink className="w-4 h-4 text-[#cfae80]" /> Resolusi Penuh</a>
                       <a href={getFullImageUrl(activeImg)} download className="bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-3.5 px-6 rounded-2xl flex items-center gap-1.5 shadow-lg text-xs uppercase tracking-wider"><Download className="w-4 h-4" /> Unduh</a>
