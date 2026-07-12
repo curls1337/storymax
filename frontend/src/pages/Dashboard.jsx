@@ -213,7 +213,7 @@ export default function Dashboard({ setTab }) {
             onClick={() => setSelectedStoryboard(null)}
           >
             <div 
-              className="relative max-w-4xl w-full bg-[#1a1918] border border-[#2a2725] rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row h-auto md:h-[80vh] md:max-h-[750px] min-h-[450px] my-auto"
+              className="relative max-w-4xl w-full bg-[#1a1918] border border-[#2a2725] rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row max-h-[90vh] my-auto"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Top accent gold line */}
@@ -228,11 +228,11 @@ export default function Dashboard({ setTab }) {
               </button>
 
               {/* Left Side: Large Image Carousel */}
-              <div className="md:w-3/5 bg-black/80 flex items-center justify-center relative min-h-[300px] md:h-full border-b md:border-b-0 md:border-r border-[#2a2725] p-4">
+              <div className="md:w-3/5 bg-black/80 flex items-center justify-center relative min-h-[300px] md:min-h-0 border-b md:border-b-0 md:border-r border-[#2a2725]">
                 <img
                   src={getSpecificImageUrl(activeImg)}
                   alt={selectedStoryboard.title}
-                  className="w-full h-full object-contain max-h-[50vh] md:max-h-full"
+                  className="w-full h-full object-contain max-h-[50vh] md:max-h-[80vh]"
                 />
                 
                 {/* Carousel Navigation */}
@@ -262,7 +262,7 @@ export default function Dashboard({ setTab }) {
               </div>
 
               {/* Right Side: Editorial Metadata */}
-              <div className="md:w-2/5 p-8 flex flex-col justify-between overflow-y-auto h-auto md:h-full">
+              <div className="md:w-2/5 p-8 flex flex-col justify-between overflow-y-auto max-h-[40vh] md:max-h-full">
                 <div className="space-y-5">
                   <div className="flex items-center justify-between">
                     <span className="text-[9px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-1.5">
