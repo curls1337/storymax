@@ -7,6 +7,8 @@ const { initDb } = require('./db');
 // Load environment variables
 dotenv.config();
 
+const { uploadsDir } = require('./config');
+
 const app = express();
 const PORT = process.env.PORT || 5022;
 
@@ -15,7 +17,8 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-const { uploadsDir } = require('./config');
+// Serve previews from local folder shipped with git so they are never lost on volumes
+app.use('/uploads/previews', express.static(path.join(__dirname, 'public', 'uploads', 'previews')));
 
 // Serve static images locally generated
 app.use('/uploads', express.static(uploadsDir));
