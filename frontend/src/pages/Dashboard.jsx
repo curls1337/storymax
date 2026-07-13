@@ -9,6 +9,7 @@ export default function Dashboard({ setTab }) {
   const [error, setError] = useState('');
   const [selectedStoryboard, setSelectedStoryboard] = useState(null);
   const [modalCarouselIdx, setModalCarouselIdx] = useState(0);
+  const [activeSceneIdx, setActiveSceneIdx] = useState(0);
 
   const fetchStoryboards = async () => {
     try {
@@ -41,13 +42,16 @@ export default function Dashboard({ setTab }) {
   const [videoPromptGenerating, setVideoPromptGenerating] = useState(false);
   const [videoPromptError, setVideoPromptError] = useState('');
 
-  const handleGenerateVideoPrompts = async () => {
+  const handleGenerateVideoPrompts = async (forceRegenerate = false) => {
     if (!selectedStoryboard) return;
     setVideoPromptGenerating(true);
     setVideoPromptError('');
     try {
-      const res = await api.post('/ai/video-prompts', { storyboardId: selectedStoryboard.id });
-      const videoPromptsStr = JSON.stringify(res.data.videoPrompts);
+      const res = await api.post('/ai/video-prompts', { 
+        storyboardId: selectedStoryboard.id,
+        regenerate: forceRegenerate
+      });
+      const videoPromptsStr = res.data.videoPrompts;
       
       // Update selected storyboard in state
       const updatedSb = { ...selectedStoryboard, video_prompts: videoPromptsStr };
@@ -56,6 +60,7 @@ export default function Dashboard({ setTab }) {
       // Update storyboards list in state
       setStoryboards(prev => prev.map(sb => sb.id === selectedStoryboard.id ? updatedSb : sb));
     } catch (err) {
+      console.error("Error generating video prompt:", err);
       setVideoPromptError(err.response?.data?.message || 'Gagal membuat prompt video.');
     } finally {
       setVideoPromptGenerating(false);
@@ -72,15 +77,13 @@ export default function Dashboard({ setTab }) {
       }
     } catch (e) {}
     if (parsedPath.startsWith('http')) return parsedPath;
-    const API_BASE = window.location.port === '5033' ? 'http://localhost:5022' : '';
-    return `${API_BASE}${parsedPath}`;
+    return parsedPath;
   };
 
   const getSpecificImageUrl = (path) => {
     if (!path) return '';
     if (path.startsWith('http')) return path;
-    const API_BASE = window.location.port === '5033' ? 'http://localhost:5022' : '';
-    return `${API_BASE}${path}`;
+    return path;
   };
 
   const getResultImages = (sb) => {
@@ -165,6 +168,8 @@ export default function Dashboard({ setTab }) {
                 onClick={() => {
                   setSelectedStoryboard(sb);
                   setModalCarouselIdx(0);
+                  setActiveSceneIdx(0);
+                  setVideoPromptError('');
                 }}
                 className="bg-[#1a1918]/60 border border-[#2a2725] rounded-2xl overflow-hidden hover:border-[#cfae80]/40 transition-all duration-300 group flex flex-col relative cursor-pointer"
               >
@@ -187,15 +192,21 @@ export default function Dashboard({ setTab }) {
                 {/* Card Info (Very Compact) */}
                 <div className="p-3.5 flex flex-col justify-between flex-grow">
                   <h4 className="font-editorial italic text-white text-sm truncate group-hover:text-[#cfae80] transition-colors">{sb.title}</h4>
-                  <div className="flex items-center justify-between text-[9px] text-slate-500 mt-2 pt-2 border-t border-[#2a2725]/60">
+                  <div className="flex items-center justify-between text-[9px] text-slate-500 mt-2 pt-2 border-t border-[#2a2725]/60 font-medium">
                     <span>
                       {new Date(sb.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
                     </span>
-                    <span className="font-bold text-[#cfae80]">
-                      {getPageCount(sb.image_path) > 1 
-                        ? `${getPageCount(sb.image_path)}p` 
-                        : '15s'}
-                    </span>
+                    <div className="flex items-center gap-1.5 font-bold text-[#cfae80]">
+                      <span>
+                        {getPageCount(sb.image_path) > 1 
+                          ? `${getPageCount(sb.image_path)}p` 
+                          : '15s'}
+                      </span>
+                      <span>•</span>
+                      <span className="flex items-center text-slate-400">
+                        ⚡ {sb.used_credits || 0}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -211,7 +222,7 @@ export default function Dashboard({ setTab }) {
         return createPortal(
           <div 
             className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-start md:items-center justify-center p-4 py-8 md:py-8 z-50 overflow-y-auto select-text animate-fadeIn"
-            onClick={() => setSelectedStoryboard(null)}
+            onClick={() => { setSelectedStoryboard(null); setVideoPromptError(''); setActiveSceneIdx(0); }}
           >
             <div 
               className="relative max-w-4xl w-full bg-[#1a1918] border border-[#2a2725] rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row max-h-[90vh] my-auto"
@@ -222,7 +233,7 @@ export default function Dashboard({ setTab }) {
               
               {/* Close Button */}
               <button 
-                onClick={() => setSelectedStoryboard(null)} 
+                onClick={() => { setSelectedStoryboard(null); setVideoPromptError(''); setActiveSceneIdx(0); }} 
                 className="absolute top-4 right-4 z-20 text-slate-400 hover:text-white bg-black/50 p-1.5 rounded-full border border-white/10 transition-colors"
               >
                 <X className="w-4 h-4" />
@@ -270,11 +281,16 @@ export default function Dashboard({ setTab }) {
                       <Calendar className="w-3.5 h-3.5 text-[#cfae80]" />
                       {new Date(selectedStoryboard.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
                     </span>
-                    <span className="px-2.5 py-0.5 rounded bg-[#cfae80]/15 text-[#cfae80] text-[8px] font-bold tracking-widest uppercase border border-[#cfae80]/20">
-                      {getPageCount(selectedStoryboard.image_path) > 1 
-                        ? `${getPageCount(selectedStoryboard.image_path)} Panel (${getPageCount(selectedStoryboard.image_path) * 15}s)` 
-                        : '15 Detik'}
-                    </span>
+                    <div className="flex gap-2">
+                      <span className="px-2.5 py-0.5 rounded bg-[#cfae80]/15 text-[#cfae80] text-[8px] font-bold tracking-widest uppercase border border-[#cfae80]/20">
+                        {getPageCount(selectedStoryboard.image_path) > 1 
+                          ? `${getPageCount(selectedStoryboard.image_path)} Panel (${getPageCount(selectedStoryboard.image_path) * 15}s)` 
+                          : '15 Detik'}
+                      </span>
+                      <span className="px-2.5 py-0.5 rounded bg-slate-800/40 text-slate-300 text-[8px] font-bold tracking-widest uppercase border border-slate-700/50">
+                        ⚡ {selectedStoryboard.used_credits || 0} Kredit
+                      </span>
+                    </div>
                   </div>
 
                   <h2 className="text-2xl font-editorial italic text-white tracking-tight leading-snug">
@@ -292,11 +308,11 @@ export default function Dashboard({ setTab }) {
                   <div className="space-y-2 mt-4 pt-4 border-t border-[#2a2725]/60">
                     <div className="flex justify-between items-center">
                       <span className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80]">
-                        Prompt Video AI (Panel {modalCarouselIdx + 1})
+                        Prompt Video AI
                       </span>
                       {selectedStoryboard.video_prompts && (
                         <button
-                          onClick={handleGenerateVideoPrompts}
+                          onClick={() => handleGenerateVideoPrompts(true)}
                           disabled={videoPromptGenerating}
                           className="text-[8px] text-slate-400 hover:text-[#cfae80] font-bold uppercase tracking-widest transition-colors disabled:opacity-50"
                         >
@@ -307,7 +323,7 @@ export default function Dashboard({ setTab }) {
 
                     {!selectedStoryboard.video_prompts ? (
                       <button
-                        onClick={handleGenerateVideoPrompts}
+                        onClick={() => handleGenerateVideoPrompts(false)}
                         disabled={videoPromptGenerating}
                         className="w-full bg-[#cfae80]/10 hover:bg-[#cfae80]/20 text-[#cfae80] border border-[#cfae80]/30 font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 text-[9px] uppercase tracking-widest transition-all disabled:opacity-50"
                       >
@@ -323,25 +339,16 @@ export default function Dashboard({ setTab }) {
                         )}
                       </button>
                     ) : (
-                      <div className="space-y-2">
+                      <div className="space-y-3">
                         <div className="bg-[#131211]/50 border border-[#2a2725] rounded-xl p-3.5 text-slate-350 text-[11px] leading-relaxed relative max-h-36 overflow-y-auto scrollbar-thin">
-                          {(() => {
-                            try {
-                              const prompts = JSON.parse(selectedStoryboard.video_prompts);
-                              const activePrompt = prompts.find(p => p.scene === (modalCarouselIdx + 1))?.prompt || prompts[modalCarouselIdx]?.prompt;
-                              return activePrompt || 'Prompt tidak ditemukan untuk adegan ini.';
-                            } catch (e) {
-                              return 'Format prompt salah atau rusak.';
-                            }
-                          })()}
+                          {selectedStoryboard.video_prompts}
                         </div>
+                        
                         <button
                           onClick={() => {
                             try {
-                              const prompts = JSON.parse(selectedStoryboard.video_prompts);
-                              const activePrompt = prompts.find(p => p.scene === (modalCarouselIdx + 1))?.prompt || prompts[modalCarouselIdx]?.prompt;
-                              if (activePrompt) {
-                                navigator.clipboard.writeText(activePrompt);
+                              if (selectedStoryboard.video_prompts) {
+                                navigator.clipboard.writeText(selectedStoryboard.video_prompts);
                                 alert('Prompt video berhasil disalin ke clipboard!');
                               }
                             } catch (e) {
@@ -350,7 +357,7 @@ export default function Dashboard({ setTab }) {
                           }}
                           className="w-full bg-[#131211] hover:bg-[#1a1918] text-slate-300 font-bold py-2.5 px-4 rounded-xl border border-[#2a2725] text-[9px] uppercase tracking-widest flex items-center justify-center gap-1.5 transition-all"
                         >
-                          Salin Prompt Panel {modalCarouselIdx + 1}
+                          Salin Prompt Video
                         </button>
                       </div>
                     )}
@@ -373,7 +380,7 @@ export default function Dashboard({ setTab }) {
                       Full-Res
                     </a>
                     <a
-                      href={getSpecificImageUrl(activeImg)}
+                      href={`/api/storyboards/download?url=${encodeURIComponent(activeImg)}`}
                       download
                       className="flex-1 bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-widest"
                     >

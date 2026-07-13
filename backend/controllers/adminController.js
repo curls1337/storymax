@@ -8,7 +8,12 @@ const https = require('https');
 async function getAllUsers(req, res) {
   try {
     const db = getDb();
-    const users = await db.all('SELECT id, username, role FROM users');
+    const users = await db.all(`
+      SELECT u.id, u.username, u.role, COALESCE(SUM(s.used_credits), 0) AS total_credits 
+      FROM users u 
+      LEFT JOIN storyboards s ON u.id = s.user_id 
+      GROUP BY u.id
+    `);
     res.json(users);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching users.', error: error.message });
@@ -105,8 +110,13 @@ async function deleteUser(req, res) {
 async function getAllKeys(req, res) {
   try {
     const db = getDb();
-    // Return key_value but masked in standard responses (or fully to admin so they can verify/edit, but we'll mask partially for safety)
-    const keys = await db.all('SELECT id, key_value, label, is_active FROM api_keys');
+    // Fetch keys along with total credits consumed
+    const keys = await db.all(`
+      SELECT k.id, k.key_value, k.label, k.is_active, COALESCE(SUM(s.used_credits), 0) AS total_credits 
+      FROM api_keys k 
+      LEFT JOIN storyboards s ON k.id = s.api_key_id 
+      GROUP BY k.id
+    `);
     
     // Mask keys before sending
     const maskedKeys = keys.map(k => {
@@ -117,7 +127,8 @@ async function getAllKeys(req, res) {
         key_value: val, // Keep full value for admin UI management, or mask if preferred. We'll send full so admin can view/copy.
         masked_value: masked,
         label: k.label,
-        is_active: k.is_active
+        is_active: k.is_active,
+        total_credits: k.total_credits
       };
     });
     

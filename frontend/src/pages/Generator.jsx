@@ -22,7 +22,12 @@ const LAYOUT_STYLES = [
   { value: 'anime_lego_storyboard', label: '2D Anime Lego Assembly Storyboard', desc: 'Anime/Makoto Shinkai (Lego Beat)' },
   { value: 'toy_commercial', label: 'Toy Commercial Storyboard with Text Overlays', desc: 'Biru/Mobil Mainan (Die-Cast)' },
   { value: 'cartoon_script_grid', label: 'Cute Cartoon Storyboard with Script Table', desc: 'Bersih/3D Kartun (Ibu Rumah Tangga)' },
-  { value: 'single_premium_showcase', label: 'Single-Frame Premium Commercial Showcase', desc: 'Bersih/Foto Studio (Hanya Produk)' }
+  { value: 'single_premium_showcase', label: 'Single-Frame Premium Commercial Showcase', desc: 'Bersih/Foto Studio (Hanya Produk)' },
+  { value: 'marketing_specs_timeline', label: 'Marketing Specs & Timeline Storyboard', desc: 'Bersih/Merah-Putih (Kimball Sos Cili)' },
+  { value: 'ugc_asmr_table', label: 'UGC ASMR Script Table', desc: 'Gelap/Tabel Skrip Detail (Tomkins Sepatu Anak)' },
+  { value: 'cinematic_commercial_pitch', label: 'Cinematic Commercial Pitch Sheet', desc: 'Gelap/Pitch Deck Premium (Centella Ampoule)' },
+  { value: 'handheld_product_specs', label: 'Handheld Product Specs & Storyboard', desc: 'Bersih/Informasi Produk (Mini Vacuum Cleaner)' },
+  { value: 'character_concept_sheet', label: 'Character Design & Concept Tech Sheet', desc: 'Biru-Muda/High-Tech Concept Sheet (Echo Sentinel)' }
 ];
 
 export default function Generator() {
@@ -32,7 +37,8 @@ export default function Generator() {
   const [apiKeyId, setApiKeyId] = useState('');
   const [apiKeys, setApiKeys] = useState([]);
   const [gridCount, setGridCount] = useState(6);
-  const [model, setModel] = useState('80');
+  const [model, setModel] = useState('108');
+  const [aspectRatio, setAspectRatio] = useState('1:1');
   const [duration, setDuration] = useState(15);
   const [showFace, setShowFace] = useState(false);
   const [currentCarouselIdx, setCurrentCarouselIdx] = useState(0);
@@ -68,7 +74,10 @@ export default function Generator() {
     try {
       const res = await api.get('/storyboards/keys');
       setApiKeys(res.data);
-      if (res.data.length > 0) setApiKeyId(res.data[0].id);
+      if (res.data.length > 0) {
+        const freeKey = res.data.find(k => !k.in_use);
+        setApiKeyId(freeKey ? freeKey.id : res.data[0].id);
+      }
     } catch (err) {
       console.error('Gagal mengambil kunci API:', err);
     } finally {
@@ -189,7 +198,7 @@ export default function Generator() {
       const res = await api.post('/storyboards/scrape', { url: tokopediaUrl });
       const { title: scrapedTitle, description: scrapedDesc, images } = res.data;
       setTitle(scrapedTitle || '');
-      setPrompt(scrapedDesc ? scrapedDesc.substring(0, 500) + '...' : '');
+      setPrompt(scrapedDesc || '');
       setScrapedImages(images || []);
       if (images && images.length > 0) {
         setSelectedRefImages([{
@@ -254,7 +263,8 @@ export default function Generator() {
         gridCount, 
         model, 
         duration,
-        showFace 
+        showFace,
+        aspectRatio
       });
       const { taskId } = res.data;
       setCurrentTaskId(taskId);
@@ -270,14 +280,12 @@ export default function Generator() {
   const getFullImageUrl = (path) => {
     if (!path) return '';
     if (path.startsWith('http')) return path;
-    const API_BASE = window.location.port === '5033' ? 'http://localhost:5022' : '';
-    return `${API_BASE}${path}`;
+    return path;
   };
 
   const getPreviewUrl = (styleName) => {
     if (!styleName) return '';
-    const API_BASE = window.location.port === '5033' ? 'http://localhost:5022' : '';
-    return `${API_BASE}/uploads/previews/${styleName}.png`;
+    return `/uploads/previews/${styleName}.png`;
   };
 
   return (
@@ -371,8 +379,16 @@ export default function Generator() {
           </div>
 
           <div>
-            <label className="block text-slate-350 text-[10px] font-bold uppercase tracking-widest mb-2">Deskripsi Video / Ide Utama</label>
-            <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={4} className="w-full bg-black/40 border border-[#2a2725] rounded-2xl px-4 py-3 text-white placeholder-slate-700 focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-sm resize-none" placeholder="Jelaskan alur, aksi produk, atau ide utama cerita..." required disabled={generating} />
+            <div className="flex justify-between items-center mb-2">
+              <label className="block text-slate-350 text-[10px] font-bold uppercase tracking-widest">Deskripsi Video / Ide Utama</label>
+              <span className={`text-[10px] font-mono transition-colors duration-200 ${prompt.length > 1900 ? 'text-red-400 font-bold' : 'text-slate-500'}`}>
+                {prompt.length} / 2000
+              </span>
+            </div>
+            <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={4} className={`w-full bg-black/40 border rounded-2xl px-4 py-3 text-white placeholder-slate-700 focus:outline-none focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-sm resize-none ${prompt.length > 1900 ? 'border-red-500 focus:border-red-500' : 'border-[#2a2725] focus:border-[#cfae80]'}`} placeholder="Jelaskan alur, aksi produk, atau ide utama cerita..." required disabled={generating} />
+            {prompt.length > 1900 && (
+              <p className="text-[10px] text-red-400 mt-1 font-medium">⚠️ Deskripsi terlalu panjang. Hapus beberapa karakter hingga di bawah 1900.</p>
+            )}
           </div>
 
           <div className="relative" ref={dropdownRef}>
@@ -431,6 +447,15 @@ export default function Generator() {
               <option value="108">GPT-Image 2 (Model 108)</option>
               <option value="100">Wan V2.7 Pro (Model 100)</option>
               <option value="99">Wan V2.7 (Model 99)</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-slate-350 text-[10px] font-bold uppercase tracking-widest mb-2">Ukuran Gambar (Aspect Ratio)</label>
+            <select value={aspectRatio} onChange={(e) => setAspectRatio(e.target.value)} className="w-full bg-black/40 border border-[#2a2725] rounded-2xl px-4 py-3 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs" disabled={generating}>
+              <option value="1:1">1:1 (Square)</option>
+              <option value="16:9">16:9 (Landscape)</option>
+              <option value="9:16">9:16 (Portrait)</option>
             </select>
           </div>
 
@@ -499,8 +524,8 @@ export default function Generator() {
                 disabled={generating}
               >
                 {apiKeys.map((k) => (
-                  <option key={k.id} value={k.id}>
-                    {k.label}
+                  <option key={k.id} value={k.id} disabled={k.in_use}>
+                    {k.label} (Terpakai: {k.total_credits || 0} Kredit) {k.in_use ? ' - Sedang Digunakan' : ''}
                   </option>
                 ))}
               </select>
@@ -522,7 +547,7 @@ export default function Generator() {
             </label>
           </div>
 
-          <button type="submit" disabled={generating || apiKeys.length === 0} className="w-full bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-3.5 px-4 rounded-2xl transition-all shadow-lg hover:shadow-[#cfae80]/10 disabled:opacity-50 flex items-center justify-center gap-2 text-xs uppercase tracking-widest">
+          <button type="submit" disabled={generating || apiKeys.length === 0 || prompt.length > 1900} className="w-full bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-3.5 px-4 rounded-2xl transition-all shadow-lg hover:shadow-[#cfae80]/10 disabled:opacity-50 flex items-center justify-center gap-2 text-xs uppercase tracking-widest">
             {generating ? <><Loader className="animate-spin w-4 h-4" /> Memproses...</> : <><Sparkles className="w-4 h-4" /> Generate Storyboard AI</>}
           </button>
         </form>
@@ -539,44 +564,41 @@ export default function Generator() {
               <div className="text-center max-w-sm"><p className="text-white font-editorial italic text-lg">Membuat Storyboard AI...</p><p className="text-slate-450 text-xs mt-1.5 leading-relaxed">Sistem sedang merender visual menggunakan GPU server. Proses ini memakan waktu beberapa menit.</p></div>
             </div>
           ) : result ? (
-            <div className="flex-grow flex flex-col justify-between space-y-6 animate-fadeIn">
+            <div className="flex-grow flex flex-col justify-between space-y-6 animate-fadeIn w-full">
               {(() => {
                 const getResultImages = () => { if (!result || !result.image_path) return []; try { if (result.image_path.startsWith('[')) return JSON.parse(result.image_path); } catch(e) {} return [result.image_path]; };
                 const images = getResultImages();
-                const activeImg = images[currentCarouselIdx] || '';
+                const activeImg = images[0] || '';
                 return (
                   <div className="flex-grow flex flex-col items-center justify-center space-y-5 w-full">
-                    <div className="relative w-full border border-[#2a2725] rounded-3xl overflow-hidden bg-black/80 flex justify-center items-center max-h-[500px] min-h-[350px] group">
-                      <img src={getFullImageUrl(activeImg)} alt="Result" className="max-w-full max-h-[500px] object-contain" />
-                      {images.length > 1 && (
-                        <>
-                          <button type="button" onClick={() => setCurrentCarouselIdx(prev => (prev > 0 ? prev - 1 : images.length - 1))} className="absolute left-4 p-2.5 bg-black/80 hover:bg-[#cfae80] hover:text-black text-white rounded-full transition-all opacity-0 group-hover:opacity-100 flex items-center"><ChevronRight className="rotate-180" /></button>
-                          <button type="button" onClick={() => setCurrentCarouselIdx(prev => (prev < images.length - 1 ? prev + 1 : 0))} className="absolute right-4 p-2.5 bg-black/80 hover:bg-[#cfae80] hover:text-black text-white rounded-full transition-all opacity-0 group-hover:opacity-100 flex items-center"><ChevronRight /></button>
-                          
-                          {/* Page Indicator Badge */}
-                          <div className="absolute top-4 right-4 bg-black/85 text-[#cfae80] font-bold text-[10px] uppercase tracking-widest px-3 py-1.5 rounded-full border border-[#cfae80]/20">
-                            Halaman {currentCarouselIdx + 1} dari {images.length}
+                    {images.length > 1 ? (
+                      <div className="grid grid-cols-2 gap-4 w-full">
+                        {images.map((img, idx) => (
+                          <div key={idx} className="flex flex-col space-y-2 border border-[#2a2725] rounded-2xl overflow-hidden bg-black/80 p-3 group relative">
+                            <div className="relative aspect-[3/4] w-full overflow-hidden rounded-xl bg-black/40 flex items-center justify-center">
+                              <img src={getFullImageUrl(img)} alt={`Halaman ${idx+1}`} className="max-w-full max-h-full object-contain" />
+                              <div className="absolute top-2 left-2 bg-black/80 text-[#cfae80] font-bold text-[8px] px-2 py-1 rounded-md border border-[#cfae80]/20">
+                                Halaman {idx + 1}
+                              </div>
+                            </div>
+                            <div className="flex gap-2 w-full justify-between pt-1">
+                              <a href={getFullImageUrl(img)} target="_blank" rel="noopener noreferrer" className="flex-grow bg-[#131211] hover:bg-[#1a1918] text-slate-200 font-bold py-2 rounded-xl border border-[#2a2725] text-[10px] uppercase tracking-wider text-center flex items-center justify-center gap-1"><ExternalLink className="w-3 h-3 text-[#cfae80]" /> Full</a>
+                              <a href={`/api/storyboards/download?url=${encodeURIComponent(getFullImageUrl(img))}`} download className="flex-grow bg-[#cfae80] hover:bg-[#c5a880] text-black font-extrabold py-2 rounded-xl text-[10px] uppercase tracking-wider text-center flex items-center justify-center gap-1 shadow-md"><Download className="w-3 h-3" /> Unduh</a>
+                            </div>
                           </div>
-                        </>
-                      )}
-                    </div>
-                    {/* Carousel Dots */}
-                    {images.length > 1 && (
-                      <div className="flex justify-center gap-2 mt-1">
-                        {images.map((_, idx) => (
-                          <button
-                            key={idx}
-                            type="button"
-                            onClick={() => setCurrentCarouselIdx(idx)}
-                            className={`w-2 h-2 rounded-full transition-all ${currentCarouselIdx === idx ? 'bg-[#cfae80] w-6' : 'bg-slate-700 hover:bg-slate-500'}`}
-                          />
                         ))}
                       </div>
+                    ) : (
+                      <div className="flex-grow flex flex-col items-center justify-center space-y-5 w-full">
+                        <div className="relative w-full border border-[#2a2725] rounded-3xl overflow-hidden bg-black/80 flex justify-center items-center max-h-[500px] min-h-[350px] group">
+                          <img src={getFullImageUrl(activeImg)} alt="Result" className="max-w-full max-h-[500px] object-contain" />
+                        </div>
+                        <div className="flex flex-wrap gap-4 justify-end border-t border-[#2a2725] pt-5 w-full">
+                          <a href={getFullImageUrl(activeImg)} target="_blank" rel="noopener noreferrer" className="bg-[#131211] hover:bg-[#1a1918] text-slate-200 font-bold py-3.5 px-5 rounded-2xl flex items-center gap-1.5 border border-[#2a2725] text-xs uppercase tracking-wider"><ExternalLink className="w-4 h-4 text-[#cfae80]" /> Resolusi Penuh</a>
+                          <a href={`/api/storyboards/download?url=${encodeURIComponent(getFullImageUrl(activeImg))}`} download className="bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-3.5 px-6 rounded-2xl flex items-center gap-1.5 shadow-lg text-xs uppercase tracking-wider"><Download className="w-4 h-4" /> Unduh</a>
+                        </div>
+                      </div>
                     )}
-                    <div className="flex flex-wrap gap-4 justify-end border-t border-[#2a2725] pt-5 w-full">
-                      <a href={getFullImageUrl(activeImg)} target="_blank" rel="noopener noreferrer" className="bg-[#131211] hover:bg-[#1a1918] text-slate-200 font-bold py-3.5 px-5 rounded-2xl flex items-center gap-1.5 border border-[#2a2725] text-xs uppercase tracking-wider"><ExternalLink className="w-4 h-4 text-[#cfae80]" /> Resolusi Penuh</a>
-                      <a href={getFullImageUrl(activeImg)} download className="bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-3.5 px-6 rounded-2xl flex items-center gap-1.5 shadow-lg text-xs uppercase tracking-wider"><Download className="w-4 h-4" /> Unduh</a>
-                    </div>
                   </div>
                 );
               })()}

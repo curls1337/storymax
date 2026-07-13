@@ -58,6 +58,20 @@ async function initDb() {
     // Column already exists, safe to ignore
   }
 
+  // Ensure used_credits column exists if table was already created (migration support)
+  try {
+    await db.exec('ALTER TABLE storyboards ADD COLUMN used_credits INTEGER DEFAULT 0');
+  } catch (e) {
+    // Column already exists, safe to ignore
+  }
+
+  // Ensure api_key_id column exists if table was already created (migration support)
+  try {
+    await db.exec('ALTER TABLE storyboards ADD COLUMN api_key_id INTEGER REFERENCES api_keys(id)');
+  } catch (e) {
+    // Column already exists, safe to ignore
+  }
+
   // Create AI Settings Table
   await db.exec(`
     CREATE TABLE IF NOT EXISTS ai_settings (

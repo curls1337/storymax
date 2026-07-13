@@ -33,6 +33,9 @@ async function getBrowser() {
           "--disable-setuid-sandbox",
           "--disable-http2",
           "--disable-web-security",
+          "--disable-gpu",
+          "--disable-software-rasterizer",
+          "--mute-audio"
         ],
       };
       

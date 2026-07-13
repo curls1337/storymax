@@ -1,10 +1,11 @@
 const express = require('express');
-const { getUserStoryboards, generateStoryboard, deleteStoryboard, getActiveKeys, getTaskStatus, scrapeProductUrl, getActiveTasksDebug } = require('../controllers/storyboardController');
+const { getUserStoryboards, generateStoryboard, deleteStoryboard, getActiveKeys, getTaskStatus, scrapeProductUrl, getActiveTasksDebug, downloadProxy } = require('../controllers/storyboardController');
 const { authenticateToken } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
 router.get('/debug-tasks', getActiveTasksDebug);
+router.get('/download', downloadProxy);
 
 router.use(authenticateToken);
 

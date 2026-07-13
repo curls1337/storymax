@@ -9,6 +9,18 @@ export default defineConfig({
     tailwindcss()
   ],
   server: {
-    port: 5033
+    port: 5033,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5022',
+        changeOrigin: true,
+        secure: false
+      },
+      '/uploads': {
+        target: 'http://localhost:5022',
+        changeOrigin: true,
+        secure: false
+      }
+    }
   }
 })

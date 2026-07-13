@@ -8,3 +8,8 @@ frontend/dist/
 .gemini/
 build/
 .history/
+
+# Ignore user uploads and temp files, but keep the folder structure
+backend/public/uploads/*
+!backend/public/uploads/previews
+!backend/public/uploads/.gitkeep

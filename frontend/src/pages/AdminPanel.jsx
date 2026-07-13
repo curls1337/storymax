@@ -303,6 +303,7 @@ export default function AdminPanel() {
                   <th className="py-3.5 px-4">ID</th>
                   <th className="py-3.5 px-4">Username</th>
                   <th className="py-3.5 px-4">Role</th>
+                  <th className="py-3.5 px-4">Kredit Terpakai</th>
                   <th className="py-3.5 px-4 text-right">Aksi</th>
                 </tr>
               </thead>
@@ -319,6 +320,9 @@ export default function AdminPanel() {
                       }`}>
                         {u.role}
                       </span>
+                    </td>
+                    <td className="py-4 px-4 font-mono text-[#cfae80] font-bold">
+                      ⚡ {u.total_credits || 0}
                     </td>
                     <td className="py-4 px-4 text-right space-x-2">
                       <button
@@ -378,6 +382,7 @@ export default function AdminPanel() {
                 <tr className="border-b border-[#2a2725] text-slate-400 text-[10px] font-bold uppercase tracking-widest">
                   <th className="py-3.5 px-4">Label</th>
                   <th className="py-3.5 px-4">Nilai Kunci</th>
+                  <th className="py-3.5 px-4">Kredit Terpakai</th>
                   <th className="py-3.5 px-4">Status</th>
                   <th className="py-3.5 px-4 text-right">Aksi</th>
                 </tr>
@@ -387,6 +392,9 @@ export default function AdminPanel() {
                   <tr key={k.id} className="hover:bg-white/[0.01] transition-colors">
                     <td className="py-4 px-4 font-editorial italic text-white text-md">{k.label}</td>
                     <td className="py-4 px-4 font-mono text-slate-500">{k.key_value.substring(0, 16)}••••••••••••••••</td>
+                    <td className="py-4 px-4 font-mono text-[#cfae80] font-bold">
+                      ⚡ {k.total_credits || 0}
+                    </td>
                     <td className="py-4 px-4">
                       <button
                         onClick={() => handleToggleKey(k.id, k.is_active)}
