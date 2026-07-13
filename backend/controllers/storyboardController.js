@@ -361,7 +361,7 @@ async function generateStoryboard(req, res) {
 
   const selectedModel = model ? String(model) : '108';
   const totalDuration = duration ? Number(duration) : 15;
-  const pageCount = Math.max(1, Math.min(4, Math.floor(totalDuration / 15)));
+  const pageCount = Math.max(1, Math.min(4, Math.ceil(totalDuration / 15)));
 
   // Create unique task ID immediately
   const taskId = 'task_' + Date.now();

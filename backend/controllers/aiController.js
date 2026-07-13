@@ -253,10 +253,25 @@ async function generateVideoPromptsInternal({ storyboardId, promptType, regenera
     }
   }
 
+  let durationClause = '';
+  const durVal = videoDuration || 'auto';
+  if (durVal === 'auto') {
+    if (targetType === 'image-to-video') {
+      durationClause = `The target video duration is: Kling/SeedDance/Luma: 15 seconds, Omni: 10 seconds, Gemini: 8 seconds. If Voiceover (VO) is enabled, you MUST adjust the length of the narration paragraph so it matches these durations (roughly 2.5 to 3 words per second, e.g. ~24 words for Gemini (8s), ~30 words for Omni (10s), ~45 words for Kling/SeedDance (15s)).`;
+    } else {
+      durationClause = `The target video duration is: 15 seconds. If Voiceover (VO) is enabled, you MUST adjust the length of the narration paragraph to match this duration (roughly 2.5 to 3 words per second, e.g. ~45 words).`;
+    }
+  } else {
+    const seconds = Number(durVal);
+    const targetWords = Math.round(seconds * 2.8);
+    durationClause = `The target video duration is: ${seconds} seconds. If Voiceover (VO) is enabled, you MUST adjust the length of the narration paragraph so it fits exactly within this duration (roughly 2.5 to 3 words per second, meaning the narration MUST contain approximately ${targetWords} words).`;
+  }
+
   let systemInstruction = '';
   if (targetType === 'image-to-video') {
     if (enableVo) {
       systemInstruction = `You are an expert AI Video Director and master video prompting engineer specializing in high-fidelity commercial image-to-video generation (for Kling, Luma, Runway, SeedDance, Omni, etc. where an image is used as the starting frame reference).
+${durationClause}
 Your task is to analyze the provided storyboard or product showcase image sheet visually, matching them with the project title and narrative description to write:
 1. One single, highly-detailed, and comprehensive commercial motion and camera movement prompt in English (150-250 words) describing how the elements in the image should move, zoom, tilt, splash or slide. Do not describe static elements from scratch, focus on camera action and animation motion.
 2. A voiceover narration script paragraph in the language: "${voLanguage || 'Bahasa Indonesia'}". The narration should flow naturally to match the motion and action.
@@ -268,6 +283,7 @@ You MUST return the output strictly in this JSON format (do not wrap in markdown
 }`;
     } else {
       systemInstruction = `You are an expert AI Video Director and master video prompting engineer specializing in high-fidelity commercial image-to-video generation (for Kling, Luma, Runway, SeedDance, Omni, etc. where an image is used as the starting frame reference).
+${durationClause}
 Your task is to analyze the provided storyboard or product showcase image sheet visually, matching them with the project title and narrative description to write:
 1. One single, highly-detailed, and comprehensive commercial motion and camera movement prompt in English (150-250 words) describing how the elements in the image should move, zoom, tilt, splash or slide. Do not describe static elements from scratch, focus on camera action and animation motion.
 
@@ -280,6 +296,7 @@ You MUST return the output strictly in this JSON format (do not wrap in markdown
   } else { // text-to-video
     if (enableVo) {
       systemInstruction = `You are an expert AI Video Director and master video prompting engineer specializing in high-fidelity commercial text-to-video generation (for Kling, Luma, Runway, Sora, etc. to create videos purely from text).
+${durationClause}
 Your task is to analyze the provided storyboard or product showcase image sheet visually, matching them with the project title and narrative description to write:
 1. One single, highly-detailed, and comprehensive text-to-video scene prompt in English (150-250 words) describing the product details, scene setting, lighting, mood, camera style, and scene progression in full detail from scratch.
 2. A voiceover narration script paragraph in the language: "${voLanguage || 'Bahasa Indonesia'}". The narration should flow naturally to match the scene.
@@ -291,6 +308,7 @@ You MUST return the output strictly in this JSON format (do not wrap in markdown
 }`;
     } else {
       systemInstruction = `You are an expert AI Video Director and master video prompting engineer specializing in high-fidelity commercial text-to-video generation (for Kling, Luma, Runway, Sora, etc. to create videos purely from text).
+${durationClause}
 Your task is to analyze the provided storyboard or product showcase image sheet visually, matching them with the project title and narrative description to write:
 1. One single, highly-detailed, and comprehensive text-to-video scene prompt in English (150-250 words) describing the product details, scene setting, lighting, mood, camera style, and scene progression in full detail from scratch.
 

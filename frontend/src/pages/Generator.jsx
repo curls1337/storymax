@@ -435,9 +435,12 @@ export default function Generator() {
             <div>
               <label className="block text-slate-355 text-[10px] font-bold uppercase tracking-widest mb-2">Durasi Video</label>
               <select value={duration} onChange={(e) => setDuration(Number(e.target.value))} className="w-full bg-black/40 border border-[#2a2725] rounded-2xl px-4 py-3 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs" disabled={generating}>
+                <option value={10}>10 Detik</option>
                 <option value={15}>15 Detik</option>
+                <option value={20}>20 Detik</option>
                 <option value={30}>30 Detik</option>
-                <option value={45}>45 Detik</option>
+                <option value={40}>40 Detik</option>
+                <option value={50}>50 Detik</option>
                 <option value={60}>60 Detik</option>
               </select>
             </div>

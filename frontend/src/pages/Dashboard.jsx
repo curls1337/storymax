@@ -43,8 +43,10 @@ export default function Dashboard({ setTab }) {
   const [videoPromptError, setVideoPromptError] = useState('');
   const [enableVoI2v, setEnableVoI2v] = useState(false);
   const [voLanguageI2v, setVoLanguageI2v] = useState('Bahasa Indonesia');
+  const [videoDurationI2v, setVideoDurationI2v] = useState('auto');
   const [enableVoT2v, setEnableVoT2v] = useState(false);
   const [voLanguageT2v, setVoLanguageT2v] = useState('Bahasa Indonesia');
+  const [videoDurationT2v, setVideoDurationT2v] = useState('auto');
 
   const parseVideoPrompts = (rawText) => {
     if (!rawText) return { imageToVideoPrompt: '', textToVideoPrompt: '' };
@@ -83,13 +85,15 @@ export default function Dashboard({ setTab }) {
     try {
       const useVo = promptType === 'text-to-video' ? enableVoT2v : enableVoI2v;
       const lang = promptType === 'text-to-video' ? voLanguageT2v : voLanguageI2v;
+      const durationVal = promptType === 'text-to-video' ? videoDurationT2v : videoDurationI2v;
 
       const res = await api.post('/ai/video-prompts', { 
         storyboardId: selectedStoryboard.id,
         promptType,
         regenerate: forceRegenerate,
         enableVo: useVo,
-        voLanguage: useVo ? lang : undefined
+        voLanguage: useVo ? lang : undefined,
+        videoDuration: durationVal
       });
       const videoPromptsStr = res.data.videoPrompts;
       
@@ -378,7 +382,27 @@ export default function Dashboard({ setTab }) {
                       <div className="space-y-3">
                         {generatingType !== 'image-to-video' && (
                           <div className="flex flex-col gap-2.5 bg-[#131211]/30 border border-[#2a2725] rounded-xl p-3.5">
-                            <label className="flex items-center gap-2 cursor-pointer select-none">
+                            {/* Duration Selection */}
+                            <div className="space-y-1.5">
+                              <span className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80] block">Durasi Video</span>
+                              <select 
+                                value={videoDurationI2v} 
+                                onChange={(e) => setVideoDurationI2v(e.target.value)} 
+                                className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all font-semibold"
+                              >
+                                <option value="auto">Auto-detect (SeedDance: 15s | Omni: 10s | Kling: 15s | Gemini: 8s)</option>
+                                <option value="8">8 Detik (Gemini)</option>
+                                <option value="10">10 Detik (Omni)</option>
+                                <option value="15">15 Detik (Kling/SeedDance)</option>
+                                <option value="20">20 Detik</option>
+                                <option value="30">30 Detik</option>
+                                <option value="40">40 Detik</option>
+                                <option value="50">50 Detik</option>
+                                <option value="60">60 Detik</option>
+                              </select>
+                            </div>
+
+                            <label className="flex items-center gap-2 cursor-pointer select-none border-t border-[#2a2725]/40 pt-2.5">
                               <input 
                                 type="checkbox" 
                                 checked={enableVoI2v} 
@@ -466,7 +490,27 @@ export default function Dashboard({ setTab }) {
                       <div className="space-y-3">
                         {generatingType !== 'text-to-video' && (
                           <div className="flex flex-col gap-2.5 bg-[#131211]/30 border border-[#2a2725] rounded-xl p-3.5">
-                            <label className="flex items-center gap-2 cursor-pointer select-none">
+                            {/* Duration Selection */}
+                            <div className="space-y-1.5">
+                              <span className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80] block">Durasi Video</span>
+                              <select 
+                                value={videoDurationT2v} 
+                                onChange={(e) => setVideoDurationT2v(e.target.value)} 
+                                className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all font-semibold"
+                              >
+                                <option value="auto">Auto-detect (15 Detik)</option>
+                                <option value="8">8 Detik (Gemini)</option>
+                                <option value="10">10 Detik (Omni)</option>
+                                <option value="15">15 Detik (Kling/SeedDance)</option>
+                                <option value="20">20 Detik</option>
+                                <option value="30">30 Detik</option>
+                                <option value="40">40 Detik</option>
+                                <option value="50">50 Detik</option>
+                                <option value="60">60 Detik</option>
+                              </select>
+                            </div>
+
+                            <label className="flex items-center gap-2 cursor-pointer select-none border-t border-[#2a2725]/40 pt-2.5">
                               <input 
                                 type="checkbox" 
                                 checked={enableVoT2v} 
