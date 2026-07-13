@@ -12,10 +12,10 @@ COPY frontend/package*.json ./frontend/
 # Remove Windows-generated package-lock.json files to force fresh resolution for Linux
 RUN rm -f package-lock.json backend/package-lock.json frontend/package-lock.json
 
-# Install all dependencies
-RUN npm install
-RUN npm install --prefix backend
-RUN npm install --prefix frontend
+# Install all dependencies (adding flags to bust Docker layer cache)
+RUN npm install --no-audit --no-fund
+RUN npm install --prefix backend --no-audit --no-fund
+RUN npm install --prefix frontend --no-audit --no-fund
 
 # Copy the rest of the application files
 COPY . .
