@@ -39,8 +39,15 @@ async function getBrowser() {
         ],
       };
       
+      let nixChromiumPath = null;
+      try {
+        const { execSync } = require('child_process');
+        nixChromiumPath = execSync('which chromium').toString().trim();
+      } catch (e) {}
+
       const candidatePaths = [
         process.env.CHROME_PATH,
+        nixChromiumPath,
         "/usr/bin/chromium",
         "/usr/bin/chromium-browser",
         "/usr/bin/google-chrome",
