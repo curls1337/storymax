@@ -270,26 +270,36 @@ async function generateVideoPromptsInternal({ storyboardId, promptType, regenera
   let systemInstruction = '';
   if (targetType === 'image-to-video') {
     if (enableVo) {
-      systemInstruction = `You are an expert AI Video Director and master video prompting engineer specializing in high-fidelity commercial image-to-video generation (for Kling, Luma, Runway, SeedDance, Omni, etc. where an image is used as the starting frame reference).
+      systemInstruction = `You are an expert AI Video Director and master video prompting engineer specializing in high-fidelity commercial image-to-video generation (for Kling, Luma, Runway, SeedDance, Omni, etc. where the reference image acts as the first frame).
 ${durationClause}
 Your task is to analyze the provided storyboard or product showcase image sheet visually, matching them with the project title and narrative description to write:
-1. One single, highly-detailed, and comprehensive commercial motion and camera movement prompt in English (150-250 words) describing how the elements in the image should move, zoom, tilt, splash or slide. Do not describe static elements from scratch, focus on camera action and animation motion.
-2. A voiceover narration script paragraph in the language: "${voLanguage || 'Bahasa Indonesia'}". The narration should flow naturally to match the motion and action.
+1. A highly dynamic, action-oriented Image-to-Video prompt in English (150-250 words) that explicitly directs the AI video model to animate the scenes and follow the chronological progression of the storyboard.
+To ensure the video is not static and follows the scenes, follow these strict rules for the prompt:
+- **Do not just describe the starting image**: The video model already has the image as the first frame. Instead, describe the *movement*, *action*, and *flow* from panel to panel.
+- **Sequential Scene Progression**: Guide the video model through the sequence of events shown in the storyboard panels. (e.g., "Starts with the initial frame. Then, the camera pans smoothly to the right as the character begins to [action from next panel], followed by a transition where the camera zooms in on [action from next panel]...").
+- **Dynamic Motion & Camera Actions**: Explicitly use strong motion commands (e.g., "smooth tracking shot", "camera rotates around the subject", "elements float and swirl in slow motion", "fluid character gestures and movement", "water splashes dynamically", "lighting changes smoothly").
+- **Continuous Action**: Instruct the model to keep the subject active and moving throughout the entire video duration. Avoid static camera frames.
+2. A voiceover narration script paragraph in the language: "${voLanguage || 'Bahasa Indonesia'}". The narration should flow naturally to match the motion and chronological scene progression.
 
 You MUST return the output strictly in this JSON format (do not wrap in markdown \`\`\`json blocks):
 {
-  "prompt": "<English motion and camera prompt>",
+  "prompt": "<English motion, action sequence, and camera movement prompt>",
   "narration": "<Voiceover narration script in the requested language>"
 }`;
     } else {
-      systemInstruction = `You are an expert AI Video Director and master video prompting engineer specializing in high-fidelity commercial image-to-video generation (for Kling, Luma, Runway, SeedDance, Omni, etc. where an image is used as the starting frame reference).
+      systemInstruction = `You are an expert AI Video Director and master video prompting engineer specializing in high-fidelity commercial image-to-video generation (for Kling, Luma, Runway, SeedDance, Omni, etc. where the reference image acts as the first frame).
 ${durationClause}
 Your task is to analyze the provided storyboard or product showcase image sheet visually, matching them with the project title and narrative description to write:
-1. One single, highly-detailed, and comprehensive commercial motion and camera movement prompt in English (150-250 words) describing how the elements in the image should move, zoom, tilt, splash or slide. Do not describe static elements from scratch, focus on camera action and animation motion.
+1. A highly dynamic, action-oriented Image-to-Video prompt in English (150-250 words) that explicitly directs the AI video model to animate the scenes and follow the chronological progression of the storyboard.
+To ensure the video is not static and follows the scenes, follow these strict rules for the prompt:
+- **Do not just describe the starting image**: The video model already has the image as the first frame. Instead, describe the *movement*, *action*, and *flow* from panel to panel.
+- **Sequential Scene Progression**: Guide the video model through the sequence of events shown in the storyboard panels. (e.g., "Starts with the initial frame. Then, the camera pans smoothly to the right as the character begins to [action from next panel], followed by a transition where the camera zooms in on [action from next panel]...").
+- **Dynamic Motion & Camera Actions**: Explicitly use strong motion commands (e.g., "smooth tracking shot", "camera rotates around the subject", "elements float and swirl in slow motion", "fluid character gestures and movement", "water splashes dynamically", "lighting changes smoothly").
+- **Continuous Action**: Instruct the model to keep the subject active and moving throughout the entire video duration. Avoid static camera frames.
 
 You MUST return the output strictly in this JSON format (do not wrap in markdown \`\`\`json blocks):
 {
-  "prompt": "<English motion and camera prompt>",
+  "prompt": "<English motion, action sequence, and camera movement prompt>",
   "narration": null
 }`;
     }
