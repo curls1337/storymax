@@ -61,6 +61,8 @@ export default function Generator() {
   const [currentTaskId, setCurrentTaskId] = useState(null);
   const [taskLogs, setTaskLogs] = useState('');
   const [showLogModal, setShowLogModal] = useState(true);
+  const [enableVo, setEnableVo] = useState(false);
+  const [voLanguage, setVoLanguage] = useState('Bahasa Indonesia');
   
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
@@ -264,7 +266,9 @@ export default function Generator() {
         model, 
         duration,
         showFace,
-        aspectRatio
+        aspectRatio,
+        enableVo,
+        voLanguage: enableVo ? voLanguage : undefined
       });
       const { taskId } = res.data;
       setCurrentTaskId(taskId);
@@ -545,6 +549,38 @@ export default function Generator() {
               Tampilkan Wajah Manusia
               <span className="block text-[9px] text-slate-500 font-normal mt-0.5">Aktifkan jika ingin menyertakan wajah manusia (Aksi wajah rentan ditolak filter AI).</span>
             </label>
+          </div>
+
+          {/* Voice Over settings */}
+          <div className="bg-[#131211]/30 border border-[#2a2725] rounded-2xl p-4 space-y-3.5">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input 
+                type="checkbox" 
+                checked={enableVo} 
+                onChange={(e) => setEnableVo(e.target.checked)} 
+                className="rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5"
+                disabled={generating}
+              />
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300">Sertakan Voice Over (VO)</span>
+            </label>
+            
+            {enableVo && (
+              <div className="space-y-1.5 animate-fadeIn">
+                <label className="block text-slate-350 text-[10px] font-bold uppercase tracking-widest block">Pilih Bahasa Narasi</label>
+                <select 
+                  value={voLanguage} 
+                  onChange={(e) => setVoLanguage(e.target.value)} 
+                  className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs font-semibold"
+                  disabled={generating}
+                >
+                  <option value="Bahasa Indonesia">Bahasa Indonesia</option>
+                  <option value="English">English</option>
+                  <option value="Bahasa Malaysia">Bahasa Malaysia</option>
+                  <option value="Japanese">Japanese (Jepang)</option>
+                  <option value="Mandarin">Mandarin (Cina)</option>
+                </select>
+              </div>
+            )}
           </div>
 
           <button type="submit" disabled={generating || apiKeys.length === 0 || prompt.length > 1900} className="w-full bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-3.5 px-4 rounded-2xl transition-all shadow-lg hover:shadow-[#cfae80]/10 disabled:opacity-50 flex items-center justify-center gap-2 text-xs uppercase tracking-widest">

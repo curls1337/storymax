@@ -342,7 +342,7 @@ async function getUserStoryboards(req, res) {
 }
 
 async function generateStoryboard(req, res) {
-  const { title, prompt, style, apiKeyId, refImageBase64, refImageUrl, refImages, gridCount, model, duration, showFace, aspectRatio } = req.body;
+  const { title, prompt, style, apiKeyId, refImageBase64, refImageUrl, refImages, gridCount, model, duration, showFace, aspectRatio, enableVo, voLanguage } = req.body;
 
   if (!title || !prompt || !style || !apiKeyId) {
     return res.status(400).json({ message: 'Title, prompt, style, and API Key ID are required.' });
@@ -815,13 +815,32 @@ async function generateStoryboard(req, res) {
 
       // Success! Insert in DB as JSON array string
       const dbPathString = JSON.stringify(imagePaths);
-      await db.run(
+      
+      const insertResult = await db.run(
         'INSERT INTO storyboards (user_id, title, prompt, image_path, used_credits, api_key_id) VALUES (?, ?, ?, ?, ?, ?)',
         [req.user.id, title, prompt, dbPathString, totalCreditsUsed, apiKeyId]
       );
+      
+      const newStoryboardId = insertResult.lastID;
+
+      activeTasks[taskId].logs += `[AI Video Prompts] Men-generate otomatis prompt video Image-to-Video ${enableVo ? 'dan voiceover ' : ''}di latar belakang...\n`;
+      try {
+        const { generateVideoPromptsInternal } = require('./aiController');
+        await generateVideoPromptsInternal({
+          storyboardId: newStoryboardId,
+          regenerate: true,
+          enableVo: !!enableVo,
+          voLanguage: enableVo ? voLanguage : undefined
+        });
+        activeTasks[taskId].logs += `[AI Video Prompts] Prompt video berhasil di-generate secara otomatis.\n`;
+      } catch (promptErr) {
+        console.error('Failed to auto-generate video prompt for new storyboard:', promptErr.message);
+        activeTasks[taskId].logs += `[WARNING] Gagal menulis prompt video otomatis: ${promptErr.message}. Anda bisa membuatnya secara manual di Dashboard.\n`;
+      }
 
       activeTasks[taskId].status = 'success';
       activeTasks[taskId].result = {
+        id: newStoryboardId,
         title,
         prompt,
         image_path: dbPathString

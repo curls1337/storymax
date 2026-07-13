@@ -320,7 +320,7 @@ export default function Dashboard({ setTab }) {
                   </h2>
 
                   <div className="space-y-1.5">
-                    <span className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80]">Ide Deskripsi Utama</span>
+                    <span className="text-[8px] font-bold uppercase tracking-widest text-slate-500">Ide Storyboard Asli</span>
                     <div className="bg-[#131211]/50 border border-[#2a2725] rounded-xl p-3.5 text-slate-400 text-xs leading-relaxed max-h-48 overflow-y-auto scrollbar-thin">
                       {selectedStoryboard.prompt}
                     </div>
@@ -330,7 +330,7 @@ export default function Dashboard({ setTab }) {
                   <div className="space-y-3 mt-4 pt-4 border-t border-[#2a2725]/60">
                     <div className="flex justify-between items-center">
                       <span className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80]">
-                        Prompt Video AI
+                        Prompt Image-to-Video & Voice Over
                       </span>
                       {selectedStoryboard.video_prompts && (
                         <button
@@ -388,7 +388,7 @@ export default function Dashboard({ setTab }) {
                           </>
                         ) : (
                           <>
-                            📝 Buat Prompt Video (AI)
+                            📝 Generate Prompt Video & VO
                           </>
                         )}
                       </button>
@@ -398,7 +398,7 @@ export default function Dashboard({ setTab }) {
                         <div className="space-y-4">
                           {/* Visual Prompt Card */}
                           <div className="space-y-1.5">
-                            <span className="text-[8px] font-bold uppercase tracking-widest text-slate-400 block">Prompt Visual (AI Video)</span>
+                            <span className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80] block">Prompt Image-to-Video (SeedDance/Kling/Omni)</span>
                             <div className="bg-[#131211]/50 border border-[#2a2725] rounded-xl p-3.5 text-slate-350 text-[11px] leading-relaxed relative max-h-36 overflow-y-auto scrollbar-thin font-mono">
                               {visualPrompt}
                             </div>
@@ -413,7 +413,7 @@ export default function Dashboard({ setTab }) {
                               }}
                               className="w-full bg-[#131211] hover:bg-[#1a1918] text-slate-300 font-bold py-2 px-3 rounded-lg border border-[#2a2725] text-[9px] uppercase tracking-widest flex items-center justify-center gap-1.5 transition-all"
                             >
-                              Salin Prompt Visual
+                              Salin Prompt Video (I2V)
                             </button>
                           </div>
 
