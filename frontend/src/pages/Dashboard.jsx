@@ -397,6 +397,7 @@ export default function Dashboard({ setTab }) {
                                 <option value="20">20 Detik</option>
                                 <option value="30">30 Detik</option>
                                 <option value="40">40 Detik</option>
+                                <option value="45">45 Detik</option>
                                 <option value="50">50 Detik</option>
                                 <option value="60">60 Detik</option>
                               </select>
@@ -505,6 +506,7 @@ export default function Dashboard({ setTab }) {
                                 <option value="20">20 Detik</option>
                                 <option value="30">30 Detik</option>
                                 <option value="40">40 Detik</option>
+                                <option value="45">45 Detik</option>
                                 <option value="50">50 Detik</option>
                                 <option value="60">60 Detik</option>
                               </select>
