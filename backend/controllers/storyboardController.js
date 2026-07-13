@@ -953,7 +953,32 @@ async function scrapeProductUrl(req, res) {
 }
 
 function getActiveTasksDebug(req, res) {
-  res.json(activeTasks);
+  let diag = {};
+  try {
+    const { execSync } = require('child_process');
+    diag.whichChromium = execSync('which chromium 2>&1').toString().trim();
+  } catch (e) {
+    diag.whichChromiumError = e.message;
+  }
+  try {
+    const { execSync } = require('child_process');
+    diag.whichChrome = execSync('which google-chrome 2>&1').toString().trim();
+  } catch (e) {
+    diag.whichChromeError = e.message;
+  }
+  try {
+    const { execSync } = require('child_process');
+    diag.playwrightPath = execSync('npx playwright --version 2>&1').toString().trim();
+  } catch (e) {
+    diag.playwrightError = e.message;
+  }
+  try {
+    const fs = require('fs');
+    diag.usrBinFiles = fs.readdirSync('/usr/bin').filter(f => f.includes('chrom') || f.includes('play'));
+  } catch (e) {
+    diag.usrBinError = e.message;
+  }
+  res.json({ activeTasks, diag });
 }
 
 async function downloadProxy(req, res) {
