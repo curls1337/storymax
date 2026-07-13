@@ -1,0 +1,11 @@
+[variables]
+NIXPACKS_PLAYWRIGHT_CHROME_DEPS = "1"
+
+[phases.setup]
+nixPkgs = ["...", "chromium", "playwright-driver"]
+
+[phases.build]
+cmds = [
+  "npm run build",
+  "npx playwright install --with-deps chromium"
+]
