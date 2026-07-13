@@ -830,6 +830,7 @@ async function generateStoryboard(req, res) {
         const { generateVideoPromptsInternal } = require('./aiController');
         await generateVideoPromptsInternal({
           storyboardId: newStoryboardId,
+          promptType: 'image-to-video',
           regenerate: true,
           enableVo: !!enableVo,
           voLanguage: enableVo ? voLanguage : undefined

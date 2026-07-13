@@ -39,39 +39,57 @@ export default function Dashboard({ setTab }) {
     }
   };
 
-  const [videoPromptGenerating, setVideoPromptGenerating] = useState(false);
+  const [generatingType, setGeneratingType] = useState(null); // 'image-to-video', 'text-to-video', or null
   const [videoPromptError, setVideoPromptError] = useState('');
-  const [enableVo, setEnableVo] = useState(false);
-  const [voLanguage, setVoLanguage] = useState('Bahasa Indonesia');
+  const [enableVoI2v, setEnableVoI2v] = useState(false);
+  const [voLanguageI2v, setVoLanguageI2v] = useState('Bahasa Indonesia');
+  const [enableVoT2v, setEnableVoT2v] = useState(false);
+  const [voLanguageT2v, setVoLanguageT2v] = useState('Bahasa Indonesia');
 
   const parseVideoPrompts = (rawText) => {
-    if (!rawText) return { visualPrompt: '', narration: null };
+    if (!rawText) return { imageToVideoPrompt: '', textToVideoPrompt: '' };
     try {
       const parsed = JSON.parse(rawText);
-      if (parsed && typeof parsed === 'object' && 'visualPrompt' in parsed) {
-        return {
-          visualPrompt: parsed.visualPrompt || '',
-          narration: parsed.narration || null
-        };
+      if (parsed && typeof parsed === 'object') {
+        if ('imageToVideoPrompt' in parsed || 'textToVideoPrompt' in parsed) {
+          return {
+            imageToVideoPrompt: parsed.imageToVideoPrompt || '',
+            textToVideoPrompt: parsed.textToVideoPrompt || ''
+          };
+        }
+        if ('visualPrompt' in parsed) {
+          let textPrompt = parsed.visualPrompt || '';
+          if (parsed.narration) {
+            textPrompt = `Video Prompt:\n${textPrompt}\n\nVoiceover:\n${parsed.narration}`;
+          }
+          return {
+            imageToVideoPrompt: '',
+            textToVideoPrompt: textPrompt
+          };
+        }
       }
     } catch (e) {}
     // Fallback for legacy plain text format
     return {
-      visualPrompt: rawText,
-      narration: null
+      imageToVideoPrompt: '',
+      textToVideoPrompt: rawText
     };
   };
 
-  const handleGenerateVideoPrompts = async (forceRegenerate = false) => {
+  const handleGenerateVideoPrompts = async (promptType, forceRegenerate = false) => {
     if (!selectedStoryboard) return;
-    setVideoPromptGenerating(true);
+    setGeneratingType(promptType);
     setVideoPromptError('');
     try {
+      const useVo = promptType === 'text-to-video' ? enableVoT2v : enableVoI2v;
+      const lang = promptType === 'text-to-video' ? voLanguageT2v : voLanguageI2v;
+
       const res = await api.post('/ai/video-prompts', { 
         storyboardId: selectedStoryboard.id,
+        promptType,
         regenerate: forceRegenerate,
-        enableVo,
-        voLanguage: enableVo ? voLanguage : undefined
+        enableVo: useVo,
+        voLanguage: useVo ? lang : undefined
       });
       const videoPromptsStr = res.data.videoPrompts;
       
@@ -85,7 +103,7 @@ export default function Dashboard({ setTab }) {
       console.error("Error generating video prompt:", err);
       setVideoPromptError(err.response?.data?.message || 'Gagal membuat prompt video.');
     } finally {
-      setVideoPromptGenerating(false);
+      setGeneratingType(null);
     }
   };
 
@@ -320,146 +338,183 @@ export default function Dashboard({ setTab }) {
                     {selectedStoryboard.title}
                   </h2>
 
-                  {imageToVideoPrompt && (
-                    <div className="space-y-1.5">
-                      <span className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80]">
-                        Prompt Image-to-Video (SeedDance/Kling/Omni)
-                      </span>
-                      <div className="bg-[#131211]/50 border border-[#2a2725] rounded-xl p-3.5 text-slate-350 text-[11px] leading-relaxed relative max-h-36 overflow-y-auto scrollbar-thin font-mono">
-                        {imageToVideoPrompt}
-                      </div>
-                      <button
-                        onClick={() => {
-                          try {
-                            navigator.clipboard.writeText(imageToVideoPrompt);
-                            alert('Prompt Image-to-Video berhasil disalin!');
-                          } catch (e) {
-                            alert('Gagal menyalin.');
-                          }
-                        }}
-                        className="w-full bg-[#131211] hover:bg-[#1a1918] text-slate-300 font-bold py-2 px-3 rounded-lg border border-[#2a2725] text-[9px] uppercase tracking-widest flex items-center justify-center gap-1.5 transition-all mt-1"
-                      >
-                        Salin Prompt Image-to-Video (I2V)
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Video Prompt Generator UI */}
+                  {/* Image-to-Video Section */}
                   <div className="space-y-3 mt-4 pt-4 border-t border-[#2a2725]/60">
                     <div className="flex justify-between items-center">
                       <span className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80]">
-                        Prompt Image-to-Video & Voice Over
+                        Prompt Image-to-Video (SeedDance/Kling/Omni)
                       </span>
-                      {selectedStoryboard.video_prompts && (
+                      {imageToVideoPrompt && (
                         <button
-                          onClick={() => handleGenerateVideoPrompts(true)}
-                          disabled={videoPromptGenerating}
+                          onClick={() => handleGenerateVideoPrompts('image-to-video', true)}
+                          disabled={generatingType !== null}
                           className="text-[8px] text-slate-400 hover:text-[#cfae80] font-bold uppercase tracking-widest transition-colors disabled:opacity-50"
                         >
-                          {videoPromptGenerating ? 'Memproses...' : 'Tulis Ulang'}
+                          {generatingType === 'image-to-video' ? 'Memproses...' : 'Tulis Ulang'}
                         </button>
                       )}
                     </div>
 
-                    {/* Settings Box (Always visible unless currently generating) */}
-                    {!videoPromptGenerating && (
-                      <div className="flex flex-col gap-2.5 bg-[#131211]/30 border border-[#2a2725] rounded-xl p-3.5">
-                        <label className="flex items-center gap-2 cursor-pointer select-none">
-                          <input 
-                            type="checkbox" 
-                            checked={enableVo} 
-                            onChange={(e) => setEnableVo(e.target.checked)} 
-                            className="rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5"
-                          />
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300">Sertakan Voice Over (VO)</span>
-                        </label>
-                        
-                        {enableVo && (
-                          <div className="space-y-1.5 animate-fadeIn">
-                            <span className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80] block">Pilih Bahasa Narasi</span>
-                            <select 
-                              value={voLanguage} 
-                              onChange={(e) => setVoLanguage(e.target.value)} 
-                              className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all font-semibold"
-                            >
-                              <option value="Bahasa Indonesia">Bahasa Indonesia</option>
-                              <option value="English">English</option>
-                              <option value="Bahasa Malaysia">Bahasa Malaysia</option>
-                              <option value="Japanese">Japanese (Jepang)</option>
-                              <option value="Mandarin">Mandarin (Cina)</option>
-                            </select>
-                          </div>
-                        )}
+                    {imageToVideoPrompt ? (
+                      <div className="space-y-2">
+                        <div className="bg-[#131211]/50 border border-[#2a2725] rounded-xl p-3.5 text-slate-350 text-[11px] leading-relaxed relative max-h-48 overflow-y-auto scrollbar-thin font-mono whitespace-pre-line">
+                          {imageToVideoPrompt}
+                        </div>
+                        <button
+                          onClick={() => {
+                            try {
+                              navigator.clipboard.writeText(imageToVideoPrompt);
+                              alert('Prompt Image-to-Video berhasil disalin!');
+                            } catch (e) {
+                              alert('Gagal menyalin.');
+                            }
+                          }}
+                          className="w-full bg-[#131211] hover:bg-[#1a1918] text-slate-300 font-bold py-2 px-3 rounded-lg border border-[#2a2725] text-[9px] uppercase tracking-widest flex items-center justify-center gap-1.5 transition-all"
+                        >
+                          Salin Prompt Image-to-Video (I2V)
+                        </button>
                       </div>
-                    )}
-
-                    {!selectedStoryboard.video_prompts ? (
-                      <button
-                        onClick={() => handleGenerateVideoPrompts(false)}
-                        disabled={videoPromptGenerating}
-                        className="w-full bg-[#cfae80]/10 hover:bg-[#cfae80]/20 text-[#cfae80] border border-[#cfae80]/30 font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 text-[9px] uppercase tracking-widest transition-all disabled:opacity-50"
-                      >
-                        {videoPromptGenerating ? (
-                          <>
-                            <Loader className="animate-spin w-3.5 h-3.5" />
-                            Membuat Prompt Video...
-                          </>
-                        ) : (
-                          <>
-                            📝 Generate Prompt Video & VO
-                          </>
-                        )}
-                      </button>
                     ) : (
-                      <div className="space-y-4">
-                        {/* Text-to-Video Card */}
-                        {textToVideoPrompt && (
-                          <div className="space-y-1.5">
-                            <span className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80] block">Prompt Text-to-Video (AI Video)</span>
-                            <div className="bg-[#131211]/50 border border-[#2a2725] rounded-xl p-3.5 text-slate-350 text-[11px] leading-relaxed relative max-h-36 overflow-y-auto scrollbar-thin font-mono">
-                              {textToVideoPrompt}
-                            </div>
-                            <button
-                              onClick={() => {
-                                try {
-                                  navigator.clipboard.writeText(textToVideoPrompt);
-                                  alert('Prompt Text-to-Video berhasil disalin!');
-                                } catch (e) {
-                                  alert('Gagal menyalin.');
-                                }
-                              }}
-                              className="w-full bg-[#131211] hover:bg-[#1a1918] text-slate-300 font-bold py-2 px-3 rounded-lg border border-[#2a2725] text-[9px] uppercase tracking-widest flex items-center justify-center gap-1.5 transition-all"
-                            >
-                              Salin Prompt Text-to-Video (T2V)
-                            </button>
+                      <div className="space-y-3">
+                        {generatingType !== 'image-to-video' && (
+                          <div className="flex flex-col gap-2.5 bg-[#131211]/30 border border-[#2a2725] rounded-xl p-3.5">
+                            <label className="flex items-center gap-2 cursor-pointer select-none">
+                              <input 
+                                type="checkbox" 
+                                checked={enableVoI2v} 
+                                onChange={(e) => setEnableVoI2v(e.target.checked)} 
+                                className="rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5"
+                              />
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300">Sertakan Voice Over (VO)</span>
+                            </label>
+                            
+                            {enableVoI2v && (
+                              <div className="space-y-1.5 animate-fadeIn">
+                                <span className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80] block">Pilih Bahasa Narasi</span>
+                                <select 
+                                  value={voLanguageI2v} 
+                                  onChange={(e) => setVoLanguageI2v(e.target.value)} 
+                                  className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all font-semibold"
+                                >
+                                  <option value="Bahasa Indonesia">Bahasa Indonesia</option>
+                                  <option value="English">English</option>
+                                  <option value="Bahasa Malaysia">Bahasa Malaysia</option>
+                                  <option value="Japanese">Japanese (Jepang)</option>
+                                  <option value="Mandarin">Mandarin (Cina)</option>
+                                </select>
+                              </div>
+                            )}
                           </div>
                         )}
-
-                        {/* Narration/VO Card */}
-                        {narration && (
-                          <div className="space-y-1.5 border-t border-[#2a2725]/60 pt-3 animate-fadeIn">
-                            <span className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80] block">Naskah Narasi / Voice Over (VO)</span>
-                            <div className="bg-[#131211]/50 border border-[#2a2725] rounded-xl p-3.5 text-slate-350 text-[11px] leading-relaxed relative max-h-36 overflow-y-auto scrollbar-thin">
-                              {narration}
-                            </div>
-                            <button
-                              onClick={() => {
-                                try {
-                                  navigator.clipboard.writeText(narration);
-                                  alert('Naskah narasi berhasil disalin!');
-                                } catch (e) {
-                                  alert('Gagal menyalin.');
-                                }
-                              }}
-                              className="w-full bg-[#cfae80]/15 hover:bg-[#cfae80]/20 text-[#cfae80] font-bold py-2 px-3 rounded-lg border border-[#cfae80]/30 text-[9px] uppercase tracking-widest flex items-center justify-center gap-1.5 transition-all"
-                            >
-                              Salin Naskah Narasi
-                            </button>
-                          </div>
-                        )}
+                        <button
+                          onClick={() => handleGenerateVideoPrompts('image-to-video', false)}
+                          disabled={generatingType !== null}
+                          className="w-full bg-[#cfae80]/10 hover:bg-[#cfae80]/20 text-[#cfae80] border border-[#cfae80]/30 font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 text-[9px] uppercase tracking-widest transition-all disabled:opacity-50"
+                        >
+                          {generatingType === 'image-to-video' ? (
+                            <>
+                              <Loader className="animate-spin w-3.5 h-3.5" />
+                              Membuat Prompt I2V...
+                            </>
+                          ) : (
+                            <>
+                              📝 Generate Prompt Image-to-Video
+                            </>
+                          )}
+                        </button>
                       </div>
                     )}
+                  </div>
 
+                  {/* Text-to-Video Section */}
+                  <div className="space-y-3 mt-4 pt-4 border-t border-[#2a2725]/60">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80]">
+                        Prompt Text-to-Video (AI Video)
+                      </span>
+                      {textToVideoPrompt && (
+                        <button
+                          onClick={() => handleGenerateVideoPrompts('text-to-video', true)}
+                          disabled={generatingType !== null}
+                          className="text-[8px] text-slate-400 hover:text-[#cfae80] font-bold uppercase tracking-widest transition-colors disabled:opacity-50"
+                        >
+                          {generatingType === 'text-to-video' ? 'Memproses...' : 'Tulis Ulang'}
+                        </button>
+                      )}
+                    </div>
+
+                    {textToVideoPrompt ? (
+                      <div className="space-y-2">
+                        <div className="bg-[#131211]/50 border border-[#2a2725] rounded-xl p-3.5 text-slate-350 text-[11px] leading-relaxed relative max-h-48 overflow-y-auto scrollbar-thin font-mono whitespace-pre-line">
+                          {textToVideoPrompt}
+                        </div>
+                        <button
+                          onClick={() => {
+                            try {
+                              navigator.clipboard.writeText(textToVideoPrompt);
+                              alert('Prompt Text-to-Video berhasil disalin!');
+                            } catch (e) {
+                              alert('Gagal menyalin.');
+                            }
+                          }}
+                          className="w-full bg-[#131211] hover:bg-[#1a1918] text-slate-300 font-bold py-2 px-3 rounded-lg border border-[#2a2725] text-[9px] uppercase tracking-widest flex items-center justify-center gap-1.5 transition-all"
+                        >
+                          Salin Prompt Text-to-Video (T2V)
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {generatingType !== 'text-to-video' && (
+                          <div className="flex flex-col gap-2.5 bg-[#131211]/30 border border-[#2a2725] rounded-xl p-3.5">
+                            <label className="flex items-center gap-2 cursor-pointer select-none">
+                              <input 
+                                type="checkbox" 
+                                checked={enableVoT2v} 
+                                onChange={(e) => setEnableVoT2v(e.target.checked)} 
+                                className="rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5"
+                              />
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300">Sertakan Voice Over (VO)</span>
+                            </label>
+                            
+                            {enableVoT2v && (
+                              <div className="space-y-1.5 animate-fadeIn">
+                                <span className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80] block">Pilih Bahasa Narasi</span>
+                                <select 
+                                  value={voLanguageT2v} 
+                                  onChange={(e) => setVoLanguageT2v(e.target.value)} 
+                                  className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all font-semibold"
+                                >
+                                  <option value="Bahasa Indonesia">Bahasa Indonesia</option>
+                                  <option value="English">English</option>
+                                  <option value="Bahasa Malaysia">Bahasa Malaysia</option>
+                                  <option value="Japanese">Japanese (Jepang)</option>
+                                  <option value="Mandarin">Mandarin (Cina)</option>
+                                </select>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        <button
+                          onClick={() => handleGenerateVideoPrompts('text-to-video', false)}
+                          disabled={generatingType !== null}
+                          className="w-full bg-[#cfae80]/10 hover:bg-[#cfae80]/20 text-[#cfae80] border border-[#cfae80]/30 font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 text-[9px] uppercase tracking-widest transition-all disabled:opacity-50"
+                        >
+                          {generatingType === 'text-to-video' ? (
+                            <>
+                              <Loader className="animate-spin w-3.5 h-3.5" />
+                              Membuat Prompt T2V...
+                            </>
+                          ) : (
+                            <>
+                              📝 Generate Prompt Text-to-Video
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="pt-2">
                     {videoPromptError && (
                       <p className="text-[9px] text-red-450 font-semibold mt-1">{videoPromptError}</p>
                     )}
