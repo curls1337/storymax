@@ -833,7 +833,8 @@ async function generateStoryboard(req, res) {
           promptType: 'image-to-video',
           regenerate: true,
           enableVo: !!enableVo,
-          voLanguage: enableVo ? voLanguage : undefined
+          voLanguage: enableVo ? voLanguage : undefined,
+          videoDuration: totalDuration
         });
         activeTasks[taskId].logs += `[AI Video Prompts] Prompt video berhasil di-generate secara otomatis.\n`;
       } catch (promptErr) {

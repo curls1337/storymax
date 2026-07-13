@@ -165,7 +165,7 @@ Anda harus mengembalikan respon hanya dalam format JSON mentah dengan key 'title
 }
 
 // Core internal function to generate video prompts using vision model (can be called by controller endpoints or background task)
-async function generateVideoPromptsInternal({ storyboardId, promptType, regenerate, enableVo, voLanguage }) {
+async function generateVideoPromptsInternal({ storyboardId, promptType, regenerate, enableVo, voLanguage, videoDuration }) {
   const db = getDb();
   
   // Retrieve storyboard
@@ -406,16 +406,16 @@ Please analyze the provided image sheet(s) carefully. Generate the requested JSO
 }
 
 async function generateVideoPrompts(req, res) {
-  const { storyboardId, promptType, regenerate, enableVo, voLanguage } = req.body;
+  const { storyboardId, promptType, regenerate, enableVo, voLanguage, videoDuration } = req.body;
   if (!storyboardId) {
     console.error('[AI Video Prompts] Missing storyboardId in request');
     return res.status(400).json({ message: 'Storyboard ID harus diisi.' });
   }
 
-  console.log(`[AI Video Prompts] Processing request for storyboard ID: ${storyboardId} (type: ${promptType}, regenerate: ${!!regenerate}, enableVo: ${!!enableVo}, voLanguage: ${voLanguage || 'N/A'})`);
+  console.log(`[AI Video Prompts] Processing request for storyboard ID: ${storyboardId} (type: ${promptType}, regenerate: ${!!regenerate}, enableVo: ${!!enableVo}, voLanguage: ${voLanguage || 'N/A'}, videoDuration: ${videoDuration})`);
 
   try {
-    const finalJsonStr = await generateVideoPromptsInternal({ storyboardId, promptType, regenerate, enableVo, voLanguage });
+    const finalJsonStr = await generateVideoPromptsInternal({ storyboardId, promptType, regenerate, enableVo, voLanguage, videoDuration });
     return res.json({ videoPrompts: finalJsonStr });
   } catch (error) {
     console.error('[AI Video Prompts Critical Error]:', error);
