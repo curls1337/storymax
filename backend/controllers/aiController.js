@@ -3,6 +3,7 @@ const path = require('path');
 const http = require('http');
 const https = require('https');
 const { getDb } = require('../db');
+const { uploadsDir } = require('../config');
 
 const LAYOUT_STYLES = [
   { value: 'cooking_grid', label: 'Cinematic Dark Storyboard Grid (Dark/Premium)' },
@@ -204,7 +205,8 @@ async function generateVideoPromptsInternal({ storyboardId, regenerate, enableVo
   for (let i = 0; i < panelImages.length; i++) {
     const imgPath = panelImages[i];
     if (imgPath.startsWith('/uploads/')) {
-      const fullPath = path.join(__dirname, '..', 'public', imgPath);
+      const relativeFilename = imgPath.replace(/^\/?uploads\//, '');
+      const fullPath = path.join(uploadsDir, relativeFilename);
       if (fs.existsSync(fullPath)) {
         const imgBuffer = fs.readFileSync(fullPath);
         const base64 = imgBuffer.toString('base64');

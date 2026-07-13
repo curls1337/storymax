@@ -5,6 +5,7 @@ const http = require('http');
 const https = require('https');
 const { getDb } = require('../db');
 const { scrapeTokopedia } = require('../lib/scrapers/tokopedia');
+const { uploadsDir } = require('../config');
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36";
 
@@ -131,7 +132,8 @@ function downloadFile(url, destPath) {
   return new Promise((resolve, reject) => {
     // If it's a relative path on the local server, copy it directly
     if (url.startsWith('/uploads/')) {
-      const srcPath = path.join(__dirname, '..', 'public', url);
+      const relativeFilename = url.replace(/^\/?uploads\//, '');
+      const srcPath = path.join(uploadsDir, relativeFilename);
       try {
         fs.copyFileSync(srcPath, destPath);
         resolve();
@@ -423,7 +425,7 @@ async function generateStoryboard(req, res) {
         }
       }
 
-      const publicDir = path.join(__dirname, '..', 'public', 'uploads');
+      const publicDir = uploadsDir;
       if (refImagesList.length > 0 && !fs.existsSync(publicDir)) {
         fs.mkdirSync(publicDir, { recursive: true });
       }
@@ -882,12 +884,14 @@ async function deleteStoryboard(req, res) {
         const arr = JSON.parse(sb.image_path);
         arr.forEach(img => {
           if (img.startsWith('/uploads/')) {
-            const filePath = path.join(__dirname, '..', 'public', img);
+            const relativeFilename = img.replace(/^\/?uploads\//, '');
+            const filePath = path.join(uploadsDir, relativeFilename);
             fs.unlink(filePath, () => {});
           }
         });
       } else if (sb.image_path.startsWith('/uploads/')) {
-        const filePath = path.join(__dirname, '..', 'public', sb.image_path);
+        const relativeFilename = sb.image_path.replace(/^\/?uploads\//, '');
+        const filePath = path.join(uploadsDir, relativeFilename);
         fs.unlink(filePath, () => {});
       }
     } catch (e) {
@@ -968,7 +972,8 @@ async function downloadProxy(req, res) {
     const filename = path.basename(url.split('?')[0]);
 
     if (isLocal) {
-      const fullPath = path.join(__dirname, '..', 'public', url);
+      const relativeFilename = url.replace(/^\/?uploads\//, '');
+      const fullPath = path.join(uploadsDir, relativeFilename);
       if (fs.existsSync(fullPath)) {
         return res.download(fullPath, filename);
       } else {
