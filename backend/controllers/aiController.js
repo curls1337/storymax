@@ -164,13 +164,13 @@ Anda harus mengembalikan respon hanya dalam format JSON mentah dengan key 'title
 }
 
 async function generateVideoPrompts(req, res) {
-  const { storyboardId, regenerate } = req.body;
+  const { storyboardId, regenerate, enableVo, voLanguage } = req.body;
   if (!storyboardId) {
     console.error('[AI Video Prompts] Missing storyboardId in request');
     return res.status(400).json({ message: 'Storyboard ID harus diisi.' });
   }
 
-  console.log(`[AI Video Prompts] Processing request for storyboard ID: ${storyboardId} (regenerate: ${!!regenerate})`);
+  console.log(`[AI Video Prompts] Processing request for storyboard ID: ${storyboardId} (regenerate: ${!!regenerate}, enableVo: ${!!enableVo}, voLanguage: ${voLanguage || 'N/A'})`);
 
   try {
     const db = getDb();
@@ -239,20 +239,36 @@ async function generateVideoPrompts(req, res) {
       }
     }
 
+    let systemInstruction = '';
+    if (enableVo) {
+      systemInstruction = `You are an expert AI Video Director and master video prompting engineer specializing in high-fidelity commercial video generation (for video tools like Kling, Luma, Runway, Sora, etc.).
+Your task is to analyze the provided storyboard or product showcase image sheet visually, matching them with the project title and narrative description to write:
+1. One single, highly-detailed, and comprehensive commercial video prompt in English (150-250 words) describing the product details, scene progression, and cinematic camera directions (e.g. pan, zoom, lighting).
+2. A voiceover narration script paragraph in the language: "${voLanguage || 'Bahasa Indonesia'}". The narration should flow naturally to match the visual scenes.
+
+You MUST return the output strictly in this JSON format (do not wrap in markdown \`\`\`json blocks):
+{
+  "visualPrompt": "<English visual prompt>",
+  "narration": "<Voiceover narration script in the requested language>"
+}`;
+    } else {
+      systemInstruction = `You are an expert AI Video Director and master video prompting engineer specializing in high-fidelity commercial video generation (for video tools like Kling, Luma, Runway, Sora, etc.).
+Your task is to analyze the provided storyboard or product showcase image sheet visually, matching them with the project title and narrative description to write:
+1. One single, highly-detailed, and comprehensive commercial video prompt in English (150-250 words) describing the product details, scene progression, and cinematic camera directions (e.g. pan, zoom, lighting).
+
+You MUST return the output strictly in this JSON format (do not wrap in markdown \`\`\`json blocks):
+{
+  "visualPrompt": "<English visual prompt>",
+  "narration": null
+}`;
+    }
+
     const payload = {
       model: settings?.model || 'gemini-3-flash',
       messages: [
         {
           role: 'system',
-          content: `You are an expert AI Video Director and master video prompting engineer specializing in high-fidelity commercial video generation (for video tools like Kling, Luma, Runway, Sora, etc.).
-Your task is to analyze the provided storyboard or product showcase image sheet visually, matching them with the project title and narrative description to write one single, highly-detailed, and comprehensive commercial video prompt.
-
-INSTRUCTIONS:
-1. Combine all visual details, text labels, colors, and textures from the entire image/storyboard into ONE SINGLE continuous paragraph (150-250 words).
-2. Describe the overall product details (e.g. brand name, exact colors, materials/textures, logos, labels).
-3. Describe the scene progression or showcase highlights sequentially in a natural, flowing narrative (e.g. "The video opens with... then transitions to... highlighting... and ends with...").
-4. Specify high-end cinematic photography: camera movement (slow pans, push-ins, close-up macro shots), lighting (soft studio lighting, delicate shadows, warm glow), and resolution/quality cues.
-5. Return ONLY the plain text paragraph prompt in English. Do NOT wrap it in JSON. Do NOT write "Scene 1:", "Scene 2:", or markdown tags. Just output the plain text paragraph.`
+          content: systemInstruction
         },
         {
           role: 'user',
@@ -262,7 +278,7 @@ INSTRUCTIONS:
               text: `Project Title: ${storyboard.title}
 Main Project Description: ${storyboard.prompt}
 
-Please analyze the provided image sheet(s) carefully. Generate a single, unified, highly-detailed video prompt paragraph in English describing all visual elements, text callouts, colors, and camera directions.`
+Please analyze the provided image sheet(s) carefully. Generate the requested JSON output containing visualPrompt (and narration if enabled).`
             },
             ...imageParts
           ]
@@ -279,7 +295,7 @@ Please analyze the provided image sheet(s) carefully. Generate a single, unified
     const response = await httpRequest(`${apiHost}/chat/completions`, headers, payload);
 
     if (response.statusCode !== 200) {
-      console.error('[AI Video Prompts Error] Vision API Status Code:', response.statusCode, 'Body:', response.body);
+      console.error('[AI Video Prompts Error] Vision Vision API Status Code:', response.statusCode, 'Body:', response.body);
       return res.status(500).json({ message: 'Gagal menghubungi server AI untuk menulis prompt video.', error: response.body });
     }
 
@@ -297,12 +313,30 @@ Please analyze the provided image sheet(s) carefully. Generate a single, unified
       return res.status(500).json({ message: 'Respon dari AI kosong.' });
     }
 
-    console.log('[AI Video Prompts] Prompt successfully written by AI:', cleanText.substring(0, 100) + '...');
+    let finalJsonStr = '';
+    try {
+      const parsed = JSON.parse(cleanText);
+      if (parsed && typeof parsed === 'object' && 'visualPrompt' in parsed) {
+        finalJsonStr = JSON.stringify(parsed);
+      } else {
+        finalJsonStr = JSON.stringify({
+          visualPrompt: cleanText,
+          narration: null
+        });
+      }
+    } catch (err) {
+      finalJsonStr = JSON.stringify({
+        visualPrompt: cleanText,
+        narration: null
+      });
+    }
 
-    // Save to DB as plain text string
-    await db.run('UPDATE storyboards SET video_prompts = ? WHERE id = ?', [cleanText, storyboardId]);
+    console.log('[AI Video Prompts] Prompt successfully written by AI:', finalJsonStr.substring(0, 100) + '...');
+
+    // Save to DB as JSON string
+    await db.run('UPDATE storyboards SET video_prompts = ? WHERE id = ?', [finalJsonStr, storyboardId]);
     console.log('[AI Video Prompts] Prompt successfully saved to database.');
-    return res.json({ videoPrompts: cleanText });
+    return res.json({ videoPrompts: finalJsonStr });
 
   } catch (error) {
     console.error('[AI Video Prompts Critical Error]:', error);

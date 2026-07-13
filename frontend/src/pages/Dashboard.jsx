@@ -41,6 +41,26 @@ export default function Dashboard({ setTab }) {
 
   const [videoPromptGenerating, setVideoPromptGenerating] = useState(false);
   const [videoPromptError, setVideoPromptError] = useState('');
+  const [enableVo, setEnableVo] = useState(false);
+  const [voLanguage, setVoLanguage] = useState('Bahasa Indonesia');
+
+  const parseVideoPrompts = (rawText) => {
+    if (!rawText) return { visualPrompt: '', narration: null };
+    try {
+      const parsed = JSON.parse(rawText);
+      if (parsed && typeof parsed === 'object' && 'visualPrompt' in parsed) {
+        return {
+          visualPrompt: parsed.visualPrompt || '',
+          narration: parsed.narration || null
+        };
+      }
+    } catch (e) {}
+    // Fallback for legacy plain text format
+    return {
+      visualPrompt: rawText,
+      narration: null
+    };
+  };
 
   const handleGenerateVideoPrompts = async (forceRegenerate = false) => {
     if (!selectedStoryboard) return;
@@ -49,7 +69,9 @@ export default function Dashboard({ setTab }) {
     try {
       const res = await api.post('/ai/video-prompts', { 
         storyboardId: selectedStoryboard.id,
-        regenerate: forceRegenerate
+        regenerate: forceRegenerate,
+        enableVo,
+        voLanguage: enableVo ? voLanguage : undefined
       });
       const videoPromptsStr = res.data.videoPrompts;
       
@@ -305,7 +327,7 @@ export default function Dashboard({ setTab }) {
                   </div>
 
                   {/* Video Prompt Generator UI */}
-                  <div className="space-y-2 mt-4 pt-4 border-t border-[#2a2725]/60">
+                  <div className="space-y-3 mt-4 pt-4 border-t border-[#2a2725]/60">
                     <div className="flex justify-between items-center">
                       <span className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80]">
                         Prompt Video AI
@@ -320,6 +342,38 @@ export default function Dashboard({ setTab }) {
                         </button>
                       )}
                     </div>
+
+                    {/* Settings Box (Always visible unless currently generating) */}
+                    {!videoPromptGenerating && (
+                      <div className="flex flex-col gap-2.5 bg-[#131211]/30 border border-[#2a2725] rounded-xl p-3.5">
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <input 
+                            type="checkbox" 
+                            checked={enableVo} 
+                            onChange={(e) => setEnableVo(e.target.checked)} 
+                            className="rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5"
+                          />
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300">Sertakan Voice Over (VO)</span>
+                        </label>
+                        
+                        {enableVo && (
+                          <div className="space-y-1.5 animate-fadeIn">
+                            <span className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80] block">Pilih Bahasa Narasi</span>
+                            <select 
+                              value={voLanguage} 
+                              onChange={(e) => setVoLanguage(e.target.value)} 
+                              className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all font-semibold"
+                            >
+                              <option value="Bahasa Indonesia">Bahasa Indonesia</option>
+                              <option value="English">English</option>
+                              <option value="Bahasa Malaysia">Bahasa Malaysia</option>
+                              <option value="Japanese">Japanese (Jepang)</option>
+                              <option value="Mandarin">Mandarin (Cina)</option>
+                            </select>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {!selectedStoryboard.video_prompts ? (
                       <button
@@ -338,29 +392,56 @@ export default function Dashboard({ setTab }) {
                           </>
                         )}
                       </button>
-                    ) : (
-                      <div className="space-y-3">
-                        <div className="bg-[#131211]/50 border border-[#2a2725] rounded-xl p-3.5 text-slate-350 text-[11px] leading-relaxed relative max-h-36 overflow-y-auto scrollbar-thin">
-                          {selectedStoryboard.video_prompts}
+                    ) : (() => {
+                      const { visualPrompt, narration } = parseVideoPrompts(selectedStoryboard.video_prompts);
+                      return (
+                        <div className="space-y-4">
+                          {/* Visual Prompt Card */}
+                          <div className="space-y-1.5">
+                            <span className="text-[8px] font-bold uppercase tracking-widest text-slate-400 block">Prompt Visual (AI Video)</span>
+                            <div className="bg-[#131211]/50 border border-[#2a2725] rounded-xl p-3.5 text-slate-350 text-[11px] leading-relaxed relative max-h-36 overflow-y-auto scrollbar-thin font-mono">
+                              {visualPrompt}
+                            </div>
+                            <button
+                              onClick={() => {
+                                try {
+                                  navigator.clipboard.writeText(visualPrompt);
+                                  alert('Prompt visual berhasil disalin!');
+                                } catch (e) {
+                                  alert('Gagal menyalin.');
+                                }
+                              }}
+                              className="w-full bg-[#131211] hover:bg-[#1a1918] text-slate-300 font-bold py-2 px-3 rounded-lg border border-[#2a2725] text-[9px] uppercase tracking-widest flex items-center justify-center gap-1.5 transition-all"
+                            >
+                              Salin Prompt Visual
+                            </button>
+                          </div>
+
+                          {/* Narration/VO Card */}
+                          {narration && (
+                            <div className="space-y-1.5 border-t border-[#2a2725]/60 pt-3 animate-fadeIn">
+                              <span className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80] block">Naskah Narasi / Voice Over (VO)</span>
+                              <div className="bg-[#131211]/50 border border-[#2a2725] rounded-xl p-3.5 text-slate-350 text-[11px] leading-relaxed relative max-h-36 overflow-y-auto scrollbar-thin">
+                                {narration}
+                              </div>
+                              <button
+                                onClick={() => {
+                                  try {
+                                    navigator.clipboard.writeText(narration);
+                                    alert('Naskah narasi berhasil disalin!');
+                                  } catch (e) {
+                                    alert('Gagal menyalin.');
+                                  }
+                                }}
+                                className="w-full bg-[#cfae80]/15 hover:bg-[#cfae80]/20 text-[#cfae80] font-bold py-2 px-3 rounded-lg border border-[#cfae80]/30 text-[9px] uppercase tracking-widest flex items-center justify-center gap-1.5 transition-all"
+                              >
+                                Salin Naskah Narasi
+                              </button>
+                            </div>
+                          )}
                         </div>
-                        
-                        <button
-                          onClick={() => {
-                            try {
-                              if (selectedStoryboard.video_prompts) {
-                                navigator.clipboard.writeText(selectedStoryboard.video_prompts);
-                                alert('Prompt video berhasil disalin ke clipboard!');
-                              }
-                            } catch (e) {
-                              alert('Gagal menyalin prompt.');
-                            }
-                          }}
-                          className="w-full bg-[#131211] hover:bg-[#1a1918] text-slate-300 font-bold py-2.5 px-4 rounded-xl border border-[#2a2725] text-[9px] uppercase tracking-widest flex items-center justify-center gap-1.5 transition-all"
-                        >
-                          Salin Prompt Video
-                        </button>
-                      </div>
-                    )}
+                      );
+                    })()}
 
                     {videoPromptError && (
                       <p className="text-[9px] text-red-450 font-semibold mt-1">{videoPromptError}</p>
