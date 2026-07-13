@@ -9,6 +9,9 @@ COPY package*.json ./
 COPY backend/package*.json ./backend/
 COPY frontend/package*.json ./frontend/
 
+# Remove Windows-generated package-lock.json files to force fresh resolution for Linux
+RUN rm -f package-lock.json backend/package-lock.json frontend/package-lock.json
+
 # Install all dependencies
 RUN npm install
 RUN npm install --prefix backend
