@@ -1,3 +1,9 @@
 [phases.setup]
 nixPkgs = ["...", "chromium"]
 
+[phases.build]
+cmds = [
+  "npm run build",
+  "npx playwright install --with-deps chromium"
+]
+
