@@ -241,6 +241,7 @@ export default function Dashboard({ setTab }) {
       {selectedStoryboard && (() => {
         const images = getResultImages(selectedStoryboard);
         const activeImg = images[modalCarouselIdx] || '';
+        const { imageToVideoPrompt, textToVideoPrompt, narration } = parseVideoPrompts(selectedStoryboard.video_prompts);
         return createPortal(
           <div 
             className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-start md:items-center justify-center p-4 py-8 md:py-8 z-50 overflow-y-auto select-text animate-fadeIn"
@@ -319,12 +320,29 @@ export default function Dashboard({ setTab }) {
                     {selectedStoryboard.title}
                   </h2>
 
-                  <div className="space-y-1.5">
-                    <span className="text-[8px] font-bold uppercase tracking-widest text-slate-500">Ide Storyboard Asli</span>
-                    <div className="bg-[#131211]/50 border border-[#2a2725] rounded-xl p-3.5 text-slate-400 text-xs leading-relaxed max-h-48 overflow-y-auto scrollbar-thin">
-                      {selectedStoryboard.prompt}
+                  {imageToVideoPrompt && (
+                    <div className="space-y-1.5">
+                      <span className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80]">
+                        Prompt Image-to-Video (SeedDance/Kling/Omni)
+                      </span>
+                      <div className="bg-[#131211]/50 border border-[#2a2725] rounded-xl p-3.5 text-slate-350 text-[11px] leading-relaxed relative max-h-36 overflow-y-auto scrollbar-thin font-mono">
+                        {imageToVideoPrompt}
+                      </div>
+                      <button
+                        onClick={() => {
+                          try {
+                            navigator.clipboard.writeText(imageToVideoPrompt);
+                            alert('Prompt Image-to-Video berhasil disalin!');
+                          } catch (e) {
+                            alert('Gagal menyalin.');
+                          }
+                        }}
+                        className="w-full bg-[#131211] hover:bg-[#1a1918] text-slate-300 font-bold py-2 px-3 rounded-lg border border-[#2a2725] text-[9px] uppercase tracking-widest flex items-center justify-center gap-1.5 transition-all mt-1"
+                      >
+                        Salin Prompt Image-to-Video (I2V)
+                      </button>
                     </div>
-                  </div>
+                  )}
 
                   {/* Video Prompt Generator UI */}
                   <div className="space-y-3 mt-4 pt-4 border-t border-[#2a2725]/60">
@@ -392,56 +410,55 @@ export default function Dashboard({ setTab }) {
                           </>
                         )}
                       </button>
-                    ) : (() => {
-                      const { visualPrompt, narration } = parseVideoPrompts(selectedStoryboard.video_prompts);
-                      return (
-                        <div className="space-y-4">
-                          {/* Visual Prompt Card */}
+                    ) : (
+                      <div className="space-y-4">
+                        {/* Text-to-Video Card */}
+                        {textToVideoPrompt && (
                           <div className="space-y-1.5">
-                            <span className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80] block">Prompt Image-to-Video (SeedDance/Kling/Omni)</span>
+                            <span className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80] block">Prompt Text-to-Video (AI Video)</span>
                             <div className="bg-[#131211]/50 border border-[#2a2725] rounded-xl p-3.5 text-slate-350 text-[11px] leading-relaxed relative max-h-36 overflow-y-auto scrollbar-thin font-mono">
-                              {visualPrompt}
+                              {textToVideoPrompt}
                             </div>
                             <button
                               onClick={() => {
                                 try {
-                                  navigator.clipboard.writeText(visualPrompt);
-                                  alert('Prompt visual berhasil disalin!');
+                                  navigator.clipboard.writeText(textToVideoPrompt);
+                                  alert('Prompt Text-to-Video berhasil disalin!');
                                 } catch (e) {
                                   alert('Gagal menyalin.');
                                 }
                               }}
                               className="w-full bg-[#131211] hover:bg-[#1a1918] text-slate-300 font-bold py-2 px-3 rounded-lg border border-[#2a2725] text-[9px] uppercase tracking-widest flex items-center justify-center gap-1.5 transition-all"
                             >
-                              Salin Prompt Video (I2V)
+                              Salin Prompt Text-to-Video (T2V)
                             </button>
                           </div>
+                        )}
 
-                          {/* Narration/VO Card */}
-                          {narration && (
-                            <div className="space-y-1.5 border-t border-[#2a2725]/60 pt-3 animate-fadeIn">
-                              <span className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80] block">Naskah Narasi / Voice Over (VO)</span>
-                              <div className="bg-[#131211]/50 border border-[#2a2725] rounded-xl p-3.5 text-slate-350 text-[11px] leading-relaxed relative max-h-36 overflow-y-auto scrollbar-thin">
-                                {narration}
-                              </div>
-                              <button
-                                onClick={() => {
-                                  try {
-                                    navigator.clipboard.writeText(narration);
-                                    alert('Naskah narasi berhasil disalin!');
-                                  } catch (e) {
-                                    alert('Gagal menyalin.');
-                                  }
-                                }}
-                                className="w-full bg-[#cfae80]/15 hover:bg-[#cfae80]/20 text-[#cfae80] font-bold py-2 px-3 rounded-lg border border-[#cfae80]/30 text-[9px] uppercase tracking-widest flex items-center justify-center gap-1.5 transition-all"
-                              >
-                                Salin Naskah Narasi
-                              </button>
+                        {/* Narration/VO Card */}
+                        {narration && (
+                          <div className="space-y-1.5 border-t border-[#2a2725]/60 pt-3 animate-fadeIn">
+                            <span className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80] block">Naskah Narasi / Voice Over (VO)</span>
+                            <div className="bg-[#131211]/50 border border-[#2a2725] rounded-xl p-3.5 text-slate-350 text-[11px] leading-relaxed relative max-h-36 overflow-y-auto scrollbar-thin">
+                              {narration}
                             </div>
-                          )}
-                        </div>
-                      );
-                    })()}
+                            <button
+                              onClick={() => {
+                                try {
+                                  navigator.clipboard.writeText(narration);
+                                  alert('Naskah narasi berhasil disalin!');
+                                } catch (e) {
+                                  alert('Gagal menyalin.');
+                                }
+                              }}
+                              className="w-full bg-[#cfae80]/15 hover:bg-[#cfae80]/20 text-[#cfae80] font-bold py-2 px-3 rounded-lg border border-[#cfae80]/30 text-[9px] uppercase tracking-widest flex items-center justify-center gap-1.5 transition-all"
+                            >
+                              Salin Naskah Narasi
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {videoPromptError && (
                       <p className="text-[9px] text-red-450 font-semibold mt-1">{videoPromptError}</p>

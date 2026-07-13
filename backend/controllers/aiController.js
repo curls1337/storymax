@@ -229,24 +229,28 @@ async function generateVideoPromptsInternal({ storyboardId, regenerate, enableVo
 
   let systemInstruction = '';
   if (enableVo) {
-    systemInstruction = `You are an expert AI Video Director and master video prompting engineer specializing in high-fidelity commercial image-to-video generation (for motion video tools like Kling, Luma, Runway, SeedDance, Omni, etc. where an image is used as the starting frame reference).
+    systemInstruction = `You are an expert AI Video Director and master video prompting engineer specializing in high-fidelity commercial video generation (for video tools like Kling, Luma, Runway, SeedDance, Omni, Sora, etc.).
 Your task is to analyze the provided storyboard or product showcase image sheet visually, matching them with the project title and narrative description to write:
-1. One single, highly-detailed, and comprehensive commercial motion and camera movement prompt in English (150-250 words) describing how the elements in the image should move, zoom, tilt, splash or slide (e.g. motion/action directions appropriate for an image-to-video prompt). Do not describe static elements from scratch, focus on camera action and animation motion.
-2. A voiceover narration script paragraph in the language: "${voLanguage || 'Bahasa Indonesia'}". The narration should flow naturally to match the visual scenes.
+1. One single, highly-detailed, and comprehensive commercial motion and camera movement prompt in English (150-250 words) named "imageToVideoPrompt". This is for image-to-video tools (like Kling, SeedDance, Omni) where the generated storyboard image is used as the reference frame. Focus on describing how the elements in the image should move, zoom, tilt, splash or slide (motion and camera action). Do not describe static elements from scratch.
+2. One single, highly-detailed, and comprehensive commercial text-to-video prompt in English (150-250 words) named "textToVideoPrompt". This describes the product details, scene setting, lighting, mood, camera style, and scene progression in full detail from scratch (for creating video purely from text).
+3. A voiceover narration script paragraph in the language: "${voLanguage || 'Bahasa Indonesia'}" named "narration". The narration should flow naturally to match the visual scenes.
 
 You MUST return the output strictly in this JSON format (do not wrap in markdown \`\`\`json blocks):
 {
-  "visualPrompt": "<English motion and camera prompt>",
+  "imageToVideoPrompt": "<English motion and camera prompt>",
+  "textToVideoPrompt": "<English text-to-video scene prompt>",
   "narration": "<Voiceover narration script in the requested language>"
 }`;
   } else {
-    systemInstruction = `You are an expert AI Video Director and master video prompting engineer specializing in high-fidelity commercial image-to-video generation (for motion video tools like Kling, Luma, Runway, SeedDance, Omni, etc. where an image is used as the starting frame reference).
+    systemInstruction = `You are an expert AI Video Director and master video prompting engineer specializing in high-fidelity commercial video generation (for video tools like Kling, Luma, Runway, SeedDance, Omni, Sora, etc.).
 Your task is to analyze the provided storyboard or product showcase image sheet visually, matching them with the project title and narrative description to write:
-1. One single, highly-detailed, and comprehensive commercial motion and camera movement prompt in English (150-250 words) describing how the elements in the image should move, zoom, tilt, splash or slide (e.g. motion/action directions appropriate for an image-to-video prompt). Do not describe static elements from scratch, focus on camera action and animation motion.
+1. One single, highly-detailed, and comprehensive commercial motion and camera movement prompt in English (150-250 words) named "imageToVideoPrompt". This is for image-to-video tools (like Kling, SeedDance, Omni) where the generated storyboard image is used as the reference frame. Focus on describing how the elements in the image should move, zoom, tilt, splash or slide (motion and camera action). Do not describe static elements from scratch.
+2. One single, highly-detailed, and comprehensive commercial text-to-video prompt in English (150-250 words) named "textToVideoPrompt". This describes the product details, scene setting, lighting, mood, camera style, and scene progression in full detail from scratch (for creating video purely from text).
 
 You MUST return the output strictly in this JSON format (do not wrap in markdown \`\`\`json blocks):
 {
-  "visualPrompt": "<English motion and camera prompt>",
+  "imageToVideoPrompt": "<English motion and camera prompt>",
+  "textToVideoPrompt": "<English text-to-video scene prompt>",
   "narration": null
 }`;
   }
@@ -266,7 +270,7 @@ You MUST return the output strictly in this JSON format (do not wrap in markdown
             text: `Project Title: ${storyboard.title}
 Main Project Description: ${storyboard.prompt}
 
-Please analyze the provided image sheet(s) carefully. Generate the requested JSON output containing visualPrompt (and narration if enabled).`
+Please analyze the provided image sheet(s) carefully. Generate the requested JSON output containing imageToVideoPrompt, textToVideoPrompt (and narration if enabled).`
           },
           ...imageParts
         ]
@@ -302,17 +306,26 @@ Please analyze the provided image sheet(s) carefully. Generate the requested JSO
   let finalJsonStr = '';
   try {
     const parsed = JSON.parse(cleanText);
-    if (parsed && typeof parsed === 'object' && 'visualPrompt' in parsed) {
+    if (parsed && typeof parsed === 'object' && 'imageToVideoPrompt' in parsed && 'textToVideoPrompt' in parsed) {
       finalJsonStr = JSON.stringify(parsed);
+    } else if (parsed && typeof parsed === 'object' && 'visualPrompt' in parsed) {
+      // Map old visualPrompt to textToVideoPrompt
+      finalJsonStr = JSON.stringify({
+        imageToVideoPrompt: null,
+        textToVideoPrompt: parsed.visualPrompt,
+        narration: parsed.narration
+      });
     } else {
       finalJsonStr = JSON.stringify({
-        visualPrompt: cleanText,
+        imageToVideoPrompt: null,
+        textToVideoPrompt: cleanText,
         narration: null
       });
     }
   } catch (err) {
     finalJsonStr = JSON.stringify({
-      visualPrompt: cleanText,
+      imageToVideoPrompt: null,
+      textToVideoPrompt: cleanText,
       narration: null
     });
   }
