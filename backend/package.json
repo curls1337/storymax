@@ -1,6 +1,7 @@
 {
   "name": "storymax-backend",
-  "version": "1.0.0",
+  "version": "1.0.1",
+  "cacheBust": "2",
   "description": "Backend API for storymax",
   "main": "server.js",
   "scripts": {
