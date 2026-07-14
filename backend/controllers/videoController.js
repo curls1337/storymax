@@ -225,6 +225,9 @@ async function generateVideo(req, res) {
                 [batchId, serialNo, videoRecordId]
               );
 
+              // Link the real Freebeat Batch ID to the logs in activeTasks
+              activeTasks[batchId] = activeTasks[taskId];
+
               // Spawn polling status workflow
               pollVideoStatus(videoRecordId, storyboardId, keyRecord.key_value, batchId, serialNo, taskId);
             } else {
@@ -835,6 +838,9 @@ async function generateAllVideos(req, res) {
                     'UPDATE generated_videos SET task_id = ?, serial_no = ? WHERE id = ?',
                     [batchId, serialNo, vRecId]
                   );
+
+                  // Link the real Freebeat Batch ID to the logs in activeTasks
+                  activeTasks[batchId] = activeTasks[tId];
 
                   const { pollVideoStatus } = require('./videoController');
                   pollVideoStatus(vRecId, storyboardId, kRec.key_value, batchId, serialNo, tId);
