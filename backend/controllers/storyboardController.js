@@ -392,13 +392,25 @@ async function generateStoryboard(req, res) {
   const totalDuration = duration ? Number(duration) : 15;
   const pageCount = Math.max(1, Math.min(4, Math.ceil(totalDuration / 15)));
 
+  const generationParams = JSON.stringify({
+    style,
+    gridCount: gridCount || 6,
+    model: selectedModel,
+    aspectRatio: aspectRatio || '1:1',
+    showFace: !!showFace,
+    duration: totalDuration,
+    enableVo: !!enableVo,
+    voLanguage: voLanguage || 'Bahasa Indonesia',
+    voTone: voTone || 'casual'
+  });
+
   // Create unique task ID immediately
   const taskId = 'task_' + Date.now();
   let storyboardId = null;
   try {
     const insertResult = await db.run(
-      'INSERT INTO storyboards (user_id, title, prompt, image_path, used_credits, api_key_id, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [req.user.id, title, prompt, '[]', 0, parsedApiKeyId, 'processing']
+      'INSERT INTO storyboards (user_id, title, prompt, image_path, used_credits, api_key_id, status, generation_params) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [req.user.id, title, prompt, '[]', 0, parsedApiKeyId, 'processing', generationParams]
     );
     storyboardId = insertResult.lastID;
   } catch (dbErr) {
@@ -1050,6 +1062,272 @@ async function downloadProxy(req, res) {
   }
 }
 
+async function regenerateStoryboardPage(req, res) {
+  const { id } = req.params;
+  const { pageIdx } = req.body;
+
+  if (pageIdx === undefined || pageIdx === null) {
+    return res.status(400).json({ message: 'Indeks halaman (pageIdx) wajib disertakan.' });
+  }
+
+  try {
+    const db = getDb();
+    
+    // Retrieve storyboard
+    const storyboard = await db.get('SELECT * FROM storyboards WHERE id = ? AND user_id = ?', [id, req.user.id]);
+    if (!storyboard) {
+      return res.status(404).json({ message: 'Storyboard tidak ditemukan.' });
+    }
+
+    // Parse image paths
+    let imagePaths = [];
+    try {
+      if (storyboard.image_path && storyboard.image_path.startsWith('[')) {
+        imagePaths = JSON.parse(storyboard.image_path);
+      } else {
+        imagePaths = storyboard.image_path ? [storyboard.image_path] : [];
+      }
+    } catch (e) {
+      imagePaths = storyboard.image_path ? [storyboard.image_path] : [];
+    }
+
+    if (pageIdx < 0 || pageIdx >= imagePaths.length) {
+      return res.status(400).json({ message: 'Indeks halaman di luar batas jangkauan.' });
+    }
+
+    // Resolve generation params with defaults
+    let genParams = {};
+    try {
+      if (storyboard.generation_params) {
+        genParams = JSON.parse(storyboard.generation_params);
+      }
+    } catch (e) {}
+
+    const style = genParams.style || 'anime';
+    const gridCount = genParams.gridCount || 6;
+    const model = genParams.model || '108';
+    const aspectRatio = genParams.aspectRatio || '1:1';
+    const showFace = genParams.showFace !== undefined ? genParams.showFace : false;
+    const pageCount = imagePaths.length;
+
+    // Retrieve API Key
+    let keyRecord = null;
+    if (storyboard.api_key_id) {
+      keyRecord = await db.get('SELECT * FROM api_keys WHERE id = ? AND is_active = 1', [storyboard.api_key_id]);
+    }
+    if (!keyRecord) {
+      // Dynamic fallback
+      const activeKeys = await db.all('SELECT * FROM api_keys WHERE is_active = 1');
+      if (activeKeys.length > 0) {
+        keyRecord = activeKeys[0];
+      }
+    }
+
+    if (!keyRecord) {
+      return res.status(400).json({ message: 'Tidak ada API Key Freebeat yang aktif atau valid untuk regenerasi.' });
+    }
+
+    // Create background task ID
+    const taskId = 'task_regen_' + Date.now();
+    res.json({ taskId, message: 'Proses regenerasi halaman dimulai di background.', status: 'processing' });
+
+    // Spawn background execution
+    (async () => {
+      try {
+        const { splitStoryboardPromptWithAI } = require('./aiController');
+        
+        activeTasks[taskId] = {
+          status: 'processing',
+          logs: `=== REGENERASI STORYBOARD PANEL (HALAMAN ${pageIdx + 1}) ===\n\n` +
+                `Judul Proyek : ${storyboard.title}\n` +
+                `Indeks Page  : Halaman ${pageIdx + 1}\n` +
+                `Model Gambar : ${model}\n` +
+                `Gaya Layout  : ${style}\n\n` +
+                `[1/3] Memisahkan kembali konsep cerita dengan AI...\n`,
+          result: null,
+          error: null
+        };
+
+        const subPrompts = await splitStoryboardPromptWithAI(storyboard.prompt, pageCount, db);
+        const pageConcept = (subPrompts && subPrompts[pageIdx]) ? subPrompts[pageIdx] : storyboard.prompt;
+        
+        const startScene = pageIdx * Number(gridCount) + 1;
+        let pagePrompt = getEnhancedPrompt(style, pageConcept, Number(gridCount) || 6, showFace, startScene);
+        pagePrompt = pagePrompt.replace(/"/g, "'");
+
+        activeTasks[taskId].logs += `[2/3] Mengirimkan perintah generate ke Freebeat...\n` +
+                                     `Prompt Halaman: ${pagePrompt}\n\n`;
+
+        // Spawn Freebeat CLI
+        const spawnCmd = 'node';
+        const cliPath = path.join(__dirname, '..', 'node_modules', 'freebeat-cli', 'dist', 'index.js');
+        const spawnArgs = [
+          cliPath,
+          '--api-key', keyRecord.key_value,
+          'image', 'generate',
+          '--model', model,
+          '--prompt', pagePrompt,
+          '--size', '1024x1024',
+          '--json'
+        ];
+
+        const child = spawn(spawnCmd, spawnArgs);
+        let stdoutData = '';
+        let stderrData = '';
+
+        child.stdout.on('data', (data) => {
+          stdoutData += data.toString();
+        });
+        child.stderr.on('data', (data) => {
+          stderrData += data.toString();
+        });
+
+        child.on('close', async (code) => {
+          if (code !== 0) {
+            const errorMsg = (stderrData.trim() || stdoutData.trim() || `Exit code ${code}`);
+            activeTasks[taskId].status = 'failed';
+            activeTasks[taskId].error = errorMsg;
+            activeTasks[taskId].logs += `[ERROR] Gagal mengirim perintah ke Freebeat: ${errorMsg}\n`;
+            return;
+          }
+
+          try {
+            const jsonLines = stdoutData.split('\n').filter(line => line.trim().startsWith('{') || line.trim().startsWith('['));
+            let submitResponse = null;
+            for (const line of jsonLines) {
+              try {
+                const parsed = JSON.parse(line.trim());
+                if (parsed.success && parsed.data) {
+                  submitResponse = parsed.data;
+                  break;
+                }
+              } catch (e) {}
+            }
+
+            if (!submitResponse && stdoutData.trim().startsWith('{')) {
+              try {
+                const parsed = JSON.parse(stdoutData.trim());
+                if (parsed.success && parsed.data) {
+                  submitResponse = parsed.data;
+                }
+              } catch (e) {}
+            }
+
+            if (!submitResponse) {
+              throw new Error('Respon submit dari Freebeat CLI tidak valid.');
+            }
+
+            const batchId = submitResponse.batchId;
+            if (!batchId) {
+              throw new Error('Gagal mendapatkan Batch ID.');
+            }
+
+            activeTasks[taskId].logs += `[3/3] Sukses submit! Batch ID: ${batchId}. Mulai polling status...\n`;
+
+            // Poll status until success
+            let attempt = 0;
+            const maxAttempts = 80;
+            const interval = setInterval(async () => {
+              attempt++;
+              if (attempt > maxAttempts) {
+                clearInterval(interval);
+                activeTasks[taskId].status = 'failed';
+                activeTasks[taskId].error = 'Timeout waiting for image generation.';
+                activeTasks[taskId].logs += `[ERROR] Waktu tunggu habis (Timeout).\n`;
+                return;
+              }
+
+              try {
+                const statusArgs = [
+                  cliPath,
+                  '--api-key', keyRecord.key_value,
+                  'task', 'status',
+                  batchId,
+                  '--json'
+                ];
+                const statusChild = spawn(spawnCmd, statusArgs);
+                let statusStdout = '';
+                statusChild.stdout.on('data', (d) => {
+                  statusStdout += d.toString();
+                });
+
+                statusChild.on('close', async (statusCode) => {
+                  if (statusCode !== 0) return;
+                  try {
+                    const parsedStatus = JSON.parse(statusStdout.trim());
+                    if (parsedStatus.success && parsedStatus.data) {
+                      const dataObj = parsedStatus.data;
+                      const item = dataObj?.items?.[0] || dataObj?.results?.[0];
+                      if (item) {
+                        const status = item.status || dataObj.status;
+                        if (status === 'SUCCESS' || status === 'COMPLETED' || status === 'completed') {
+                          clearInterval(interval);
+                          
+                          let remoteUrl = item.imageUrl || item.image_url || item.url || dataObj.imageUrl || dataObj.image_url;
+                          if (!remoteUrl && item.images && item.images.length > 0) {
+                            remoteUrl = item.images[0];
+                          }
+
+                          if (!remoteUrl) {
+                            activeTasks[taskId].status = 'failed';
+                            activeTasks[taskId].error = 'No image URL returned.';
+                            activeTasks[taskId].logs += `[ERROR] Respon sukses tetapi URL Gambar kosong.\n`;
+                            return;
+                          }
+
+                          activeTasks[taskId].logs += `[Status] Render Halaman ${pageIdx + 1} Sukses! Mengunduh gambar...\n`;
+
+                          // Download image locally
+                          const filename = `storyboard_${storyboard.id}_page_${pageIdx}_regen_${Date.now()}.png`;
+                          const destPath = path.join(uploadsDir, filename);
+                          
+                          await downloadFile(remoteUrl, destPath);
+
+                          const localUrl = `/uploads/${filename}`;
+                          imagePaths[pageIdx] = localUrl;
+
+                          // Update database
+                          const updatedPathsString = JSON.stringify(imagePaths);
+                          await db.run('UPDATE storyboards SET image_path = ? WHERE id = ?', [updatedPathsString, storyboard.id]);
+
+                          activeTasks[taskId].status = 'success';
+                          activeTasks[taskId].logs += `=== REGENERASI SELESAI ===\nHalaman ${pageIdx + 1} berhasil diperbarui!\n`;
+                          activeTasks[taskId].result = {
+                            id: storyboard.id,
+                            image_path: updatedPathsString
+                          };
+                        } else if (status === 'FAILED' || status === 'failed') {
+                          clearInterval(interval);
+                          activeTasks[taskId].status = 'failed';
+                          activeTasks[taskId].error = item.errorMessage || 'Render failed.';
+                          activeTasks[taskId].logs += `[ERROR] Render di Freebeat gagal.\n`;
+                        }
+                      }
+                    }
+                  } catch (e) {}
+                });
+              } catch (e) {}
+            }, 6000);
+
+          } catch (jsonErr) {
+            activeTasks[taskId].status = 'failed';
+            activeTasks[taskId].error = jsonErr.message;
+            activeTasks[taskId].logs += `[ERROR] Gagal memproses respon submit: ${jsonErr.message}\n`;
+          }
+        });
+
+      } catch (err) {
+        activeTasks[taskId].status = 'failed';
+        activeTasks[taskId].error = err.message;
+        activeTasks[taskId].logs += `[ERROR] Kesalahan fatal: ${err.message}\n`;
+      }
+    })();
+
+  } catch (error) {
+    res.status(500).json({ message: 'Gagal memulai regenerasi halaman.', error: error.message });
+  }
+}
+
 module.exports = {
   getUserStoryboards,
   generateStoryboard,
@@ -1059,5 +1337,6 @@ module.exports = {
   scrapeProductUrl,
   getActiveTasksDebug,
   downloadProxy,
+  regenerateStoryboardPage,
   activeTasks
 };

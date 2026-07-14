@@ -69,9 +69,51 @@ export default function Generator() {
   const [error, setError] = useState('');
   const [loadingKeys, setLoadingKeys] = useState(true);
   
+  const [regeneratingPages, setRegeneratingPages] = useState({});
+  const [regenLogs, setRegenLogs] = useState({});
+  
   const pollIntervalRef = useRef(null);
   const logContainerRef = useRef(null);
   const fileInputRef = useRef(null);
+
+  const handleRegeneratePage = async (storyboardId, pageIdx) => {
+    const confirmRegen = window.confirm(`Apakah Anda yakin ingin me-regenerasi Halaman ${pageIdx + 1}? (Proses ini membutuhkan beberapa kredit Freebeat).`);
+    if (!confirmRegen) return;
+
+    setRegeneratingPages(prev => ({ ...prev, [pageIdx]: true }));
+    setRegenLogs(prev => ({ ...prev, [pageIdx]: 'Memulai proses regenerasi halaman...\n' }));
+
+    try {
+      const res = await api.post(`/storyboards/${storyboardId}/regenerate-page`, { pageIdx });
+      const taskId = res.data.taskId;
+
+      const interval = setInterval(async () => {
+        try {
+          const statusRes = await api.get(`/storyboards/tasks/${taskId}`);
+          const task = statusRes.data;
+          setRegenLogs(prev => ({ ...prev, [pageIdx]: task.logs || '' }));
+
+          if (task.status === 'success') {
+            clearInterval(interval);
+            setRegeneratingPages(prev => ({ ...prev, [pageIdx]: false }));
+            setResult(prev => ({
+              ...prev,
+              image_path: task.result.image_path
+            }));
+            alert(`Halaman ${pageIdx + 1} sukses diregenerasi!`);
+          } else if (task.status === 'failed') {
+            clearInterval(interval);
+            setRegeneratingPages(prev => ({ ...prev, [pageIdx]: false }));
+            alert(`Gagal meregenerasi Halaman ${pageIdx + 1}: ${task.error || 'Unknown error'}`);
+          }
+        } catch (e) {}
+      }, 4000);
+    } catch (err) {
+      console.error(err);
+      setRegeneratingPages(prev => ({ ...prev, [pageIdx]: false }));
+      alert(err.response?.data?.message || 'Gagal meregenerasi halaman.');
+    }
+  };
 
   const fetchKeys = async () => {
     try {
@@ -659,10 +701,27 @@ export default function Generator() {
                               <div className="absolute top-2 left-2 bg-black/80 text-[#cfae80] font-bold text-[8px] px-2 py-1 rounded-md border border-[#cfae80]/20">
                                 Halaman {idx + 1}
                               </div>
+                              {regeneratingPages[idx] && (
+                                <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center p-3 z-10 space-y-2">
+                                  <Loader className="animate-spin text-[#cfae80] w-6 h-6" />
+                                  <span className="text-[8px] font-bold text-[#cfae80] uppercase tracking-widest animate-pulse">Regenerasi...</span>
+                                  <div className="w-full bg-[#131211] border border-[#2a2725] rounded-lg p-1.5 h-24 overflow-y-auto text-[7px] text-slate-400 font-mono scrollbar-thin whitespace-pre-line leading-normal text-left">
+                                    {regenLogs[idx] || 'Mengantre...'}
+                                  </div>
+                                </div>
+                              )}
                             </div>
-                            <div className="flex gap-2 w-full justify-between pt-1">
-                              <a href={getFullImageUrl(img)} target="_blank" rel="noopener noreferrer" className="flex-grow bg-[#131211] hover:bg-[#1a1918] text-slate-200 font-bold py-2 rounded-xl border border-[#2a2725] text-[10px] uppercase tracking-wider text-center flex items-center justify-center gap-1"><ExternalLink className="w-3 h-3 text-[#cfae80]" /> Full</a>
-                              <a href={`/api/storyboards/download?url=${encodeURIComponent(getFullImageUrl(img))}`} download className="flex-grow bg-[#cfae80] hover:bg-[#c5a880] text-black font-extrabold py-2 rounded-xl text-[10px] uppercase tracking-wider text-center flex items-center justify-center gap-1 shadow-md"><Download className="w-3 h-3" /> Unduh</a>
+                            <div className="flex gap-1.5 w-full justify-between pt-1">
+                              <a href={getFullImageUrl(img)} target="_blank" rel="noopener noreferrer" className="flex-1 bg-[#131211] hover:bg-[#1a1918] text-slate-200 font-bold py-2 rounded-xl border border-[#2a2725] text-[9px] uppercase tracking-wider text-center flex items-center justify-center gap-1"><ExternalLink className="w-3 h-3 text-[#cfae80]" /> Full</a>
+                              <a href={`/api/storyboards/download?url=${encodeURIComponent(getFullImageUrl(img))}`} download className="flex-1 bg-[#131211] hover:bg-[#1a1918] text-slate-200 font-bold py-2 rounded-xl border border-[#2a2725] text-[9px] uppercase tracking-wider text-center flex items-center justify-center gap-1"><Download className="w-3 h-3" /> Unduh</a>
+                              <button
+                                type="button"
+                                disabled={regeneratingPages[idx]}
+                                onClick={() => handleRegeneratePage(result.id, idx)}
+                                className="flex-1 bg-[#cfae80]/10 hover:bg-[#cfae80]/20 text-[#cfae80] border border-[#cfae80]/30 font-bold py-2 rounded-xl text-[9px] uppercase tracking-wider text-center flex items-center justify-center gap-1 transition-all disabled:opacity-50"
+                              >
+                                🔄 Regen
+                              </button>
                             </div>
                           </div>
                         ))}
@@ -670,11 +729,29 @@ export default function Generator() {
                     ) : (
                       <div className="flex-grow flex flex-col items-center justify-center space-y-5 w-full">
                         <div className="relative w-full border border-[#2a2725] rounded-3xl overflow-hidden bg-black/80 flex justify-center items-center max-h-[500px] min-h-[350px] group">
-                          <img src={getFullImageUrl(activeImg)} alt="Result" className="max-w-full max-h-[500px] object-contain" />
+                          {regeneratingPages[0] ? (
+                            <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center p-6 space-y-3 z-10">
+                              <Loader className="animate-spin text-[#cfae80] w-8 h-8" />
+                              <span className="text-xs font-bold text-[#cfae80] uppercase tracking-widest animate-pulse">Meregenerasi Halaman...</span>
+                              <div className="max-w-md w-full bg-[#131211] border border-[#2a2725] rounded-xl p-4 h-36 overflow-y-auto text-[9px] text-slate-400 font-mono scrollbar-thin whitespace-pre-line leading-relaxed text-left">
+                                {regenLogs[0] || 'Mengantre...'}
+                              </div>
+                            </div>
+                          ) : (
+                            <img src={getFullImageUrl(activeImg)} alt="Result" className="max-w-full max-h-[500px] object-contain" />
+                          )}
                         </div>
-                        <div className="flex flex-wrap gap-4 justify-end border-t border-[#2a2725] pt-5 w-full">
-                          <a href={getFullImageUrl(activeImg)} target="_blank" rel="noopener noreferrer" className="bg-[#131211] hover:bg-[#1a1918] text-slate-200 font-bold py-3.5 px-5 rounded-2xl flex items-center gap-1.5 border border-[#2a2725] text-xs uppercase tracking-wider"><ExternalLink className="w-4 h-4 text-[#cfae80]" /> Resolusi Penuh</a>
-                          <a href={`/api/storyboards/download?url=${encodeURIComponent(getFullImageUrl(activeImg))}`} download className="bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-3.5 px-6 rounded-2xl flex items-center gap-1.5 shadow-lg text-xs uppercase tracking-wider"><Download className="w-4 h-4" /> Unduh</a>
+                        <div className="flex flex-wrap gap-3 justify-end border-t border-[#2a2725] pt-5 w-full">
+                          <a href={getFullImageUrl(activeImg)} target="_blank" rel="noopener noreferrer" className="bg-[#131211] hover:bg-[#1a1918] text-slate-200 font-bold py-3.5 px-4 rounded-2xl flex items-center gap-1.5 border border-[#2a2725] text-xs uppercase tracking-wider"><ExternalLink className="w-4 h-4 text-[#cfae80]" /> Resolusi Penuh</a>
+                          <a href={`/api/storyboards/download?url=${encodeURIComponent(getFullImageUrl(activeImg))}`} download className="bg-[#131211] hover:bg-[#1a1918] text-slate-200 font-bold py-3.5 px-4 rounded-2xl flex items-center gap-1.5 border border-[#2a2725] text-xs uppercase tracking-wider"><Download className="w-4 h-4" /> Unduh</a>
+                          <button
+                            type="button"
+                            disabled={regeneratingPages[0]}
+                            onClick={() => handleRegeneratePage(result.id, 0)}
+                            className="bg-[#cfae80]/10 hover:bg-[#cfae80]/20 text-[#cfae80] border border-[#cfae80]/30 font-bold py-3.5 px-5 rounded-2xl flex items-center gap-1.5 transition-all text-xs uppercase tracking-wider disabled:opacity-50"
+                          >
+                            🔄 Regenerasi Halaman
+                          </button>
                         </div>
                       </div>
                     )}

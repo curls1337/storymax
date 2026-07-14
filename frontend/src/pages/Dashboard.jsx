@@ -101,6 +101,56 @@ export default function Dashboard({ setTab }) {
   const [videoGenerateAudio, setVideoGenerateAudio] = useState(false);
   const [apiKeys, setApiKeys] = useState([]);
   const [selectedApiKeyId, setSelectedApiKeyId] = useState('auto');
+  
+  const [regeneratingPages, setRegeneratingPages] = useState({});
+  const [regenLogs, setRegenLogs] = useState({});
+
+  const handleRegeneratePage = async (storyboardId, pageIdx) => {
+    const confirmRegen = window.confirm(`Apakah Anda yakin ingin me-regenerasi Halaman ${pageIdx + 1}? (Proses ini membutuhkan beberapa kredit Freebeat).`);
+    if (!confirmRegen) return;
+
+    setRegeneratingPages(prev => ({ ...prev, [pageIdx]: true }));
+    setRegenLogs(prev => ({ ...prev, [pageIdx]: 'Memulai proses regenerasi halaman...\n' }));
+
+    try {
+      const res = await api.post(`/storyboards/${storyboardId}/regenerate-page`, { pageIdx });
+      const taskId = res.data.taskId;
+
+      const interval = setInterval(async () => {
+        try {
+          const statusRes = await api.get(`/storyboards/tasks/${taskId}`);
+          const task = statusRes.data;
+          setRegenLogs(prev => ({ ...prev, [pageIdx]: task.logs || '' }));
+
+          if (task.status === 'success') {
+            clearInterval(interval);
+            setRegeneratingPages(prev => ({ ...prev, [pageIdx]: false }));
+            
+            setSelectedStoryboard(prev => ({
+              ...prev,
+              image_path: task.result.image_path
+            }));
+            
+            setStoryboards(prev => prev.map(sb => {
+              if (sb.id === storyboardId) {
+                return { ...sb, image_path: task.result.image_path };
+              }
+              return sb;
+            }));
+            alert(`Halaman ${pageIdx + 1} sukses diregenerasi!`);
+          } else if (task.status === 'failed') {
+            clearInterval(interval);
+            setRegeneratingPages(prev => ({ ...prev, [pageIdx]: false }));
+            alert(`Gagal meregenerasi Halaman ${pageIdx + 1}: ${task.error || 'Unknown error'}`);
+          }
+        } catch (e) {}
+      }, 4000);
+    } catch (err) {
+      console.error(err);
+      setRegeneratingPages(prev => ({ ...prev, [pageIdx]: false }));
+      alert(err.response?.data?.message || 'Gagal meregenerasi halaman.');
+    }
+  };
 
   const VIDEO_MODELS = [
     { value: 'pixverse-c1', label: 'Pixverse C1 (1-15s, Audio)', durations: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15], resolutions: ['360p', '540p', '720p', '1080p'], supportsAudio: true },
@@ -562,11 +612,21 @@ export default function Dashboard({ setTab }) {
 
               {/* Left Side: Large Image Carousel */}
               <div className="md:w-2/5 bg-black/80 flex items-center justify-center relative min-h-[300px] md:min-h-0 border-b md:border-b-0 md:border-r border-[#2a2725]">
-                <img
-                  src={getSpecificImageUrl(activeImg)}
-                  alt={selectedStoryboard.title}
-                  className="w-full h-full object-contain max-h-[50vh] md:max-h-[80vh]"
-                />
+                {regeneratingPages[modalCarouselIdx] ? (
+                  <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center p-6 space-y-3 z-10 animate-fadeIn">
+                    <Loader className="animate-spin text-[#cfae80] w-8 h-8" />
+                    <span className="text-xs font-bold text-[#cfae80] uppercase tracking-widest animate-pulse">Meregenerasi Halaman...</span>
+                    <div className="max-w-md w-full bg-[#131211] border border-[#2a2725] rounded-xl p-4 h-36 overflow-y-auto text-[9px] text-slate-400 font-mono scrollbar-thin whitespace-pre-line leading-relaxed text-left">
+                      {regenLogs[modalCarouselIdx] || 'Mengantre...'}
+                    </div>
+                  </div>
+                ) : (
+                  <img
+                    src={getSpecificImageUrl(activeImg)}
+                    alt={selectedStoryboard.title}
+                    className="w-full h-full object-contain max-h-[50vh] md:max-h-[80vh]"
+                  />
+                )}
                 
                 {/* Carousel Navigation */}
                 {images.length > 1 && (
@@ -1457,6 +1517,14 @@ export default function Dashboard({ setTab }) {
                       Unduh
                     </a>
                   </div>
+                  
+                  <button
+                    disabled={regeneratingPages[modalCarouselIdx]}
+                    onClick={() => handleRegeneratePage(selectedStoryboard.id, modalCarouselIdx)}
+                    className="w-full bg-[#cfae80]/15 hover:bg-[#cfae80]/25 text-[#cfae80] border border-[#cfae80]/30 font-bold py-2.5 px-4 rounded-xl text-[10px] uppercase tracking-widest flex items-center justify-center gap-1.5 transition-all disabled:opacity-50"
+                  >
+                    🔄 Regenerasi Halaman Ini
+                  </button>
                   
                   <button
                     onClick={() => handleDelete(selectedStoryboard.id)}

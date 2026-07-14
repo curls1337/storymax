@@ -80,6 +80,13 @@ async function initDb() {
     // Column already exists, safe to ignore
   }
 
+  // Ensure generation_params column exists if table was already created (migration support)
+  try {
+    await db.exec('ALTER TABLE storyboards ADD COLUMN generation_params TEXT');
+  } catch (e) {
+    // Column already exists, safe to ignore
+  }
+
   // Create AI Settings Table
   await db.exec(`
     CREATE TABLE IF NOT EXISTS ai_settings (
