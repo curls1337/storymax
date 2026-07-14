@@ -110,12 +110,11 @@ async function deleteUser(req, res) {
 async function getAllKeys(req, res) {
   try {
     const db = getDb();
-    // Fetch keys along with total credits consumed
     const keys = await db.all(`
-      SELECT k.id, k.key_value, k.label, k.is_active, COALESCE(SUM(s.used_credits), 0) AS total_credits 
-      FROM api_keys k 
-      LEFT JOIN storyboards s ON k.id = s.api_key_id 
-      GROUP BY k.id
+      SELECT k.id, k.key_value, k.label, k.is_active,
+             (COALESCE((SELECT SUM(s.used_credits) FROM storyboards s WHERE s.api_key_id = k.id), 0) +
+              COALESCE((SELECT SUM(v.used_credits) FROM generated_videos v WHERE v.api_key_id = k.id), 0)) AS total_credits
+      FROM api_keys k
     `);
     
     // Mask keys before sending

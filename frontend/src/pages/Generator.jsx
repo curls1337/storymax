@@ -63,6 +63,7 @@ export default function Generator() {
   const [showLogModal, setShowLogModal] = useState(true);
   const [enableVo, setEnableVo] = useState(false);
   const [voLanguage, setVoLanguage] = useState('Bahasa Indonesia');
+  const [voTone, setVoTone] = useState('casual');
   
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
@@ -268,7 +269,8 @@ export default function Generator() {
         showFace,
         aspectRatio,
         enableVo,
-        voLanguage: enableVo ? voLanguage : undefined
+        voLanguage: enableVo ? voLanguage : undefined,
+        voTone: enableVo ? voTone : undefined
       });
       const { taskId } = res.data;
       setCurrentTaskId(taskId);
@@ -569,20 +571,39 @@ export default function Generator() {
             </label>
             
             {enableVo && (
-              <div className="space-y-1.5 animate-fadeIn">
-                <label className="block text-slate-350 text-[10px] font-bold uppercase tracking-widest block">Pilih Bahasa Narasi</label>
-                <select 
-                  value={voLanguage} 
-                  onChange={(e) => setVoLanguage(e.target.value)} 
-                  className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs font-semibold"
-                  disabled={generating}
-                >
-                  <option value="Bahasa Indonesia">Bahasa Indonesia</option>
-                  <option value="English">English</option>
-                  <option value="Bahasa Malaysia">Bahasa Malaysia</option>
-                  <option value="Japanese">Japanese (Jepang)</option>
-                  <option value="Mandarin">Mandarin (Cina)</option>
-                </select>
+              <div className="space-y-3 animate-fadeIn">
+                <div className="space-y-1.5">
+                  <label className="block text-slate-350 text-[10px] font-bold uppercase tracking-widest block">Pilih Bahasa Narasi</label>
+                  <select 
+                    value={voLanguage} 
+                    onChange={(e) => setVoLanguage(e.target.value)} 
+                    className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs font-semibold"
+                    disabled={generating}
+                  >
+                    <option value="Bahasa Indonesia">Bahasa Indonesia</option>
+                    <option value="English">English</option>
+                    <option value="Bahasa Malaysia">Bahasa Malaysia</option>
+                    <option value="Japanese">Japanese (Jepang)</option>
+                    <option value="Mandarin">Mandarin (Cina)</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="block text-slate-350 text-[10px] font-bold uppercase tracking-widest block">Gaya Bahasa Narasi</label>
+                  <select 
+                    value={voTone} 
+                    onChange={(e) => setVoTone(e.target.value)} 
+                    className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs font-semibold"
+                    disabled={generating}
+                  >
+                    <option value="casual">Casual / Santai (Akrab)</option>
+                    <option value="comedy">Comedy / Humor (Lucu)</option>
+                    <option value="excited">Excited / Antusias (Selling/Promo)</option>
+                    <option value="formal">Formal / Serius (Edukasi)</option>
+                    <option value="emotional">Emotional / Menyentuh (Hangat)</option>
+                    <option value="storytelling">Storytelling / Bercerita</option>
+                    <option value="dramatic">Dramatic / Misterius (Tegang)</option>
+                  </select>
+                </div>
               </div>
             )}
           </div>
@@ -601,7 +622,25 @@ export default function Generator() {
           {generating ? (
             <div className="flex-grow flex flex-col items-center justify-center py-16 space-y-6">
               <div className="relative flex items-center justify-center"><Loader className="animate-spin text-[#cfae80] w-12 h-12" /><Zap className="absolute text-[#cfae80] w-4 h-4 fill-[#cfae80]/10 animate-pulse" /></div>
-              <div className="text-center max-w-sm"><p className="text-white font-editorial italic text-lg">Membuat Storyboard AI...</p><p className="text-slate-450 text-xs mt-1.5 leading-relaxed">Sistem sedang merender visual menggunakan GPU server. Proses ini memakan waktu beberapa menit.</p></div>
+              <div className="text-center max-w-sm">
+                <p className="text-white font-editorial italic text-lg">Membuat Storyboard AI...</p>
+                <p className="text-slate-450 text-xs mt-1.5 leading-relaxed">Sistem sedang merender visual menggunakan GPU server. Proses ini memakan waktu beberapa menit.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm('Apakah Anda yakin ingin memulai pembuatan storyboard baru? Generasi yang sedang berjalan akan tetap diproses di latar belakang dan dapat dilihat di Dashboard.')) {
+                    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+                    localStorage.removeItem('activeTaskId');
+                    setGenerating(false);
+                    setCurrentTaskId(null);
+                    setTaskLogs('');
+                  }
+                }}
+                className="bg-[#1a1918] hover:bg-[#252422] text-[#cfae80] border border-[#cfae80]/30 font-bold py-2 px-5 rounded-xl text-[10px] uppercase tracking-widest transition-all mt-4"
+              >
+                ⚙️ Buat Storyboard Baru
+              </button>
             </div>
           ) : result ? (
             <div className="flex-grow flex flex-col justify-between space-y-6 animate-fadeIn w-full">

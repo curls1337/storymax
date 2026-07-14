@@ -165,7 +165,7 @@ Anda harus mengembalikan respon hanya dalam format JSON mentah dengan key 'title
 }
 
 // Core internal function to generate video prompts using vision model (can be called by controller endpoints or background task)
-async function generateVideoPromptsInternal({ storyboardId, promptType, regenerate, enableVo, voLanguage, videoDuration }) {
+async function generateVideoPromptsInternal({ storyboardId, promptType, regenerate, enableVo, voLanguage, voTone, videoDuration }) {
   const db = getDb();
   
   // Retrieve storyboard
@@ -267,6 +267,21 @@ async function generateVideoPromptsInternal({ storyboardId, promptType, regenera
     durationClause = `The target video duration is: ${seconds} seconds. If Voiceover (VO) is enabled, you MUST adjust the length of the narration paragraph so it fits exactly within this duration (roughly 2.5 to 3 words per second, meaning the narration MUST contain approximately ${targetWords} words).`;
   }
 
+  let toneClause = '';
+  if (enableVo && voTone) {
+    const toneRules = {
+      'casual': 'Gaya bahasa SANTAI, AKRAB, GAUL, menggunakan kata-kata sehari-hari seperti "kamu", "yuk", "nih", "lho", layaknya berbicara dengan teman akrab. Hindari kata-kata formal.',
+      'comedy': 'Gaya bahasa LUCU, HUMORIS, PENUH CANDAAN, dan MENGHIBUR. Gunakan plesetan ringan atau ekspresi jenaka agar audiens tertawa.',
+      'excited': 'Gaya bahasa SANGAT ANTUSIAS, BERSEMANGAT, PROMOSIONAL (SELLING), bernada tinggi, persuasif, menarik perhatian (clickbait-style), penuh energi untuk jualan/promo.',
+      'formal': 'Gaya bahasa RESMI, SERIUS, EDUKATIF, profesional, menggunakan tata bahasa yang baik dan benar (EYD/PUEBI), informatif dan berwibawa.',
+      'emotional': 'Gaya bahasa MENYENTUH HATI, EMOSIONAL, EMPATIS, HANGAT, puitis, dan penuh perasaan agar menyentuh sisi kemanusiaan atau perasaan terdalam audiens.',
+      'storytelling': 'Gaya bahasa BERCERITA (Storytelling), naratif, mengalir seperti mendongeng, membuat penasaran dengan alur cerita yang memikat.',
+      'dramatic': 'Gaya bahasa DRAMATIS, TEGANG, MISTERIUS, penuh penekanan (suspenseful), seolah ada rahasia besar atau sesuatu yang luar biasa akan terjadi.'
+    };
+    const toneDesc = toneRules[voTone] || voTone;
+    toneClause = `Crucial: The tone and writing style of the voiceover script MUST strictly follow this style (in the narration language): "${toneDesc}". You must rewrite the narration using vocabulary, slang, emotional triggers, or structural patterns that perfectly match this style. For example, if it is casual or comedy, use slang and conversational Indonesian.`;
+  }
+
   let systemInstruction = '';
   if (targetType === 'image-to-video') {
     if (enableVo) {
@@ -279,7 +294,7 @@ To ensure the video is not static and follows the scenes, follow these strict ru
 - **Sequential Scene Progression**: Guide the video model through the sequence of events shown in the storyboard panels. (e.g., "Starts with the initial frame. Then, the camera pans smoothly to the right as the character begins to [action from next panel], followed by a transition where the camera zooms in on [action from next panel]...").
 - **Dynamic Motion & Camera Actions**: Explicitly use strong motion commands (e.g., "smooth tracking shot", "camera rotates around the subject", "elements float and swirl in slow motion", "fluid character gestures and movement", "water splashes dynamically", "lighting changes smoothly").
 - **Continuous Action**: Instruct the model to keep the subject active and moving throughout the entire video duration. Avoid static camera frames.
-2. A voiceover narration script paragraph in the language: "${voLanguage || 'Bahasa Indonesia'}". The narration should flow naturally to match the motion and chronological scene progression.
+2. A voiceover narration script paragraph in the language: "${voLanguage || 'Bahasa Indonesia'}". ${toneClause} The narration should flow naturally to match the motion and chronological scene progression.
 
 You MUST return the output strictly in this JSON format (do not wrap in markdown \`\`\`json blocks):
 {
@@ -309,7 +324,7 @@ You MUST return the output strictly in this JSON format (do not wrap in markdown
 ${durationClause}
 Your task is to analyze the provided storyboard or product showcase image sheet visually, matching them with the project title and narrative description to write:
 1. One single, highly-detailed, and comprehensive text-to-video scene prompt in English (150-250 words) describing the product details, scene setting, lighting, mood, camera style, and scene progression in full detail from scratch.
-2. A voiceover narration script paragraph in the language: "${voLanguage || 'Bahasa Indonesia'}". The narration should flow naturally to match the scene.
+2. A voiceover narration script paragraph in the language: "${voLanguage || 'Bahasa Indonesia'}". ${toneClause} The narration should flow naturally to match the scene.
 
 You MUST return the output strictly in this JSON format (do not wrap in markdown \`\`\`json blocks):
 {
@@ -406,16 +421,16 @@ Please analyze the provided image sheet(s) carefully. Generate the requested JSO
 }
 
 async function generateVideoPrompts(req, res) {
-  const { storyboardId, promptType, regenerate, enableVo, voLanguage, videoDuration } = req.body;
+  const { storyboardId, promptType, regenerate, enableVo, voLanguage, voTone, videoDuration } = req.body;
   if (!storyboardId) {
     console.error('[AI Video Prompts] Missing storyboardId in request');
     return res.status(400).json({ message: 'Storyboard ID harus diisi.' });
   }
 
-  console.log(`[AI Video Prompts] Processing request for storyboard ID: ${storyboardId} (type: ${promptType}, regenerate: ${!!regenerate}, enableVo: ${!!enableVo}, voLanguage: ${voLanguage || 'N/A'}, videoDuration: ${videoDuration})`);
+  console.log(`[AI Video Prompts] Processing request for storyboard ID: ${storyboardId} (type: ${promptType}, regenerate: ${!!regenerate}, enableVo: ${!!enableVo}, voLanguage: ${voLanguage || 'N/A'}, voTone: ${voTone || 'N/A'}, videoDuration: ${videoDuration})`);
 
   try {
-    const finalJsonStr = await generateVideoPromptsInternal({ storyboardId, promptType, regenerate, enableVo, voLanguage, videoDuration });
+    const finalJsonStr = await generateVideoPromptsInternal({ storyboardId, promptType, regenerate, enableVo, voLanguage, voTone, videoDuration });
     return res.json({ videoPrompts: finalJsonStr });
   } catch (error) {
     console.error('[AI Video Prompts Critical Error]:', error);

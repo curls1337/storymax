@@ -28,11 +28,13 @@ const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const storyboardRoutes = require('./routes/storyboardRoutes');
 const aiRoutes = require('./routes/aiRoutes');
+const videoRoutes = require('./routes/videoRoutes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/storyboards', storyboardRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/videos', videoRoutes);
 
 // Server static built frontend files in production
 const frontendBuildPath = path.join(__dirname, '..', 'frontend', 'dist');
@@ -61,6 +63,14 @@ initDb()
       console.error('Express server port conflict error:', err.message);
       process.exit(1);
     });
+
+    // Auto resume monitoring any processing videos at startup
+    try {
+      const { resumeProcessingVideos } = require('./controllers/videoController');
+      resumeProcessingVideos();
+    } catch (e) {
+      console.error('Error starting video recovery:', e);
+    }
   })
   .catch((err) => {
     console.error('Fatal Database initialization error:', err.message);

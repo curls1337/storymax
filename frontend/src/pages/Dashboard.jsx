@@ -26,6 +26,21 @@ export default function Dashboard({ setTab }) {
     fetchStoryboards();
   }, []);
 
+  useEffect(() => {
+    const hasProcessing = storyboards.some(sb => sb.status === 'processing');
+    let interval;
+    if (hasProcessing) {
+      interval = setInterval(() => {
+        api.get('/storyboards')
+          .then(res => {
+            setStoryboards(res.data);
+          })
+          .catch(err => console.error("Error refreshing storyboards in background:", err));
+      }, 3000);
+    }
+    return () => clearInterval(interval);
+  }, [storyboards]);
+
   const handleDelete = async (id) => {
     if (!window.confirm('Apakah Anda yakin ingin menghapus storyboard ini?')) return;
     try {
@@ -39,14 +54,190 @@ export default function Dashboard({ setTab }) {
     }
   };
 
+  const [regeneratingCopyId, setRegeneratingCopyId] = useState(null);
+
+  const handleRegenerateMarketingCopy = async (videoId) => {
+    setRegeneratingCopyId(videoId);
+    try {
+      const res = await api.post(`/videos/${videoId}/marketing-copy`);
+      setVideos(prev => prev.map(v => v.id === videoId ? { 
+        ...v, 
+        marketing_title: res.data.marketing_title, 
+        marketing_description: res.data.marketing_description 
+      } : v));
+    } catch (err) {
+      console.error("Error regenerating marketing copy:", err);
+      alert('Gagal membuat ulang deskripsi promosi.');
+    } finally {
+      setRegeneratingCopyId(null);
+    }
+  };
+
   const [generatingType, setGeneratingType] = useState(null); // 'image-to-video', 'text-to-video', or null
   const [videoPromptError, setVideoPromptError] = useState('');
   const [enableVoI2v, setEnableVoI2v] = useState(false);
   const [voLanguageI2v, setVoLanguageI2v] = useState('Bahasa Indonesia');
+  const [voToneI2v, setVoToneI2v] = useState('casual');
   const [videoDurationI2v, setVideoDurationI2v] = useState('auto');
   const [enableVoT2v, setEnableVoT2v] = useState(false);
   const [voLanguageT2v, setVoLanguageT2v] = useState('Bahasa Indonesia');
+  const [voToneT2v, setVoToneT2v] = useState('casual');
   const [videoDurationT2v, setVideoDurationT2v] = useState('auto');
+
+  // Video Studio states
+  const [videos, setVideos] = useState([]);
+  const [fetchingVideos, setFetchingVideos] = useState(false);
+  const [videoTaskId, setVideoTaskId] = useState(null);
+  const [activeVideoTask, setActiveVideoTask] = useState(null);
+  const [activeVideoIdx, setActiveVideoIdx] = useState(0);
+  const [showGenForm, setShowGenForm] = useState(false);
+
+  const [videoModel, setVideoModel] = useState('pixverse-c1');
+  const [videoGenType, setVideoGenType] = useState('image');
+  const [videoStudioPrompt, setVideoStudioPrompt] = useState('');
+  const [videoDuration, setVideoDuration] = useState('5');
+  const [videoResolution, setVideoResolution] = useState('720p');
+  const [videoAspectRatio, setVideoAspectRatio] = useState('auto');
+  const [videoGenerateAudio, setVideoGenerateAudio] = useState(false);
+  const [apiKeys, setApiKeys] = useState([]);
+  const [selectedApiKeyId, setSelectedApiKeyId] = useState('');
+
+  const VIDEO_MODELS = [
+    { value: 'pixverse-c1', label: 'Pixverse C1 (1-15s, Audio)', durations: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15], resolutions: ['360p', '540p', '720p', '1080p'], supportsAudio: true },
+    { value: 'pixverse-v6', label: 'Pixverse V6 (5-15s, Audio)', durations: [5,6,7,8,9,10,11,12,13,14,15], resolutions: ['720p', '1080p'], supportsAudio: true },
+    { value: 'veo3-1', label: 'Veo 3.1 (4-8s, Audio)', durations: [4,6,8], resolutions: ['720p', '1080p'], supportsAudio: true },
+    { value: 'veo3-1-fast', label: 'Veo 3.1 Fast (4-8s, Audio)', durations: [4,6,8], resolutions: ['720p', '1080p'], supportsAudio: true },
+    { value: 'sora-2-pro', label: 'Sora 2 Pro (4|8|12s, 16:9|9:16)', durations: [4, 8, 12], resolutions: ['720p', '1080p'], supportsAudio: false },
+    { value: 'kling-v3-4k', label: 'Kling V3 4K (3-15s, 4K)', durations: [3,4,5,6,7,8,9,10,11,12,13,14,15], resolutions: ['4k'], supportsAudio: false },
+    { value: 'seedance-2.0', label: 'SeedDance 2.0 (4-15s)', durations: [4,5,6,7,8,9,10,11,12,13,14,15], resolutions: ['720p'], supportsAudio: false },
+    { value: 'seedance-2.0-fast', label: 'SeedDance 2.0 Fast (4-15s)', durations: [4,5,6,7,8,9,10,11,12,13,14,15], resolutions: ['720p'], supportsAudio: false },
+    { value: 'wan-v2.7-video', label: 'Wan V2.7 Video (2-15s)', durations: [2,3,4,5,6,7,8,9,10,11,12,13,14,15], resolutions: ['720p', '1080p'], supportsAudio: false },
+    { value: 'happy-horse', label: 'HappyHorse (3-15s)', durations: [3,4,5,6,7,8,9,10,11,12,13,14,15], resolutions: ['720p', '1080p'], supportsAudio: false }
+  ];
+
+  useEffect(() => {
+    if (selectedStoryboard) {
+      setFetchingVideos(true);
+      api.get(`/videos/storyboard/${selectedStoryboard.id}`)
+        .then(res => {
+          setVideos(res.data);
+        })
+        .catch(err => console.error("Error fetching videos:", err))
+        .finally(() => setFetchingVideos(false));
+
+      api.get('/storyboards/keys')
+        .then(res => {
+          setApiKeys(res.data);
+          const exists = res.data.find(k => k.id === selectedStoryboard.api_key_id);
+          if (exists) {
+            setSelectedApiKeyId(selectedStoryboard.api_key_id);
+          } else if (res.data.length > 0) {
+            setSelectedApiKeyId(res.data[0].id);
+          }
+        })
+        .catch(err => console.error("Error fetching keys:", err));
+    } else {
+      setVideos([]);
+      setApiKeys([]);
+      setSelectedApiKeyId('');
+    }
+  }, [selectedStoryboard]);
+
+  useEffect(() => {
+    if (selectedStoryboard) {
+      const { imageToVideoPrompt: i2v, textToVideoPrompt: t2v } = parseVideoPrompts(selectedStoryboard.video_prompts);
+      setVideoStudioPrompt(videoGenType === 'image' ? (i2v || '') : (t2v || ''));
+    }
+  }, [modalCarouselIdx, selectedStoryboard, videoGenType]);
+
+  useEffect(() => {
+    let interval;
+    if (videoTaskId) {
+      interval = setInterval(async () => {
+        try {
+          const res = await api.get(`/storyboards/tasks/${videoTaskId}`);
+          setActiveVideoTask(res.data);
+          if (res.data.status === 'success' || res.data.status === 'failed') {
+            setVideoTaskId(null);
+            if (selectedStoryboard) {
+              const vRes = await api.get(`/videos/storyboard/${selectedStoryboard.id}`);
+              setVideos(vRes.data);
+            }
+          }
+        } catch (e) {
+          console.error("Error polling video task status:", e);
+        }
+      }, 2000);
+    }
+    return () => clearInterval(interval);
+  }, [videoTaskId, selectedStoryboard]);
+
+  useEffect(() => {
+    setActiveVideoIdx(0);
+    setShowGenForm(false);
+    if (selectedStoryboard) {
+      const sceneVideos = videos
+        .filter(v => v.scene_idx === modalCarouselIdx)
+        .sort((a, b) => b.id - a.id);
+      const latestVideo = sceneVideos[0];
+      if (latestVideo && latestVideo.status === 'processing') {
+        if (videoTaskId !== latestVideo.task_id) {
+          setVideoTaskId(latestVideo.task_id);
+          setActiveVideoTask({ status: 'processing', logs: 'Menyambungkan kembali pemantauan...\n' });
+        }
+      } else {
+        // Clear polling state for this scene since it's not processing!
+        setVideoTaskId(null);
+        setActiveVideoTask(null);
+      }
+    }
+  }, [modalCarouselIdx, selectedStoryboard, videos]);
+
+  const handleGenerateVideo = async () => {
+    if (!selectedStoryboard) return;
+    try {
+      const res = await api.post('/videos/generate', {
+        storyboardId: selectedStoryboard.id,
+        sceneIdx: modalCarouselIdx,
+        prompt: videoStudioPrompt || '',
+        model: videoModel,
+        generationType: videoGenType,
+        aspectRatio: videoAspectRatio,
+        duration: Number(videoDuration),
+        resolution: videoResolution,
+        generateAudio: videoGenerateAudio,
+        apiKeyId: selectedApiKeyId ? Number(selectedApiKeyId) : undefined
+      });
+      
+      // Refresh the video list to include the new 'processing' record
+      const vRes = await api.get(`/videos/storyboard/${selectedStoryboard.id}`);
+      setVideos(vRes.data);
+      
+      setVideoTaskId(res.data.taskId);
+      setActiveVideoTask({ status: 'processing', logs: 'Menghubungi antrean Freebeat CLI...\n' });
+      setShowGenForm(false);
+    } catch (err) {
+      console.error("Error creating video:", err);
+      alert(err.response?.data?.message || 'Gagal memulai pembuatan video.');
+    }
+  };
+
+  const handleDownloadVideo = async (url, filename) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = filename || 'video.mp4';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      window.open(url, '_blank');
+    }
+  };
 
   const parseVideoPrompts = (rawText) => {
     if (!rawText) return { imageToVideoPrompt: '', textToVideoPrompt: '' };
@@ -85,6 +276,7 @@ export default function Dashboard({ setTab }) {
     try {
       const useVo = promptType === 'text-to-video' ? enableVoT2v : enableVoI2v;
       const lang = promptType === 'text-to-video' ? voLanguageT2v : voLanguageI2v;
+      const tone = promptType === 'text-to-video' ? voToneT2v : voToneI2v;
       const durationVal = promptType === 'text-to-video' ? videoDurationT2v : videoDurationI2v;
 
       const res = await api.post('/ai/video-prompts', { 
@@ -93,6 +285,7 @@ export default function Dashboard({ setTab }) {
         regenerate: forceRegenerate,
         enableVo: useVo,
         voLanguage: useVo ? lang : undefined,
+        voTone: useVo ? tone : undefined,
         videoDuration: durationVal
       });
       const videoPromptsStr = res.data.videoPrompts;
@@ -206,55 +399,97 @@ export default function Dashboard({ setTab }) {
           
           {/* COMPACT CARD GRID */}
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
-            {storyboards.map((sb) => (
-              <div
-                key={sb.id}
-                onClick={() => {
-                  setSelectedStoryboard(sb);
-                  setModalCarouselIdx(0);
-                  setActiveSceneIdx(0);
-                  setVideoPromptError('');
-                }}
-                className="bg-[#1a1918]/60 border border-[#2a2725] rounded-2xl overflow-hidden hover:border-[#cfae80]/40 transition-all duration-300 group flex flex-col relative cursor-pointer"
-              >
-                {/* Thumbnail Container (4:3 ratio) */}
-                <div className="aspect-[4/3] bg-black/40 relative overflow-hidden flex items-center justify-center border-b border-[#2a2725]">
-                  <img
-                    src={getFullImageUrl(sb.image_path)}
-                    alt={sb.title}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-                  />
-                  
-                  {/* Subtle hover icon overlay */}
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                    <div className="p-2.5 bg-[#cfae80] text-black rounded-full shadow-lg transform translate-y-2 group-hover:translate-y-0 transition-transform duration-350">
-                      <Eye className="w-4 h-4" />
-                    </div>
-                  </div>
-                </div>
+            {storyboards.map((sb) => {
+              const isProcessing = sb.status === 'processing';
+              const isFailed = sb.status === 'failed';
 
-                {/* Card Info (Very Compact) */}
-                <div className="p-3.5 flex flex-col justify-between flex-grow">
-                  <h4 className="font-editorial italic text-white text-sm truncate group-hover:text-[#cfae80] transition-colors">{sb.title}</h4>
-                  <div className="flex items-center justify-between text-[9px] text-slate-500 mt-2 pt-2 border-t border-[#2a2725]/60 font-medium">
-                    <span>
-                      {new Date(sb.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
-                    </span>
-                    <div className="flex items-center gap-1.5 font-bold text-[#cfae80]">
+              return (
+                <div
+                  key={sb.id}
+                  onClick={() => {
+                    if (isProcessing) {
+                      alert('Storyboard sedang dalam proses pembuatan di latar belakang. Silakan tunggu hingga selesai.');
+                      return;
+                    }
+                    if (isFailed) {
+                      alert('Proses pembuatan storyboard ini gagal. Silakan klik tombol "Hapus" pada kartu untuk membersihkannya.');
+                      return;
+                    }
+                    setSelectedStoryboard(sb);
+                    setModalCarouselIdx(0);
+                    setActiveSceneIdx(0);
+                    setVideoPromptError('');
+                  }}
+                  className={`bg-[#1a1918]/60 border rounded-2xl overflow-hidden hover:border-[#cfae80]/40 transition-all duration-300 group flex flex-col relative ${
+                    isProcessing ? 'border-[#cfae80]/20 cursor-wait' : isFailed ? 'border-red-500/20 cursor-default' : 'border-[#2a2725] cursor-pointer'
+                  }`}
+                >
+                  {/* Thumbnail Container (4:3 ratio) */}
+                  <div className="aspect-[4/3] bg-black/40 relative overflow-hidden flex items-center justify-center border-b border-[#2a2725]">
+                    {isProcessing ? (
+                      <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2">
+                        <Loader className="animate-spin text-[#cfae80] w-6 h-6" />
+                        <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest animate-pulse">Sedang Membuat...</span>
+                      </div>
+                    ) : isFailed ? (
+                      <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2">
+                        <AlertTriangle className="text-red-400 w-6 h-6" />
+                        <span className="text-[8px] font-bold text-red-400 uppercase tracking-widest">Generasi Gagal</span>
+                      </div>
+                    ) : (
+                      <>
+                        <img
+                          src={getFullImageUrl(sb.image_path)}
+                          alt={sb.title}
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                        />
+                        {/* Subtle hover icon overlay */}
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                          <div className="p-2.5 bg-[#cfae80] text-black rounded-full shadow-lg transform translate-y-2 group-hover:translate-y-0 transition-transform duration-350">
+                            <Eye className="w-4 h-4" />
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Card Info (Very Compact) */}
+                  <div className="p-3.5 flex flex-col justify-between flex-grow">
+                    <h4 className="font-editorial italic text-white text-sm truncate group-hover:text-[#cfae80] transition-colors">{sb.title}</h4>
+                    <div className="flex items-center justify-between text-[9px] text-slate-500 mt-2 pt-2 border-t border-[#2a2725]/60 font-medium">
                       <span>
-                        {getPageCount(sb.image_path) > 1 
-                          ? `${getPageCount(sb.image_path)}p` 
-                          : '15s'}
+                        {new Date(sb.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
                       </span>
-                      <span>•</span>
-                      <span className="flex items-center text-slate-400">
-                        ⚡ {sb.used_credits || 0}
-                      </span>
+                      {isProcessing ? (
+                        <span className="text-[#cfae80] font-bold uppercase tracking-wider text-[8px] animate-pulse">Memproses</span>
+                      ) : isFailed ? (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(sb.id);
+                          }}
+                          className="text-red-400 hover:text-red-300 font-bold uppercase tracking-widest text-[8px] flex items-center gap-1 transition-all"
+                        >
+                          <Trash2 className="w-3 h-3" /> Hapus
+                        </button>
+                      ) : (
+                        <div className="flex items-center gap-1.5 font-bold text-[#cfae80]">
+                          <span>
+                            {getPageCount(sb.image_path) > 1 
+                              ? `${getPageCount(sb.image_path)}p` 
+                              : '15s'}
+                          </span>
+                          <span>•</span>
+                          <span className="flex items-center text-slate-400">
+                            ⚡ {sb.used_credits || 0}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -270,7 +505,7 @@ export default function Dashboard({ setTab }) {
             onClick={() => { setSelectedStoryboard(null); setVideoPromptError(''); setActiveSceneIdx(0); }}
           >
             <div 
-              className="relative max-w-4xl w-full bg-[#1a1918] border border-[#2a2725] rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row max-h-[90vh] my-auto"
+              className="relative max-w-[1300px] w-full bg-[#1a1918] border border-[#2a2725] rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row max-h-[90vh] my-auto animate-scaleUp"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Top accent gold line */}
@@ -285,7 +520,7 @@ export default function Dashboard({ setTab }) {
               </button>
 
               {/* Left Side: Large Image Carousel */}
-              <div className="md:w-3/5 bg-black/80 flex items-center justify-center relative min-h-[300px] md:min-h-0 border-b md:border-b-0 md:border-r border-[#2a2725]">
+              <div className="md:w-2/5 bg-black/80 flex items-center justify-center relative min-h-[300px] md:min-h-0 border-b md:border-b-0 md:border-r border-[#2a2725]">
                 <img
                   src={getSpecificImageUrl(activeImg)}
                   alt={selectedStoryboard.title}
@@ -318,8 +553,8 @@ export default function Dashboard({ setTab }) {
                 )}
               </div>
 
-              {/* Right Side: Editorial Metadata */}
-              <div className="md:w-2/5 p-8 flex flex-col justify-between overflow-y-auto max-h-[40vh] md:max-h-full">
+              {/* Middle Column: Editorial Metadata & Prompts */}
+              <div className="md:w-[30%] p-6 flex flex-col justify-between overflow-y-auto max-h-[40vh] md:max-h-full border-r border-[#2a2725] scrollbar-thin">
                 <div className="space-y-5">
                   <div className="flex items-center justify-between">
                     <span className="text-[9px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-1.5">
@@ -364,6 +599,86 @@ export default function Dashboard({ setTab }) {
                         <div className="bg-[#131211]/50 border border-[#2a2725] rounded-xl p-3.5 text-slate-350 text-[11px] leading-relaxed relative max-h-48 overflow-y-auto scrollbar-thin font-mono whitespace-pre-line">
                           {imageToVideoPrompt}
                         </div>
+                        
+                        {/* Options block for rewriting */}
+                        <div className="flex flex-col gap-2.5 bg-[#131211]/30 border border-[#2a2725] rounded-xl p-3 mt-1.5">
+                          <div className="space-y-1">
+                            <span className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80] block">Durasi Video</span>
+                            <select 
+                              value={videoDurationI2v} 
+                              onChange={(e) => setVideoDurationI2v(e.target.value)} 
+                              className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2 py-1 text-white text-[9px] focus:outline-none focus:border-[#cfae80] transition-all font-semibold"
+                            >
+                              <option value="auto">Auto-detect (SeedDance: 15s | Omni: 10s | Kling: 15s | Gemini: 8s)</option>
+                              <option value="8">8 Detik (Gemini)</option>
+                              <option value="10">10 Detik (Omni)</option>
+                              <option value="15">15 Detik (Kling/SeedDance)</option>
+                              <option value="20">20 Detik</option>
+                              <option value="30">30 Detik</option>
+                              <option value="40">40 Detik</option>
+                              <option value="45">45 Detik</option>
+                              <option value="50">50 Detik</option>
+                              <option value="60">60 Detik</option>
+                            </select>
+                          </div>
+
+                          <label className="flex items-center gap-2 cursor-pointer select-none border-t border-[#2a2725]/40 pt-2">
+                            <input 
+                              type="checkbox" 
+                              checked={enableVoI2v} 
+                              onChange={(e) => setEnableVoI2v(e.target.checked)} 
+                              className="rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5"
+                            />
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-300">Sertakan Voice Over (VO)</span>
+                          </label>
+                          
+                          {enableVoI2v && (
+                            <div className="space-y-1 animate-fadeIn">
+                              <span className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80] block">Pilih Bahasa Narasi</span>
+                              <select 
+                                value={voLanguageI2v} 
+                                onChange={(e) => setVoLanguageI2v(e.target.value)} 
+                                className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2 py-1 text-white text-[9px] focus:outline-none focus:border-[#cfae80] transition-all font-semibold mb-1"
+                              >
+                                <option value="Bahasa Indonesia">Bahasa Indonesia</option>
+                                <option value="English">English</option>
+                                <option value="Bahasa Malaysia">Bahasa Malaysia</option>
+                                <option value="Japanese">Japanese (Jepang)</option>
+                                <option value="Mandarin">Mandarin (Cina)</option>
+                              </select>
+                              <span className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80] block">Gaya Bahasa Narasi</span>
+                              <select 
+                                value={voToneI2v} 
+                                onChange={(e) => setVoToneI2v(e.target.value)} 
+                                className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2 py-1 text-white text-[9px] focus:outline-none focus:border-[#cfae80] transition-all font-semibold"
+                              >
+                                <option value="casual">Casual / Santai (Akrab)</option>
+                                <option value="comedy">Comedy / Humor (Lucu)</option>
+                                <option value="excited">Excited / Antusias (Selling/Promo)</option>
+                                <option value="formal">Formal / Serius (Edukasi)</option>
+                                <option value="emotional">Emotional / Menyentuh (Hangat)</option>
+                                <option value="storytelling">Storytelling / Bercerita</option>
+                                <option value="dramatic">Dramatic / Misterius (Tegang)</option>
+                              </select>
+                            </div>
+                          )}
+
+                          <button
+                            onClick={() => handleGenerateVideoPrompts('image-to-video', true)}
+                            disabled={generatingType !== null}
+                            className="w-full bg-[#cfae80]/15 hover:bg-[#cfae80]/25 text-[#cfae80] border border-[#cfae80]/30 font-bold py-2.5 px-3 rounded-xl flex items-center justify-center gap-2 text-[9px] uppercase tracking-widest transition-all disabled:opacity-50 mt-1"
+                          >
+                            {generatingType === 'image-to-video' ? (
+                              <>
+                                <Loader className="animate-spin w-3 h-3" />
+                                Memproses Tulis Ulang...
+                              </>
+                            ) : (
+                              '⚙️ Tulis Ulang Prompt & Voice Over'
+                            )}
+                          </button>
+                        </div>
+
                         <button
                           onClick={() => {
                             try {
@@ -419,13 +734,27 @@ export default function Dashboard({ setTab }) {
                                 <select 
                                   value={voLanguageI2v} 
                                   onChange={(e) => setVoLanguageI2v(e.target.value)} 
-                                  className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all font-semibold"
+                                  className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all font-semibold mb-1"
                                 >
                                   <option value="Bahasa Indonesia">Bahasa Indonesia</option>
                                   <option value="English">English</option>
                                   <option value="Bahasa Malaysia">Bahasa Malaysia</option>
                                   <option value="Japanese">Japanese (Jepang)</option>
                                   <option value="Mandarin">Mandarin (Cina)</option>
+                                </select>
+                                <span className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80] block">Gaya Bahasa Narasi</span>
+                                <select 
+                                  value={voToneI2v} 
+                                  onChange={(e) => setVoToneI2v(e.target.value)} 
+                                  className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all font-semibold"
+                                >
+                                  <option value="casual">Casual / Santai (Akrab)</option>
+                                  <option value="comedy">Comedy / Humor (Lucu)</option>
+                                  <option value="excited">Excited / Antusias (Selling/Promo)</option>
+                                  <option value="formal">Formal / Serius (Edukasi)</option>
+                                  <option value="emotional">Emotional / Menyentuh (Hangat)</option>
+                                  <option value="storytelling">Storytelling / Bercerita</option>
+                                  <option value="dramatic">Dramatic / Misterius (Tegang)</option>
                                 </select>
                               </div>
                             )}
@@ -473,6 +802,85 @@ export default function Dashboard({ setTab }) {
                         <div className="bg-[#131211]/50 border border-[#2a2725] rounded-xl p-3.5 text-slate-350 text-[11px] leading-relaxed relative max-h-48 overflow-y-auto scrollbar-thin font-mono whitespace-pre-line">
                           {textToVideoPrompt}
                         </div>
+                        
+                        {/* Options block for rewriting */}
+                        <div className="flex flex-col gap-2.5 bg-[#131211]/30 border border-[#2a2725] rounded-xl p-3 mt-1.5">
+                          <div className="space-y-1">
+                            <span className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80] block">Durasi Video</span>
+                            <select 
+                              value={videoDurationT2v} 
+                              onChange={(e) => setVideoDurationT2v(e.target.value)} 
+                              className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2 py-1 text-white text-[9px] focus:outline-none focus:border-[#cfae80] transition-all font-semibold"
+                            >
+                              <option value="auto">Auto-detect (15 Detik)</option>
+                              <option value="8">8 Detik (Gemini)</option>
+                              <option value="10">10 Detik (Omni)</option>
+                              <option value="15">15 Detik (Kling/SeedDance)</option>
+                              <option value="20">20 Detik</option>
+                              <option value="30">30 Detik</option>
+                              <option value="40">40 Detik</option>
+                              <option value="45">45 Detik</option>
+                              <option value="50">50 Detik</option>
+                              <option value="60">60 Detik</option>
+                            </select>
+                          </div>
+
+                          <label className="flex items-center gap-2 cursor-pointer select-none border-t border-[#2a2725]/40 pt-2">
+                            <input 
+                              type="checkbox" 
+                              checked={enableVoT2v} 
+                              onChange={(e) => setEnableVoT2v(e.target.checked)} 
+                              className="rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5"
+                            />
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-300">Sertakan Voice Over (VO)</span>
+                          </label>
+                          
+                          {enableVoT2v && (
+                            <div className="space-y-1 animate-fadeIn">
+                              <span className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80] block">Pilih Bahasa Narasi</span>
+                              <select 
+                                value={voLanguageT2v} 
+                                onChange={(e) => setVoLanguageT2v(e.target.value)} 
+                                className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2 py-1 text-white text-[9px] focus:outline-none focus:border-[#cfae80] transition-all font-semibold mb-1"
+                              >
+                                <option value="Bahasa Indonesia">Bahasa Indonesia</option>
+                                <option value="English">English</option>
+                                <option value="Bahasa Malaysia">Bahasa Malaysia</option>
+                                <option value="Japanese">Japanese (Jepang)</option>
+                                <option value="Mandarin">Mandarin (Cina)</option>
+                              </select>
+                              <span className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80] block">Gaya Bahasa Narasi</span>
+                              <select 
+                                value={voToneT2v} 
+                                onChange={(e) => setVoToneT2v(e.target.value)} 
+                                className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2 py-1 text-white text-[9px] focus:outline-none focus:border-[#cfae80] transition-all font-semibold"
+                              >
+                                <option value="casual">Casual / Santai (Akrab)</option>
+                                <option value="comedy">Comedy / Humor (Lucu)</option>
+                                <option value="excited">Excited / Antusias (Selling/Promo)</option>
+                                <option value="formal">Formal / Serius (Edukasi)</option>
+                                <option value="emotional">Emotional / Menyentuh (Hangat)</option>
+                                <option value="storytelling">Storytelling / Bercerita</option>
+                                <option value="dramatic">Dramatic / Misterius (Tegang)</option>
+                              </select>
+                            </div>
+                          )}
+                          <button
+                            onClick={() => handleGenerateVideoPrompts('text-to-video', true)}
+                            disabled={generatingType !== null}
+                            className="w-full bg-[#cfae80]/15 hover:bg-[#cfae80]/25 text-[#cfae80] border border-[#cfae80]/30 font-bold py-2.5 px-3 rounded-xl flex items-center justify-center gap-2 text-[9px] uppercase tracking-widest transition-all disabled:opacity-50 mt-1"
+                          >
+                            {generatingType === 'text-to-video' ? (
+                              <>
+                                <Loader className="animate-spin w-3 h-3" />
+                                Memproses Tulis Ulang...
+                              </>
+                            ) : (
+                              '⚙️ Tulis Ulang Prompt & Voice Over'
+                            )}
+                          </button>
+                        </div>
+
                         <button
                           onClick={() => {
                             try {
@@ -528,13 +936,27 @@ export default function Dashboard({ setTab }) {
                                 <select 
                                   value={voLanguageT2v} 
                                   onChange={(e) => setVoLanguageT2v(e.target.value)} 
-                                  className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all font-semibold"
+                                  className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all font-semibold mb-1"
                                 >
                                   <option value="Bahasa Indonesia">Bahasa Indonesia</option>
                                   <option value="English">English</option>
                                   <option value="Bahasa Malaysia">Bahasa Malaysia</option>
                                   <option value="Japanese">Japanese (Jepang)</option>
                                   <option value="Mandarin">Mandarin (Cina)</option>
+                                </select>
+                                <span className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80] block">Gaya Bahasa Narasi</span>
+                                <select 
+                                  value={voToneT2v} 
+                                  onChange={(e) => setVoToneT2v(e.target.value)} 
+                                  className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all font-semibold"
+                                >
+                                  <option value="casual">Casual / Santai (Akrab)</option>
+                                  <option value="comedy">Comedy / Humor (Lucu)</option>
+                                  <option value="excited">Excited / Antusias (Selling/Promo)</option>
+                                  <option value="formal">Formal / Serius (Edukasi)</option>
+                                  <option value="emotional">Emotional / Menyentuh (Hangat)</option>
+                                  <option value="storytelling">Storytelling / Bercerita</option>
+                                  <option value="dramatic">Dramatic / Misterius (Tegang)</option>
                                 </select>
                               </div>
                             )}
@@ -565,6 +987,404 @@ export default function Dashboard({ setTab }) {
                       <p className="text-[9px] text-red-450 font-semibold mt-1">{videoPromptError}</p>
                     )}
                   </div>
+                </div>
+              </div>
+
+              {/* Right Column: Video Studio & Actions */}
+              <div className="md:w-[30%] p-6 flex flex-col justify-between overflow-y-auto max-h-[40vh] md:max-h-full scrollbar-thin">
+                <div className="space-y-5">
+                  {/* VIDEO STUDIO (FREEBEAT VIDEO GENERATOR) */}
+                  <div className="space-y-4">
+                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-[#cfae80] flex items-center gap-1.5">
+                      🎬 Video Studio (Freebeat)
+                    </h3>
+
+                  {(() => {
+                    const sceneVideos = videos
+                      .filter(v => v.scene_idx === modalCarouselIdx)
+                      .sort((a, b) => b.id - a.id); // sorted newest ID first
+
+                    const latestVideo = sceneVideos[0];
+
+                    if (latestVideo && latestVideo.status === 'processing') {
+                      const activeTask = activeVideoTask;
+                      return (
+                        <div className="space-y-3 bg-[#131211]/50 border border-[#cfae80]/20 rounded-2xl p-4">
+                          <div className="flex items-center justify-between border-b border-[#2a2725]/30 pb-2">
+                            <div className="flex items-center gap-2">
+                              <Loader className="animate-spin text-[#cfae80] w-3.5 h-3.5" />
+                              <span className="text-[9px] font-bold text-[#cfae80] uppercase tracking-widest">
+                                Sedang Membuat Video...
+                              </span>
+                            </div>
+                          </div>
+                          <div className="bg-black/80 border border-[#2a2725] rounded-xl p-3 h-32 overflow-y-auto font-mono text-[9px] text-slate-400 scrollbar-thin whitespace-pre-line leading-relaxed">
+                            {activeTask?.logs || 'Menhubungi antrean Freebeat CLI...'}
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    if (latestVideo && latestVideo.status === 'failed') {
+                      return (
+                        <div className="space-y-3 bg-[#131211]/50 border border-red-500/25 rounded-2xl p-4 animate-fadeIn">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[9px] font-bold text-red-400 uppercase tracking-widest">
+                              ✗ Pembuatan Video Gagal
+                            </span>
+                            <button
+                              onClick={async () => {
+                                try {
+                                  await api.delete(`/videos/${latestVideo.id}`);
+                                  setVideos(prev => prev.filter(v => v.id !== latestVideo.id));
+                                  setVideoTaskId(null);
+                                  setActiveVideoTask(null);
+                                } catch (e) {
+                                  alert('Gagal membersihkan data.');
+                                }
+                              }}
+                              className="text-[9px] text-[#cfae80] hover:text-[#c5a880] font-bold uppercase tracking-widest transition-colors"
+                            >
+                              Coba Lagi / Bersihkan
+                            </button>
+                          </div>
+                          <div className="bg-black/80 border border-[#2a2725] rounded-xl p-3 h-32 overflow-y-auto font-mono text-[9px] text-red-300/80 scrollbar-thin whitespace-pre-line leading-relaxed">
+                            {activeVideoTask && (activeVideoTask.taskId === latestVideo.task_id || activeVideoTask.status === 'failed')
+                              ? (activeVideoTask.logs || activeVideoTask.error || 'Terjadi kesalahan saat memproses Freebeat CLI.')
+                              : 'Pembuatan video gagal. Silakan klik "Coba Lagi / Bersihkan" untuk mencoba ulang dengan model atau prompt lain.'
+                            }
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    // If we have successful videos and we are not in recreate form mode
+                    if (sceneVideos.length > 0 && !showGenForm) {
+                      const activeIdx = activeVideoIdx < sceneVideos.length ? activeVideoIdx : 0;
+                      const activeVid = sceneVideos[activeIdx];
+
+                      return (
+                        <div className="space-y-3 bg-[#131211]/50 border border-emerald-500/20 rounded-2xl p-4 animate-fadeIn">
+                          {/* Navigation header for multiple videos */}
+                          {sceneVideos.length > 1 && (
+                            <div className="flex justify-between items-center bg-black/40 border border-[#2a2725] px-2.5 py-1.5 rounded-xl text-[9px] mb-1">
+                              <span className="text-[#cfae80] font-bold uppercase tracking-wider">
+                                🎥 Video {sceneVideos.length - activeIdx} / {sceneVideos.length}
+                              </span>
+                              <div className="flex gap-1">
+                                <button
+                                  disabled={activeIdx === sceneVideos.length - 1}
+                                  onClick={() => setActiveVideoIdx(prev => prev + 1)}
+                                  className="px-1.5 py-0.5 bg-[#131211] text-slate-300 disabled:opacity-30 rounded border border-[#2a2725] hover:bg-[#1a1918] text-[8px] font-bold"
+                                >
+                                  ◀ LAMA
+                                </button>
+                                <button
+                                  disabled={activeIdx === 0}
+                                  onClick={() => setActiveVideoIdx(prev => prev - 1)}
+                                  className="px-1.5 py-0.5 bg-[#131211] text-slate-300 disabled:opacity-30 rounded border border-[#2a2725] hover:bg-[#1a1918] text-[8px] font-bold"
+                                >
+                                  BARU ▶
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="flex justify-between items-center pb-1">
+                            <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest">
+                              ✓ Berhasil ({activeVid.model})
+                            </span>
+                            <button
+                              onClick={async () => {
+                                if (window.confirm('Apakah Anda yakin ingin menghapus video ini secara permanen?')) {
+                                  try {
+                                    await api.delete(`/videos/${activeVid.id}`);
+                                    setVideos(prev => prev.filter(v => v.id !== activeVid.id));
+                                    setActiveVideoIdx(prev => Math.max(0, Math.min(prev, sceneVideos.length - 2)));
+                                  } catch (e) {
+                                    alert('Gagal menghapus video.');
+                                  }
+                                }
+                              }}
+                              className="text-[9px] text-red-400 hover:text-red-300 font-bold uppercase tracking-widest transition-colors"
+                            >
+                              Hapus
+                            </button>
+                          </div>
+                          
+                          <video 
+                            key={activeVid.id} // re-mount player when switching videos
+                            src={activeVid.video_url} 
+                            controls 
+                            className="w-full rounded-xl border border-[#2a2725] bg-black max-h-48"
+                          />
+
+                          <div className="grid grid-cols-2 gap-2 pt-1">
+                            <a
+                              href={`/api/storyboards/download?url=${encodeURIComponent(activeVid.video_url)}`}
+                              download={`storyboard-${selectedStoryboard.id}-scene-${modalCarouselIdx + 1}.mp4`}
+                              className="w-full bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-2 px-3 rounded-xl text-[9px] uppercase tracking-widest flex items-center justify-center gap-1.5 transition-all text-center"
+                            >
+                              ⬇️ Unduh Video
+                            </a>
+                            <a
+                              href={activeVid.video_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="w-full bg-[#131211] hover:bg-[#1a1918] text-slate-350 font-bold py-2 px-3 rounded-xl border border-[#2a2725] text-[9px] uppercase tracking-widest flex items-center justify-center gap-1.5 transition-all text-center"
+                            >
+                              🔗 Tab Baru
+                            </a>
+                          </div>
+
+                          {/* AI Copywriting / Marketing Info */}
+                          <div className="bg-[#181716] border border-[#2a2725]/80 rounded-xl p-3 space-y-3 mt-2 animate-fadeIn text-left">
+                            <div className="flex items-center justify-between border-b border-[#2a2725]/50 pb-1.5">
+                              <span className="text-[8px] font-bold text-[#cfae80] uppercase tracking-widest flex items-center gap-1">
+                                📢 AI Marketing Copy
+                              </span>
+                              {activeVid.marketing_title && (
+                                <button
+                                  onClick={() => handleRegenerateMarketingCopy(activeVid.id)}
+                                  disabled={regeneratingCopyId !== null}
+                                  className="text-[8px] text-slate-400 hover:text-[#cfae80] font-bold uppercase tracking-widest transition-colors disabled:opacity-50"
+                                >
+                                  {regeneratingCopyId === activeVid.id ? 'Memproses...' : 'Tulis Ulang'}
+                                </button>
+                              )}
+                            </div>
+
+                            {activeVid.marketing_title ? (
+                              <div className="space-y-2.5">
+                                {/* Title display */}
+                                <div className="space-y-1">
+                                  <div className="flex justify-between items-center text-[7px] font-bold text-slate-400 uppercase tracking-widest">
+                                    <span>Judul (Max 100 Karakter)</span>
+                                    <button 
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(activeVid.marketing_title);
+                                        alert('Judul berhasil disalin!');
+                                      }}
+                                      className="text-[#cfae80] hover:underline"
+                                    >
+                                      Salin
+                                    </button>
+                                  </div>
+                                  <div className="bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] font-semibold break-words leading-relaxed font-sans">
+                                    {activeVid.marketing_title}
+                                  </div>
+                                </div>
+
+                                {/* Description & Hashtags display */}
+                                <div className="space-y-1">
+                                  <div className="flex justify-between items-center text-[7px] font-bold text-slate-400 uppercase tracking-widest">
+                                    <span>Deskripsi & Hashtag</span>
+                                    <button 
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(activeVid.marketing_description);
+                                        alert('Deskripsi & Hashtag berhasil disalin!');
+                                      }}
+                                      className="text-[#cfae80] hover:underline"
+                                    >
+                                      Salin
+                                    </button>
+                                  </div>
+                                  <div className="bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-slate-300 text-[9.5px] leading-relaxed break-words whitespace-pre-line font-sans max-h-32 overflow-y-auto scrollbar-thin">
+                                    {activeVid.marketing_description}
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex flex-col items-center justify-center py-4 gap-2 text-center">
+                                <span className="text-[9px] text-slate-500 italic">
+                                  {regeneratingCopyId === activeVid.id 
+                                    ? '⏳ Sedang menulis konten promosi...' 
+                                    : 'Belum ada konten promosi / Gagal dibuat.'}
+                                </span>
+                                {regeneratingCopyId !== activeVid.id && (
+                                  <button
+                                    onClick={() => handleRegenerateMarketingCopy(activeVid.id)}
+                                    className="bg-[#cfae80]/15 hover:bg-[#cfae80]/25 text-[#cfae80] border border-[#cfae80]/30 font-bold py-1 px-3 rounded-lg text-[8px] uppercase tracking-widest transition-all"
+                                  >
+                                    ✍️ Buat Konten Promosi
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Recreate Button */}
+                          <div className="border-t border-[#2a2725]/40 pt-2.5 mt-2.5">
+                            <button
+                              onClick={() => setShowGenForm(true)}
+                              className="w-full bg-[#131211] hover:bg-[#191817] text-[#cfae80] border border-[#cfae80]/30 font-bold py-2 px-3 rounded-xl text-[9px] uppercase tracking-widest flex items-center justify-center gap-1.5 transition-all"
+                            >
+                              ⚙️ Buat Video Baru (Recreate)
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    // Render the generation form if no videos exist OR if in showGenForm mode
+                    return (
+                      <div className="space-y-3 bg-[#131211]/35 border border-[#2a2725] rounded-2xl p-4">
+                        {sceneVideos.length > 0 && (
+                          <button
+                            onClick={() => setShowGenForm(false)}
+                            className="w-full bg-slate-900/60 hover:bg-slate-900/80 text-slate-300 border border-slate-800 font-bold py-1.5 px-3 rounded-xl text-[9px] uppercase tracking-widest flex items-center justify-center gap-1 transition-all mb-1"
+                          >
+                            ◀ Kembali ke Video
+                          </button>
+                        )}
+                        {apiKeys.length > 0 && (
+                          <div className="space-y-1">
+                            <label className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80]">API Key Freebeat</label>
+                            <select
+                              value={selectedApiKeyId}
+                              onChange={(e) => setSelectedApiKeyId(e.target.value)}
+                              className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] focus:outline-none focus:border-[#cfae80] transition-all font-semibold"
+                            >
+                              {apiKeys.map(k => (
+                                <option key={k.id} value={k.id}>
+                                  {k.label} (⚡ {k.total_credits} Kredit)
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
+
+                        <div className="space-y-1">
+                          <label className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80]">Pilih Model Video</label>
+                          <select
+                            value={videoModel}
+                            onChange={(e) => {
+                              setVideoModel(e.target.value);
+                              const m = VIDEO_MODELS.find(x => x.value === e.target.value);
+                              if (m) {
+                                setVideoDuration(String(m.durations[0]));
+                                setVideoResolution(m.resolutions[0]);
+                                if (!m.supportsAudio) {
+                                  setVideoGenerateAudio(false);
+                                }
+                              }
+                            }}
+                            className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] focus:outline-none focus:border-[#cfae80] transition-all font-semibold"
+                          >
+                            {VIDEO_MODELS.map(m => (
+                              <option key={m.value} value={m.value}>{m.label}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80]">Metode Pembuatan</label>
+                          <select
+                            value={videoGenType}
+                            onChange={(e) => {
+                              setVideoGenType(e.target.value);
+                              if (e.target.value === 'image') {
+                                setVideoStudioPrompt(imageToVideoPrompt || '');
+                              } else {
+                                setVideoStudioPrompt(textToVideoPrompt || '');
+                              }
+                            }}
+                            className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] focus:outline-none focus:border-[#cfae80] transition-all font-semibold"
+                          >
+                            <option value="image">Image-to-Video (I2V - Gunakan Gambar Panel)</option>
+                            <option value="text">Text-to-Video (T2V - Hanya Prompt Teks)</option>
+                          </select>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80]">Custom Prompt</label>
+                          <textarea
+                            value={videoStudioPrompt}
+                            onChange={(e) => setVideoStudioPrompt(e.target.value)}
+                            placeholder="Masukkan deskripsi detail gerakan video..."
+                            className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] focus:outline-none focus:border-[#cfae80] transition-all font-medium h-16 resize-none scrollbar-thin"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-1.5 border-t border-[#2a2725]/45 pt-2.5">
+                          <div className="space-y-1">
+                            <label className="text-[8px] font-bold uppercase tracking-widest text-slate-500">Durasi</label>
+                            <select
+                              value={videoDuration}
+                              onChange={(e) => setVideoDuration(e.target.value)}
+                              className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-1.5 py-1 text-white text-[9px] focus:outline-none focus:border-[#cfae80] font-semibold"
+                            >
+                              {(() => {
+                                const m = VIDEO_MODELS.find(x => x.value === videoModel);
+                                return m?.durations.map(d => (
+                                  <option key={d} value={d}>{d}s</option>
+                                )) || <option value="5">5s</option>;
+                              })()}
+                            </select>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[8px] font-bold uppercase tracking-widest text-slate-500">Resolusi</label>
+                            <select
+                              value={videoResolution}
+                              onChange={(e) => setVideoResolution(e.target.value)}
+                              className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-1.5 py-1 text-white text-[9px] focus:outline-none focus:border-[#cfae80] font-semibold"
+                            >
+                              {(() => {
+                                const m = VIDEO_MODELS.find(x => x.value === videoModel);
+                                return m?.resolutions.map(r => (
+                                  <option key={r} value={r}>{r}</option>
+                                )) || <option value="720p">720p</option>;
+                              })()}
+                            </select>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[8px] font-bold uppercase tracking-widest text-slate-500">Rasio</label>
+                            <select
+                              value={videoAspectRatio}
+                              onChange={(e) => setVideoAspectRatio(e.target.value)}
+                              className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-1.5 py-1 text-white text-[9px] focus:outline-none focus:border-[#cfae80] font-semibold"
+                            >
+                              <option value="auto">Auto</option>
+                              <option value="16:9">16:9</option>
+                              <option value="9:16">9:16</option>
+                              <option value="1:1">1:1</option>
+                              <option value="4:3">4:3</option>
+                              <option value="3:4">3:4</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        {(() => {
+                          const m = VIDEO_MODELS.find(x => x.value === videoModel);
+                          const supportsAudio = m?.supportsAudio;
+                          return (
+                            <label className={`flex items-center gap-2 cursor-pointer select-none border-t border-[#2a2725]/40 pt-2 pb-1 ${!supportsAudio ? 'opacity-40 cursor-not-allowed' : ''}`}>
+                              <input
+                                type="checkbox"
+                                checked={videoGenerateAudio}
+                                disabled={!supportsAudio}
+                                onChange={(e) => setVideoGenerateAudio(e.target.checked)}
+                                className="rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 disabled:opacity-50"
+                              />
+                              <span className="text-[9px] font-bold uppercase tracking-wider text-slate-350">
+                                Hasilkan Audio / Sound Effect {!supportsAudio && <span className="text-[8px] text-red-500/80 font-medium normal-case ml-1">(Model ini tidak mendukung audio)</span>}
+                              </span>
+                            </label>
+                          );
+                        })()}
+
+                        <button
+                          onClick={handleGenerateVideo}
+                          className="w-full bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-2.5 px-4 rounded-xl flex items-center justify-center gap-1.5 text-[9px] uppercase tracking-widest transition-all mt-2"
+                        >
+                          🎬 Buat Video AI
+                        </button>
+                      </div>
+                    );
+                  })()}
+                </div>
                 </div>
 
                 <div className="space-y-3 mt-6 pt-5 border-t border-[#2a2725]">

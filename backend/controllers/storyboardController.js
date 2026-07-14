@@ -344,7 +344,7 @@ async function getUserStoryboards(req, res) {
 }
 
 async function generateStoryboard(req, res) {
-  const { title, prompt, style, apiKeyId, refImageBase64, refImageUrl, refImages, gridCount, model, duration, showFace, aspectRatio, enableVo, voLanguage } = req.body;
+  const { title, prompt, style, apiKeyId, refImageBase64, refImageUrl, refImages, gridCount, model, duration, showFace, aspectRatio, enableVo, voLanguage, voTone } = req.body;
 
   if (!title || !prompt || !style || !apiKeyId) {
     return res.status(400).json({ message: 'Title, prompt, style, and API Key ID are required.' });
@@ -365,9 +365,23 @@ async function generateStoryboard(req, res) {
 
   // Create unique task ID immediately
   const taskId = 'task_' + Date.now();
+  let storyboardId = null;
+  try {
+    const db = getDb();
+    const insertResult = await db.run(
+      'INSERT INTO storyboards (user_id, title, prompt, image_path, used_credits, api_key_id, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [req.user.id, title, prompt, '[]', 0, parsedApiKeyId, 'processing']
+    );
+    storyboardId = insertResult.lastID;
+  } catch (dbErr) {
+    console.error('Failed to create initial storyboard record:', dbErr);
+    return res.status(500).json({ message: 'Gagal membuat rekam storyboard awal.', error: dbErr.message });
+  }
+
   activeTasks[taskId] = {
     status: 'processing',
     apiKeyId: parsedApiKeyId,
+    storyboardId,
     logs: '=== INVENTARISASI GENERATOR STORYBOARD MULTI-PAGE ===\n\n' +
           `[1/4] Menyiapkan parameter...\n` +
           `Judul Proyek : ${title}\n` +
@@ -380,8 +394,8 @@ async function generateStoryboard(req, res) {
     error: null
   };
 
-  // Respond immediately with taskId to prevent blocking HTTP timeouts
-  res.json({ taskId, status: 'processing' });
+  // Respond immediately with taskId and storyboardId to prevent blocking HTTP timeouts
+  res.json({ taskId, storyboardId, status: 'processing' });
 
   // Run the process completely in background
   (async () => {
@@ -395,6 +409,7 @@ async function generateStoryboard(req, res) {
         activeTasks[taskId].status = 'failed';
         activeTasks[taskId].error = 'Selected API Key is invalid or inactive.';
         activeTasks[taskId].logs += '[ERROR] Selected API Key is invalid or inactive.\n';
+        await db.run('UPDATE storyboards SET status = ? WHERE id = ?', ['failed', storyboardId]);
         return;
       }
 
@@ -812,18 +827,18 @@ async function generateStoryboard(req, res) {
         activeTasks[taskId].status = 'failed';
         activeTasks[taskId].error = currentError;
         activeTasks[taskId].logs += `[ERROR] Kesalahan fatal dalam proses generasi: ${currentError}\n`;
+        await db.run('UPDATE storyboards SET status = ? WHERE id = ?', ['failed', storyboardId]);
         return;
       }
 
-      // Success! Insert in DB as JSON array string
+      // Success! Update DB
       const dbPathString = JSON.stringify(imagePaths);
-      
-      const insertResult = await db.run(
-        'INSERT INTO storyboards (user_id, title, prompt, image_path, used_credits, api_key_id) VALUES (?, ?, ?, ?, ?, ?)',
-        [req.user.id, title, prompt, dbPathString, totalCreditsUsed, apiKeyId]
+      await db.run(
+        'UPDATE storyboards SET image_path = ?, used_credits = ?, status = ? WHERE id = ?',
+        [dbPathString, totalCreditsUsed, 'success', storyboardId]
       );
       
-      const newStoryboardId = insertResult.lastID;
+      const newStoryboardId = storyboardId;
 
       activeTasks[taskId].logs += `[AI Video Prompts] Men-generate otomatis prompt video Image-to-Video ${enableVo ? 'dan voiceover ' : ''}di latar belakang...\n`;
       try {
@@ -834,6 +849,7 @@ async function generateStoryboard(req, res) {
           regenerate: true,
           enableVo: !!enableVo,
           voLanguage: enableVo ? voLanguage : undefined,
+          voTone: enableVo ? voTone : undefined,
           videoDuration: totalDuration
         });
         activeTasks[taskId].logs += `[AI Video Prompts] Prompt video berhasil di-generate secara otomatis.\n`;
@@ -855,6 +871,10 @@ async function generateStoryboard(req, res) {
       activeTasks[taskId].status = 'failed';
       activeTasks[taskId].error = bgError.message;
       activeTasks[taskId].logs += `[ERROR] Kesalahan fatal background task: ${bgError.message}\n`;
+      try {
+        const db = getDb();
+        await db.run('UPDATE storyboards SET status = ? WHERE id = ?', ['failed', storyboardId]);
+      } catch (e) {}
     }
   })();
 }
@@ -911,11 +931,11 @@ async function getActiveKeys(req, res) {
   try {
     const db = getDb();
     const keys = await db.all(`
-      SELECT k.id, k.label, COALESCE(SUM(s.used_credits), 0) AS total_credits 
-      FROM api_keys k 
-      LEFT JOIN storyboards s ON k.id = s.api_key_id 
+      SELECT k.id, k.label,
+             (COALESCE((SELECT SUM(s.used_credits) FROM storyboards s WHERE s.api_key_id = k.id), 0) +
+              COALESCE((SELECT SUM(v.used_credits) FROM generated_videos v WHERE v.api_key_id = k.id), 0)) AS total_credits
+      FROM api_keys k
       WHERE k.is_active = 1
-      GROUP BY k.id
     `);
     
     // Map each key to check if it's currently in use
@@ -965,7 +985,7 @@ async function downloadProxy(req, res) {
 
   try {
     const isLocal = url.startsWith('/uploads/');
-    const isFreebeat = url.startsWith('https://fb-video-n3.freebeat.ai/');
+    const isFreebeat = url.startsWith('https://') && url.includes('freebeat.ai');
 
     if (!isLocal && !isFreebeat) {
       return res.status(400).json({ message: 'Invalid download source.' });

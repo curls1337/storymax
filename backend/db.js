@@ -46,10 +46,18 @@ async function initDb() {
       title TEXT NOT NULL,
       prompt TEXT NOT NULL,
       image_path TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'success',
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )
   `);
+
+  // Ensure status column exists if table was already created (migration support)
+  try {
+    await db.exec('ALTER TABLE storyboards ADD COLUMN status TEXT NOT NULL DEFAULT "success"');
+  } catch (e) {
+    // Column already exists, safe to ignore
+  }
 
   // Ensure video_prompts column exists if table was already created (migration support)
   try {
@@ -85,6 +93,65 @@ async function initDb() {
   // Ensure model column exists if table was already created (migration support)
   try {
     await db.exec('ALTER TABLE ai_settings ADD COLUMN model TEXT NOT NULL DEFAULT "gemini-3-flash"');
+  } catch (e) {
+    // Column already exists, safe to ignore
+  }
+
+  // Create Generated Videos Table
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS generated_videos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      storyboard_id INTEGER,
+      scene_idx INTEGER,
+      prompt TEXT NOT NULL,
+      model TEXT NOT NULL,
+      video_url TEXT,
+      aspect_ratio TEXT,
+      duration INTEGER,
+      resolution TEXT,
+      status TEXT NOT NULL,
+      task_id TEXT,
+      used_credits INTEGER DEFAULT 0,
+      api_key_id INTEGER,
+      serial_no TEXT,
+      marketing_title TEXT,
+      marketing_description TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (storyboard_id) REFERENCES storyboards(id) ON DELETE CASCADE
+    )
+  `);
+
+  // Ensure used_credits column exists in generated_videos (migration support)
+  try {
+    await db.exec('ALTER TABLE generated_videos ADD COLUMN used_credits INTEGER DEFAULT 0');
+  } catch (e) {
+    // Column already exists, safe to ignore
+  }
+
+  // Ensure api_key_id column exists in generated_videos (migration support)
+  try {
+    await db.exec('ALTER TABLE generated_videos ADD COLUMN api_key_id INTEGER');
+  } catch (e) {
+    // Column already exists, safe to ignore
+  }
+
+  // Ensure serial_no column exists in generated_videos (migration support)
+  try {
+    await db.exec('ALTER TABLE generated_videos ADD COLUMN serial_no TEXT');
+  } catch (e) {
+    // Column already exists, safe to ignore
+  }
+
+  // Ensure marketing_title column exists in generated_videos (migration support)
+  try {
+    await db.exec('ALTER TABLE generated_videos ADD COLUMN marketing_title TEXT');
+  } catch (e) {
+    // Column already exists, safe to ignore
+  }
+
+  // Ensure marketing_description column exists in generated_videos (migration support)
+  try {
+    await db.exec('ALTER TABLE generated_videos ADD COLUMN marketing_description TEXT');
   } catch (e) {
     // Column already exists, safe to ignore
   }
