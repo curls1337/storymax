@@ -693,7 +693,7 @@ export default function Generator() {
                 return (
                   <div className="flex-grow flex flex-col items-center justify-center space-y-5 w-full">
                     {images.length > 1 ? (
-                      <div className="grid grid-cols-2 gap-4 w-full">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
                         {images.map((img, idx) => (
                           <div key={idx} className="flex flex-col space-y-2 border border-[#2a2725] rounded-2xl overflow-hidden bg-black/80 p-3 group relative">
                             <div className="relative aspect-[3/4] w-full overflow-hidden rounded-xl bg-black/40 flex items-center justify-center">
@@ -767,7 +767,7 @@ export default function Generator() {
 
       {/* Floating log bubble - always visible, fixed bottom-right */}
       {showLogModal && (
-        <div className="fixed bottom-8 right-8 z-50 bg-[#1a1918]/95 border border-[#2a2725] w-96 h-80 rounded-3xl p-4 shadow-2xl flex flex-col backdrop-blur-md">
+        <div className="fixed bottom-4 sm:bottom-8 right-4 sm:right-8 z-50 bg-[#1a1918]/95 border border-[#2a2725] w-[calc(100vw-2rem)] sm:w-96 h-80 rounded-3xl p-4 shadow-2xl flex flex-col backdrop-blur-md">
           <div className="flex justify-between items-center mb-3 border-b border-[#2a2725]/80 pb-2.5">
             <h3 className="text-[10px] font-bold text-white flex items-center gap-1.5 uppercase tracking-widest">
               <Terminal className="w-4 h-4 text-[#cfae80]" />
@@ -795,7 +795,7 @@ export default function Generator() {
         <button
           type="button"
           onClick={() => setShowLogModal(true)}
-          className="fixed bottom-8 right-8 z-50 bg-[#1a1918]/95 border border-[#cfae80]/40 text-[#cfae80] text-[9px] font-bold tracking-widest uppercase py-3 px-4 rounded-2xl flex items-center gap-2 shadow-2xl backdrop-blur-md hover:bg-[#cfae80] hover:text-black transition-all"
+          className="fixed bottom-4 sm:bottom-8 right-4 sm:right-8 z-50 bg-[#1a1918]/95 border border-[#cfae80]/40 text-[#cfae80] text-[9px] font-bold tracking-widest uppercase py-3 px-4 rounded-2xl flex items-center gap-2 shadow-2xl backdrop-blur-md hover:bg-[#cfae80] hover:text-black transition-all"
         >
           <Terminal className="w-3.5 h-3.5" />
           Live Logs

@@ -163,6 +163,20 @@ async function initDb() {
     // Column already exists, safe to ignore
   }
 
+  // Ensure error_message column exists in generated_videos (migration support)
+  try {
+    await db.exec('ALTER TABLE generated_videos ADD COLUMN error_message TEXT');
+  } catch (e) {
+    // Column already exists, safe to ignore
+  }
+
+  // Ensure logs column exists in generated_videos (migration support)
+  try {
+    await db.exec('ALTER TABLE generated_videos ADD COLUMN logs TEXT');
+  } catch (e) {
+    // Column already exists, safe to ignore
+  }
+
   // Seed default admin if no users exist
   const adminExists = await db.get('SELECT * FROM users WHERE role = "admin"');
   if (!adminExists) {

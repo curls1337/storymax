@@ -4,7 +4,7 @@ import Dashboard from './pages/Dashboard';
 import Generator from './pages/Generator';
 import Settings from './pages/Settings';
 import AdminPanel from './pages/AdminPanel';
-import { Home, Sparkles, Settings as SettingsIcon, ShieldAlert, LogOut, Loader, User, Zap } from 'lucide-react';
+import { Home, Sparkles, Settings as SettingsIcon, ShieldAlert, LogOut, Loader, User, Zap, Menu, X } from 'lucide-react';
 import api from './utils/api';
 
 export default function App() {
@@ -12,6 +12,7 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [tab, setTab] = useState('dashboard');
   const [loading, setLoading] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const mainRef = useRef(null);
 
   const fetchProfile = async () => {
@@ -78,14 +79,53 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen bg-darkBg text-slate-100 overflow-hidden relative font-sans">
+    <div className="flex flex-col lg:flex-row h-screen bg-darkBg text-slate-100 overflow-hidden relative font-sans">
       {/* Background ambient glowing orbs */}
       <div className="absolute top-[-10%] right-[-10%] w-[550px] h-[550px] bg-[#cfae80] opacity-[0.05] rounded-full blur-[150px] pointer-events-none"></div>
       <div className="absolute bottom-[-10%] left-[-10%] w-[550px] h-[550px] bg-[#8c827a] opacity-[0.03] rounded-full blur-[150px] pointer-events-none"></div>
 
+      {/* MOBILE HEADER */}
+      <header className="lg:hidden h-16 bg-[#1a1918]/90 border-b border-[#2a2725] flex items-center justify-between px-6 z-20 backdrop-blur-md shrink-0">
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => setSidebarOpen(true)}
+            className="text-slate-400 hover:text-white p-1"
+            aria-label="Open menu"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
+          <h2 className="text-xl font-editorial italic text-white flex items-center gap-2 select-none lowercase">
+            <Zap className="w-4 h-4 text-[#cfae80] fill-[#cfae80]/15" />
+            <span>story<span className="text-[#cfae80] font-normal">max</span></span>
+          </h2>
+        </div>
+        <span className="px-2 py-0.5 rounded bg-[#cfae80]/10 text-[#cfae80] text-[8px] font-bold tracking-widest uppercase border border-[#cfae80]/20">
+          PRO
+        </span>
+      </header>
+
+      {/* BACKDROP FOR MOBILE DRAWER */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* SIDEBAR PANEL */}
-      <aside className="w-64 bg-[#1a1918]/90 border-r border-[#2a2725] flex flex-col justify-between h-full shrink-0 relative z-20 backdrop-blur-md overflow-y-auto">
-        <div>
+      <aside className={`fixed inset-y-0 left-0 w-64 bg-[#1a1918] border-r border-[#2a2725] flex flex-col justify-between h-full z-40 transform transition-transform duration-300 backdrop-blur-md overflow-y-auto shrink-0 lg:static lg:translate-x-0 lg:z-20 lg:bg-[#1a1918]/90 lg:shrink-0 ${
+        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+      }`}>
+        <div className="relative">
+          {/* Close button inside sidebar on mobile */}
+          <button 
+            onClick={() => setSidebarOpen(false)}
+            className="absolute top-5 right-5 lg:hidden text-slate-400 hover:text-white p-1"
+            aria-label="Close menu"
+          >
+            <X className="w-5 h-5" />
+          </button>
+
           {/* Logo Brand */}
           <div className="p-6 border-b border-[#2a2725] flex items-center justify-between">
             <h2 className="text-2xl font-editorial italic text-white flex items-center gap-2 select-none lowercase">
@@ -100,7 +140,7 @@ export default function App() {
           {/* Navigation Menus */}
           <nav className="p-5 space-y-3">
             <button
-              onClick={() => setTab('dashboard')}
+              onClick={() => { setTab('dashboard'); setSidebarOpen(false); }}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-[10px] font-semibold tracking-widest uppercase transition-all duration-350 border ${
                 tab === 'dashboard'
                   ? 'text-white bg-[#cfae80]/5 border-[#cfae80]/30'
@@ -115,7 +155,7 @@ export default function App() {
             </button>
 
             <button
-              onClick={() => setTab('generator')}
+              onClick={() => { setTab('generator'); setSidebarOpen(false); }}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-[10px] font-semibold tracking-widest uppercase transition-all duration-350 border ${
                 tab === 'generator'
                   ? 'text-white bg-[#cfae80]/5 border-[#cfae80]/30'
@@ -130,7 +170,7 @@ export default function App() {
             </button>
 
             <button
-              onClick={() => setTab('settings')}
+              onClick={() => { setTab('settings'); setSidebarOpen(false); }}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-[10px] font-semibold tracking-widest uppercase transition-all duration-350 border ${
                 tab === 'settings'
                   ? 'text-white bg-[#cfae80]/5 border-[#cfae80]/30'
@@ -147,7 +187,7 @@ export default function App() {
             {/* Admin Panel Link */}
             {user.role === 'admin' && (
               <button
-                onClick={() => setTab('admin')}
+                onClick={() => { setTab('admin'); setSidebarOpen(false); }}
                 className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-[10px] font-semibold tracking-widest uppercase transition-all duration-350 border relative ${
                   tab === 'admin'
                     ? 'text-white bg-red-950/10 border-red-500/30'
@@ -178,7 +218,7 @@ export default function App() {
             </div>
           </div>
           <button
-            onClick={handleLogout}
+            onClick={() => { handleLogout(); setSidebarOpen(false); }}
             className="w-full flex items-center justify-center gap-2 px-3 py-2.5 border border-[#2a2725] hover:border-red-500/35 hover:text-red-400 text-slate-400 text-[9px] font-bold uppercase tracking-widest rounded-xl transition-all duration-200 hover:bg-red-950/5"
           >
             <LogOut className="w-3.5 h-3.5" />
@@ -188,7 +228,7 @@ export default function App() {
       </aside>
 
       <main ref={mainRef} className="flex-grow h-full min-h-0 overflow-y-auto bg-darkBg">
-        <div className="w-full min-h-full flex flex-col justify-start px-6 md:px-8">
+        <div className="w-full min-h-full flex flex-col justify-start px-4 sm:px-6 md:px-8 py-6 md:py-8">
           {tab === 'dashboard' && <Dashboard setTab={setTab} />}
           {tab === 'generator' && <Generator />}
           {tab === 'settings' && <Settings onLogout={handleLogout} />}

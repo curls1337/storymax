@@ -183,8 +183,8 @@ async function generateVideo(req, res) {
             activeTasks[taskId].error = errorMsg;
             activeTasks[taskId].logs += `[ERROR] Gagal mengirim task ke Freebeat: ${errorMsg}\n`;
             await db.run(
-              'UPDATE generated_videos SET status = ?, video_url = NULL WHERE id = ?',
-              ['failed', videoRecordId]
+              'UPDATE generated_videos SET status = ?, video_url = NULL, error_message = ?, logs = ? WHERE id = ?',
+              ['failed', errorMsg, activeTasks[taskId].logs, videoRecordId]
             );
             return;
           }
@@ -240,8 +240,8 @@ async function generateVideo(req, res) {
             activeTasks[taskId].error = err.message;
             activeTasks[taskId].logs += `[ERROR] Gagal memproses submit respon: ${err.message}\n`;
             await db.run(
-              'UPDATE generated_videos SET status = ?, video_url = NULL WHERE id = ?',
-              ['failed', videoRecordId]
+              'UPDATE generated_videos SET status = ?, video_url = NULL, error_message = ?, logs = ? WHERE id = ?',
+              ['failed', err.message, activeTasks[taskId].logs, videoRecordId]
             );
           }
         });
@@ -251,8 +251,8 @@ async function generateVideo(req, res) {
         activeTasks[taskId].status = 'failed';
         activeTasks[taskId].error = bgErr.message;
         await db.run(
-          'UPDATE generated_videos SET status = ?, video_url = NULL WHERE id = ?',
-          ['failed', videoRecordId]
+          'UPDATE generated_videos SET status = ?, video_url = NULL, error_message = ?, logs = ? WHERE id = ?',
+          ['failed', bgErr.message, activeTasks[taskId].logs, videoRecordId]
         );
       }
     })();
@@ -402,7 +402,10 @@ function pollVideoStatus(videoRecordId, storyboardId, apiKey, batchId, serialNo,
       activeTasks[taskId].error = 'Timeout waiting for video generation.';
       activeTasks[taskId].logs += `\n[ERROR] Pembuatan video melampaui batas waktu (Timeout).\n`;
       const db = getDb();
-      await db.run('UPDATE generated_videos SET status = ? WHERE id = ?', ['failed', videoRecordId]);
+      await db.run(
+        'UPDATE generated_videos SET status = ?, error_message = ?, logs = ? WHERE id = ?',
+        ['failed', 'Timeout waiting for video generation.', activeTasks[taskId].logs, videoRecordId]
+      );
       return;
     }
 
@@ -450,8 +453,8 @@ function pollVideoStatus(videoRecordId, storyboardId, apiKey, batchId, serialNo,
                                             `Kredit Terpakai: ⚡ ${credits}\n`;
                 
                 await db.run(
-                  'UPDATE generated_videos SET status = ?, video_url = ?, used_credits = ? WHERE id = ?',
-                  ['success', finalVideoUrl, credits, videoRecordId]
+                  'UPDATE generated_videos SET status = ?, video_url = ?, used_credits = ?, logs = ? WHERE id = ?',
+                  ['success', finalVideoUrl, credits, activeTasks[taskId].logs, videoRecordId]
                 );
 
                 await db.run(
@@ -479,7 +482,10 @@ function pollVideoStatus(videoRecordId, storyboardId, apiKey, batchId, serialNo,
               } else {
                 activeTasks[taskId].status = 'failed';
                 activeTasks[taskId].error = 'Video URL tidak ditemukan.';
-                await db.run('UPDATE generated_videos SET status = ? WHERE id = ?', ['failed', videoRecordId]);
+                await db.run(
+                  'UPDATE generated_videos SET status = ?, error_message = ?, logs = ? WHERE id = ?',
+                  ['failed', 'Video URL tidak ditemukan.', activeTasks[taskId].logs, videoRecordId]
+                );
               }
             } else if (status === 'FAILED' || status === 'ERROR' || status === 'REJECTED') {
               clearInterval(interval);
@@ -487,7 +493,10 @@ function pollVideoStatus(videoRecordId, storyboardId, apiKey, batchId, serialNo,
               activeTasks[taskId].status = 'failed';
               activeTasks[taskId].error = errMsg;
               activeTasks[taskId].logs += `\n\n[ERROR] Pembuatan video gagal: ${errMsg}\n`;
-              await db.run('UPDATE generated_videos SET status = ? WHERE id = ?', ['failed', videoRecordId]);
+              await db.run(
+                'UPDATE generated_videos SET status = ?, error_message = ?, logs = ? WHERE id = ?',
+                ['failed', errMsg, activeTasks[taskId].logs, videoRecordId]
+              );
             } else {
               // Status is PENDING or RUNNING
               activeTasks[taskId].logs += `Checking status... [${status}]\n`;
@@ -658,7 +667,10 @@ async function runSingleVideoSpawn(vRecId, tId, kRec, pText, scImg, model, gener
         activeTasks[tId].status = 'failed';
         activeTasks[tId].error = errorMsg;
         activeTasks[tId].logs += `[ERROR] Gagal mengirim task ke Freebeat: ${errorMsg}\n`;
-        await db.run('UPDATE generated_videos SET status = ? WHERE id = ?', ['failed', vRecId]);
+        await db.run(
+          'UPDATE generated_videos SET status = ?, error_message = ?, logs = ? WHERE id = ?',
+          ['failed', errorMsg, activeTasks[tId].logs, vRecId]
+        );
         return;
       }
 
@@ -713,14 +725,20 @@ async function runSingleVideoSpawn(vRecId, tId, kRec, pText, scImg, model, gener
         activeTasks[tId].status = 'failed';
         activeTasks[tId].error = err.message;
         activeTasks[tId].logs += `[ERROR] Gagal memproses respon Freebeat: ${err.message}\n`;
-        await db.run('UPDATE generated_videos SET status = ? WHERE id = ?', ['failed', vRecId]);
+        await db.run(
+          'UPDATE generated_videos SET status = ?, error_message = ?, logs = ? WHERE id = ?',
+          ['failed', err.message, activeTasks[tId].logs, vRecId]
+        );
       }
     });
   } catch (bgErr) {
     activeTasks[tId].status = 'failed';
     activeTasks[tId].error = bgErr.message;
     activeTasks[tId].logs += `[CRITICAL ERROR] Gagal inisiasi sub-proses: ${bgErr.message}\n`;
-    await db.run('UPDATE generated_videos SET status = ? WHERE id = ?', ['failed', vRecId]);
+    await db.run(
+      'UPDATE generated_videos SET status = ?, error_message = ?, logs = ? WHERE id = ?',
+      ['failed', bgErr.message, activeTasks[tId].logs, vRecId]
+    );
   }
 }
 

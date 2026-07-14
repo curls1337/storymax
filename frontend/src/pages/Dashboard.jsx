@@ -489,7 +489,7 @@ export default function Dashboard({ setTab }) {
           <h3 className="text-[10px] font-bold uppercase tracking-widest text-[#cfae80]">Semua Riwayat Storyboard</h3>
           
           {/* COMPACT CARD GRID */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
+          <div className="grid grid-cols-1 min-[400px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
             {storyboards.map((sb) => {
               const isProcessing = sb.status === 'processing';
               const isFailed = sb.status === 'failed';
@@ -596,7 +596,7 @@ export default function Dashboard({ setTab }) {
             onClick={() => { setSelectedStoryboard(null); setVideoPromptError(''); setActiveSceneIdx(0); }}
           >
             <div 
-              className="relative max-w-[1300px] w-full bg-[#1a1918] border border-[#2a2725] rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row max-h-[90vh] my-auto animate-scaleUp"
+              className="relative max-w-[1300px] w-full bg-[#1a1918] border border-[#2a2725] rounded-3xl overflow-y-auto md:overflow-hidden shadow-2xl flex flex-col md:flex-row max-h-none md:max-h-[90vh] my-auto animate-scaleUp"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Top accent gold line */}
@@ -605,13 +605,13 @@ export default function Dashboard({ setTab }) {
               {/* Close Button */}
               <button 
                 onClick={() => { setSelectedStoryboard(null); setVideoPromptError(''); setActiveSceneIdx(0); }} 
-                className="absolute top-4 right-4 z-20 text-slate-400 hover:text-white bg-black/50 p-1.5 rounded-full border border-white/10 transition-colors"
+                className="fixed md:absolute top-4 right-4 z-50 text-slate-400 hover:text-white bg-black/70 p-1.5 rounded-full border border-white/10 transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
 
               {/* Left Side: Large Image Carousel */}
-              <div className="md:w-2/5 bg-black/80 flex items-center justify-center relative min-h-[300px] md:min-h-0 border-b md:border-b-0 md:border-r border-[#2a2725]">
+              <div className="w-full md:w-2/5 bg-black/80 flex items-center justify-center relative min-h-[300px] md:min-h-0 border-b md:border-b-0 md:border-r border-[#2a2725]">
                 {regeneratingPages[modalCarouselIdx] ? (
                   <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center p-6 space-y-3 z-10 animate-fadeIn">
                     <Loader className="animate-spin text-[#cfae80] w-8 h-8" />
@@ -655,7 +655,7 @@ export default function Dashboard({ setTab }) {
               </div>
 
               {/* Middle Column: Editorial Metadata & Prompts */}
-              <div className="md:w-[30%] p-6 flex flex-col justify-between overflow-y-auto max-h-[40vh] md:max-h-full border-r border-[#2a2725] scrollbar-thin">
+              <div className="w-full md:w-[30%] p-6 flex flex-col justify-between overflow-y-visible md:overflow-y-auto max-h-none md:max-h-full border-b md:border-b-0 md:border-r border-[#2a2725] scrollbar-thin">
                 <div className="space-y-5">
                   <div className="flex items-center justify-between">
                     <span className="text-[9px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-1.5">
@@ -1092,7 +1092,7 @@ export default function Dashboard({ setTab }) {
               </div>
 
               {/* Right Column: Video Studio & Actions */}
-              <div className="md:w-[30%] p-6 flex flex-col justify-between overflow-y-auto max-h-[40vh] md:max-h-full scrollbar-thin">
+              <div className="w-full md:w-[30%] p-6 flex flex-col justify-between overflow-y-visible md:overflow-y-auto max-h-none md:max-h-full scrollbar-thin">
                 <div className="space-y-5">
                   {/* VIDEO STUDIO (FREEBEAT VIDEO GENERATOR) */}
                   <div className="space-y-4">
@@ -1152,7 +1152,7 @@ export default function Dashboard({ setTab }) {
                           <div className="bg-black/80 border border-[#2a2725] rounded-xl p-3 h-32 overflow-y-auto font-mono text-[9px] text-red-300/80 scrollbar-thin whitespace-pre-line leading-relaxed">
                             {activeVideoTask && (activeVideoTask.taskId === latestVideo.task_id || activeVideoTask.status === 'failed')
                               ? (activeVideoTask.logs || activeVideoTask.error || 'Terjadi kesalahan saat memproses Freebeat CLI.')
-                              : 'Pembuatan video gagal. Silakan klik "Coba Lagi / Bersihkan" untuk mencoba ulang dengan model atau prompt lain.'
+                              : (latestVideo.logs || latestVideo.error_message || 'Pembuatan video gagal. Silakan klik "Coba Lagi / Bersihkan" untuk mencoba ulang dengan model atau prompt lain.')
                             }
                           </div>
                         </div>
