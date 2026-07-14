@@ -100,7 +100,7 @@ export default function Dashboard({ setTab }) {
   const [videoAspectRatio, setVideoAspectRatio] = useState('auto');
   const [videoGenerateAudio, setVideoGenerateAudio] = useState(false);
   const [apiKeys, setApiKeys] = useState([]);
-  const [selectedApiKeyId, setSelectedApiKeyId] = useState('');
+  const [selectedApiKeyId, setSelectedApiKeyId] = useState('auto');
 
   const VIDEO_MODELS = [
     { value: 'pixverse-c1', label: 'Pixverse C1 (1-15s, Audio)', durations: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15], resolutions: ['360p', '540p', '720p', '1080p'], supportsAudio: true },
@@ -145,7 +145,7 @@ export default function Dashboard({ setTab }) {
 
   useEffect(() => {
     if (selectedStoryboard) {
-      const { imageToVideoPrompt: i2v, textToVideoPrompt: t2v } = parseVideoPrompts(selectedStoryboard.video_prompts);
+      const { imageToVideoPrompt: i2v, textToVideoPrompt: t2v } = parseVideoPrompts(selectedStoryboard.video_prompts, modalCarouselIdx);
       setVideoStudioPrompt(videoGenType === 'image' ? (i2v || '') : (t2v || ''));
     }
   }, [modalCarouselIdx, selectedStoryboard, videoGenType]);
@@ -206,7 +206,7 @@ export default function Dashboard({ setTab }) {
         duration: Number(videoDuration),
         resolution: videoResolution,
         generateAudio: videoGenerateAudio,
-        apiKeyId: selectedApiKeyId ? Number(selectedApiKeyId) : undefined
+        apiKeyId: selectedApiKeyId || 'auto'
       });
       
       // Refresh the video list to include the new 'processing' record
@@ -219,6 +219,35 @@ export default function Dashboard({ setTab }) {
     } catch (err) {
       console.error("Error creating video:", err);
       alert(err.response?.data?.message || 'Gagal memulai pembuatan video.');
+    }
+  };
+
+  const handleGenerateAllVideos = async () => {
+    if (!selectedStoryboard) return;
+    const confirmAll = window.confirm("Apakah Anda yakin ingin men-generate video untuk SEMUA scene secara parallel? (Tiap scene akan berjalan dalam proses terpisah dengan API Key kosong otomatis).");
+    if (!confirmAll) return;
+
+    try {
+      const res = await api.post('/videos/generate-all', {
+        storyboardId: selectedStoryboard.id,
+        model: videoModel,
+        generationType: videoGenType,
+        aspectRatio: videoAspectRatio,
+        duration: Number(videoDuration),
+        resolution: videoResolution,
+        generateAudio: videoGenerateAudio,
+        apiKeyId: selectedApiKeyId || 'auto'
+      });
+      
+      // Refresh the video list to include processing statuses
+      const vRes = await api.get(`/videos/storyboard/${selectedStoryboard.id}`);
+      setVideos(vRes.data);
+      
+      alert(res.data.message || 'Batch video generation sukses dimulai!');
+      setShowGenForm(false);
+    } catch (err) {
+      console.error("Error creating all videos:", err);
+      alert(err.response?.data?.message || 'Gagal memulai batch video generation.');
     }
   };
 
@@ -239,25 +268,36 @@ export default function Dashboard({ setTab }) {
     }
   };
 
-  const parseVideoPrompts = (rawText) => {
-    if (!rawText) return { imageToVideoPrompt: '', textToVideoPrompt: '' };
+  const parseVideoPrompts = (rawText, sceneIdx = 0) => {
+    if (!rawText) return { imageToVideoPrompt: '', textToVideoPrompt: '', narration: '' };
     try {
       const parsed = JSON.parse(rawText);
       if (parsed && typeof parsed === 'object') {
+        // If it is the new scene-specific structure containing array of scenes
+        if (parsed.scenes && Array.isArray(parsed.scenes)) {
+          const match = parsed.scenes.find(s => s.scene_idx === sceneIdx);
+          if (match) {
+            return {
+              imageToVideoPrompt: match.imageToVideoPrompt || '',
+              textToVideoPrompt: match.textToVideoPrompt || '',
+              narration: match.narration || ''
+            };
+          }
+        }
+
+        // Fallback for old object structure
         if ('imageToVideoPrompt' in parsed || 'textToVideoPrompt' in parsed) {
           return {
             imageToVideoPrompt: parsed.imageToVideoPrompt || '',
-            textToVideoPrompt: parsed.textToVideoPrompt || ''
+            textToVideoPrompt: parsed.textToVideoPrompt || '',
+            narration: parsed.narration || ''
           };
         }
         if ('visualPrompt' in parsed) {
-          let textPrompt = parsed.visualPrompt || '';
-          if (parsed.narration) {
-            textPrompt = `Video Prompt:\n${textPrompt}\n\nVoiceover:\n${parsed.narration}`;
-          }
           return {
             imageToVideoPrompt: '',
-            textToVideoPrompt: textPrompt
+            textToVideoPrompt: parsed.visualPrompt || '',
+            narration: parsed.narration || ''
           };
         }
       }
@@ -265,7 +305,8 @@ export default function Dashboard({ setTab }) {
     // Fallback for legacy plain text format
     return {
       imageToVideoPrompt: '',
-      textToVideoPrompt: rawText
+      textToVideoPrompt: rawText,
+      narration: ''
     };
   };
 
@@ -498,7 +539,7 @@ export default function Dashboard({ setTab }) {
       {selectedStoryboard && (() => {
         const images = getResultImages(selectedStoryboard);
         const activeImg = images[modalCarouselIdx] || '';
-        const { imageToVideoPrompt, textToVideoPrompt, narration } = parseVideoPrompts(selectedStoryboard.video_prompts);
+        const { imageToVideoPrompt, textToVideoPrompt, narration } = parseVideoPrompts(selectedStoryboard.video_prompts, modalCarouselIdx);
         return createPortal(
           <div 
             className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-start md:items-center justify-center p-4 py-8 md:py-8 z-50 overflow-y-auto select-text animate-fadeIn"
@@ -1245,6 +1286,7 @@ export default function Dashboard({ setTab }) {
                               onChange={(e) => setSelectedApiKeyId(e.target.value)}
                               className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] focus:outline-none focus:border-[#cfae80] transition-all font-semibold"
                             >
+                              <option value="auto">Pilih Otomatis (Auto-detect)</option>
                               {apiKeys.map(k => (
                                 <option key={k.id} value={k.id}>
                                   {k.label} (⚡ {k.total_credits} Kredit)
@@ -1375,12 +1417,20 @@ export default function Dashboard({ setTab }) {
                           );
                         })()}
 
-                        <button
-                          onClick={handleGenerateVideo}
-                          className="w-full bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-2.5 px-4 rounded-xl flex items-center justify-center gap-1.5 text-[9px] uppercase tracking-widest transition-all mt-2"
-                        >
-                          🎬 Buat Video AI
-                        </button>
+                        <div className="flex gap-2 mt-2">
+                          <button
+                            onClick={handleGenerateVideo}
+                            className="flex-1 bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-2.5 px-3 rounded-xl flex items-center justify-center gap-1.5 text-[9px] uppercase tracking-widest transition-all"
+                          >
+                            🎬 Buat Video
+                          </button>
+                          <button
+                            onClick={handleGenerateAllVideos}
+                            className="flex-1 bg-[#cfae80]/15 hover:bg-[#cfae80]/25 text-[#cfae80] border border-[#cfae80]/30 font-bold py-2.5 px-3 rounded-xl flex items-center justify-center gap-1.5 text-[9px] uppercase tracking-widest transition-all"
+                          >
+                            ⚡ Buat Semua (All)
+                          </button>
+                        </div>
                       </div>
                     );
                   })()}

@@ -253,18 +253,20 @@ async function generateVideoPromptsInternal({ storyboardId, promptType, regenera
     }
   }
 
+  const totalScenes = panelImages.length;
+
   let durationClause = '';
   const durVal = videoDuration || 'auto';
   if (durVal === 'auto') {
     if (targetType === 'image-to-video') {
-      durationClause = `The target video duration is: Kling/SeedDance/Luma: 15 seconds, Omni: 10 seconds, Gemini: 8 seconds. If Voiceover (VO) is enabled, you MUST adjust the length of the narration paragraph so it matches these durations (roughly 2.5 to 3 words per second, e.g. ~24 words for Gemini (8s), ~30 words for Omni (10s), ~45 words for Kling/SeedDance (15s)).`;
+      durationClause = `Each individual scene/panel video has a target duration of: Kling/SeedDance/Luma: 15 seconds, Omni: 10 seconds, Gemini: 8 seconds. Adjust the length of each scene's narration to fit these bounds (roughly 2.5 to 3 words per second, e.g. ~24 words for 8s, ~30 words for 10s, ~45 words for 15s).`;
     } else {
-      durationClause = `The target video duration is: 15 seconds. If Voiceover (VO) is enabled, you MUST adjust the length of the narration paragraph to match this duration (roughly 2.5 to 3 words per second, e.g. ~45 words).`;
+      durationClause = `Each individual scene/panel video has a target duration of: 15 seconds. If Voiceover (VO) is enabled, the narration for each scene should be roughly 45 words.`;
     }
   } else {
     const seconds = Number(durVal);
     const targetWords = Math.round(seconds * 2.8);
-    durationClause = `The target video duration is: ${seconds} seconds. If Voiceover (VO) is enabled, you MUST adjust the length of the narration paragraph so it fits exactly within this duration (roughly 2.5 to 3 words per second, meaning the narration MUST contain approximately ${targetWords} words).`;
+    durationClause = `Each individual scene/panel video has a target duration of: ${seconds} seconds. If Voiceover (VO) is enabled, the narration for each scene must contain approximately ${targetWords} words.`;
   }
 
   let toneClause = '';
@@ -283,66 +285,57 @@ async function generateVideoPromptsInternal({ storyboardId, promptType, regenera
   }
 
   let systemInstruction = '';
-  if (targetType === 'image-to-video') {
-    if (enableVo) {
-      systemInstruction = `You are an expert AI Video Director and master video prompting engineer specializing in high-fidelity commercial image-to-video generation (for Kling, Luma, Runway, SeedDance, Omni, etc. where the reference image acts as the first frame).
+  if (enableVo) {
+    systemInstruction = `You are an expert AI Video Director and master video prompting engineer specializing in high-fidelity commercial video generation.
 ${durationClause}
-Your task is to analyze the provided storyboard or product showcase image sheet visually, matching them with the project title and narrative description to write:
-1. A highly dynamic, action-oriented Image-to-Video prompt in English (150-250 words) that explicitly directs the AI video model to animate the scenes and follow the chronological progression of the storyboard.
-To ensure the video is not static and follows the scenes, follow these strict rules for the prompt:
-- **Do not just describe the starting image**: The video model already has the image as the first frame. Instead, describe the *movement*, *action*, and *flow* from panel to panel.
-- **Sequential Scene Progression**: Guide the video model through the sequence of events shown in the storyboard panels. (e.g., "Starts with the initial frame. Then, the camera pans smoothly to the right as the character begins to [action from next panel], followed by a transition where the camera zooms in on [action from next panel]...").
-- **Dynamic Motion & Camera Actions**: Explicitly use strong motion commands (e.g., "smooth tracking shot", "camera rotates around the subject", "elements float and swirl in slow motion", "fluid character gestures and movement", "water splashes dynamically", "lighting changes smoothly").
-- **Continuous Action**: Instruct the model to keep the subject active and moving throughout the entire video duration. Avoid static camera frames.
-2. A voiceover narration script paragraph in the language: "${voLanguage || 'Bahasa Indonesia'}". ${toneClause} The narration should flow naturally to match the motion and chronological scene progression.
+
+You are provided with ${panelImages.length} page images of a storyboard. Each page image contains exactly 4 panels arranged in a 2x2 grid (from top-left, top-right, bottom-left, to bottom-right). This means there are exactly ${totalScenes} scenes in total.
+
+Your task is to analyze all the panels sequentially and write a distinct visual prompt and voiceover script for EACH of the ${totalScenes} scenes.
+
+For each scene:
+1. "imageToVideoPrompt": A highly dynamic, action-oriented Image-to-Video prompt in English (80-150 words) that explicitly directs the AI video model to animate the scene, starting from the visual layout of that specific panel. Describe the movement, action, and camera motion (e.g. "smooth tracking shot", "camera rotates around the subject", "fluid character gestures", "elements float in slow motion"). Keep it active.
+2. "textToVideoPrompt": A comprehensive text-to-video prompt in English (80-150 words) describing the product details, scene setting, lighting, mood, camera style, and action from scratch for that scene, in case the user wants to generate it purely from text.
+3. "narration": A voiceover narration script paragraph in the language: "${voLanguage || 'Bahasa Indonesia'}". ${toneClause} The narration must fit the scene duration.
 
 You MUST return the output strictly in this JSON format (do not wrap in markdown \`\`\`json blocks):
 {
-  "prompt": "<English motion, action sequence, and camera movement prompt>",
-  "narration": "<Voiceover narration script in the requested language>"
-}`;
-    } else {
-      systemInstruction = `You are an expert AI Video Director and master video prompting engineer specializing in high-fidelity commercial image-to-video generation (for Kling, Luma, Runway, SeedDance, Omni, etc. where the reference image acts as the first frame).
+  "scenes": [
+    {
+      "scene_idx": 0,
+      "imageToVideoPrompt": "<English motion prompt for Scene 1>",
+      "textToVideoPrompt": "<English full text prompt for Scene 1>",
+      "narration": "<Voiceover script for Scene 1>"
+    },
+    ...
+  ]
+}
+Ensure there are exactly ${totalScenes} items in the "scenes" array corresponding to the panels in sequence.`;
+  } else {
+    systemInstruction = `You are an expert AI Video Director and master video prompting engineer specializing in high-fidelity commercial video generation.
 ${durationClause}
-Your task is to analyze the provided storyboard or product showcase image sheet visually, matching them with the project title and narrative description to write:
-1. A highly dynamic, action-oriented Image-to-Video prompt in English (150-250 words) that explicitly directs the AI video model to animate the scenes and follow the chronological progression of the storyboard.
-To ensure the video is not static and follows the scenes, follow these strict rules for the prompt:
-- **Do not just describe the starting image**: The video model already has the image as the first frame. Instead, describe the *movement*, *action*, and *flow* from panel to panel.
-- **Sequential Scene Progression**: Guide the video model through the sequence of events shown in the storyboard panels. (e.g., "Starts with the initial frame. Then, the camera pans smoothly to the right as the character begins to [action from next panel], followed by a transition where the camera zooms in on [action from next panel]...").
-- **Dynamic Motion & Camera Actions**: Explicitly use strong motion commands (e.g., "smooth tracking shot", "camera rotates around the subject", "elements float and swirl in slow motion", "fluid character gestures and movement", "water splashes dynamically", "lighting changes smoothly").
-- **Continuous Action**: Instruct the model to keep the subject active and moving throughout the entire video duration. Avoid static camera frames.
+
+You are provided with ${panelImages.length} page images of a storyboard. Each page image contains exactly 4 panels arranged in a 2x2 grid. This means there are exactly ${totalScenes} scenes in total.
+
+Your task is to analyze all the panels sequentially and write a distinct visual prompt for EACH of the ${totalScenes} scenes.
+
+For each scene:
+1. "imageToVideoPrompt": A highly dynamic, action-oriented Image-to-Video prompt in English (80-150 words) that directs the AI model to animate the scene, starting from that panel's layout. Describe the movement, action, and camera motion.
+2. "textToVideoPrompt": A comprehensive text-to-video prompt in English (80-150 words) describing the product details, scene setting, lighting, mood, camera style, and action from scratch for that scene.
 
 You MUST return the output strictly in this JSON format (do not wrap in markdown \`\`\`json blocks):
 {
-  "prompt": "<English motion, action sequence, and camera movement prompt>",
-  "narration": null
-}`;
-    }
-  } else { // text-to-video
-    if (enableVo) {
-      systemInstruction = `You are an expert AI Video Director and master video prompting engineer specializing in high-fidelity commercial text-to-video generation (for Kling, Luma, Runway, Sora, etc. to create videos purely from text).
-${durationClause}
-Your task is to analyze the provided storyboard or product showcase image sheet visually, matching them with the project title and narrative description to write:
-1. One single, highly-detailed, and comprehensive text-to-video scene prompt in English (150-250 words) describing the product details, scene setting, lighting, mood, camera style, and scene progression in full detail from scratch.
-2. A voiceover narration script paragraph in the language: "${voLanguage || 'Bahasa Indonesia'}". ${toneClause} The narration should flow naturally to match the scene.
-
-You MUST return the output strictly in this JSON format (do not wrap in markdown \`\`\`json blocks):
-{
-  "prompt": "<English text-to-video scene prompt>",
-  "narration": "<Voiceover narration script in the requested language>"
-}`;
-    } else {
-      systemInstruction = `You are an expert AI Video Director and master video prompting engineer specializing in high-fidelity commercial text-to-video generation (for Kling, Luma, Runway, Sora, etc. to create videos purely from text).
-${durationClause}
-Your task is to analyze the provided storyboard or product showcase image sheet visually, matching them with the project title and narrative description to write:
-1. One single, highly-detailed, and comprehensive text-to-video scene prompt in English (150-250 words) describing the product details, scene setting, lighting, mood, camera style, and scene progression in full detail from scratch.
-
-You MUST return the output strictly in this JSON format (do not wrap in markdown \`\`\`json blocks):
-{
-  "prompt": "<English text-to-video scene prompt>",
-  "narration": null
-}`;
-    }
+  "scenes": [
+    {
+      "scene_idx": 0,
+      "imageToVideoPrompt": "<English motion prompt for Scene 1>",
+      "textToVideoPrompt": "<English full text prompt for Scene 1>",
+      "narration": null
+    },
+    ...
+  ]
+}
+Ensure there are exactly ${totalScenes} items in the "scenes" array corresponding to the panels in sequence.`;
   }
 
   const payload = {
@@ -360,7 +353,7 @@ You MUST return the output strictly in this JSON format (do not wrap in markdown
             text: `Project Title: ${storyboard.title}
 Main Project Description: ${storyboard.prompt}
 
-Please analyze the provided image sheet(s) carefully. Generate the requested JSON output containing prompt (and narration if enabled).`
+Please analyze the provided image sheet(s) carefully. Generate the requested JSON output containing scenes array.`
           },
           ...imageParts
         ]
@@ -393,27 +386,28 @@ Please analyze the provided image sheet(s) carefully. Generate the requested JSO
     throw new Error('Respon dari AI kosong.');
   }
 
-  let finalPrompt = '';
+  // Validate and parse the structured output
+  let finalJsonStr = '';
   try {
     const parsed = JSON.parse(cleanText);
-    const mainPrompt = parsed.prompt || cleanText;
-    if (parsed.narration) {
-      const heading = targetType === 'image-to-video' ? 'Camera & Motion Prompt' : 'Video Prompt';
-      finalPrompt = `${heading}:\n${mainPrompt}\n\nVoiceover (${voLanguage}):\n${parsed.narration}`;
+    if (parsed && Array.isArray(parsed.scenes)) {
+      finalJsonStr = JSON.stringify(parsed);
     } else {
-      finalPrompt = mainPrompt;
+      throw new Error("Invalid structure from AI");
     }
   } catch (err) {
-    finalPrompt = cleanText;
+    console.error("Failed to parse AI scenes JSON, constructing fallback:", err);
+    const fallbackScenes = [];
+    for (let idx = 0; idx < totalScenes; idx++) {
+      fallbackScenes.push({
+        scene_idx: idx,
+        imageToVideoPrompt: `Camera motion for Scene ${idx + 1}: ${cleanText.substring(0, 200)}...`,
+        textToVideoPrompt: `Visual prompt for Scene ${idx + 1}: ${cleanText.substring(0, 200)}...`,
+        narration: enableVo ? `Narasi voiceover untuk Scene ${idx + 1}` : null
+      });
+    }
+    finalJsonStr = JSON.stringify({ scenes: fallbackScenes });
   }
-
-  if (targetType === 'image-to-video') {
-    currentPrompts.imageToVideoPrompt = finalPrompt;
-  } else {
-    currentPrompts.textToVideoPrompt = finalPrompt;
-  }
-
-  const finalJsonStr = JSON.stringify(currentPrompts);
 
   // Save to DB as JSON string
   await db.run('UPDATE storyboards SET video_prompts = ? WHERE id = ?', [finalJsonStr, storyboardId]);

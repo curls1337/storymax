@@ -34,7 +34,7 @@ export default function Generator() {
   const [title, setTitle] = useState('');
   const [prompt, setPrompt] = useState('');
   const [style, setStyle] = useState('cooking_grid');
-  const [apiKeyId, setApiKeyId] = useState('');
+  const [apiKeyId, setApiKeyId] = useState('auto');
   const [apiKeys, setApiKeys] = useState([]);
   const [gridCount, setGridCount] = useState(6);
   const [model, setModel] = useState('108');
@@ -78,8 +78,7 @@ export default function Generator() {
       const res = await api.get('/storyboards/keys');
       setApiKeys(res.data);
       if (res.data.length > 0) {
-        const freeKey = res.data.find(k => !k.in_use);
-        setApiKeyId(freeKey ? freeKey.id : res.data[0].id);
+        setApiKeyId('auto');
       }
     } catch (err) {
       console.error('Gagal mengambil kunci API:', err);
@@ -240,7 +239,7 @@ export default function Generator() {
 
   const handleGenerate = async (e) => {
     e.preventDefault();
-    if (!apiKeyId) { setError('Admin belum mengonfigurasi API Key.'); return; }
+    if (!apiKeyId || apiKeys.length === 0) { setError('Admin belum mengonfigurasi API Key.'); return; }
     setError('');
     setResult(null);
     setTaskLogs('');
@@ -533,6 +532,7 @@ export default function Generator() {
                 className="w-full bg-black/40 border border-[#2a2725] rounded-2xl px-4 py-3 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs"
                 disabled={generating}
               >
+                <option value="auto">Pilih Otomatis (Auto-detect)</option>
                 {apiKeys.map((k) => (
                   <option key={k.id} value={k.id} disabled={k.in_use}>
                     {k.label} (Terpakai: {k.total_credits || 0} Kredit) {k.in_use ? ' - Sedang Digunakan' : ''}
