@@ -6,7 +6,7 @@ const https = require('https');
 const { getDb } = require('../db');
 const { activeTasks } = require('./storyboardController');
 
-const uploadsDir = path.join(__dirname, '..', 'uploads');
+const { uploadsDir } = require('../config');
 
 async function getAvailableApiKey(db) {
   const activeKeys = await db.all('SELECT * FROM api_keys WHERE is_active = 1');
@@ -690,7 +690,7 @@ async function generateAllVideos(req, res) {
       }
 
       // Resolve scene image
-      const pageIdx = Math.floor(sceneIdx / 4);
+      const pageIdx = sceneIdx;
       const sceneImage = panelImages[pageIdx];
 
       // Dynamically select an available API key for each scene!

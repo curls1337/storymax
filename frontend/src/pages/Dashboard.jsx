@@ -203,7 +203,7 @@ export default function Dashboard({ setTab }) {
         model: videoModel,
         generationType: videoGenType,
         aspectRatio: videoAspectRatio,
-        duration: Number(videoDuration),
+        duration: videoDuration === 'auto' ? undefined : Number(videoDuration),
         resolution: videoResolution,
         generateAudio: videoGenerateAudio,
         apiKeyId: selectedApiKeyId || 'auto'
@@ -233,7 +233,7 @@ export default function Dashboard({ setTab }) {
         model: videoModel,
         generationType: videoGenType,
         aspectRatio: videoAspectRatio,
-        duration: Number(videoDuration),
+        duration: videoDuration === 'auto' ? undefined : Number(videoDuration),
         resolution: videoResolution,
         generateAudio: videoGenerateAudio,
         apiKeyId: selectedApiKeyId || 'auto'
