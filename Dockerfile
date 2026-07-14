@@ -4,22 +4,17 @@ FROM mcr.microsoft.com/playwright:v1.45.0-jammy
 # Set working directory
 WORKDIR /app
 
-# Copy package files first for caching
-COPY package*.json ./
-COPY backend/package*.json ./backend/
-COPY frontend/package*.json ./frontend/
+# Copy the application files
+COPY . .
 
-# Remove Windows-generated package-lock.json files to force fresh resolution for Linux
-RUN rm -f package-lock.json backend/package-lock.json frontend/package-lock.json
+# Clean up any host-side lockfiles or node_modules that might have been copied
+RUN rm -rf package-lock.json backend/package-lock.json frontend/package-lock.json node_modules backend/node_modules frontend/node_modules
 
-# Install all dependencies (adding flags to bust Docker layer cache)
+# Install all dependencies on the clean Linux container
 RUN npm install --no-audit --no-fund
 RUN npm install --prefix backend --no-audit --no-fund
 RUN npm install --prefix frontend --no-audit --no-fund
 RUN npm install --prefix frontend @rolldown/binding-linux-x64-gnu --no-audit --no-fund
-
-# Copy the rest of the application files
-COPY . .
 
 # Build the frontend production files
 RUN npm run build --prefix frontend
