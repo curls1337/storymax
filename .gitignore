@@ -13,3 +13,7 @@ build/
 backend/public/uploads/*
 !backend/public/uploads/previews
 !backend/public/uploads/.gitkeep
+
+# Ignore package-lock.json to avoid cross-platform binary package lock issues
+package-lock.json
+**/package-lock.json
