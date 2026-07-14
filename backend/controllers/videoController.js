@@ -610,6 +610,120 @@ async function regenerateVideoMarketingCopy(req, res) {
   }
 }
 
+async function runSingleVideoSpawn(vRecId, tId, kRec, pText, scImg, model, generationType, duration, resolution, aspectRatio, generateAudio, storyboardId) {
+  try {
+    const db = getDb();
+    const spawnCmd = 'node';
+    const cliPath = path.join(__dirname, '..', 'node_modules', 'freebeat-cli', 'dist', 'index.js');
+    const spawnArgs = [
+      cliPath,
+      '--api-key', kRec.key_value,
+      'video', 'generate',
+      '--model', model,
+      '--prompt', pText,
+      '--generation-type', generationType === 'image' ? 'image' : 'text',
+      '--json'
+    ];
+
+    if (generationType === 'image' && scImg) {
+      let resolvedImagePath = scImg;
+      if (scImg.startsWith('/uploads/') || scImg.startsWith('uploads/')) {
+        const filename = scImg.replace(/^\/?uploads\//, '');
+        resolvedImagePath = path.join(uploadsDir, filename);
+      }
+      spawnArgs.push('--image', resolvedImagePath);
+    }
+
+    if (duration) spawnArgs.push('--duration', String(duration));
+    if (resolution) spawnArgs.push('--resolution', resolution);
+    if (aspectRatio && aspectRatio !== 'auto') spawnArgs.push('--aspect-ratio', aspectRatio);
+    if (generateAudio) spawnArgs.push('--generate-audio');
+
+    const child = spawn(spawnCmd, spawnArgs);
+
+    let stdoutData = '';
+    let stderrData = '';
+
+    child.stdout.on('data', (data) => {
+      stdoutData += data.toString();
+    });
+
+    child.stderr.on('data', (data) => {
+      stderrData += data.toString();
+    });
+
+    child.on('close', async (code) => {
+      if (code !== 0) {
+        const errorMsg = (stderrData.trim() || stdoutData.trim() || `Submit exited with code ${code}`);
+        activeTasks[tId].status = 'failed';
+        activeTasks[tId].error = errorMsg;
+        activeTasks[tId].logs += `[ERROR] Gagal mengirim task ke Freebeat: ${errorMsg}\n`;
+        await db.run('UPDATE generated_videos SET status = ? WHERE id = ?', ['failed', vRecId]);
+        return;
+      }
+
+      try {
+        const jsonLines = stdoutData.split('\n').filter(line => line.trim().startsWith('{') || line.trim().startsWith('['));
+        let submitResponse = null;
+        for (const line of jsonLines) {
+          try {
+            const parsed = JSON.parse(line.trim());
+            if (parsed.success && parsed.data) {
+              submitResponse = parsed.data;
+              break;
+            }
+          } catch (e) {}
+        }
+
+        if (!submitResponse && stdoutData.trim().startsWith('{')) {
+          try {
+            const parsed = JSON.parse(stdoutData.trim());
+            if (parsed.success && parsed.data) {
+              submitResponse = parsed.data;
+            }
+          } catch (e) {}
+        }
+
+        if (submitResponse) {
+          const batchId = submitResponse.batchId;
+          const serialNo = submitResponse.items?.[0]?.serialNo || '';
+
+          if (batchId) {
+            activeTasks[tId].logs += `[2/3] Sukses mendaftarkan task ke Freebeat.\n` +
+                                     `Batch ID: ${batchId}\n` +
+                                     `Serial  : ${serialNo}\n\n` +
+                                     `[3/3] Mulai memantau progress render Freebeat...\n`;
+            
+            await db.run(
+              'UPDATE generated_videos SET task_id = ?, serial_no = ? WHERE id = ?',
+              [batchId, serialNo, vRecId]
+            );
+
+            // Link the real Freebeat Batch ID to the logs in activeTasks
+            activeTasks[batchId] = activeTasks[tId];
+
+            pollVideoStatus(vRecId, storyboardId, kRec.key_value, batchId, serialNo, tId);
+          } else {
+            throw new Error('Gagal mendapatkan Batch ID dari respon Freebeat.');
+          }
+        } else {
+          throw new Error('Respon submit dari Freebeat CLI tidak valid.');
+        }
+      } catch (err) {
+        activeTasks[tId].status = 'failed';
+        activeTasks[tId].error = err.message;
+        activeTasks[tId].logs += `[ERROR] Gagal memproses respon Freebeat: ${err.message}\n`;
+        await db.run('UPDATE generated_videos SET status = ? WHERE id = ?', ['failed', vRecId]);
+      }
+    });
+  } catch (bgErr) {
+    activeTasks[tId].status = 'failed';
+    activeTasks[tId].error = bgErr.message;
+    activeTasks[tId].logs += `[CRITICAL ERROR] Gagal inisiasi sub-proses: ${bgErr.message}\n`;
+    await db.run('UPDATE generated_videos SET status = ? WHERE id = ?', ['failed', vRecId]);
+  }
+}
+
 async function generateAllVideos(req, res) {
   const {
     storyboardId,
@@ -647,7 +761,7 @@ async function generateAllVideos(req, res) {
       panelImages = storyboard.image_path ? [storyboard.image_path] : [];
     }
 
-    const totalScenes = panelImages.length * 4;
+    const totalScenes = panelImages.length;
     if (totalScenes === 0) {
       return res.status(400).json({ message: 'Storyboard ini belum memiliki gambar panel.' });
     }
@@ -665,210 +779,121 @@ async function generateAllVideos(req, res) {
       console.error("Failed to parse video prompts in generateAllVideos:", e);
     }
 
-    const spawnedTasks = [];
+    // Respond immediately to prevent HTTP timeouts
+    res.json({ message: 'Proses batch video generation sukses dimulai di background. Setiap scene akan diantrekan secara bergiliran.' });
 
-    // 3. Loop over each scene
-    for (let sceneIdx = 0; sceneIdx < totalScenes; sceneIdx++) {
-      // Check if there is already a successfully generated or processing video for this sceneIdx
-      const existingVideo = await db.get(
-        'SELECT * FROM generated_videos WHERE storyboard_id = ? AND scene_idx = ? ORDER BY id DESC LIMIT 1',
-        [storyboardId, sceneIdx]
-      );
-
-      if (existingVideo && (existingVideo.status === 'success' || existingVideo.status === 'processing')) {
-        continue;
-      }
-
-      // Resolve scene-specific prompt
-      let promptText = '';
-      const matchingPrompt = scenePrompts.find(p => p.scene_idx === sceneIdx);
-      if (matchingPrompt) {
-        promptText = generationType === 'image' 
-          ? (matchingPrompt.imageToVideoPrompt || matchingPrompt.textToVideoPrompt)
-          : matchingPrompt.textToVideoPrompt;
-      }
-      
-      if (!promptText) {
-        promptText = storyboard.prompt || storyboard.title;
-      }
-
-      // Resolve scene image
-      const pageIdx = sceneIdx;
-      const sceneImage = panelImages[pageIdx];
-
-      // Dynamically select an available API key for each scene!
-      let keyRecord = null;
-      if (apiKeyId && apiKeyId !== 'auto') {
-        keyRecord = await db.get('SELECT * FROM api_keys WHERE id = ? AND is_active = 1', [apiKeyId]);
-      }
-      if (!keyRecord) {
-        keyRecord = await getAvailableApiKey(db);
-      }
-
-      if (!keyRecord) {
-        break;
-      }
-
-      // Create unique task ID
-      const taskId = 'video_task_' + Date.now() + '_' + sceneIdx;
-
-      // Insert record in generated_videos
-      const insertResult = await db.run(
-        `INSERT INTO generated_videos 
-         (storyboard_id, scene_idx, prompt, model, aspect_ratio, duration, resolution, status, task_id, api_key_id) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          storyboardId,
-          sceneIdx,
-          promptText,
-          model,
-          aspectRatio || null,
-          duration || null,
-          resolution || null,
-          'processing',
-          taskId,
-          keyRecord.id
-        ]
-      );
-      const videoRecordId = insertResult.lastID;
-
-      // Register active task
-      activeTasks[taskId] = {
-        status: 'processing',
-        apiKeyId: keyRecord.id,
-        logs: '=== VIDEO STUDIO GENERATION (BATCH) ===\n\n' +
-              `Scene Index      : ${sceneIdx + 1}\n` +
-              `Model            : ${model}\n` +
-              `Prompt           : ${promptText}\n` +
-              `Type             : ${generationType}\n` +
-              `Duration         : ${duration ? duration + 's' : 'Default'}\n` +
-              `Resolution       : ${resolution || 'Default'}\n` +
-              `Aspect Ratio     : ${aspectRatio || 'Default'}\n` +
-              `Audio            : ${generateAudio ? 'Yes' : 'No'}\n\n` +
-              `[1/3] Mengirimkan perintah generasi ke Freebeat...\n`,
-        result: null,
-        error: null
+    // Run the queue loop in the background!
+    (async () => {
+      const activeTasksCountForStoryboard = () => {
+        return Object.values(activeTasks).filter(task => 
+          task.status === 'processing' && task.storyboardId === storyboardId
+        ).length;
       };
 
-      // Spawn execution in background (separate process for each scene)
-      (async (vRecId, tId, kRec, pText, scImg) => {
-        try {
-          const spawnCmd = 'node';
-          const cliPath = path.join(__dirname, '..', 'node_modules', 'freebeat-cli', 'dist', 'index.js');
-          const spawnArgs = [
-            cliPath,
-            '--api-key', kRec.key_value,
-            'video', 'generate',
-            '--model', model,
-            '--prompt', pText,
-            '--generation-type', generationType === 'image' ? 'image' : 'text',
-            '--json'
-          ];
+      const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-          if (generationType === 'image' && scImg) {
-            let resolvedImagePath = scImg;
-            if (scImg.startsWith('/uploads/') || scImg.startsWith('uploads/')) {
-              const filename = scImg.replace(/^\/?uploads\//, '');
-              resolvedImagePath = path.join(uploadsDir, filename);
-            }
-            spawnArgs.push('--image', resolvedImagePath);
-          }
-
-          if (duration) spawnArgs.push('--duration', String(duration));
-          if (resolution) spawnArgs.push('--resolution', resolution);
-          if (aspectRatio && aspectRatio !== 'auto') spawnArgs.push('--aspect-ratio', aspectRatio);
-          if (generateAudio) spawnArgs.push('--generate-audio');
-
-          const child = spawn(spawnCmd, spawnArgs);
-
-          let stdoutData = '';
-          let stderrData = '';
-
-          child.stdout.on('data', (data) => {
-            stdoutData += data.toString();
-          });
-
-          child.stderr.on('data', (data) => {
-            stderrData += data.toString();
-          });
-
-          child.on('close', async (code) => {
-            if (code !== 0) {
-              const errorMsg = (stderrData.trim() || stdoutData.trim() || `Submit exited with code ${code}`);
-              activeTasks[tId].status = 'failed';
-              activeTasks[tId].error = errorMsg;
-              activeTasks[tId].logs += `[ERROR] Gagal mengirim task ke Freebeat: ${errorMsg}\n`;
-              await db.run('UPDATE generated_videos SET status = ? WHERE id = ?', ['failed', vRecId]);
-              return;
-            }
-
-            try {
-              const jsonLines = stdoutData.split('\n').filter(line => line.trim().startsWith('{') || line.trim().startsWith('['));
-              let submitResponse = null;
-              for (const line of jsonLines) {
-                try {
-                  const parsed = JSON.parse(line.trim());
-                  if (parsed.success && parsed.data) {
-                    submitResponse = parsed.data;
-                    break;
-                  }
-                } catch (e) {}
-              }
-
-              if (!submitResponse && stdoutData.trim().startsWith('{')) {
-                try {
-                  const parsed = JSON.parse(stdoutData.trim());
-                  if (parsed.success && parsed.data) {
-                    submitResponse = parsed.data;
-                  }
-                } catch (e) {}
-              }
-
-              if (submitResponse) {
-                const batchId = submitResponse.batchId;
-                const serialNo = submitResponse.items?.[0]?.serialNo || '';
-
-                if (batchId) {
-                  activeTasks[tId].logs += `[2/3] Sukses mendaftarkan task ke Freebeat.\n` +
-                                           `Batch ID: ${batchId}\n` +
-                                           `Serial  : ${serialNo}\n\n` +
-                                           `[3/3] Mulai memantau progress render Freebeat...\n`;
-                  
-                  await db.run(
-                    'UPDATE generated_videos SET task_id = ?, serial_no = ? WHERE id = ?',
-                    [batchId, serialNo, vRecId]
-                  );
-
-                  // Link the real Freebeat Batch ID to the logs in activeTasks
-                  activeTasks[batchId] = activeTasks[tId];
-
-                  const { pollVideoStatus } = require('./videoController');
-                  pollVideoStatus(vRecId, storyboardId, kRec.key_value, batchId, serialNo, tId);
-                } else {
-                  throw new Error('Gagal mendapatkan Batch ID dari respon Freebeat.');
-                }
-              } else {
-                throw new Error('Respon submit dari Freebeat CLI tidak valid.');
-              }
-            } catch (err) {
-              activeTasks[tId].status = 'failed';
-              activeTasks[tId].error = err.message;
-              activeTasks[tId].logs += `[ERROR] Gagal memproses respon Freebeat: ${err.message}\n`;
-              await db.run('UPDATE generated_videos SET status = ? WHERE id = ?', ['failed', vRecId]);
-            }
-          });
-        } catch (bgErr) {
-          activeTasks[tId].status = 'failed';
-          activeTasks[tId].error = bgErr.message;
-          activeTasks[tId].logs += `[CRITICAL ERROR] Gagal inisiasi sub-proses: ${bgErr.message}\n`;
-          await db.run('UPDATE generated_videos SET status = ? WHERE id = ?', ['failed', vRecId]);
+      for (let sceneIdx = 0; sceneIdx < totalScenes; sceneIdx++) {
+        // Wait if there are already 2 or more active tasks processing for this storyboard
+        while (activeTasksCountForStoryboard() >= 2) {
+          await sleep(5000); // Check every 5 seconds
         }
-      })(videoRecordId, taskId, keyRecord, promptText, sceneImage);
 
-      spawnedTasks.push({ sceneIdx, taskId, videoRecordId });
-    }
+        // Re-read DB connection
+        const db = getDb();
 
-    res.json({ message: 'Batch video generation started successfully.', tasks: spawnedTasks });
+        // Check if there is already a successfully generated or processing video for this sceneIdx
+        const existingVideo = await db.get(
+          'SELECT * FROM generated_videos WHERE storyboard_id = ? AND scene_idx = ? ORDER BY id DESC LIMIT 1',
+          [storyboardId, sceneIdx]
+        );
+
+        if (existingVideo && (existingVideo.status === 'success' || existingVideo.status === 'processing')) {
+          continue;
+        }
+
+        // Introduce a delay of 20 seconds before starting the next video (except for the first one)
+        if (sceneIdx > 0) {
+          await sleep(20000);
+        }
+
+        // Resolve scene-specific prompt
+        let promptText = '';
+        const matchingPrompt = scenePrompts.find(p => p.scene_idx === sceneIdx);
+        if (matchingPrompt) {
+          promptText = generationType === 'image' 
+            ? (matchingPrompt.imageToVideoPrompt || matchingPrompt.textToVideoPrompt)
+            : matchingPrompt.textToVideoPrompt;
+        }
+        
+        if (!promptText) {
+          promptText = storyboard.prompt || storyboard.title;
+        }
+
+        // Resolve scene image
+        const pageIdx = sceneIdx;
+        const sceneImage = panelImages[pageIdx];
+
+        // Dynamically select an available API key for each scene!
+        let keyRecord = null;
+        if (apiKeyId && apiKeyId !== 'auto') {
+          keyRecord = await db.get('SELECT * FROM api_keys WHERE id = ? AND is_active = 1', [apiKeyId]);
+        }
+        if (!keyRecord) {
+          keyRecord = await getAvailableApiKey(db);
+        }
+
+        if (!keyRecord) {
+          console.warn(`[Batch] No active key available for scene ${sceneIdx}`);
+          continue;
+        }
+
+        // Create unique task ID
+        const taskId = 'video_task_' + Date.now() + '_' + sceneIdx;
+
+        // Insert record in generated_videos
+        const insertResult = await db.run(
+          `INSERT INTO generated_videos 
+           (storyboard_id, scene_idx, prompt, model, aspect_ratio, duration, resolution, status, task_id, api_key_id) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            storyboardId,
+            sceneIdx,
+            promptText,
+            model,
+            aspectRatio || null,
+            duration || null,
+            resolution || null,
+            'processing',
+            taskId,
+            keyRecord.id
+          ]
+        );
+        const videoRecordId = insertResult.lastID;
+
+        // Register active task
+        activeTasks[taskId] = {
+          status: 'processing',
+          storyboardId,
+          apiKeyId: keyRecord.id,
+          logs: '=== VIDEO STUDIO GENERATION (BATCH QUEUE) ===\n\n' +
+                `Scene Index      : ${sceneIdx + 1}\n` +
+                `Model            : ${model}\n` +
+                `Prompt           : ${promptText}\n` +
+                `Type             : ${generationType}\n` +
+                `Duration         : ${duration ? duration + 's' : 'Default'}\n` +
+                `Resolution       : ${resolution || 'Default'}\n` +
+                `Aspect Ratio     : ${aspectRatio || 'Default'}\n` +
+                `Audio            : ${generateAudio ? 'Yes' : 'No'}\n\n` +
+                `[1/3] Mengirimkan perintah generasi ke Freebeat...\n`,
+          result: null,
+          error: null
+        };
+
+        // Spawn execution
+        runSingleVideoSpawn(videoRecordId, taskId, keyRecord, promptText, sceneImage, model, generationType, duration, resolution, aspectRatio, generateAudio, storyboardId);
+      }
+    })();
+
   } catch (err) {
     console.error('generateAllVideos failed:', err);
     res.status(500).json({ message: 'Gagal memulai batch video generation.', error: err.message });
