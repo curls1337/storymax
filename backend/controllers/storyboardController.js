@@ -1139,8 +1139,6 @@ async function regenerateStoryboardPage(req, res) {
     // Spawn background execution
     (async () => {
       try {
-        const { splitStoryboardPromptWithAI } = require('./aiController');
-        
         activeTasks[taskId] = {
           status: 'processing',
           logs: `=== REGENERASI STORYBOARD PANEL (HALAMAN ${pageIdx + 1}) ===\n\n` +
