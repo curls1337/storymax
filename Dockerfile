@@ -14,7 +14,6 @@ RUN rm -rf package-lock.json backend/package-lock.json frontend/package-lock.jso
 RUN npm install --no-audit --no-fund
 RUN npm install --prefix backend --no-audit --no-fund
 RUN npm install --prefix frontend --no-audit --no-fund
-RUN npm install --prefix frontend @rolldown/binding-linux-x64-gnu --no-audit --no-fund
 
 # Build the frontend production files
 RUN npm run build --prefix frontend
