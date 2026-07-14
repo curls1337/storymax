@@ -343,6 +343,22 @@ async function getUserStoryboards(req, res) {
   }
 }
 
+async function getAvailableApiKey(db) {
+  const activeKeys = await db.all('SELECT * FROM api_keys WHERE is_active = 1');
+  if (activeKeys.length === 0) return null;
+
+  // Filter out keys that are currently busy in activeTasks
+  const busyKeyIds = Object.values(activeTasks)
+    .filter(task => task.status === 'processing')
+    .map(task => parseInt(task.apiKeyId));
+
+  const freeKeys = activeKeys.filter(k => !busyKeyIds.includes(parseInt(k.id)));
+  if (freeKeys.length > 0) {
+    return freeKeys[0];
+  }
+  return activeKeys[0];
+}
+
 async function generateStoryboard(req, res) {
   const { title, prompt, style, apiKeyId, refImageBase64, refImageUrl, refImages, gridCount, model, duration, showFace, aspectRatio, enableVo, voLanguage, voTone } = req.body;
 
@@ -350,15 +366,28 @@ async function generateStoryboard(req, res) {
     return res.status(400).json({ message: 'Title, prompt, style, and API Key ID are required.' });
   }
 
-  const parsedApiKeyId = parseInt(apiKeyId);
-  const isKeyBusy = Object.values(activeTasks).some(task => 
-    task.status === 'processing' && parseInt(task.apiKeyId) === parsedApiKeyId
-  );
-
-  if (isKeyBusy) {
-    return res.status(409).json({ message: 'API Key ini sedang digunakan oleh proses lain. Silakan pilih API Key lain atau tunggu beberapa saat.' });
+  const db = getDb();
+  let keyRecord = null;
+  if (apiKeyId && apiKeyId !== 'auto') {
+    keyRecord = await db.get('SELECT * FROM api_keys WHERE id = ? AND is_active = 1', [apiKeyId]);
+    if (!keyRecord) {
+      return res.status(400).json({ message: 'API Key terpilih tidak aktif atau tidak valid.' });
+    }
+    
+    const isKeyBusy = Object.values(activeTasks).some(task => 
+      task.status === 'processing' && parseInt(task.apiKeyId) === parseInt(keyRecord.id)
+    );
+    if (isKeyBusy) {
+      return res.status(409).json({ message: 'API Key ini sedang digunakan oleh proses lain. Silakan pilih API Key lain atau tunggu beberapa saat.' });
+    }
+  } else {
+    keyRecord = await getAvailableApiKey(db);
+    if (!keyRecord) {
+      return res.status(400).json({ message: 'Tidak ada API Key Freebeat yang aktif.' });
+    }
   }
 
+  const parsedApiKeyId = keyRecord.id;
   const selectedModel = model ? String(model) : '108';
   const totalDuration = duration ? Number(duration) : 15;
   const pageCount = Math.max(1, Math.min(4, Math.ceil(totalDuration / 15)));
@@ -367,7 +396,6 @@ async function generateStoryboard(req, res) {
   const taskId = 'task_' + Date.now();
   let storyboardId = null;
   try {
-    const db = getDb();
     const insertResult = await db.run(
       'INSERT INTO storyboards (user_id, title, prompt, image_path, used_credits, api_key_id, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [req.user.id, title, prompt, '[]', 0, parsedApiKeyId, 'processing']
@@ -403,8 +431,6 @@ async function generateStoryboard(req, res) {
     try {
       const db = getDb();
       
-      // Retrieve API key from DB
-      const keyRecord = await db.get('SELECT * FROM api_keys WHERE id = ? AND is_active = 1', [apiKeyId]);
       if (!keyRecord) {
         activeTasks[taskId].status = 'failed';
         activeTasks[taskId].error = 'Selected API Key is invalid or inactive.';

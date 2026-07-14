@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import api from '../utils/api';
-import { Plus, Trash2, ExternalLink, Calendar, Loader, FolderOpen, X, ChevronRight, Download, Eye } from 'lucide-react';
+import { Plus, Trash2, ExternalLink, Calendar, Loader, FolderOpen, X, ChevronRight, Download, Eye, AlertTriangle } from 'lucide-react';
 
 export default function Dashboard({ setTab }) {
   const [storyboards, setStoryboards] = useState([]);
