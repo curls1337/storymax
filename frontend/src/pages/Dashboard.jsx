@@ -106,6 +106,7 @@ export default function Dashboard({ setTab }) {
   
   const [regeneratingPages, setRegeneratingPages] = useState({});
   const [regenLogs, setRegenLogs] = useState({});
+  const [downloadingId, setDownloadingId] = useState(null);
 
   const handleRegeneratePage = async (storyboardId, pageIdx) => {
     const confirmRegen = window.confirm(`Apakah Anda yakin ingin me-regenerasi Halaman ${pageIdx + 1}? (Proses ini membutuhkan beberapa kredit Freebeat).`);
@@ -473,17 +474,24 @@ export default function Dashboard({ setTab }) {
     return `${cleanBase}/storyboards/download?url=${encodeURIComponent(cleanUrl)}`;
   };
 
-  const downloadFileNative = async (url, filename) => {
+  const downloadFileNative = async (url, filename, elementId) => {
+    if (elementId) setDownloadingId(elementId);
     const isCapacitor = window.Capacitor !== undefined;
     const downloadUrl = getDownloadUrl(url);
     
     if (!isCapacitor) {
-      const link = document.createElement('a');
-      link.href = downloadUrl;
-      link.setAttribute('download', filename);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      try {
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.setAttribute('download', filename);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } catch (err) {
+        console.error("Browser download error:", err);
+      } finally {
+        if (elementId) setDownloadingId(null);
+      }
       return;
     }
 
@@ -506,26 +514,39 @@ export default function Dashboard({ setTab }) {
       const reader = new FileReader();
       reader.readAsDataURL(blob);
       reader.onloadend = async () => {
-        const base64Data = reader.result.split(',')[1];
-        await Filesystem.writeFile({
-          path: filename,
-          data: base64Data,
-          directory: Directory.Documents
-        });
-        alert(`File berhasil diunduh dan disimpan ke folder Dokumen perangkat Anda sebagai "${filename}"!`);
+        try {
+          const base64Data = reader.result.split(',')[1];
+          await Filesystem.writeFile({
+            path: filename,
+            data: base64Data,
+            directory: Directory.Documents
+          });
+          alert(`✓ Berhasil Diunduh!\n\nFile disimpan sebagai:\n"${filename}"\n\nLokasi: Folder 'Documents' (Penyimpanan Internal) perangkat Anda. Silakan buka aplikasi File Manager / Files di HP Anda untuk melihat, membagikan, atau memindahkannya ke Galeri.`);
+        } catch (writeErr) {
+          console.error("File write error:", writeErr);
+          alert(`Gagal menulis file: ${writeErr.message}`);
+        } finally {
+          if (elementId) setDownloadingId(null);
+        }
       };
     } catch (err) {
       console.error("Native download error:", err);
       alert(`Gagal mengunduh file secara native. Membuka di browser...`);
       window.open(downloadUrl, '_blank');
+      if (elementId) setDownloadingId(null);
     }
   };
 
-  const handleDownloadClick = async (e, url, filename) => {
+  const handleDownloadClick = async (e, url, filename, elementId) => {
     const isCapacitor = window.Capacitor !== undefined;
     if (isCapacitor) {
       e.preventDefault();
-      await downloadFileNative(url, filename);
+      await downloadFileNative(url, filename, elementId);
+    } else {
+      if (elementId) {
+        setDownloadingId(elementId);
+        setTimeout(() => setDownloadingId(null), 2000);
+      }
     }
   };
 
@@ -815,12 +836,22 @@ export default function Dashboard({ setTab }) {
                       </a>
                       <a
                         href={getDownloadUrl(activeImg)}
-                        onClick={(e) => handleDownloadClick(e, activeImg, `storyboard-${selectedStoryboard.id}-panel-${modalCarouselIdx + 1}.png`)}
+                        onClick={(e) => handleDownloadClick(e, activeImg, `storyboard-${selectedStoryboard.id}-panel-${modalCarouselIdx + 1}.png`, `img-${selectedStoryboard.id}-${modalCarouselIdx}`)}
                         download={`storyboard-${selectedStoryboard.id}-panel-${modalCarouselIdx + 1}.png`}
-                        className="flex-1 bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 text-[8.5px] uppercase tracking-wider transition-all cursor-pointer"
+                        className="flex-1 bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 text-[8.5px] uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50"
+                        style={{ pointerEvents: downloadingId ? 'none' : 'auto' }}
                       >
-                        <Download className="w-3.5 h-3.5" />
-                        Unduh
+                        {downloadingId === `img-${selectedStoryboard.id}-${modalCarouselIdx}` ? (
+                          <>
+                            <Loader className="animate-spin w-3.5 h-3.5" />
+                            Unduh...
+                          </>
+                        ) : (
+                          <>
+                            <Download className="w-3.5 h-3.5" />
+                            Unduh
+                          </>
+                        )}
                       </a>
                     </div>
                     
@@ -1433,11 +1464,20 @@ export default function Dashboard({ setTab }) {
                           <div className="grid grid-cols-2 gap-2 pt-1">
                             <a
                               href={getDownloadUrl(activeVid.video_url)}
-                              onClick={(e) => handleDownloadClick(e, activeVid.video_url, `storyboard-${selectedStoryboard.id}-scene-${modalCarouselIdx + 1}.mp4`)}
+                              onClick={(e) => handleDownloadClick(e, activeVid.video_url, `storyboard-${selectedStoryboard.id}-scene-${modalCarouselIdx + 1}.mp4`, `vid-${selectedStoryboard.id}-${modalCarouselIdx}`)}
                               download={`storyboard-${selectedStoryboard.id}-scene-${modalCarouselIdx + 1}.mp4`}
-                              className="w-full bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-2 px-2.5 rounded-lg text-[8.5px] uppercase tracking-wider flex items-center justify-center gap-1 transition-all text-center cursor-pointer"
+                              className="w-full bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-2 px-2.5 rounded-lg text-[8.5px] uppercase tracking-wider flex items-center justify-center gap-1 transition-all text-center cursor-pointer disabled:opacity-50"
+                              style={{ pointerEvents: downloadingId ? 'none' : 'auto' }}
                             >
-                              <Download className="w-3.5 h-3.5" /> Unduh Video
+                              {downloadingId === `vid-${selectedStoryboard.id}-${modalCarouselIdx}` ? (
+                                <>
+                                  <Loader className="animate-spin w-3.5 h-3.5" /> Unduh Video...
+                                </>
+                              ) : (
+                                <>
+                                  <Download className="w-3.5 h-3.5" /> Unduh Video
+                                </>
+                              )}
                             </a>
                             <a
                               href={activeVid.video_url}
