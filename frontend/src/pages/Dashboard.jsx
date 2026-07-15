@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import api from '../utils/api';
-import { Plus, Trash2, ExternalLink, Calendar, Loader, FolderOpen, X, ChevronRight, Download, Eye, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, ExternalLink, Calendar, Loader, FolderOpen, X, ChevronRight, ChevronLeft, Download, Eye, AlertTriangle } from 'lucide-react';
 
 export default function Dashboard({ setTab }) {
   const [storyboards, setStoryboards] = useState([]);
@@ -614,63 +614,41 @@ export default function Dashboard({ setTab }) {
         const { imageToVideoPrompt, textToVideoPrompt, narration } = parseVideoPrompts(selectedStoryboard.video_prompts, modalCarouselIdx);
         return createPortal(
           <div 
-            className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 z-50 select-text animate-fadeIn"
+            className="fixed inset-0 bg-black/80 md:bg-black/85 md:backdrop-blur-md flex items-start md:items-center justify-center p-0 md:p-4 z-50 select-text animate-fadeIn"
             onClick={() => { setSelectedStoryboard(null); setVideoPromptError(''); setActiveSceneIdx(0); }}
           >
             <div 
-              className="relative max-w-[1300px] w-full h-[82vh] md:h-[88vh] bg-[#1a1918] border border-[#2a2725] rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row my-auto animate-scaleUp"
+              className="relative w-full h-full md:max-w-[1300px] md:h-[88vh] bg-[#131211] md:bg-[#1a1918] md:border md:border-[#2a2725] md:rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row my-auto animate-scaleUp"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Top accent gold line */}
               <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#cfae80]/40 to-transparent"></div>
               
-              {/* Close Button */}
+              {/* Close Button (Desktop Only) */}
               <button 
                 onClick={() => { setSelectedStoryboard(null); setVideoPromptError(''); setActiveSceneIdx(0); }} 
-                className="absolute top-4 right-4 z-50 text-slate-400 hover:text-white bg-black/70 p-1.5 rounded-full border border-white/10 transition-colors"
+                className="hidden md:flex absolute top-4 right-4 z-50 text-slate-400 hover:text-white bg-black/70 p-1.5 rounded-full border border-white/10 transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
 
-              {/* Mobile Tab Switcher */}
-              <div className="flex md:hidden border-b border-[#2a2725] bg-[#1a1918] sticky top-0 z-40 p-2.5 gap-2 shrink-0 w-full">
+              {/* Mobile Top Bar with Back Button */}
+              <div className="flex md:hidden items-center justify-between px-4 pt-[env(safe-area-inset-top,0.75rem)] pb-3 bg-[#1a1918] border-b border-[#2a2725] shrink-0 w-full">
                 <button
                   type="button"
-                  onClick={() => setActiveMobileTab('image')}
-                  className={`flex-1 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all border ${
-                    activeMobileTab === 'image'
-                      ? 'bg-[#cfae80] text-black border-[#cfae80] shadow-lg shadow-[#cfae80]/15'
-                      : 'bg-[#2a2725]/30 text-slate-400 border-transparent hover:text-white'
-                  }`}
+                  onClick={() => { setSelectedStoryboard(null); setVideoPromptError(''); setActiveSceneIdx(0); }}
+                  className="flex items-center gap-1 text-slate-300 hover:text-white font-bold text-[9px] uppercase tracking-wider py-1.5 px-3 rounded-lg bg-[#2a2725]/45 border border-[#2a2725]/60 transition-all"
                 >
-                  🖼️ Gambar
+                  <ChevronLeft className="w-3.5 h-3.5" /> Kembali
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveMobileTab('prompt')}
-                  className={`flex-1 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all border ${
-                    activeMobileTab === 'prompt'
-                      ? 'bg-[#cfae80] text-black border-[#cfae80] shadow-lg shadow-[#cfae80]/15'
-                      : 'bg-[#2a2725]/30 text-slate-400 border-transparent hover:text-white'
-                  }`}
-                >
-                  📝 Naskah
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveMobileTab('video')}
-                  className={`flex-1 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all border ${
-                    activeMobileTab === 'video'
-                      ? 'bg-[#cfae80] text-black border-[#cfae80] shadow-lg shadow-[#cfae80]/15'
-                      : 'bg-[#2a2725]/30 text-slate-400 border-transparent hover:text-white'
-                  }`}
-                >
-                  🎬 Video
-                </button>
+                <span className="text-[10px] font-bold text-slate-400 truncate max-w-[180px] uppercase tracking-wider">
+                  Detail Storyboard
+                </span>
+                <div className="w-14"></div> {/* spacer to center the title */}
               </div>
 
               {/* Left Side: Large Image Carousel */}
-              <div className={`w-full md:w-2/5 bg-black/80 flex flex-col items-center justify-center relative flex-grow md:flex-grow-0 md:min-h-0 border-b md:border-b-0 md:border-r border-[#2a2725] p-4 md:p-0 ${activeMobileTab === 'image' ? 'flex' : 'hidden md:flex'}`}>
+              <div className={`w-full md:w-2/5 bg-black/80 flex flex-col items-center justify-center relative flex-grow md:flex-grow-0 md:min-h-0 border-b md:border-b-0 md:border-r border-[#2a2725] p-4 md:p-0 pb-24 md:pb-0 ${activeMobileTab === 'image' ? 'flex' : 'hidden md:flex'}`}>
                 {regeneratingPages[modalCarouselIdx] ? (
                   <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center p-6 space-y-3 z-10 animate-fadeIn">
                     <Loader className="animate-spin text-[#cfae80] w-8 h-8" />
@@ -733,7 +711,7 @@ export default function Dashboard({ setTab }) {
                     </div>
                   </div>
 
-                  <h2 className="text-2xl font-editorial italic text-white tracking-tight leading-snug">
+                  <h2 className="text-lg md:text-2xl font-editorial italic text-white tracking-tight leading-snug">
                     {selectedStoryboard.title}
                   </h2>
 
@@ -1613,6 +1591,43 @@ export default function Dashboard({ setTab }) {
                     Hapus Storyboard
                   </button>
                 </div>
+              </div>
+
+              {/* Mobile Bottom Tab Switcher */}
+              <div className="flex md:hidden border-t border-[#2a2725] bg-[#1a1918]/95 backdrop-blur-md fixed bottom-0 left-0 right-0 z-40 px-4 pt-2.5 pb-[env(safe-area-inset-bottom,0.75rem)] gap-3 shrink-0 w-full shadow-lg justify-around">
+                <button
+                  type="button"
+                  onClick={() => setActiveMobileTab('image')}
+                  className={`flex-grow py-2 rounded-xl text-[9px] font-bold uppercase tracking-wider transition-all border ${
+                    activeMobileTab === 'image'
+                      ? 'bg-[#cfae80] text-black border-[#cfae80] shadow-md shadow-[#cfae80]/10'
+                      : 'bg-[#2a2725]/30 text-slate-400 border-transparent hover:text-white'
+                  }`}
+                >
+                  🖼️ Gambar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveMobileTab('prompt')}
+                  className={`flex-grow py-2 rounded-xl text-[9px] font-bold uppercase tracking-wider transition-all border ${
+                    activeMobileTab === 'prompt'
+                      ? 'bg-[#cfae80] text-black border-[#cfae80] shadow-md shadow-[#cfae80]/10'
+                      : 'bg-[#2a2725]/30 text-slate-400 border-transparent hover:text-white'
+                  }`}
+                >
+                  📝 Naskah
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveMobileTab('video')}
+                  className={`flex-grow py-2 rounded-xl text-[9px] font-bold uppercase tracking-wider transition-all border ${
+                    activeMobileTab === 'video'
+                      ? 'bg-[#cfae80] text-black border-[#cfae80] shadow-md shadow-[#cfae80]/10'
+                      : 'bg-[#2a2725]/30 text-slate-400 border-transparent hover:text-white'
+                  }`}
+                >
+                  🎬 Video
+                </button>
               </div>
             </div>
           </div>,
