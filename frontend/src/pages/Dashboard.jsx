@@ -496,6 +496,24 @@ export default function Dashboard({ setTab }) {
     }
 
     try {
+      const response = await fetch(downloadUrl);
+      if (!response.ok) {
+        throw new Error(`Server returned HTTP ${response.status}`);
+      }
+      const blob = await response.blob();
+      const file = new File([blob], filename, { type: blob.type });
+
+      // Try native sharing sheet first (enables "Save Image" / "Save Video" directly to Photos/Gallery)
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: filename,
+        });
+        if (elementId) setDownloadingId(null);
+        return;
+      }
+
+      // Fallback: Write directly to filesystem Documents folder
       try {
         const checkStatus = await Filesystem.checkPermissions();
         if (checkStatus.publicStorage !== 'granted') {
@@ -505,12 +523,6 @@ export default function Dashboard({ setTab }) {
         console.warn("Permission check error:", pe);
       }
 
-      const response = await fetch(downloadUrl);
-      if (!response.ok) {
-        throw new Error(`Server returned HTTP ${response.status}`);
-      }
-      const blob = await response.blob();
-      
       const reader = new FileReader();
       reader.readAsDataURL(blob);
       reader.onloadend = async () => {
@@ -521,7 +533,7 @@ export default function Dashboard({ setTab }) {
             data: base64Data,
             directory: Directory.Documents
           });
-          alert(`✓ Berhasil Diunduh!\n\nFile disimpan sebagai:\n"${filename}"\n\nLokasi: Folder 'Documents' (Penyimpanan Internal) perangkat Anda. Silakan buka aplikasi File Manager / Files di HP Anda untuk melihat, membagikan, atau memindahkannya ke Galeri.`);
+          alert(`✓ Berhasil Disimpan!\n\nFile disimpan sebagai:\n"${filename}"\n\nLokasi: Folder 'Documents' (Penyimpanan Internal) perangkat Anda. Silakan buka aplikasi File Manager / Files di HP Anda untuk melihat atau membagikannya.`);
         } catch (writeErr) {
           console.error("File write error:", writeErr);
           alert(`Gagal menulis file: ${writeErr.message}`);
@@ -531,7 +543,7 @@ export default function Dashboard({ setTab }) {
       };
     } catch (err) {
       console.error("Native download error:", err);
-      alert(`Gagal mengunduh file secara native. Membuka di browser...`);
+      alert(`Gagal menyimpan file. Membuka di browser...`);
       window.open(downloadUrl, '_blank');
       if (elementId) setDownloadingId(null);
     }
@@ -844,12 +856,12 @@ export default function Dashboard({ setTab }) {
                         {downloadingId === `img-${selectedStoryboard.id}-${modalCarouselIdx}` ? (
                           <>
                             <Loader className="animate-spin w-3.5 h-3.5" />
-                            Unduh...
+                            Simpan...
                           </>
                         ) : (
                           <>
                             <Download className="w-3.5 h-3.5" />
-                            Unduh
+                            Simpan
                           </>
                         )}
                       </a>
@@ -1471,11 +1483,11 @@ export default function Dashboard({ setTab }) {
                             >
                               {downloadingId === `vid-${selectedStoryboard.id}-${modalCarouselIdx}` ? (
                                 <>
-                                  <Loader className="animate-spin w-3.5 h-3.5" /> Unduh Video...
+                                  <Loader className="animate-spin w-3.5 h-3.5" /> Simpan Video...
                                 </>
                               ) : (
                                 <>
-                                  <Download className="w-3.5 h-3.5" /> Unduh Video
+                                  <Download className="w-3.5 h-3.5" /> Simpan Video
                                 </>
                               )}
                             </a>
