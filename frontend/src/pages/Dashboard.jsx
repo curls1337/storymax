@@ -504,6 +504,14 @@ export default function Dashboard({ setTab }) {
     }
   };
 
+  const handleDownloadClick = async (e, url, filename) => {
+    const isCapacitor = window.Capacitor !== undefined;
+    if (isCapacitor) {
+      e.preventDefault();
+      await downloadFileNative(url, filename);
+    }
+  };
+
   const getResultImages = (sb) => {
     if (!sb || !sb.image_path) return [];
     try {
@@ -788,13 +796,15 @@ export default function Dashboard({ setTab }) {
                         <ExternalLink className="w-3.5 h-3.5 text-[#cfae80]" />
                         Full-Res
                       </a>
-                      <button
-                        onClick={() => downloadFileNative(activeImg, `storyboard-${selectedStoryboard.id}-panel-${modalCarouselIdx + 1}.png`)}
+                      <a
+                        href={getDownloadUrl(activeImg)}
+                        onClick={(e) => handleDownloadClick(e, activeImg, `storyboard-${selectedStoryboard.id}-panel-${modalCarouselIdx + 1}.png`)}
+                        download={`storyboard-${selectedStoryboard.id}-panel-${modalCarouselIdx + 1}.png`}
                         className="flex-1 bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 text-[8.5px] uppercase tracking-wider transition-all cursor-pointer"
                       >
                         <Download className="w-3.5 h-3.5" />
                         Unduh
-                      </button>
+                      </a>
                     </div>
                     
                     <button
@@ -1404,12 +1414,14 @@ export default function Dashboard({ setTab }) {
                           />
 
                           <div className="grid grid-cols-2 gap-2 pt-1">
-                            <button
-                              onClick={() => downloadFileNative(activeVid.video_url, `storyboard-${selectedStoryboard.id}-scene-${modalCarouselIdx + 1}.mp4`)}
+                            <a
+                              href={getDownloadUrl(activeVid.video_url)}
+                              onClick={(e) => handleDownloadClick(e, activeVid.video_url, `storyboard-${selectedStoryboard.id}-scene-${modalCarouselIdx + 1}.mp4`)}
+                              download={`storyboard-${selectedStoryboard.id}-scene-${modalCarouselIdx + 1}.mp4`}
                               className="w-full bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-2 px-2.5 rounded-lg text-[8.5px] uppercase tracking-wider flex items-center justify-center gap-1 transition-all text-center cursor-pointer"
                             >
                               <Download className="w-3.5 h-3.5" /> Unduh Video
-                            </button>
+                            </a>
                             <a
                               href={activeVid.video_url}
                               target="_blank"

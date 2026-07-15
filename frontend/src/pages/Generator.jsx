@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import api from '../utils/api';
-import { Sparkles, Loader, Download, ExternalLink, AlertTriangle, Terminal, X, ChevronRight, Upload, Image as ImageIcon, Zap, Sliders } from 'lucide-react';
+import { Sparkles, Loader, Download, ExternalLink, AlertTriangle, Terminal, X, ChevronRight, Upload, Image as ImageIcon, Zap, Sliders, Eye } from 'lucide-react';
 
 const LAYOUT_STYLES = [
   { value: 'cinematic_production', label: '1. Professional Film Production Storyboard', desc: 'Gelap/Cinematic' },
