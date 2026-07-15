@@ -3,43 +3,67 @@ import api from '../utils/api';
 import { Sparkles, Loader, Download, ExternalLink, AlertTriangle, Terminal, X, ChevronRight, Upload, Image as ImageIcon, Zap, Sliders } from 'lucide-react';
 
 const LAYOUT_STYLES = [
-  { value: 'cooking_grid', label: 'Cinematic Dark Storyboard Grid', desc: 'Gelap/Premium' },
-  { value: 'video_table', label: 'Clean Product Video Presentation Sheet', desc: 'Cream/Editorial' },
-  { value: 'product_identity', label: 'Luxury Product Specs Infographic', desc: 'Minimalis/Bersih' },
-  { value: 'ugc_guide', label: 'Social UGC Action Storyboard', desc: 'Vlog/Vibrant' },
-  { value: 'yellow_badge_storyboard', label: 'Yellow Badge Commercial Storyboard', desc: 'Bersih/Kuning (Tas Sekolah)' },
-  { value: 'female_editorial_table', label: 'Burgundy Editorial Script Table', desc: 'Elegan/Burgundy (Kemeja Wanita)' },
-  { value: 'creative_diy_kids', label: 'Creative Kids Playful Storyboard', desc: 'Ceria/Warna-warni (Art Paint)' },
-  { value: 'blue_pastel_asmr', label: 'Blue Pastel UGC ASMR Review', desc: 'Estetik/Biru (Aimilo)' },
-  { value: 'minimalist_unboxing_grid', label: 'Minimalist Unboxing Rounded Grid', desc: 'Bersih/Minimalis (Blender)' },
-  { value: 'cinematic_overlay', label: 'Full Bleed Cinematic Storyboard', desc: 'Gelap/Cinematic Overlay (RC Train)' },
-  { value: 'baking_timeline', label: 'Classic Cooking/Baking Timeline', desc: 'Cream Timeline (Bread Homemade)' },
-  { value: 'frame_strip', label: '3-Column Multi-Angle Progression Strip', desc: 'Strip Grid (Tamagoyaki)' },
-  { value: 'pencil_sketch', label: 'Vintage Crew Charcoal Pencil Sketch', desc: 'Hitam Putih Sketsa (Horror House)' },
-  { value: 'animation_bible', label: '3D Animation Bible & Pitch Sheet', desc: 'Gelap/Biru Pixar (The Last Shot)' },
-  { value: 'lego_diy', label: 'DIY Lego/Brick Assembly Storyboard', desc: 'Ceria/Lego Builder (RM Padang)' },
-  { value: 'mecha_review', label: 'Tech Mecha Action Figure Review Columns', desc: 'Gelap/Tech Blue (Gundam ASMR)' },
-  { value: 'anime_lego_storyboard', label: '2D Anime Lego Assembly Storyboard', desc: 'Anime/Makoto Shinkai (Lego Beat)' },
-  { value: 'toy_commercial', label: 'Toy Commercial Storyboard with Text Overlays', desc: 'Biru/Mobil Mainan (Die-Cast)' },
-  { value: 'cartoon_script_grid', label: 'Cute Cartoon Storyboard with Script Table', desc: 'Bersih/3D Kartun (Ibu Rumah Tangga)' },
-  { value: 'single_premium_showcase', label: 'Single-Frame Premium Commercial Showcase', desc: 'Bersih/Foto Studio (Hanya Produk)' },
-  { value: 'marketing_specs_timeline', label: 'Marketing Specs & Timeline Storyboard', desc: 'Bersih/Merah-Putih (Kimball Sos Cili)' },
-  { value: 'ugc_asmr_table', label: 'UGC ASMR Script Table', desc: 'Gelap/Tabel Skrip Detail (Tomkins Sepatu Anak)' },
-  { value: 'cinematic_commercial_pitch', label: 'Cinematic Commercial Pitch Sheet', desc: 'Gelap/Pitch Deck Premium (Centella Ampoule)' },
-  { value: 'handheld_product_specs', label: 'Handheld Product Specs & Storyboard', desc: 'Bersih/Informasi Produk (Mini Vacuum Cleaner)' },
-  { value: 'character_concept_sheet', label: 'Character Design & Concept Tech Sheet', desc: 'Biru-Muda/High-Tech Concept Sheet (Echo Sentinel)' }
+  { value: 'cinematic_production', label: '1. Professional Film Production Storyboard', desc: 'Gelap/Cinematic' },
+  { value: 'chalkboard_polaroid', label: '2. Chalkboard Polaroid Recipe Board', desc: 'Kapur/Makanan' },
+  { value: 'fashion_moodboard', label: '3A. Minimalist Fashion Moodboard', desc: 'Minimalis/Pakaian' },
+  { value: 'vintage_fashion', label: '3B. Vintage Fashion Scrapbook & Sketch', desc: 'Retro/Pakaian' },
+  { value: 'influencer_journal', label: '4A. Social Creator Vlog Journal', desc: 'Ceria/Talent UGC' },
+  { value: 'tech_vlog', label: '4B. Tech Vlog Viewfinder (Camera HUD)', desc: 'Gelap/Reviewer Gadget' },
+  { value: 'unboxing_kraft', label: '5A. Unboxing Kraft Parcel Sheet', desc: 'Kardus Cokelat/Unboxing' },
+  { value: 'gift_unboxing', label: '5B. Premium Gift Unboxing Jurnal', desc: 'Minimalis Marmer/Unboxing' },
+  { value: 'pov_unboxing', label: '5C. POV Hands-On First Impression', desc: 'POV/Taktil Unboxing' },
+  { value: 'blueprint_miniature', label: '6A. Architect\'s Drafting Blueprint', desc: 'Biru Tua/Miniatur' },
+  { value: 'workbench_miniature', label: '6B. Vintage Mechanical Workbench', desc: 'Kayu Gelap/Miniatur' },
+  { value: 'building_timelapse', label: '7A. Construction Progress Timeline Chart', desc: 'Kuning Gading/Timelapse' },
+  { value: 'solar_transit', label: '7B. Solar Transit Hyperlapse (Day & Night)', desc: 'Abu Arang/Timelapse' },
+  { value: 'shadow_play_timelapse', label: '8A. Shadow-Play Gallery Board (Leaf Shadows)', desc: 'Semen/Timelapse Umum' },
+  { value: 'hanging_photo_timelapse', label: '8B. Hanging Photo Wire (Darkroom Style)', desc: 'Bata Putih/Timelapse Umum' },
+  { value: 'cyberpunk_schematic', label: '9. Cyberpunk Tech Schematic (Neon HUD)', desc: 'Cyberpunk/Futuristik' },
+  { value: 'retro_comic', label: '10. Retro Comic Book Pop-Art (Pop-Up Bubble)', desc: 'Pop-Art/Komikal' },
+  { value: 'mystical_grimoire', label: '11. Mystical Apothecary Grimoire (Quill-Ink)', desc: 'Vintage/Ramuan Sihir' },
+  { value: 'concrete_gallery', label: '12. Minimalist Concrete Gallery (3D Shadows)', desc: 'Semen/Mewah' },
+  { value: 'watercolor_sketchbook', label: '13. Watercolor Artist\'s Sketchbook (Watercolor Splash)', desc: 'Artistik/Cat Air' }
 ];
+
+
+const ENGINE_DURATIONS = {
+  seedance: [
+    { value: 15, label: '15 Detik (1 Halaman)' },
+    { value: 30, label: '30 Detik (2 Halaman)' },
+    { value: 45, label: '45 Detik (3 Halaman)' },
+    { value: 60, label: '60 Detik (4 Halaman)' }
+  ],
+  omni: [
+    { value: 10, label: '10 Detik (1 Halaman)' },
+    { value: 20, label: '20 Detik (2 Halaman)' },
+    { value: 30, label: '30 Detik (3 Halaman)' },
+    { value: 40, label: '40 Detik (4 Halaman)' },
+    { value: 50, label: '50 Detik (5 Halaman)' },
+    { value: 60, label: '60 Detik (6 Halaman)' }
+  ],
+  veo: [
+    { value: 8, label: '8 Detik (1 Halaman)' },
+    { value: 16, label: '16 Detik (2 Halaman)' },
+    { value: 24, label: '24 Detik (3 Halaman)' },
+    { value: 32, label: '32 Detik (4 Halaman)' },
+    { value: 40, label: '40 Detik (5 Halaman)' },
+    { value: 48, label: '48 Detik (6 Halaman)' },
+    { value: 56, label: '56 Detik (7 Halaman)' },
+    { value: 64, label: '64 Detik (8 Halaman)' }
+  ]
+};
 
 export default function Generator() {
   const [title, setTitle] = useState('');
   const [prompt, setPrompt] = useState('');
-  const [style, setStyle] = useState('cooking_grid');
+  const [style, setStyle] = useState('cinematic_production');
   const [apiKeyId, setApiKeyId] = useState('auto');
   const [apiKeys, setApiKeys] = useState([]);
   const [gridCount, setGridCount] = useState(6);
   const [model, setModel] = useState('108');
   const [aspectRatio, setAspectRatio] = useState('1:1');
-  const [duration, setDuration] = useState(15);
+  const [videoEngine, setVideoEngine] = useState('seedance');
+  const [duration, setDuration] = useState(30);
   const [showFace, setShowFace] = useState(false);
   const [currentCarouselIdx, setCurrentCarouselIdx] = useState(0);
   
@@ -56,6 +80,7 @@ export default function Generator() {
   const [aiInput, setAiInput] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState('');
+  const [aiMatchedLayout, setAiMatchedLayout] = useState(null);
 
   const [generating, setGenerating] = useState(false);
   const [currentTaskId, setCurrentTaskId] = useState(null);
@@ -259,24 +284,38 @@ export default function Generator() {
     }
   };
 
-  const handleGenerateAiPrompt = async () => {
-    if (!aiInput.trim()) return;
+  const handleGenerateAiPrompt = async (conceptText) => {
+    const targetConcept = conceptText || aiInput.trim();
+    if (!targetConcept) return;
     setAiLoading(true);
     setAiError('');
+    setAiMatchedLayout(null);
     try {
-      const res = await api.post('/ai/write-prompt', { concept: aiInput });
+      const res = await api.post('/ai/write-prompt', { concept: targetConcept });
       const { title: aiTitle, description: aiDesc, layout: aiLayout } = res.data;
       setTitle(aiTitle || '');
       setPrompt(aiDesc || '');
       if (aiLayout) {
         setStyle(aiLayout);
+        const matchOpt = LAYOUT_STYLES.find(opt => opt.value === aiLayout);
+        if (matchOpt) {
+          setAiMatchedLayout(matchOpt.label);
+        }
       }
-      setAiInput('');
+      if (!conceptText) {
+        setAiInput('');
+      }
     } catch (err) {
       setAiError(err.response?.data?.message || 'Gagal generate prompt dengan AI.');
     } finally {
       setAiLoading(false);
     }
+  };
+
+  const handleEngineChange = (engine) => {
+    setVideoEngine(engine);
+    const defaults = { seedance: 30, omni: 30, veo: 32 };
+    setDuration(defaults[engine] || 15);
   };
 
   const handleGenerate = async (e) => {
@@ -311,7 +350,8 @@ export default function Generator() {
         aspectRatio,
         enableVo,
         voLanguage: enableVo ? voLanguage : undefined,
-        voTone: enableVo ? voTone : undefined
+        voTone: enableVo ? voTone : undefined,
+        videoEngine
       });
       const { taskId } = res.data;
       setCurrentTaskId(taskId);
@@ -396,23 +436,34 @@ export default function Generator() {
               <span className="text-[10px] font-bold uppercase tracking-widest text-[#cfae80]">AI Prompt Assistant</span>
             </div>
             
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2">
               <input
                 type="text"
                 value={aiInput}
                 onChange={(e) => setAiInput(e.target.value)}
                 placeholder="Tulis ide kasar (misal: iklan parfum mewah)"
-                className="flex-grow bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2.5 text-xs text-white placeholder-slate-700 focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all"
+                className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2.5 text-xs text-white placeholder-slate-700 focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all"
                 disabled={aiLoading || generating}
               />
-              <button
-                type="button"
-                onClick={handleGenerateAiPrompt}
-                className="bg-[#cfae80] hover:bg-[#c5a880] text-black font-extrabold px-4 py-2.5 rounded-xl transition-all text-[10px] uppercase tracking-widest shrink-0 flex items-center justify-center min-w-[90px]"
-                disabled={aiLoading || generating || !aiInput.trim()}
-              >
-                {aiLoading ? <Loader className="animate-spin w-3.5 h-3.5" /> : 'Tulis AI'}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleGenerateAiPrompt()}
+                  className="flex-grow bg-[#cfae80] hover:bg-[#c5a880] text-black font-extrabold py-2 rounded-xl transition-all text-[10px] uppercase tracking-widest flex items-center justify-center gap-1.5"
+                  disabled={aiLoading || generating || !aiInput.trim()}
+                >
+                  {aiLoading && aiInput.trim() !== '' ? <Loader className="animate-spin w-3 h-3" /> : <Sparkles className="w-3 h-3" />}
+                  Tulis AI
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleGenerateAiPrompt('minta_ide_acak')}
+                  className="flex-grow bg-[#1a1918] hover:bg-[#2a2725] text-[#cfae80] border border-[#cfae80]/20 font-extrabold py-2 rounded-xl transition-all text-[10px] uppercase tracking-widest flex items-center justify-center gap-1.5"
+                  disabled={aiLoading || generating}
+                >
+                  {aiLoading && aiInput.trim() === '' ? <Loader className="animate-spin w-3 h-3" /> : '💡 Minta Ide'}
+                </button>
+              </div>
             </div>
             
             {aiError && (
@@ -448,7 +499,7 @@ export default function Generator() {
               <div className="absolute left-0 mt-2 w-full bg-[#1a1918] border border-[#2a2725] rounded-2xl shadow-2xl z-50 flex max-h-96">
                 <div className="flex-grow overflow-y-auto py-2 divide-y divide-[#2a2725] scrollbar-thin">
                   {LAYOUT_STYLES.map((opt) => (
-                    <button key={opt.value} type="button" onClick={() => { setStyle(opt.value); setDropdownOpen(false); setHoveredStyle(null); }} onMouseEnter={() => setHoveredStyle(opt.value)} onMouseLeave={() => setHoveredStyle(null)} className={`w-full text-left px-4 py-3 hover:bg-[#cfae80]/10 text-xs transition-colors flex flex-col gap-1 ${style === opt.value ? 'bg-[#cfae80]/20 text-white font-bold' : 'text-slate-300'}`}>
+                    <button key={opt.value} type="button" onClick={() => { setStyle(opt.value); setDropdownOpen(false); setHoveredStyle(null); setAiMatchedLayout(null); }} onMouseEnter={() => setHoveredStyle(opt.value)} onMouseLeave={() => setHoveredStyle(null)} className={`w-full text-left px-4 py-3 hover:bg-[#cfae80]/10 text-xs transition-colors flex flex-col gap-1 ${style === opt.value ? 'bg-[#cfae80]/20 text-white font-bold' : 'text-slate-300'}`}>
                       <span className="truncate">{opt.label}</span>
                       <span className="text-[10px] text-slate-500 font-normal">{opt.desc}</span>
                     </button>
@@ -462,6 +513,20 @@ export default function Generator() {
                 )}
               </div>
             )}
+            {aiMatchedLayout && (
+              <p className="text-[10px] text-[#cfae80] mt-2 font-medium flex items-center gap-1.5 animate-fadeIn">
+                <span>✨</span> Ide mengikuti gaya layout: <strong className="underline">{aiMatchedLayout}</strong>
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-slate-350 text-[10px] font-bold uppercase tracking-widest mb-2">Engine Video</label>
+            <select value={videoEngine} onChange={(e) => handleEngineChange(e.target.value)} className="w-full bg-black/40 border border-[#2a2725] rounded-2xl px-4 py-3 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs" disabled={generating}>
+              <option value="seedance">SeedDance (15 Detik/Panel)</option>
+              <option value="omni">Omni (10 Detik/Panel)</option>
+              <option value="veo">Veo (8 Detik/Panel)</option>
+            </select>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -478,14 +543,9 @@ export default function Generator() {
             <div>
               <label className="block text-slate-355 text-[10px] font-bold uppercase tracking-widest mb-2">Durasi Video</label>
               <select value={duration} onChange={(e) => setDuration(Number(e.target.value))} className="w-full bg-black/40 border border-[#2a2725] rounded-2xl px-4 py-3 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs" disabled={generating}>
-                <option value={10}>10 Detik</option>
-                <option value={15}>15 Detik</option>
-                <option value={20}>20 Detik</option>
-                <option value={30}>30 Detik</option>
-                <option value={40}>40 Detik</option>
-                <option value={45}>45 Detik</option>
-                <option value={50}>50 Detik</option>
-                <option value={60}>60 Detik</option>
+                {(ENGINE_DURATIONS[videoEngine] || ENGINE_DURATIONS.seedance).map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
               </select>
             </div>
           </div>

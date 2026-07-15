@@ -6,31 +6,28 @@ const { getDb } = require('../db');
 const { uploadsDir } = require('../config');
 
 const LAYOUT_STYLES = [
-  { value: 'cooking_grid', label: 'Cinematic Dark Storyboard Grid (Dark/Premium)' },
-  { value: 'video_table', label: 'Clean Product Video Presentation Sheet (Cream/Editorial)' },
-  { value: 'product_identity', label: 'Luxury Product Specs Infographic (Minimalist/Clean)' },
-  { value: 'ugc_guide', label: 'Social UGC Action Storyboard (Vlog/Vibrant)' },
-  { value: 'yellow_badge_storyboard', label: 'Yellow Badge Commercial Storyboard (Clean Yellow - School Bag)' },
-  { value: 'female_editorial_table', label: 'Burgundy Editorial Script Table (Elegant Burgundy - Woman Shirt)' },
-  { value: 'creative_diy_kids', label: 'Creative Kids Playful Storyboard (Playful/Colorful - Art Paint)' },
-  { value: 'blue_pastel_asmr', label: 'Blue Pastel UGC ASMR Review (Aesthetic Blue - Aimilo)' },
-  { value: 'minimalist_unboxing_grid', label: 'Minimalist Unboxing Rounded Grid (Clean Minimalist - Blender)' },
-  { value: 'cinematic_overlay', label: 'Full Bleed Cinematic Storyboard (Cinematic Overlay - RC Train)' },
-  { value: 'baking_timeline', label: 'Classic Cooking/Baking Timeline (Cream Timeline - Bread Homemade)' },
-  { value: 'frame_strip', label: '3-Column Multi-Angle Progression Strip (Strip Grid - Tamagoyaki)' },
-  { value: 'pencil_sketch', label: 'Vintage Crew Charcoal Pencil Sketch (Black and White Charcoal Sketch - Horror House)' },
-  { value: 'animation_bible', label: '3D Animation Bible & Pitch Sheet (Pixar Blue - The Last Shot)' },
-  { value: 'lego_diy', label: 'DIY Lego/Brick Assembly Storyboard (Lego Builder - RM Padang)' },
-  { value: 'mecha_review', label: 'Tech Mecha Action Figure Review Columns (Tech Blue - Gundam ASMR)' },
-  { value: 'anime_lego_storyboard', label: '2D Anime Lego Assembly Storyboard (Anime/Makoto Shinkai - Lego Beat)' },
-  { value: 'toy_commercial', label: 'Toy Commercial Storyboard with Text Overlays (Blue Toy Car - Die-Cast)' },
-  { value: 'cartoon_script_grid', label: 'Cute Cartoon Storyboard with Script Table (Cute 3D Cartoon - Housewife)' },
-  { value: 'marketing_specs_timeline', label: 'Marketing Specs & Timeline Storyboard (Kimball Sos Cili)' },
-  { value: 'ugc_asmr_table', label: 'UGC ASMR Script Table (Tomkins Sepatu Anak)' },
-  { value: 'cinematic_commercial_pitch', label: 'Cinematic Commercial Pitch Sheet (Centella Ampoule)' },
-  { value: 'handheld_product_specs', label: 'Handheld Product Specs & Storyboard (Mini Vacuum Cleaner)' },
-  { value: 'character_concept_sheet', label: 'Character Design & Concept Tech Sheet (Echo Sentinel)' }
+  { value: 'cinematic_production', label: '1. Professional Film Production Storyboard (Gelap/Cinematic)' },
+  { value: 'chalkboard_polaroid', label: '2. Chalkboard Polaroid Recipe Board (Kapur/Makanan)' },
+  { value: 'fashion_moodboard', label: '3A. Minimalist Fashion Moodboard (Minimalis/Pakaian)' },
+  { value: 'vintage_fashion', label: '3B. Vintage Fashion Scrapbook & Sketch (Retro/Pakaian)' },
+  { value: 'influencer_journal', label: '4A. Social Creator Vlog Journal (Ceria/Talent UGC)' },
+  { value: 'tech_vlog', label: '4B. Tech Vlog Viewfinder (Camera HUD) (Gelap/Reviewer Gadget)' },
+  { value: 'unboxing_kraft', label: '5A. Unboxing Kraft Parcel Sheet (Kardus Cokelat/Unboxing)' },
+  { value: 'gift_unboxing', label: '5B. Premium Gift Unboxing Jurnal (Minimalis Marmer/Unboxing)' },
+  { value: 'pov_unboxing', label: '5C. POV Hands-On First Impression (POV/Taktil Unboxing)' },
+  { value: 'blueprint_miniature', label: '6A. Architect\'s Drafting Blueprint (Biru Tua/Miniatur)' },
+  { value: 'workbench_miniature', label: '6B. Vintage Mechanical Workbench (Kayu Gelap/Miniatur)' },
+  { value: 'building_timelapse', label: '7A. Construction Progress Timeline Chart (Kuning Gading/Timelapse)' },
+  { value: 'solar_transit', label: '7B. Solar Transit Hyperlapse (Day & Night) (Abu Arang/Timelapse)' },
+  { value: 'shadow_play_timelapse', label: '8A. Shadow-Play Gallery Board (Leaf Shadows) (Semen/Timelapse Umum)' },
+  { value: 'hanging_photo_timelapse', label: '8B. Hanging Photo Wire (Darkroom Style) (Bata Putih/Timelapse Umum)' },
+  { value: 'cyberpunk_schematic', label: '9. Cyberpunk Tech Schematic (Neon HUD) (Cyberpunk/Futuristik)' },
+  { value: 'retro_comic', label: '10. Retro Comic Book Pop-Art (Pop-Up Bubble) (Pop-Art/Komikal)' },
+  { value: 'mystical_grimoire', label: '11. Mystical Apothecary Grimoire (Quill-Ink) (Vintage/Ramuan Sihir)' },
+  { value: 'concrete_gallery', label: '12. Minimalist Concrete Gallery (3D Shadows) (Semen/Mewah)' },
+  { value: 'watercolor_sketchbook', label: '13. Watercolor Artist\'s Sketchbook (Watercolor Splash) (Artistik/Cat Air)' }
 ];
+
 
 function httpRequest(url, headers, body) {
   return new Promise((resolve, reject) => {
@@ -116,7 +113,9 @@ Anda harus mengembalikan respon hanya dalam format JSON mentah dengan key 'title
         },
         {
           role: 'user',
-          content: `Ide Kasar: ${concept}`
+          content: concept === 'minta_ide_acak'
+            ? 'Buatlah satu konsep ide video komersial acak untuk sebuah produk kreatif yang menarik dan inovatif secara orisinal, lalu kembangkan menjadi rancangan storyboard.'
+            : `Ide Kasar: ${concept}`
         }
       ],
       temperature: 0.7
@@ -144,8 +143,8 @@ Anda harus mengembalikan respon hanya dalam format JSON mentah dengan key 'title
 
     try {
       const parsed = JSON.parse(cleanText.trim());
-      // Ensure selected layout is valid, fallback to 'cooking_grid'
-      const selectedLayout = LAYOUT_STYLES.some(s => s.value === parsed.layout) ? parsed.layout : 'cooking_grid';
+      // Ensure selected layout is valid, fallback to 'cinematic_production'
+      const selectedLayout = LAYOUT_STYLES.some(s => s.value === parsed.layout) ? parsed.layout : 'cinematic_production';
       return res.json({
         title: parsed.title || 'Untitled AI Project',
         description: parsed.description || concept,
@@ -155,7 +154,7 @@ Anda harus mengembalikan respon hanya dalam format JSON mentah dengan key 'title
       return res.json({
         title: concept.substring(0, 20) + '...',
         description: cleanText,
-        layout: 'cooking_grid'
+        layout: 'cinematic_production'
       });
     }
 

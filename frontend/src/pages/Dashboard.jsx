@@ -186,19 +186,44 @@ export default function Dashboard({ setTab }) {
           }
         })
         .catch(err => console.error("Error fetching keys:", err));
+
+      // Auto check generate audio if storyboard was generated with voiceover enabled
+      if (selectedStoryboard.generation_params) {
+        try {
+          const params = JSON.parse(selectedStoryboard.generation_params);
+          setVideoGenerateAudio(!!params.enableVo);
+        } catch (e) {
+          setVideoGenerateAudio(false);
+        }
+      } else {
+        setVideoGenerateAudio(false);
+      }
     } else {
       setVideos([]);
       setApiKeys([]);
       setSelectedApiKeyId('');
+      setVideoGenerateAudio(false);
     }
   }, [selectedStoryboard]);
 
   useEffect(() => {
     if (selectedStoryboard) {
-      const { imageToVideoPrompt: i2v, textToVideoPrompt: t2v } = parseVideoPrompts(selectedStoryboard.video_prompts, modalCarouselIdx);
-      setVideoStudioPrompt(videoGenType === 'image' ? (i2v || '') : (t2v || ''));
+      const { imageToVideoPrompt: i2v, textToVideoPrompt: t2v, narration } = parseVideoPrompts(selectedStoryboard.video_prompts, modalCarouselIdx);
+      let basePrompt = videoGenType === 'image' ? (i2v || '') : (t2v || '');
+      
+      if (videoGenerateAudio && narration) {
+        let lang = 'Bahasa Indonesia';
+        if (selectedStoryboard.generation_params) {
+          try {
+            const params = JSON.parse(selectedStoryboard.generation_params);
+            if (params.voLanguage) lang = params.voLanguage;
+          } catch (e) {}
+        }
+        basePrompt += `\n\nVoiceover (${lang}):\n${narration}`;
+      }
+      setVideoStudioPrompt(basePrompt);
     }
-  }, [modalCarouselIdx, selectedStoryboard, videoGenType]);
+  }, [modalCarouselIdx, selectedStoryboard, videoGenType, videoGenerateAudio]);
 
   useEffect(() => {
     let interval;
@@ -700,6 +725,16 @@ export default function Dashboard({ setTab }) {
                         <div className="bg-[#131211]/50 border border-[#2a2725] rounded-xl p-3.5 text-slate-350 text-[11px] leading-relaxed relative max-h-48 overflow-y-auto scrollbar-thin font-mono whitespace-pre-line">
                           {imageToVideoPrompt}
                         </div>
+                        {narration && (
+                          <div className="bg-[#1a1817] border border-[#2a2725]/60 rounded-xl p-3.5 mt-2 space-y-1.5 text-left">
+                            <span className="text-[8.5px] font-extrabold uppercase tracking-widest text-[#cfae80] flex items-center gap-1.5">
+                              🎤 Naskah Voice Over (VO)
+                            </span>
+                            <div className="text-[10.5px] text-slate-300 font-medium leading-relaxed font-sans whitespace-pre-line max-h-32 overflow-y-auto scrollbar-thin">
+                              {narration}
+                            </div>
+                          </div>
+                        )}
                         
                         {/* Options block for rewriting */}
                         <div className="flex flex-col gap-2.5 bg-[#131211]/30 border border-[#2a2725] rounded-xl p-3 mt-1.5">
@@ -903,6 +938,16 @@ export default function Dashboard({ setTab }) {
                         <div className="bg-[#131211]/50 border border-[#2a2725] rounded-xl p-3.5 text-slate-350 text-[11px] leading-relaxed relative max-h-48 overflow-y-auto scrollbar-thin font-mono whitespace-pre-line">
                           {textToVideoPrompt}
                         </div>
+                        {narration && (
+                          <div className="bg-[#1a1817] border border-[#2a2725]/60 rounded-xl p-3.5 mt-2 space-y-1.5 text-left">
+                            <span className="text-[8.5px] font-extrabold uppercase tracking-widest text-[#cfae80] flex items-center gap-1.5">
+                              🎤 Naskah Voice Over (VO)
+                            </span>
+                            <div className="text-[10.5px] text-slate-300 font-medium leading-relaxed font-sans whitespace-pre-line max-h-32 overflow-y-auto scrollbar-thin">
+                              {narration}
+                            </div>
+                          </div>
+                        )}
                         
                         {/* Options block for rewriting */}
                         <div className="flex flex-col gap-2.5 bg-[#131211]/30 border border-[#2a2725] rounded-xl p-3 mt-1.5">

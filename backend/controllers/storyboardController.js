@@ -12,6 +12,22 @@ const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
 // In-memory active tasks logs storage
 const activeTasks = {};
 
+async function checkAndDisableKeyIfOutofCredits(db, apiKeyId, errorText, taskObj) {
+  if (!apiKeyId || !errorText) return;
+  const lowerErr = errorText.toLowerCase();
+  if (lowerErr.includes('credit') || lowerErr.includes('balance') || lowerErr.includes('insufficient') || lowerErr.includes('limit') || lowerErr.includes('depleted') || lowerErr.includes('payment') || lowerErr.includes('out of')) {
+    console.log(`[Auto-Disable API Key] Key ID ${apiKeyId} is out of credits. Disabling key.`);
+    try {
+      await db.run('UPDATE api_keys SET is_active = 0 WHERE id = ?', [apiKeyId]);
+      if (taskObj && taskObj.logs !== undefined) {
+        taskObj.logs += `\n[SYSTEM] API Key ID ${apiKeyId} telah dinonaktifkan secara otomatis karena kehabisan/kurang kredit.\n`;
+      }
+    } catch (e) {
+      console.error('Failed to auto-disable API key:', e);
+    }
+  }
+}
+
 function getGridLayoutDescription(gridCount, startScene = 1) {
   const endScene = startScene + gridCount - 1;
   if (gridCount === 4) return `2x2 grid of 4 numbered scenes (SCENE ${startScene} to SCENE ${endScene})`;
@@ -22,17 +38,23 @@ function getGridLayoutDescription(gridCount, startScene = 1) {
   return `grid of ${gridCount} numbered scenes (SCENE ${startScene} to SCENE ${endScene})`;
 }
 
+function formatTime(sec) {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
 // Enhance prompt based on selected template, custom grid count, and start scene
-function getEnhancedPrompt(style, userPrompt, gridCount = 6, showFace = false, startScene = 1, totalDuration = 60) {
+function getEnhancedPrompt(style, userPrompt, gridCount = 6, showFace = false, startScene = 1, totalDuration = 60, secondsPerPage = 15) {
   // Truncate userPrompt to 350 characters to prevent final prompt exceeding Freebeat's 2000 character limit
   userPrompt = userPrompt && userPrompt.length > 350 ? userPrompt.substring(0, 350) + '...' : (userPrompt || '');
   const endScene = startScene + gridCount - 1;
   const gridLayout = getGridLayoutDescription(gridCount, startScene);
   
   const pageIdx = Math.floor((startScene - 1) / gridCount);
-  const startSec = pageIdx * 15;
-  const endSec = (pageIdx + 1) * 15;
-  const timeString = `0:${String(startSec).padStart(2, '0')} - 0:${String(endSec).padStart(2, '0')}`;
+  const startSec = pageIdx * secondsPerPage;
+  const endSec = (pageIdx + 1) * secondsPerPage;
+  const timeString = `${formatTime(startSec)} - ${formatTime(endSec)}`;
 
   let gridDesc = '';
   if (gridCount === 4) gridDesc = `2x2 grid of 4 panels showing scenes ${startScene} to ${endScene}`;
@@ -46,87 +68,65 @@ function getEnhancedPrompt(style, userPrompt, gridCount = 6, showFace = false, s
     ? "featuring natural human faces and character expressions, close-up lifestyle angles, high-end commercial style"
     : "no human faces, faceless, no portraits, focus only on hands, details and product";
 
-  if (style === 'cooking_grid') {
-    return `An ultra-premium cinematic storyboard sheet. Vertical 3:4 aspect ratio, clean minimal dark-mode design with solid black background. The layout features a neat ${gridLayout} separated by fine white borders. Content: Each frame shows an extreme close-up of ${userPrompt} with warm cinematic lighting, high-contrast shadows, and sharp details. ${faceClause}. Each frame has a small translucent yellow badge on the top-right indicating the scene number (time segment ${timeString}). Aesthetic, modern typography, shot on 8k RED cinema camera. --ar 3:4`;
+  if (style === 'cinematic_production') {
+    return `A professional video storyboard presentation sheet. Vertical 3:4 aspect ratio, clean minimal dark-mode design with solid black background. Top header with title 'PRODUCTION STORYBOARD - ${userPrompt}' in clean bold sans-serif font. Main grid: A neat ${gridDesc} showing scenes ${startScene} to ${endScene} with fine white borders. Each frame shows a cinematic scene of ${userPrompt} with high-contrast shadows, dramatic side-lighting, and rich film-grain textures. Below each frame, there are small white text labels for 'SHOT TYPE', 'CAMERA ACTION', and 'VOICE-OVER'. ${faceClause}. Shot on 8k cinema camera. --ar 3:4`;
   }
-  if (style === 'video_table') {
-    return `A professional video storyboard presentation sheet, vertical table design, aesthetic light-cream background. Top header with title 'STORYBOARD - PRODUCT SHOWCASE' in clean sans-serif font. Main grid: A neat ${gridCount}-panel grid layout showing vertical 9:16 video frame previews of ${userPrompt} at various high-end commercial angles (hero shot, close-up details, lifestyle action) representing scenes ${startScene} to ${endScene}. ${faceClause}. Thin grid lines, elegant minimalist composition, flat colors, clean professional look. --ar 3:4`;
+  if (style === 'chalkboard_polaroid') {
+    return `A creative food and recipe storyboard layout. Blackboard chalk background. Polaroid photo panels showing culinary actions of preparing: ${userPrompt} are arranged on the board. Around the polaroids, there are cute hand-drawn illustrations of ingredients (lemon slices, mint leaves, garlic bulbs) and dotted lines drawn in chalk. Below the photos, there are handwritten chalk text fields showing 'SCENE:', 'ACTION:', and 'AUDIO:' for scenes ${startScene} to ${endScene}. Warm culinary aesthetic. ${faceClause}. --ar 3:4`;
   }
-  if (style === 'product_identity') {
-    const panelsCount = Math.max(1, gridCount - 1);
-    return `An aesthetic clean Product Spec Infographic sheet. Clean white background. Features a large central hero shot of ${userPrompt} with thin black pointer lines pointing to minimalist specification text. Surrounding the center are ${panelsCount} smaller square panels showing close-up texture detail, side angle, front angle, and packaging. ${faceClause}. Modern editorial design, luxury catalog layout, minimal typography, soft neutral color palette. --ar 3:4`;
+  if (style === 'fashion_moodboard') {
+    return `A creative minimalist fashion lookbook storyboard layout. Flat lay of neutral-tone cards and paper tags on a clean light-beige linen texture background. The layout features elegant card panels showing fashion shots of: ${userPrompt}, separated by fine grey borders. Thin elegant sans-serif text labels below the cards display 'LOOK SPECS', 'CAMERA ANGLE', and 'AUDIO / VO' for scenes ${startScene} to ${endScene}. Luxury fashion editorial design, minimal typography. ${faceClause}. --ar 3:4`;
   }
-  if (style === 'ugc_guide') {
-    return `A modern social media UGC video concept storyboard, vertical layout. A clean grid featuring ${gridCount} panels. Each panel contains a bright, well-lit lifestyle image of using ${userPrompt} with a small circular badge containing numbers ${startScene} to ${endScene}. ${faceClause}. Aesthetic casual vlog style, high contrast, clean borders, minimal text labels. --ar 3:4`;
+  if (style === 'vintage_fashion') {
+    return `A highly creative vintage fashion lookbook scrapbook storyboard layout. Light brown kraft paper background. The layout features torn polaroid photos showing fashion outfits of: ${userPrompt}, combined with hand-drawn pencil fashion sketches and fabric swatches. Black ink handwritten labels for 'OOTD SPECS', 'CAMERA MOTION', and 'AUDIO' are written below each panel for scenes ${startScene} to ${endScene}, with hand-drawn sketch borders and stitching lines connecting the elements. Artistic, cozy vintage boutique sketchbook aesthetic. ${faceClause}. --ar 3:4`;
   }
-  if (style === 'yellow_badge_storyboard') {
-    return `An ultra-premium clean video storyboard presentation sheet. Vertical 3:4 aspect ratio, clean white background. Top header with title 'STORYBOARD VIDEO - ${userPrompt}' in bold uppercase on the left, and 'DURASI TOTAL: ${totalDuration} DETIK | RASIO: 9:16' on the right in minimalist sans-serif font. Main grid: A neat multi-row grid layout featuring ${gridCount} vertical 9:16 panels. Each panel contains a bright, aesthetic product showcase frame of ${userPrompt} with a small yellow circular badge on the top-left showing the scene number and pacing time (representing segment ${timeString}). Under each panel is a clear bold uppercase scene title, a visual action description, and a sound cue prefix 'Suara: ' for scenes ${startScene} to ${endScene}. Focus on high-end commercial close-up angles. ${faceClause}. Clean editorial design, minimal typography, sharp edges. --ar 3:4`;
+  if (style === 'influencer_journal') {
+    return `A highly creative social media creator vlog journal storyboard layout. White dotted grid notebook paper background. The layout features square card panels showing a person reviewing: ${userPrompt}, featuring friendly expressions, talking to the camera, and showing product details with bright lighting for scenes ${startScene} to ${endScene}. Colorful sticky note tape boxes next to the panels show handwritten labels for 'ACTION' and 'VOICE OVER'. Small hand-drawn doodle hearts, stars, and chat bubbles decorate the empty spaces. Fun, authentic UGC vlogger notebook style. ${faceClause}. --ar 3:4`;
   }
-  if (style === 'female_editorial_table') {
-    return `An ultra-premium vertical video storyboard script sheet. Vertical 3:4 aspect ratio, clean white background. Top header with title 'STORYBOARD IKLAN - ${userPrompt}' in bold burgundy color, and subheader 'Konsep: Elegan | Showcase: Detail & Fitur | Durasi: ${totalDuration}s'. Main body is a professional table layout with ${gridCount} rows corresponding to scenes ${startScene} to ${endScene}, with columns: 'WAKTU', 'VISUAL (SHOT)', 'ADEGAN & ARAHAN', and 'VOICE OVER (VO)'. The WAKTU column shows timestamps inside segment ${timeString}. The VISUAL column shows vertical 9:16 product angles. The adegan column has bullet points. The VO column has italicized voiceover scripts. Bottom footer features three columns: 'TIPS VISUAL', 'NASKAH VO', and 'MUSIK & TONE'. Clean editorial grid, minimal typography. ${faceClause}. --ar 3:4`;
+  if (style === 'tech_vlog') {
+    return `A professional tech vlog camera monitor storyboard sheet. Solid dark-gray background. The layout features widescreen video panels styled with thin camera viewfinder HUD overlays (red REC dot, audio meters) showing scenes ${startScene} to ${endScene}. Inside the panels, it shows a presenter reviewing: ${userPrompt} in a tech studio with warm bokeh lighting. Below each panel, there are small clean white text labels: 'CAMERA ANGLE', 'TALENT ACTION' describing physical gestures, and 'VOICE OVER / GFX' detailing overlays. High-tech, minimal video editing room style. ${faceClause}. --ar 3:4`;
   }
-  if (style === 'creative_diy_kids') {
-    return `A colorful creative storyboard sheet. Vertical 3:4 aspect ratio, white background. Top header is highly colorful, cartoonish and playful with graphics, titled 'STORYBOARD DIY ART - ${userPrompt}' in bold bubbly text. The rows feature a red side-badge indicating the scene number and time segment ${timeString} from scene ${startScene} to ${endScene}. Columns: 'SHOT TYPE / CAMERA', 'ACTION', 'TRANSISI', 'AUDIO / SFX', 'TUJUAN & EMOSI'. Under each row is 'LIGHTING' and 'KONTINUITAS'. Bottom footer has 'RINGKASAN STORY' and 'TOTAL DURATION: ${totalDuration}s'. Bubbly, fun, vibrant colors, playful look. ${faceClause}. --ar 3:4`;
+  if (style === 'unboxing_kraft') {
+    return `A highly creative product unboxing storyboard layout. Corrugated brown cardboard texture background. Widescreen panels framed inside brown paper shipping tape borders show hands unboxing: ${userPrompt}, slicing open a cardboard box, peeling bubble wrap, and revealing the product for scenes ${startScene} to ${endScene}. Shipping label sticker boxes next to the panels display 'UNBOXING STEP', 'HAND ACTION', and 'ASMR SFX' in typewriter font. Rustic, organic e-commerce delivery package aesthetic. ${faceClause}. --ar 3:4`;
   }
-  if (style === 'blue_pastel_asmr') {
-    return `A premium clean UGC ASMR review storyboard sheet. Vertical 3:4 aspect ratio, soft blue pastel color theme. Top header features title 'STORYBOARD - UGC ASMR REVIEW' with cute hand-drawn doodles of stars, books, and pencils, subheader 'Total Duration: ${totalDuration}s'. The layout has columns: 'DURASI', 'VISUAL', 'DETAIL SCENE'. Durasi column has blue pill badges for timestamps within segment ${timeString}. Visual column shows ${gridCount} horizontal 4:3 aesthetic pastel screenshots of ${userPrompt} with hands. Detail Scene column shows bullet points for Aksi, ASMR, and Manfaat. Soft pastel colors, cute doodles, highly aesthetic. ${faceClause}. --ar 3:4`;
+  if (style === 'gift_unboxing') {
+    return `A highly creative pastel gift unboxing storyboard layout. Clean white marble tabletop background with subtle pink silk ribbon accents. The layout features elegant soft-cornered square panels showing hands opening a luxury gift box of: ${userPrompt}, pulling a silk ribbon, and folding back gold tissue paper for scenes ${startScene} to ${endScene}. Below each panel, there are small elegant minimal labels for 'UNWRAP STEP', 'AESTHETIC FOCUS', and 'VO / MUSIC'. Soft, luxury, elegant feminine aesthetic. ${faceClause}. --ar 3:4`;
   }
-  if (style === 'minimalist_unboxing_grid') {
-    return `A classic minimalist unboxing grid storyboard sheet. Vertical 3:4 aspect ratio, clean white background. Top header with title 'STORYBOARD: UNBOXING & CARA GUNA' in clean bold sans-serif, subheader 'Total Duration: ${totalDuration}s'. The layout features a neat ${gridDesc} with rounded corners. Each panel has a small black circular badge in the top-left showing the scene number from ${startScene} to ${endScene}, and below the panel shows the timestamp within segment ${timeString}, a bold title, and a short description. Minimalist design, clean typography, neutral aesthetic. ${faceClause}. --ar 3:4`;
+  if (style === 'pov_unboxing') {
+    return `A professional POV hands-on product unboxing storyboard sheet. Clean studio background with soft out-of-focus shelves. Widescreen panels showing first-person POV views of hands holding and rotating: ${userPrompt} for scenes ${startScene} to ${endScene}. Below each panel, there is a clean layout with small sans-serif labels for 'POV ACTION', 'TACTILE EXPERIENCE', and 'VOICE OVER / COMMENT'. Professional pre-production log sheet style. ${faceClause}. --ar 3:4`;
   }
-
-  // Brand New Layout Styles based on additional batch
-  if (style === 'cinematic_overlay') {
-    return `An ultra-premium cinematic full-bleed storyboard sheet. Vertical 3:4 aspect ratio, dark atmospheric cinematic mood. Features a grid of ${gridCount} panels showing scenes ${startScene} to ${endScene} of ${userPrompt}. There are no separation margins or borders between images. Inside each frame, there is a small translucent yellow badge on the top-left showing the scene number and time (segment ${timeString}), white bold text description overlay on the top-left, and a black semi-transparent capsule at the bottom showing camera angles and SFX cues. Cinematic lighting, high-contrast dramatic tones. ${faceClause}. --ar 3:4`;
+  if (style === 'blueprint_miniature') {
+    return `A highly creative architect drafting blueprint storyboard layout. Dark blue blueprint paper texture background with thin white grid lines. Widescreen panels show hands building miniature models of: ${userPrompt}, framed inside dashed white outlines, decorated with technical drawing symbols and dimension lines for scenes ${startScene} to ${endScene}. Below each panel, there are white technical text fields for 'CONSTRUCTION STEP', 'DIMENSIONS / MEASURES', and 'AUDIO / VO' in a clean blueprint font. Architectural drafting desk style. ${faceClause}. --ar 3:4`;
   }
-  if (style === 'baking_timeline') {
-    return `A premium classic timeline list storyboard sheet. Vertical 3:4 aspect ratio, cream/beige color scheme. The layout is arranged as a vertical list featuring ${gridCount} scenes. The left column shows large numbers for each scene from ${startScene} to ${endScene} with the duration/time offset within ${timeString} below. The center column contains clean horizontal image panels with rounded corners showing ${userPrompt}. The right column contains text details with a bold uppercase title, followed by 'Visual: ', 'Camera: ', and 'SFX: '. Bottom footer contains visual tips. Aesthetic minimal editorial catalog layout. ${faceClause}. --ar 3:4`;
+  if (style === 'workbench_miniature') {
+    return `A creative vintage workbench miniature crafting storyboard layout. Rustic dark wood workbench tabletop background. Widescreen panels showing hands assembling tiny gears, screwing tiny screws, and holding a small motor: ${userPrompt} for scenes ${startScene} to ${endScene} are styled as hanging manila paper tags with tiny metal paperclips. Real tiny workshop tools are placed on the margins. Below each panel, there are typewriter-style text boxes for 'WORKBENCH TASK', 'TOOLS USED', and 'VO / SFX'. Industrial, mechanical crafting aesthetic. ${faceClause}. --ar 3:4`;
   }
-  if (style === 'frame_strip') {
-    return `A unique multi-angle step progression strip storyboard sheet. Vertical 3:4 aspect ratio, clean white background. For each scene row, the left column has a dark sidebar with scene number, title, and timestamp offset within ${timeString}. The right section of the row features 3 horizontal square frames side-by-side showing the action of ${userPrompt} from different camera angles or step-by-step progress. There are ${gridCount} rows in total representing scenes ${startScene} to ${endScene}. Focus on details, close-ups, and hands. Aesthetic clean editorial catalog layout. ${faceClause}. --ar 3:4`;
+  if (style === 'building_timelapse') {
+    return `A creative building construction timelapse storyboard layout. Ivory millimeter graph paper background. Widescreen 16:9 panels showing stages of building construction: ${userPrompt}, from empty foundation to finished structure, arranged along a horizontal timeline path for scenes ${startScene} to ${endScene}. Below the panels, there are small text fields for 'CONSTRUCTION DAY', 'TIME ELAPSED', and 'CAMERA MOTION' with thin timeline arrows connecting the panels. Professional architectural progress ledger style. ${faceClause}. --ar 3:4`;
   }
-  if (style === 'pencil_sketch') {
-    return `A classic film crew pencil sketch storyboard sheet. Vertical 3:4 aspect ratio, vintage grid paper texture background. Top header with title 'STORYBOARD - Total Duration: ${totalDuration}s' and project metadata. The layout is a table with ${gridCount} rows for scenes ${startScene} to ${endScene}, with columns: 'NO.', 'TIME', 'VISUAL / SHOT', 'ACTION / DIALOG', 'CAMERA / SHOT TYPE', 'AUDIO / SOUND'. IMPORTANT: Every cell in every row must be filled with actual written text — the VISUAL column shows hand-drawn charcoal pencil sketch of the scene, ACTION/DIALOG column has actual dialog or action text, CAMERA column has actual shot type, AUDIO column has actual sound description. The VISUAL column shows large hand-drawn charcoal pencil sketch drawings of ${userPrompt}. The TIME column lists timestamps inside segment ${timeString}. Vintage hand-drawn sketch art style, black and white pencil render. ${faceClause}. --ar 3:4`;
+  if (style === 'solar_transit') {
+    return `A professional building construction timelapse storyboard sheet. Solid dark charcoal background. Widescreen 16:9 panels showing stages of building construction of: ${userPrompt}, featuring dramatic daylight transitions from sunrise, bright noon, golden sunset, to glowing night skyline for scenes ${startScene} to ${endScene}. Digital orange timestamps are displayed above the panels. Below the panels, there are small white labels for 'CONSTRUCTION PHASE', 'LIGHTING TRANSIT', and 'HYPERLAPSE SPEED'. High-contrast modern city skyline style. ${faceClause}. --ar 3:4`;
   }
-
-  // Animation, Lego, and Mecha styles
-  if (style === 'animation_bible') {
-    return `A professional animation pitch presentation bible and storyboard sheet. Vertical 3:4 aspect ratio, dark navy background. Top header with title '${userPrompt}' in huge bold white, and sub-header 'A Cinematic Showcase (Total Duration: ${totalDuration}s)' in gold. Main grid: ${gridCount} vertical image panels showing distinct cinematic scenes ${startScene} to ${endScene} of ${userPrompt}. IMPORTANT: Below each panel, all text fields must be fully written out with real content — 'ACTION:' followed by a short action description, 'CAMERA:' followed by a camera angle name, 'LIGHTING:' followed by a lighting description, 'AUDIO:' followed by a sound description. Middle section shows turnaround poses and environment sketches. Bottom section shows color palette swatches, specs table with segment duration ${timeString}, and camera movement icons. Pixar/Disney style, highly detailed. ${faceClause}. --ar 3:4`;
+  if (style === 'shadow_play_timelapse') {
+    return `A highly creative minimalist nature and general timelapse storyboard layout. Smooth light gray concrete tabletop background with realistic shadows of window frames and tree leaves falling across the board. Matte photo print panels showing chronological stages of: ${userPrompt} for scenes ${startScene} to ${endScene}. Below each panel, there are small elegant grey labels for 'SCENE TIMELINE', 'TRANSITIONAL CHANGE', and 'CAMERA SHOT & ANGLE'. Modern art gallery catalog style, clean and highly realistic. ${faceClause}. --ar 3:4`;
   }
-  if (style === 'lego_diy') {
-    return `A playful toy assembly block builder storyboard sheet. Vertical 3:4 aspect ratio, bright creative building blocks theme. Top header titled 'STORYBOARD DIY BRICK TOY - ${userPrompt}' in colorful bubbly text, with main ingredients box, mini-instruction graphics, and total duration ${totalDuration}s. Main grid: A neat ${gridDesc} showing steps of assembling ${userPrompt} with hands. Comic text overlay bubbles like 'TAP!', 'KLIK!', or 'SNAP!' inside frames. Bottom section shows a large reveal frame of the completed brick toy. Fun, vibrant, colorful. ${faceClause}. --ar 3:4`;
+  if (style === 'hanging_photo_timelapse') {
+    return `A creative product and nature timelapse storyboard layout. Clean white brick studio wall background. Polaroid photos showing stages of: ${userPrompt} for scenes ${startScene} to ${endScene} are hanging sequentially from a thin steel wire using small wooden clothespins. Below the wire, there are small neat white labels attached to the wall for 'PHOTO LOG', 'TIMELAPSE ACTION', and 'EXPOSURE SETTINGS'. Cozy, artistic darkroom studio style with realistic soft shadows. ${faceClause}. --ar 3:4`;
   }
-  if (style === 'mecha_review') {
-    return `A high-end product review storyboard sheet. Vertical 3:4 aspect ratio, clean tech-blue outline dark-mode theme. Top header titled 'STORYBOARD - ${userPrompt} (Total Duration: ${totalDuration}s)' in clean sans-serif. Main body is a ${gridCount}-column layout representing Scenes ${startScene} to ${endScene}. Each column features text fields that MUST be filled with actual written content: 'PURPOSE:' [describe scene purpose], 'ASMR ACTION:' [describe touch or sound action], 'CAMERA:' [describe angle], 'SOUND FOCUS:' [describe sound]. Below the text fields are 3 vertical square image panels showing detailed close-up angles of ${userPrompt} representing segment ${timeString}. Bottom features a visual details summary. Tech editorial, highly professional. ${faceClause}. --ar 3:4`;
+  if (style === 'cyberpunk_schematic') {
+    return `A creative cyberpunk tech schematic storyboard layout. Dark neon blue blueprint grid background with glowing circuit line patterns. Widescreen panels styled as floating holographic terminal grids show futuristic gadgets of: ${userPrompt} with glowing cyan spec lines for scenes ${startScene} to ${endScene}. Below the panels, there are terminal-style text boxes for 'TECH STAGE', 'HUD INTERFACE', and 'AUDIO SPECTRUM' with neon blue digital text. Futuristic, cyberpunk film editing deck style. ${faceClause}. --ar 3:4`;
   }
-
-  // Newly Uploaded Styles
-  if (style === 'anime_lego_storyboard') {
-    return `A professional 2D anime style storyboard sheet, inspired by Makoto Shinkai art style. Vertical 3:4 aspect ratio, dark starry sky header titled 'STORYBOARD - ${userPrompt}' with subtitle '2D ANIME STYLE • DURASI ${totalDuration} DETIK • FORMAT 9:16'. Main body features ${gridCount} horizontal rows. Each row has a dark blue pill badge for scene number & time (e.g. '${String(startScene).padStart(2, '0')} ${timeString}'), a bold yellow/gold uppercase title, and detailed icons for camera, action and sound cues. On the right side is a beautiful horizontal wide cinematic anime image of ${userPrompt}. Bottom features a creator tips footer. Rich aesthetic sunset lighting, highly detailed. ${faceClause}. --ar 3:4`;
+  if (style === 'retro_comic') {
+    return `A creative retro comic book pop-art storyboard layout. Vintage half-tone yellowed comic paper background. The panels are styled as thick black comic strip boxes with speech bubbles saying 'BOOM!' and 'POP!' showing dynamic actions of: ${userPrompt} in a pop-art cartoon style for scenes ${startScene} to ${endScene}. Below the panels, there are yellow narrator caption boxes containing text fields for 'SCENE ACTION', 'SOUND FX', and 'VIBES'. Fun, energetic retro comic book style. ${faceClause}. --ar 3:4`;
   }
-  if (style === 'toy_commercial') {
-    return `A professional product commercial storyboard sheet. Vertical 3:4 aspect ratio, dark blue outline theme. Top header titled 'STORYBOARD IKLAN ${userPrompt}' with subtitle 'DURASI ${totalDuration} DETIK'. The layout features ${gridCount} horizontal rows. Each row has the scene name and timestamp in the left column representing scenes ${startScene} to ${endScene} and segment ${timeString}. The center column is a horizontal wide cinematic preview image of ${userPrompt} with bold comic overlay text in yellow and white, and round feature icons at the bottom of the image. The right column lists 'VISUAL' and 'TEKS/VO' descriptions. ${faceClause}. --ar 3:4`;
+  if (style === 'mystical_grimoire') {
+    return `A creative mystical witchcraft apothecary grimoire storyboard layout. Weathered ancient parchment paper texture background with faint star charts. Widescreen panels showing watercolor botanical sketches of hands mixing herbal ingredients of: ${userPrompt} are drawn on the page for scenes ${startScene} to ${endScene}. Cursive quill-ink calligraphy labels next to the sketches display 'RITUAL STEP', 'ALCHEMY ELEMENTS', and 'AUDIO CHANT'. Magical, cozy witchy ledger style. ${faceClause}. --ar 3:4`;
   }
-  if (style === 'cartoon_script_grid') {
-    return `A cute 3D cartoon style storyboard and script sheet. Vertical 3:4 aspect ratio, clean white background. Top header with title 'STORYBOARD - ${userPrompt}' and total duration ${totalDuration}s. The layout features a ${gridCount}-panel grid of horizontal 3D cartoon character images of ${userPrompt} representing scenes ${startScene} to ${endScene} with timestamps of segment ${timeString} below each frame. Below the grid is an aesthetic quotes/narrative block. The bottom section features a detailed script table with columns: 'No', 'Time', 'Visual', 'Narasi', 'Suara / Musik', 'Keterangan'. ${faceClause}. --ar 3:4`;
+  if (style === 'concrete_gallery') {
+    return `A creative minimalist concrete gallery storyboard layout. Dark industrial raw concrete background. Widescreen panels showing luxury designs of: ${userPrompt} are styled as floating acrylic glass frames with strong 3D shadows for scenes ${startScene} to ${endScene}. Below each panel, there are small matte black steel labels with white text for 'SPATIAL LAYOUT', 'MATERIAL SPECS', and 'AMBIENT SOUND'. High-end, premium minimalist architectural portfolio style. ${faceClause}. --ar 3:4`;
   }
-  if (style === 'single_premium_showcase') {
-    return `An ultra-premium commercial studio product photograph of ${userPrompt}. Minimalist clean background with elegant soft studio lighting, delicate shadows, professional catalog style. Crisp details, sharp focus, professional color grading, high-end advertisement look. ${faceClause}. Shot on 8k RED camera, high-end editorial design. --ar 3:4`;
-  }
-  if (style === 'marketing_specs_timeline') {
-    return `A professional product marketing storyboard presentation sheet. Vertical 3:4 aspect ratio, clean white background with red accents. Top section: Left column has title 'MARKETING ANGLE 🔥' in red bold uppercase, a large tagline quote, and 4 green checkmark bullet points; Middle column has a large vertical cutout hero image of ${userPrompt} standing; Right column has a clean specs box listing 'PRODUK: ${userPrompt}', 'JENIS VIDEO: Promosi', 'DURASI: ${totalDuration} Detik', 'TARGET AUDIENCE: General', and 'OBJECTIVE: Tarik Perhatian'. Middle section: Title 'STORYBOARD ${gridCount} SCENE' in bold red uppercase. Bottom section: A horizontal row of ${gridCount} square storyboard panels showing scenes ${startScene} to ${endScene} of ${userPrompt} with red circular number badges on top. Below each panel are clear written text fields: 'VISUAL:', 'CAMERA:', and 'ACTION:'. Clean high-end corporate presentation layout, minimal typography. ${faceClause}. --ar 3:4`;
-  }
-  if (style === 'ugc_asmr_table') {
-    return `A professional UGC ASMR video storyboard script table sheet. Vertical 3:4 aspect ratio, dark navy blue color scheme. Top Header: Left has title 'STORYBOARD VIDEO ${totalDuration} DETIK' and subtitle '${userPrompt}'; Middle has a large product cutout photo; Right has a box with icons for duration, orientation, and audience. Main body is a detailed script table with header row: 'SCENE', 'DURASI', 'VISUAL PREVIEW', 'TEKS ON-SCREEN', 'CATATAN / ARAHAN', 'ASMR FOCUS'. The VISUAL PREVIEW column shows horizontal 4:3 image panels of ${userPrompt} at various action steps from scene ${startScene} to ${endScene} representing segment ${timeString}. The SCENE column has bold numbers. The CATATAN column contains written visual directions. The ASMR FOCUS column lists touch or sound cues. Bottom section features a dark blue panel with three columns: 'KONTINUITAS VISUAL' with checkmarks, 'TRANSISI ANTAR SCENE', and 'ASMR DETAIL'. Footer has production metadata icons. Highly professional unboxing script layout, clean table borders. ${faceClause}. --ar 3:4`;
-  }
-  if (style === 'cinematic_commercial_pitch') {
-    return `An ultra-premium cinematic product commercial pitch storyboard sheet. Vertical 3:4 aspect ratio, dark charcoal/black background. Top header with centered title 'STORYBOARD – ${userPrompt}' in elegant serif font, and subtitle 'CINEMATIC PRODUCT COMMERCIAL | PREMIUM SHOWCASE | TOTAL DURATION: ${totalDuration}s'. Main layout features scene blocks (e.g. 'SCENE 1') with a gold sidebar badge, title, and visual concept on the left, and a specs box with 'MOOD & TONE' and 'CAMERA' on the right. Below the header, there is a horizontal grid of square cinematic preview frames showing scenes ${startScene} to ${endScene} of ${userPrompt} with small white square number badges. Under each frame is a title, action description, and 'CAMERA:' details representing segment ${timeString}. Bottom footer features three columns: 'NOTES' on lighting/style, 'COLOR PALETTE' showing 5 colored squares, and 'SOUND (SUGGESTED)' audio cues. Cinematic soft key lighting, luxury dark mood, elegant typography. ${faceClause}. --ar 3:4`;
-  }
-  if (style === 'handheld_product_specs') {
-    return `A professional product marketing specification and storyboard sheet. Vertical 3:4 aspect ratio, clean white/gray background. Top Section: Left has bold title 'PORTABLE HANDHELD MINI VACUUM CLEANER' and subtitle '${userPrompt}', with 4 feature icons (powerful suction, rechargeable, mini compact, lightweight); Center has a large 3D rendered product cutout image; Right has a 'WHAT'S INCLUDED' box listing accessories with icons. Middle Section: A wide horizontal table summarizing creative direction, category, key benefits, emotional tone, and environment, and duration ${totalDuration}s. Main Body: A professional storyboard table with rows for scenes ${startScene} to ${endScene}, columns: 'SCENE', 'TIME', 'DURATION', 'VISUAL (SHOT DESCRIPTION)'. The VISUAL column shows landscape widescreen image panels of ${userPrompt} in use. The right column lists 'SHOT TYPE', 'CAMERA', 'ACTION', 'TRANSITION' for segment ${timeString}. Bottom Footer features 4 icons and a bold tagline block. Modern technical product spec sheet layout, clean margins. ${faceClause}. --ar 3:4`;
-  }
-  if (style === 'character_concept_sheet') {
-    return `A professional character design sheet and tech sheet layout. Vertical 3:4 aspect ratio, clean light-blue tech outline and grid boundaries on a light-gray background. Top Header: Left has title 'CHARACTER DESIGN SHEET' in small text, followed by bold uppercase project title '${userPrompt}', and subheader 'CLASS : ADVANCED COMBAT UNIT'; Middle has 'CHARACTER OVERVIEW' text paragraph; Right has 'PALETTE' showing 6 color swatches with hex codes, and 'SPESIFIKASI' specs list. Main Body: Left panel has 'TURNAROUND' showing 4 standing character poses (front view, left side view, back view, right side view) of ${userPrompt}; Center panel has 'HEAD DETAIL' (front, side, rear views), 'CHEST DETAIL', and 'WEAPON DETAIL' showing gun/weapon views; Right panel has 'MATERIAL & TEXTURE' with square thumbnails, and 'ACCESSORY & GEAR' detailing utility belt, pouch, energy cell, and boots. Bottom Section: Left has 'POSE REFERENCE' showing 3 action poses of ${userPrompt}, and 'COLOR VARIATION' showing 4 color variation renders; Right has 'DETAIL CLOSE UP' showing 6 square close-up panels. High-tech sci-fi industrial concept design sheet, extremely detailed. ${faceClause}. --ar 3:4`;
+  if (style === 'watercolor_sketchbook') {
+    return `A creative watercolor artist's sketchbook storyboard layout. Rough watercolor sketch paper background. The panels show watercolor painted scenes of: ${userPrompt} with soft watercolor washes, paint splatters, and bleeding colors at the edges for scenes ${startScene} to ${endScene}. Below each panel, there are handwritten pencil notes for 'ARTISTIC SCENE', 'COLOR PALETTE', and 'AUDIO MOOD'. Artistic, cozy watercolor album style. ${faceClause}. --ar 3:4`;
   }
 
   return userPrompt + ", " + faceClause; // Default fallback
@@ -365,7 +365,7 @@ async function getAvailableApiKey(db) {
 }
 
 async function generateStoryboard(req, res) {
-  const { title, prompt, style, apiKeyId, refImageBase64, refImageUrl, refImages, gridCount, model, duration, showFace, aspectRatio, enableVo, voLanguage, voTone } = req.body;
+  const { title, prompt, style, apiKeyId, refImageBase64, refImageUrl, refImages, gridCount, model, duration, showFace, aspectRatio, enableVo, voLanguage, voTone, videoEngine } = req.body;
 
   if (!title || !prompt || !style || !apiKeyId) {
     return res.status(400).json({ message: 'Title, prompt, style, and API Key ID are required.' });
@@ -395,7 +395,16 @@ async function generateStoryboard(req, res) {
   const parsedApiKeyId = keyRecord.id;
   const selectedModel = model ? String(model) : '108';
   const totalDuration = duration ? Number(duration) : 15;
-  const pageCount = Math.max(1, Math.min(4, Math.ceil(totalDuration / 15)));
+  const selectedEngine = videoEngine || 'seedance';
+
+  let secondsPerPage = 15;
+  if (selectedEngine === 'omni') {
+    secondsPerPage = 10;
+  } else if (selectedEngine === 'veo') {
+    secondsPerPage = 8;
+  }
+
+  const pageCount = Math.max(1, Math.min(8, Math.ceil(totalDuration / secondsPerPage)));
 
   const generationParams = JSON.stringify({
     style,
@@ -406,7 +415,8 @@ async function generateStoryboard(req, res) {
     duration: totalDuration,
     enableVo: !!enableVo,
     voLanguage: voLanguage || 'Bahasa Indonesia',
-    voTone: voTone || 'casual'
+    voTone: voTone || 'casual',
+    videoEngine: selectedEngine
   });
 
   // Create unique task ID immediately
@@ -434,6 +444,7 @@ async function generateStoryboard(req, res) {
           `Jumlah Grid  : ${gridCount || 6} Panel\n` +
           `Model Gambar : ${selectedModel}\n` +
           `Ukuran Gambar: ${aspectRatio || '1:1'}\n` +
+          `Engine Video : ${selectedEngine.toUpperCase()}\n` +
           `Durasi Video : ${totalDuration} Detik (${pageCount} Halaman)\n\n`,
     result: null,
     error: null
@@ -592,16 +603,16 @@ async function generateStoryboard(req, res) {
         for (let i = 0; i < batchPages.length; i++) {
           const pageIdx = batchPages[i];
           const pageNum = pageIdx + 1;
-          const startSec = (pageNum - 1) * 15;
-          const endSec = pageNum * 15;
+          const startSec = (pageNum - 1) * secondsPerPage;
+          const endSec = pageNum * secondsPerPage;
           const startScene = (pageNum - 1) * Number(gridCount) + 1;
           const endScene = pageNum * Number(gridCount);
 
           const pageConcept = (subPrompts && subPrompts[pageIdx]) ? subPrompts[pageIdx] : prompt;
-          let pagePrompt = getEnhancedPrompt(style, pageConcept, Number(gridCount) || 6, showFace, startScene, totalDuration);
+          let pagePrompt = getEnhancedPrompt(style, pageConcept, Number(gridCount) || 6, showFace, startScene, totalDuration, secondsPerPage);
           pagePrompt = pagePrompt.replace(/"/g, "'");
           if (style !== 'single_premium_showcase') {
-            pagePrompt = `Page ${pageNum} of ${pageCount}, Scenes ${startScene}-${endScene} (time segment ${startSec}s to ${endSec}s). ` + pagePrompt;
+            pagePrompt = `Page ${pageNum} of ${pageCount}, Scenes ${startScene}-${endScene} (time segment ${formatTime(startSec)} to ${formatTime(endSec)}). ` + pagePrompt;
           }
           pagePrompt = safeClampPrompt(pagePrompt, 1995);
 
@@ -670,7 +681,7 @@ async function generateStoryboard(req, res) {
               let stderr = '';
               child.stdout.on('data', (d) => stdout += d.toString());
               child.stderr.on('data', (d) => stderr += d.toString());
-              child.on('close', (code) => {
+              child.on('close', async (code) => {
                 if (code !== 0) {
                   let errMsg = stderr.trim();
                   if (!errMsg && stdout) {
@@ -681,6 +692,8 @@ async function generateStoryboard(req, res) {
                       errMsg = stdout.trim();
                     }
                   }
+                  activeTasks[taskId].logs += `\n[Freebeat CLI Error - Halaman ${pageNum}]\nSTDOUT:\n${stdout}\nSTDERR:\n${stderr}\n`;
+                  await checkAndDisableKeyIfOutofCredits(db, parsedApiKeyId, errMsg || stdout || stderr, activeTasks[taskId]);
                   return reject(new Error(`CLI Halaman ${pageNum} gagal: ${errMsg || code}`));
                 }
                 try {
@@ -774,6 +787,8 @@ async function generateStoryboard(req, res) {
                         errMsg = statusStdout.trim();
                       }
                     }
+                    activeTasks[taskId].logs += `\n[Freebeat Status Check Error - Halaman ${pageNum}]\nSTDOUT:\n${statusStdout}\nSTDERR:\n${statusStderr}\n`;
+                    await checkAndDisableKeyIfOutofCredits(db, parsedApiKeyId, errMsg || statusStdout || statusStderr, activeTasks[taskId]);
                     activeTasks[taskId].logs += `[WARNING][Halaman ${pageNum}] Gagal memeriksa status: ${errMsg || statusCode}\n`;
                     if (pollCount >= maxPolls) {
                       clearInterval(pollInterval);
@@ -837,7 +852,10 @@ async function generateStoryboard(req, res) {
                         resolve(credits);
                       } else if (renderStatus === 'FAILED' || renderStatus === 'ERROR' || renderStatus === 'failed') {
                         clearInterval(pollInterval);
-                        reject(new Error(item.errorMessage || `Gagal render Halaman ${pageNum}`));
+                        const errMsg = item.errorMessage || `Gagal render Halaman ${pageNum}`;
+                        activeTasks[taskId].logs += `\n[Freebeat Render Error - Halaman ${pageNum}]\nError Message: ${errMsg}\n`;
+                        await checkAndDisableKeyIfOutofCredits(db, parsedApiKeyId, errMsg, activeTasks[taskId]);
+                        reject(new Error(errMsg));
                       }
                     }
                   } catch (err) {
@@ -1113,6 +1131,14 @@ async function regenerateStoryboardPage(req, res) {
     const model = genParams.model || '108';
     const aspectRatio = genParams.aspectRatio || '1:1';
     const showFace = genParams.showFace !== undefined ? genParams.showFace : false;
+    const videoEngine = genParams.videoEngine || 'seedance';
+
+    let secondsPerPage = 15;
+    if (videoEngine === 'omni') {
+      secondsPerPage = 10;
+    } else if (videoEngine === 'veo') {
+      secondsPerPage = 8;
+    }
     const pageCount = imagePaths.length;
 
     // Retrieve API Key
@@ -1155,7 +1181,7 @@ async function regenerateStoryboardPage(req, res) {
         const pageConcept = (subPrompts && subPrompts[pageIdx]) ? subPrompts[pageIdx] : storyboard.prompt;
         
         const startScene = pageIdx * Number(gridCount) + 1;
-        let pagePrompt = getEnhancedPrompt(style, pageConcept, Number(gridCount) || 6, showFace, startScene, genParams.duration || (pageCount * 15));
+        let pagePrompt = getEnhancedPrompt(style, pageConcept, Number(gridCount) || 6, showFace, startScene, genParams.duration || (pageCount * secondsPerPage), secondsPerPage);
         pagePrompt = pagePrompt.replace(/"/g, "'");
 
         activeTasks[taskId].logs += `[2/3] Mengirimkan perintah generate ke Freebeat...\n` +
@@ -1190,7 +1216,9 @@ async function regenerateStoryboardPage(req, res) {
             const errorMsg = (stderrData.trim() || stdoutData.trim() || `Exit code ${code}`);
             activeTasks[taskId].status = 'failed';
             activeTasks[taskId].error = errorMsg;
+            activeTasks[taskId].logs += `\n[Freebeat CLI Error - Halaman ${pageIdx + 1}]\nSTDOUT:\n${stdoutData}\nSTDERR:\n${stderrData}\n`;
             activeTasks[taskId].logs += `[ERROR] Gagal mengirim perintah ke Freebeat: ${errorMsg}\n`;
+            await checkAndDisableKeyIfOutofCredits(db, keyRecord.id, errorMsg || stdoutData || stderrData, activeTasks[taskId]);
             return;
           }
 
@@ -1229,9 +1257,10 @@ async function regenerateStoryboardPage(req, res) {
 
             // Poll status until success
             let attempt = 0;
-            const maxAttempts = 80;
+            const maxAttempts = 120;
             const interval = setInterval(async () => {
               attempt++;
+              activeTasks[taskId].logs += `[Halaman ${pageIdx + 1}] Memeriksa status render (${attempt}/120)...\n`;
               if (attempt > maxAttempts) {
                 clearInterval(interval);
                 activeTasks[taskId].status = 'failed';
@@ -1255,7 +1284,11 @@ async function regenerateStoryboardPage(req, res) {
                 });
 
                 statusChild.on('close', async (statusCode) => {
-                  if (statusCode !== 0) return;
+                  if (statusCode !== 0) {
+                    activeTasks[taskId].logs += `\n[Freebeat Status Check Error - Halaman ${pageIdx + 1}]\nSTDOUT:\n${statusStdout}\n`;
+                    await checkAndDisableKeyIfOutofCredits(db, keyRecord.id, statusStdout, activeTasks[taskId]);
+                    return;
+                  }
                   try {
                     const parsedStatus = JSON.parse(statusStdout.trim());
                     if (parsedStatus.success && parsedStatus.data) {
@@ -1301,9 +1334,12 @@ async function regenerateStoryboardPage(req, res) {
                           };
                         } else if (status === 'FAILED' || status === 'failed') {
                           clearInterval(interval);
+                          const errMsg = item.errorMessage || 'Render failed.';
                           activeTasks[taskId].status = 'failed';
-                          activeTasks[taskId].error = item.errorMessage || 'Render failed.';
+                          activeTasks[taskId].error = errMsg;
+                          activeTasks[taskId].logs += `\n[Freebeat Render Error - Halaman ${pageIdx + 1}]\nError Message: ${errMsg}\n`;
                           activeTasks[taskId].logs += `[ERROR] Render di Freebeat gagal.\n`;
+                          await checkAndDisableKeyIfOutofCredits(db, keyRecord.id, errMsg, activeTasks[taskId]);
                         }
                       }
                     }
@@ -1331,6 +1367,19 @@ async function regenerateStoryboardPage(req, res) {
   }
 }
 
+async function cleanProcessingStoryboardsOnStartup() {
+  try {
+    const { getDb } = require('../db');
+    const db = getDb();
+    const result = await db.run('UPDATE storyboards SET status = "failed" WHERE status = "processing"');
+    if (result.changes > 0) {
+      console.log(`[Startup Cleanup] Marked ${result.changes} orphaned/stuck processing storyboard(s) as failed.`);
+    }
+  } catch (err) {
+    console.error('Failed to cleanup processing storyboards:', err);
+  }
+}
+
 module.exports = {
   getUserStoryboards,
   generateStoryboard,
@@ -1341,5 +1390,6 @@ module.exports = {
   getActiveTasksDebug,
   downloadProxy,
   regenerateStoryboardPage,
+  cleanProcessingStoryboardsOnStartup,
   activeTasks
 };

@@ -6,6 +6,22 @@ const https = require('https');
 const { getDb } = require('../db');
 const { activeTasks } = require('./storyboardController');
 
+async function checkAndDisableKeyIfOutofCredits(db, apiKeyId, errorText, taskObj) {
+  if (!apiKeyId || !errorText) return;
+  const lowerErr = errorText.toLowerCase();
+  if (lowerErr.includes('credit') || lowerErr.includes('balance') || lowerErr.includes('insufficient') || lowerErr.includes('limit') || lowerErr.includes('depleted') || lowerErr.includes('payment') || lowerErr.includes('out of')) {
+    console.log(`[Auto-Disable API Key] Key ID ${apiKeyId} is out of credits. Disabling key.`);
+    try {
+      await db.run('UPDATE api_keys SET is_active = 0 WHERE id = ?', [apiKeyId]);
+      if (taskObj && taskObj.logs !== undefined) {
+        taskObj.logs += `\n[SYSTEM] API Key ID ${apiKeyId} telah dinonaktifkan secara otomatis karena kehabisan/kurang kredit.\n`;
+      }
+    } catch (e) {
+      console.error('Failed to auto-disable API key:', e);
+    }
+  }
+}
+
 const { uploadsDir } = require('../config');
 
 async function getAvailableApiKey(db) {
@@ -134,6 +150,28 @@ async function generateVideo(req, res) {
     // Run submission in background
     (async () => {
       try {
+        let finalPrompt = prompt;
+        if (generateAudio && storyboard.video_prompts) {
+          try {
+            const parsed = JSON.parse(storyboard.video_prompts);
+            if (parsed && Array.isArray(parsed.scenes)) {
+              const match = parsed.scenes.find(s => s.scene_idx === sceneIdx);
+              if (match && match.narration) {
+                let lang = 'Bahasa Indonesia';
+                if (storyboard.generation_params) {
+                  try {
+                    const params = JSON.parse(storyboard.generation_params);
+                    if (params.voLanguage) lang = params.voLanguage;
+                  } catch (e) {}
+                }
+                finalPrompt += `\n\nVoiceover (${lang}):\n${match.narration}`;
+              }
+            }
+          } catch (e) {
+            console.error("Failed to append voiceover narration to video prompt:", e);
+          }
+        }
+
         const spawnCmd = 'node';
         const cliPath = path.join(__dirname, '..', 'node_modules', 'freebeat-cli', 'dist', 'index.js');
         const spawnArgs = [
@@ -141,7 +179,7 @@ async function generateVideo(req, res) {
           '--api-key', keyRecord.key_value,
           'video', 'generate',
           '--model', model,
-          '--prompt', prompt,
+          '--prompt', finalPrompt,
           '--generation-type', generationType === 'image' ? 'image' : 'text',
           '--json'
         ];
@@ -181,7 +219,11 @@ async function generateVideo(req, res) {
             const errorMsg = (stderrData.trim() || stdoutData.trim() || `Submit exited with code ${code}`);
             activeTasks[taskId].status = 'failed';
             activeTasks[taskId].error = errorMsg;
+            activeTasks[taskId].logs += `\n[Freebeat Video CLI Error]\nSTDOUT:\n${stdoutData}\nSTDERR:\n${stderrData}\n`;
             activeTasks[taskId].logs += `[ERROR] Gagal mengirim task ke Freebeat: ${errorMsg}\n`;
+            
+            await checkAndDisableKeyIfOutofCredits(db, keyRecord.id, errorMsg || stdoutData || stderrData, activeTasks[taskId]);
+
             await db.run(
               'UPDATE generated_videos SET status = ?, video_url = NULL, error_message = ?, logs = ? WHERE id = ?',
               ['failed', errorMsg, activeTasks[taskId].logs, videoRecordId]
@@ -430,7 +472,8 @@ function pollVideoStatus(videoRecordId, storyboardId, apiKey, batchId, serialNo,
 
       child.on('close', async (code) => {
         if (code !== 0) {
-          activeTasks[taskId].logs += `.`;
+          activeTasks[taskId].logs += `\n[Freebeat Video Status Check Error]\nSTDOUT:\n${stdoutData}\n`;
+          await checkAndDisableKeyIfOutofCredits(db, activeTasks[taskId].apiKeyId, stdoutData, activeTasks[taskId]);
           return;
         }
 
@@ -492,14 +535,17 @@ function pollVideoStatus(videoRecordId, storyboardId, apiKey, batchId, serialNo,
               const errMsg = item?.errorMessage || 'Kesalahan internal Freebeat CLI.';
               activeTasks[taskId].status = 'failed';
               activeTasks[taskId].error = errMsg;
-              activeTasks[taskId].logs += `\n\n[ERROR] Pembuatan video gagal: ${errMsg}\n`;
+              activeTasks[taskId].logs += `\n[Freebeat Video Render Error]\nError Message: ${errMsg}\n`;
+              
+              await checkAndDisableKeyIfOutofCredits(db, activeTasks[taskId].apiKeyId, errMsg, activeTasks[taskId]);
+
               await db.run(
                 'UPDATE generated_videos SET status = ?, error_message = ?, logs = ? WHERE id = ?',
                 ['failed', errMsg, activeTasks[taskId].logs, videoRecordId]
               );
             } else {
               // Status is PENDING or RUNNING
-              activeTasks[taskId].logs += `Checking status... [${status}]\n`;
+              activeTasks[taskId].logs += `Checking status (${attempt}/120)... [${status}]\n`;
             }
           }
         } catch (e) {
@@ -666,7 +712,11 @@ async function runSingleVideoSpawn(vRecId, tId, kRec, pText, scImg, model, gener
         const errorMsg = (stderrData.trim() || stdoutData.trim() || `Submit exited with code ${code}`);
         activeTasks[tId].status = 'failed';
         activeTasks[tId].error = errorMsg;
+        activeTasks[tId].logs += `\n[Freebeat Video CLI Error]\nSTDOUT:\n${stdoutData}\nSTDERR:\n${stderrData}\n`;
         activeTasks[tId].logs += `[ERROR] Gagal mengirim task ke Freebeat: ${errorMsg}\n`;
+        
+        await checkAndDisableKeyIfOutofCredits(db, kRec.id, errorMsg || stdoutData || stderrData, activeTasks[tId]);
+
         await db.run(
           'UPDATE generated_videos SET status = ?, error_message = ?, logs = ? WHERE id = ?',
           ['failed', errorMsg, activeTasks[tId].logs, vRecId]
@@ -840,7 +890,18 @@ async function generateAllVideos(req, res) {
         if (matchingPrompt) {
           promptText = generationType === 'image' 
             ? (matchingPrompt.imageToVideoPrompt || matchingPrompt.textToVideoPrompt)
-            : matchingPrompt.textToVideoPrompt;
+            : (matchingPrompt.textToVideoPrompt || matchingPrompt.imageToVideoPrompt);
+
+          if (generateAudio && matchingPrompt.narration) {
+            let lang = 'Bahasa Indonesia';
+            if (storyboard.generation_params) {
+              try {
+                const params = JSON.parse(storyboard.generation_params);
+                if (params.voLanguage) lang = params.voLanguage;
+              } catch (e) {}
+            }
+            promptText += `\n\nVoiceover (${lang}):\n${matchingPrompt.narration}`;
+          }
         }
         
         if (!promptText) {
