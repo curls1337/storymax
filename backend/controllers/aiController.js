@@ -77,6 +77,32 @@ async function writePrompt(req, res) {
     return res.status(400).json({ message: 'Ide kasar (concept) harus diisi.' });
   }
 
+  // Predefined diverse commercial themes to prevent LLM selection bias for random ideas
+  const RANDOM_THEMES = [
+    "Iklan parfum mewah aroma alam dengan suasana hutan berkabut pagi hari yang misterius dan premium.",
+    "Iklan sepatu lari futuristik ultra-ringan dengan kilatan listrik neon dinamis di landasan pacu.",
+    "Iklan lipstik merah ceri glossy dengan nuansa fashion moodboard retro dan transisi cepat ala reels.",
+    "Iklan jam tangan mekanik mewah dengan detail roda gigi kuningan berputar lambat dan presisi tinggi.",
+    "Iklan smartwatch olahraga tangguh yang sedang diuji di bawah cipratan air ekstrem dan lumpur.",
+    "Iklan cokelat cair premium meleleh yang dituangkan perlahan ke atas kue tart stroberi segar.",
+    "Iklan kopi espresso susu hangat (latte art) yang diracik barista di kafe estetik berkayu hangat.",
+    "Iklan mainan action figure robot mecha futuristik yang sedang dirakit secara detail di meja kerja.",
+    "Iklan keyboard mekanikal RGB kustom dengan keycaps warna pastel retro bergaya komik/pop-art.",
+    "Iklan tas ransel petualangan outdoor anti-air yang dibawa mendaki menembus hujan di puncak gunung.",
+    "Iklan lilin aromaterapi menenangkan dengan kepulan asap tipis di samping buku grimoire mistis hangat.",
+    "Iklan minuman kaleng bersoda dingin yang menyegarkan dengan ledakan gelembung dan es batu pecah.",
+    "Iklan casing smartphone estetik dengan coretan tangan bergaya seni jalanan perkotaan (cyberpunk/pop-art).",
+    "Iklan perhiasan kalung emas berlian elegan yang berkilau di leher model di galeri seni beton modern.",
+    "Iklan kue kering kering mentega (cookies) yang baru matang diangkat dari oven dapur kayu pedesaan.",
+    "Iklan paket perkakas kayu vintage (palu, penggaris logam) di atas meja tukang kayu berdebu estetik."
+  ];
+
+  let selectedConcept = concept;
+  if (concept === 'minta_ide_acak') {
+    const randomIndex = Math.floor(Math.random() * RANDOM_THEMES.length);
+    selectedConcept = RANDOM_THEMES[randomIndex];
+  }
+
   try {
     const db = getDb();
     const settings = await db.get('SELECT * FROM ai_settings LIMIT 1');
@@ -114,7 +140,7 @@ Anda harus mengembalikan respon hanya dalam format JSON mentah dengan key 'title
         {
           role: 'user',
           content: concept === 'minta_ide_acak'
-            ? 'Buatlah satu konsep ide video komersial acak untuk sebuah produk kreatif yang menarik dan inovatif secara orisinal, lalu kembangkan menjadi rancangan storyboard.'
+            ? `Buatlah konsep ide video komersial lengkap yang menarik berdasarkan tema acak berikut: "${selectedConcept}"`
             : `Ide Kasar: ${concept}`
         }
       ],
