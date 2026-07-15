@@ -376,19 +376,19 @@ export default function Generator() {
   };
 
   return (
-    <div className="p-4 sm:p-8 space-y-6 sm:space-y-8 animate-fadeIn relative">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[#1a1918]/60 border border-[#2a2725] p-4 sm:p-6 rounded-3xl backdrop-blur-md">
+    <div className="p-3 sm:p-6 md:p-8 space-y-4 sm:space-y-6 md:space-y-8 animate-fadeIn relative">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[#1a1918]/60 border border-[#2a2725] p-3.5 sm:p-6 rounded-2xl md:rounded-3xl backdrop-blur-md">
         <div>
-          <h1 className="text-4xl font-editorial italic text-white tracking-tight flex items-center gap-3">
-            <Sparkles className="w-6 h-6 text-[#cfae80] fill-[#cfae80]/10" />
+          <h1 className="text-xl sm:text-2xl md:text-4xl font-editorial italic text-white tracking-tight flex items-center gap-2">
+            <Sparkles className="w-5 h-5 md:w-6 md:h-6 text-[#cfae80] fill-[#cfae80]/10" />
             Generator Storyboard AI
           </h1>
-          <p className="text-slate-400 text-xs mt-1.5 font-medium tracking-wide">Ciptakan visualisasi alur storyboard video promosi berkualitas tinggi secara instan.</p>
+          <p className="text-slate-400 text-[10px] sm:text-xs mt-1.5 font-medium tracking-wide">Ciptakan visualisasi alur storyboard video promosi berkualitas tinggi secara instan.</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        <form onSubmit={handleGenerate} className="lg:col-span-5 bg-[#1a1918]/60 border border-[#2a2725] rounded-3xl p-6 space-y-6 backdrop-blur-md relative">
+        <form onSubmit={handleGenerate} className="lg:col-span-5 bg-[#1a1918]/60 border border-[#2a2725] rounded-2xl md:rounded-3xl p-4 md:p-6 space-y-4 md:space-y-6 backdrop-blur-md relative">
           <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#cfae80]/25 to-transparent"></div>
           <div className="flex items-center gap-2 border-b border-[#2a2725] pb-3.5">
             <Sliders className="w-4 h-4 text-[#cfae80]" />
@@ -715,7 +715,7 @@ export default function Generator() {
           </button>
         </form>
 
-        <div className="lg:col-span-7 bg-[#1a1918]/60 border border-[#2a2725] rounded-3xl p-6 min-h-[500px] flex flex-col justify-between relative overflow-hidden backdrop-blur-md">
+        <div className="lg:col-span-7 bg-[#1a1918]/60 border border-[#2a2725] rounded-2xl md:rounded-3xl p-4 md:p-6 min-h-[400px] md:min-h-[500px] flex flex-col justify-between relative overflow-hidden backdrop-blur-md">
           <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#cfae80]/25 to-transparent"></div>
           <div className="flex justify-between items-center mb-5 border-b border-[#2a2725] pb-3.5">
             <h3 className="text-[10px] font-bold text-white uppercase tracking-widest flex items-center gap-2"><ImageIcon className="w-4 h-4 text-[#cfae80]" /> Hasil Visualisasi</h3>
@@ -753,12 +753,12 @@ export default function Generator() {
                 return (
                   <div className="flex-grow flex flex-col items-center justify-center space-y-5 w-full">
                     {images.length > 1 ? (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
+                      <div className="grid grid-cols-2 gap-3 w-full">
                         {images.map((img, idx) => (
-                          <div key={idx} className="flex flex-col space-y-2 border border-[#2a2725] rounded-2xl overflow-hidden bg-black/80 p-3 group relative">
-                            <div className="relative aspect-[3/4] w-full overflow-hidden rounded-xl bg-black/40 flex items-center justify-center">
+                          <div key={idx} className="flex flex-col space-y-1.5 border border-[#2a2725] rounded-xl overflow-hidden bg-black/80 p-2 group relative">
+                            <div className="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-black/40 flex items-center justify-center">
                               <img src={getFullImageUrl(img)} alt={`Halaman ${idx+1}`} className="max-w-full max-h-full object-contain" />
-                              <div className="absolute top-2 left-2 bg-black/80 text-[#cfae80] font-bold text-[8px] px-2 py-1 rounded-md border border-[#cfae80]/20">
+                              <div className="absolute top-1.5 left-1.5 bg-black/80 text-[#cfae80] font-bold text-[7px] px-1.5 py-0.5 rounded-md border border-[#cfae80]/20">
                                 Halaman {idx + 1}
                               </div>
                               {regeneratingPages[idx] && (

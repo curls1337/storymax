@@ -85,7 +85,7 @@ export default function App() {
       <div className="absolute bottom-[-10%] left-[-10%] w-[550px] h-[550px] bg-[#8c827a] opacity-[0.03] rounded-full blur-[150px] pointer-events-none"></div>
 
       {/* MOBILE HEADER */}
-      <header className="lg:hidden h-16 bg-[#1a1918]/90 border-b border-[#2a2725] flex items-center justify-between px-6 z-20 backdrop-blur-md shrink-0">
+      <header className="lg:hidden bg-[#1a1918]/90 border-b border-[#2a2725] flex items-center justify-between px-6 pt-[env(safe-area-inset-top,0.75rem)] pb-3 z-20 backdrop-blur-md shrink-0">
         <div className="flex items-center gap-3">
           <button 
             onClick={() => setSidebarOpen(true)}
@@ -99,7 +99,7 @@ export default function App() {
             <span>story<span className="text-[#cfae80] font-normal">max</span></span>
           </h2>
         </div>
-        <span className="px-2 py-0.5 rounded bg-[#cfae80]/10 text-[#cfae80] text-[8px] font-bold tracking-widest uppercase border border-[#cfae80]/20">
+        <span className="px-2.5 py-0.5 rounded bg-[#cfae80]/10 text-[#cfae80] text-[8px] font-bold tracking-widest uppercase border border-[#cfae80]/20">
           PRO
         </span>
       </header>
@@ -237,43 +237,43 @@ export default function App() {
       </main>
 
       {/* MOBILE BOTTOM NAVIGATION BAR */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#1a1918]/95 border-t border-[#2a2725] flex items-center justify-around z-50 backdrop-blur-md pb-safe">
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-[#1a1918]/95 border-t border-[#2a2725] flex items-center justify-around z-50 backdrop-blur-md pt-2.5 pb-[env(safe-area-inset-bottom,0.75rem)] shadow-lg">
         <button 
           onClick={() => setTab('dashboard')} 
-          className={`flex flex-col items-center justify-center gap-1 w-16 py-2 transition-all duration-200 ${
+          className={`flex flex-col items-center justify-center gap-1 w-16 py-1.5 transition-all duration-200 ${
             tab === 'dashboard' ? 'text-[#cfae80]' : 'text-slate-400'
           }`}
         >
-          <Home className="w-4 h-4" />
-          <span className="text-[8px] font-bold uppercase tracking-wider">Dash</span>
+          <Home className="w-4.5 h-4.5" />
+          <span className="text-[7.5px] font-bold uppercase tracking-widest mt-0.5">Dash</span>
         </button>
         <button 
           onClick={() => setTab('generator')} 
-          className={`flex flex-col items-center justify-center gap-1 w-16 py-2 transition-all duration-200 ${
+          className={`flex flex-col items-center justify-center gap-1 w-16 py-1.5 transition-all duration-200 ${
             tab === 'generator' ? 'text-[#cfae80]' : 'text-slate-400'
           }`}
         >
-          <Sparkles className="w-4 h-4" />
-          <span className="text-[8px] font-bold uppercase tracking-wider">AI Gen</span>
+          <Sparkles className="w-4.5 h-4.5" />
+          <span className="text-[7.5px] font-bold uppercase tracking-widest mt-0.5">AI Gen</span>
         </button>
         <button 
           onClick={() => setTab('settings')} 
-          className={`flex flex-col items-center justify-center gap-1 w-16 py-2 transition-all duration-200 ${
+          className={`flex flex-col items-center justify-center gap-1 w-16 py-1.5 transition-all duration-200 ${
             tab === 'settings' ? 'text-[#cfae80]' : 'text-slate-400'
           }`}
         >
-          <SettingsIcon className="w-4 h-4" />
-          <span className="text-[8px] font-bold uppercase tracking-wider">Setting</span>
+          <SettingsIcon className="w-4.5 h-4.5" />
+          <span className="text-[7.5px] font-bold uppercase tracking-widest mt-0.5">Setting</span>
         </button>
         {user.role === 'admin' && (
           <button 
             onClick={() => setTab('admin')} 
-            className={`flex flex-col items-center justify-center gap-1 w-16 py-2 transition-all duration-200 ${
+            className={`flex flex-col items-center justify-center gap-1 w-16 py-1.5 transition-all duration-200 ${
               tab === 'admin' ? 'text-red-400' : 'text-slate-400'
             }`}
           >
-            <ShieldAlert className="w-4 h-4" />
-            <span className="text-[8px] font-bold uppercase tracking-wider">Admin</span>
+            <ShieldAlert className="w-4.5 h-4.5" />
+            <span className="text-[7.5px] font-bold uppercase tracking-widest mt-0.5">Admin</span>
           </button>
         )}
       </div>

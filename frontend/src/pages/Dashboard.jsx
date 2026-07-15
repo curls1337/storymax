@@ -618,11 +618,11 @@ export default function Dashboard({ setTab }) {
         const { imageToVideoPrompt, textToVideoPrompt, narration } = parseVideoPrompts(selectedStoryboard.video_prompts, modalCarouselIdx);
         return createPortal(
           <div 
-            className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-start md:items-center justify-center p-4 py-8 md:py-8 z-50 overflow-y-auto select-text animate-fadeIn"
+            className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 z-50 select-text animate-fadeIn"
             onClick={() => { setSelectedStoryboard(null); setVideoPromptError(''); setActiveSceneIdx(0); }}
           >
             <div 
-              className="relative max-w-[1300px] w-full bg-[#1a1918] border border-[#2a2725] rounded-3xl overflow-y-auto md:overflow-hidden shadow-2xl flex flex-col md:flex-row max-h-none md:max-h-[90vh] my-auto animate-scaleUp"
+              className="relative max-w-[1300px] w-full h-[82vh] md:h-[88vh] bg-[#1a1918] border border-[#2a2725] rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row my-auto animate-scaleUp"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Top accent gold line */}
@@ -631,7 +631,7 @@ export default function Dashboard({ setTab }) {
               {/* Close Button */}
               <button 
                 onClick={() => { setSelectedStoryboard(null); setVideoPromptError(''); setActiveSceneIdx(0); }} 
-                className="fixed md:absolute top-4 right-4 z-50 text-slate-400 hover:text-white bg-black/70 p-1.5 rounded-full border border-white/10 transition-colors"
+                className="absolute top-4 right-4 z-50 text-slate-400 hover:text-white bg-black/70 p-1.5 rounded-full border border-white/10 transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -674,7 +674,7 @@ export default function Dashboard({ setTab }) {
               </div>
 
               {/* Left Side: Large Image Carousel */}
-              <div className={`w-full md:w-2/5 bg-black/80 flex items-center justify-center relative min-h-[300px] md:min-h-0 border-b md:border-b-0 md:border-r border-[#2a2725] ${activeMobileTab === 'image' ? 'flex' : 'hidden md:flex'}`}>
+              <div className={`w-full md:w-2/5 bg-black/80 flex flex-col items-center justify-center relative flex-grow md:flex-grow-0 md:min-h-0 border-b md:border-b-0 md:border-r border-[#2a2725] p-4 md:p-0 ${activeMobileTab === 'image' ? 'flex' : 'hidden md:flex'}`}>
                 {regeneratingPages[modalCarouselIdx] ? (
                   <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center p-6 space-y-3 z-10 animate-fadeIn">
                     <Loader className="animate-spin text-[#cfae80] w-8 h-8" />
@@ -687,7 +687,7 @@ export default function Dashboard({ setTab }) {
                   <img
                     src={getSpecificImageUrl(activeImg)}
                     alt={selectedStoryboard.title}
-                    className="w-full h-full object-contain max-h-[50vh] md:max-h-[80vh]"
+                    className="max-w-full max-h-[45vh] md:max-h-[75vh] object-contain rounded-2xl border border-[#2a2725]/60 shadow-inner"
                   />
                 )}
                 
@@ -718,8 +718,8 @@ export default function Dashboard({ setTab }) {
               </div>
 
               {/* Middle Column: Editorial Metadata & Prompts */}
-              <div className={`w-full md:w-[30%] p-6 flex flex-col justify-between overflow-y-visible md:overflow-y-auto max-h-none md:max-h-[90vh] md:max-h-full border-b md:border-b-0 md:border-r border-[#2a2725] scrollbar-thin ${activeMobileTab === 'prompt' ? 'flex' : 'hidden md:flex'}`}>
-                <div className="space-y-5">
+              <div className={`w-full md:w-[30%] p-4 md:p-6 flex flex-col justify-between overflow-y-auto flex-grow md:max-h-full border-b md:border-b-0 md:border-r border-[#2a2725] scrollbar-thin ${activeMobileTab === 'prompt' ? 'flex' : 'hidden md:flex'}`}>
+                <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <span className="text-[9px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-1.5">
                       <Calendar className="w-3.5 h-3.5 text-[#cfae80]" />
@@ -1175,8 +1175,8 @@ export default function Dashboard({ setTab }) {
               </div>
 
               {/* Right Column: Video Studio & Actions */}
-              <div className={`w-full md:w-[30%] p-6 flex flex-col justify-between overflow-y-visible md:overflow-y-auto max-h-none md:max-h-[90vh] md:max-h-full scrollbar-thin ${activeMobileTab === 'video' ? 'flex' : 'hidden md:flex'}`}>
-                <div className="space-y-5">
+              <div className={`w-full md:w-[30%] p-4 md:p-6 flex flex-col justify-between overflow-y-auto flex-grow scrollbar-thin pb-20 md:pb-6 ${activeMobileTab === 'video' ? 'flex' : 'hidden md:flex'}`}>
+                <div className="space-y-4">
                   {/* VIDEO STUDIO (FREEBEAT VIDEO GENERATOR) */}
                   <div className="space-y-4">
                     <h3 className="text-[10px] font-bold uppercase tracking-widest text-[#cfae80] flex items-center gap-1.5">
