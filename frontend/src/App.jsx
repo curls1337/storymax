@@ -227,7 +227,7 @@ export default function App() {
         </div>
       </aside>
 
-      <main ref={mainRef} className="flex-grow h-full min-h-0 overflow-y-auto bg-darkBg">
+      <main ref={mainRef} className="flex-grow h-full min-h-0 overflow-y-auto bg-darkBg pb-20 lg:pb-0">
         <div className="w-full min-h-full flex flex-col justify-start px-4 sm:px-6 md:px-8 py-6 md:py-8">
           {tab === 'dashboard' && <Dashboard setTab={setTab} />}
           {tab === 'generator' && <Generator />}
@@ -235,6 +235,48 @@ export default function App() {
           {tab === 'admin' && user.role === 'admin' && <AdminPanel />}
         </div>
       </main>
+
+      {/* MOBILE BOTTOM NAVIGATION BAR */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#1a1918]/95 border-t border-[#2a2725] flex items-center justify-around z-50 backdrop-blur-md pb-safe">
+        <button 
+          onClick={() => setTab('dashboard')} 
+          className={`flex flex-col items-center justify-center gap-1 w-16 py-2 transition-all duration-200 ${
+            tab === 'dashboard' ? 'text-[#cfae80]' : 'text-slate-400'
+          }`}
+        >
+          <Home className="w-4 h-4" />
+          <span className="text-[8px] font-bold uppercase tracking-wider">Dash</span>
+        </button>
+        <button 
+          onClick={() => setTab('generator')} 
+          className={`flex flex-col items-center justify-center gap-1 w-16 py-2 transition-all duration-200 ${
+            tab === 'generator' ? 'text-[#cfae80]' : 'text-slate-400'
+          }`}
+        >
+          <Sparkles className="w-4 h-4" />
+          <span className="text-[8px] font-bold uppercase tracking-wider">AI Gen</span>
+        </button>
+        <button 
+          onClick={() => setTab('settings')} 
+          className={`flex flex-col items-center justify-center gap-1 w-16 py-2 transition-all duration-200 ${
+            tab === 'settings' ? 'text-[#cfae80]' : 'text-slate-400'
+          }`}
+        >
+          <SettingsIcon className="w-4 h-4" />
+          <span className="text-[8px] font-bold uppercase tracking-wider">Setting</span>
+        </button>
+        {user.role === 'admin' && (
+          <button 
+            onClick={() => setTab('admin')} 
+            className={`flex flex-col items-center justify-center gap-1 w-16 py-2 transition-all duration-200 ${
+              tab === 'admin' ? 'text-red-400' : 'text-slate-400'
+            }`}
+          >
+            <ShieldAlert className="w-4 h-4" />
+            <span className="text-[8px] font-bold uppercase tracking-wider">Admin</span>
+          </button>
+        )}
+      </div>
     </div>
   );
 }

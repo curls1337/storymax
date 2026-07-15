@@ -376,8 +376,8 @@ export default function Generator() {
   };
 
   return (
-    <div className="p-8 space-y-8 animate-fadeIn relative">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[#1a1918]/60 border border-[#2a2725] p-6 rounded-3xl backdrop-blur-md">
+    <div className="p-4 sm:p-8 space-y-6 sm:space-y-8 animate-fadeIn relative">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[#1a1918]/60 border border-[#2a2725] p-4 sm:p-6 rounded-3xl backdrop-blur-md">
         <div>
           <h1 className="text-4xl font-editorial italic text-white tracking-tight flex items-center gap-3">
             <Sparkles className="w-6 h-6 text-[#cfae80] fill-[#cfae80]/10" />
@@ -506,7 +506,7 @@ export default function Generator() {
                   ))}
                 </div>
                 {hoveredStyle && (
-                  <div className="absolute left-full top-0 ml-3 bg-[#1a1918] border border-[#2a2725] p-2.5 rounded-2xl shadow-2xl w-60 h-80 flex flex-col justify-between z-50 animate-fadeIn pointer-events-none">
+                  <div className="hidden md:flex absolute left-full top-0 ml-3 bg-[#1a1918] border border-[#2a2725] p-2.5 rounded-2xl shadow-2xl w-60 h-80 flex-col justify-between z-50 animate-fadeIn pointer-events-none">
                     <div className="flex-grow overflow-hidden rounded-xl border border-[#2a2725] bg-black/40"><img src={getPreviewUrl(hoveredStyle)} alt={`Preview ${hoveredStyle}`} className="w-full h-full object-cover object-top" /></div>
                     <div className="mt-2 text-center"><span className="text-[9px] font-extrabold text-[#cfae80] uppercase tracking-wider block truncate">{LAYOUT_STYLES.find(opt => opt.value === hoveredStyle)?.label}</span></div>
                   </div>

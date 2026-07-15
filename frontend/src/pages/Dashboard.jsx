@@ -10,6 +10,7 @@ export default function Dashboard({ setTab }) {
   const [selectedStoryboard, setSelectedStoryboard] = useState(null);
   const [modalCarouselIdx, setModalCarouselIdx] = useState(0);
   const [activeSceneIdx, setActiveSceneIdx] = useState(0);
+  const [activeMobileTab, setActiveMobileTab] = useState('image'); // 'image' | 'prompt' | 'video'
 
   const fetchStoryboards = async () => {
     try {
@@ -635,8 +636,45 @@ export default function Dashboard({ setTab }) {
                 <X className="w-4 h-4" />
               </button>
 
+              {/* Mobile Tab Switcher */}
+              <div className="flex md:hidden border-b border-[#2a2725] bg-[#1a1918] sticky top-0 z-40 p-2.5 gap-2 shrink-0 w-full">
+                <button
+                  type="button"
+                  onClick={() => setActiveMobileTab('image')}
+                  className={`flex-1 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all border ${
+                    activeMobileTab === 'image'
+                      ? 'bg-[#cfae80] text-black border-[#cfae80] shadow-lg shadow-[#cfae80]/15'
+                      : 'bg-[#2a2725]/30 text-slate-400 border-transparent hover:text-white'
+                  }`}
+                >
+                  🖼️ Gambar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveMobileTab('prompt')}
+                  className={`flex-1 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all border ${
+                    activeMobileTab === 'prompt'
+                      ? 'bg-[#cfae80] text-black border-[#cfae80] shadow-lg shadow-[#cfae80]/15'
+                      : 'bg-[#2a2725]/30 text-slate-400 border-transparent hover:text-white'
+                  }`}
+                >
+                  📝 Naskah
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveMobileTab('video')}
+                  className={`flex-1 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all border ${
+                    activeMobileTab === 'video'
+                      ? 'bg-[#cfae80] text-black border-[#cfae80] shadow-lg shadow-[#cfae80]/15'
+                      : 'bg-[#2a2725]/30 text-slate-400 border-transparent hover:text-white'
+                  }`}
+                >
+                  🎬 Video
+                </button>
+              </div>
+
               {/* Left Side: Large Image Carousel */}
-              <div className="w-full md:w-2/5 bg-black/80 flex items-center justify-center relative min-h-[300px] md:min-h-0 border-b md:border-b-0 md:border-r border-[#2a2725]">
+              <div className={`w-full md:w-2/5 bg-black/80 flex items-center justify-center relative min-h-[300px] md:min-h-0 border-b md:border-b-0 md:border-r border-[#2a2725] ${activeMobileTab === 'image' ? 'flex' : 'hidden md:flex'}`}>
                 {regeneratingPages[modalCarouselIdx] ? (
                   <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center p-6 space-y-3 z-10 animate-fadeIn">
                     <Loader className="animate-spin text-[#cfae80] w-8 h-8" />
@@ -680,7 +718,7 @@ export default function Dashboard({ setTab }) {
               </div>
 
               {/* Middle Column: Editorial Metadata & Prompts */}
-              <div className="w-full md:w-[30%] p-6 flex flex-col justify-between overflow-y-visible md:overflow-y-auto max-h-none md:max-h-full border-b md:border-b-0 md:border-r border-[#2a2725] scrollbar-thin">
+              <div className={`w-full md:w-[30%] p-6 flex flex-col justify-between overflow-y-visible md:overflow-y-auto max-h-none md:max-h-[90vh] md:max-h-full border-b md:border-b-0 md:border-r border-[#2a2725] scrollbar-thin ${activeMobileTab === 'prompt' ? 'flex' : 'hidden md:flex'}`}>
                 <div className="space-y-5">
                   <div className="flex items-center justify-between">
                     <span className="text-[9px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-1.5">
@@ -1137,7 +1175,7 @@ export default function Dashboard({ setTab }) {
               </div>
 
               {/* Right Column: Video Studio & Actions */}
-              <div className="w-full md:w-[30%] p-6 flex flex-col justify-between overflow-y-visible md:overflow-y-auto max-h-none md:max-h-full scrollbar-thin">
+              <div className={`w-full md:w-[30%] p-6 flex flex-col justify-between overflow-y-visible md:overflow-y-auto max-h-none md:max-h-[90vh] md:max-h-full scrollbar-thin ${activeMobileTab === 'video' ? 'flex' : 'hidden md:flex'}`}>
                 <div className="space-y-5">
                   {/* VIDEO STUDIO (FREEBEAT VIDEO GENERATOR) */}
                   <div className="space-y-4">

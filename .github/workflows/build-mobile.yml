@@ -1,0 +1,99 @@
+name: Build Mobile Apps (APK & IPA)
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install Root & Frontend Dependencies
+        run: |
+          npm install
+          npm install --prefix frontend
+
+      - name: Build Frontend
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL || 'https://story.devcurl.me/api' }}
+        run: |
+          npm run build --prefix frontend
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Initialize Capacitor Android
+        run: |
+          cd frontend
+          npx cap add android || true
+          npx cap sync android
+
+      - name: Build Android APK
+        run: |
+          cd frontend/android
+          ./gradlew assembleDebug
+
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: storymax-android-apk
+          path: frontend/android/app/build/outputs/apk/debug/app-debug.apk
+
+  build-ios:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install Root & Frontend Dependencies
+        run: |
+          npm install
+          npm install --prefix frontend
+
+      - name: Build Frontend
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL || 'https://story.devcurl.me/api' }}
+        run: |
+          npm run build --prefix frontend
+
+      - name: Initialize Capacitor iOS
+        run: |
+          cd frontend
+          npx cap add ios || true
+          npx cap sync ios
+
+      - name: Build iOS IPA (Sideloadable)
+        run: |
+          cd frontend/ios/App
+          pod install
+          xcodebuild -workspace App.xcworkspace -scheme App -sdk iphoneos -configuration Debug CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO SYMROOT=build clean build
+          mkdir -p Payload
+          cp -r build/Debug-iphoneos/App.app Payload/
+          zip -r App.ipa Payload
+          rm -rf Payload
+
+      - name: Upload iOS IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: storymax-ios-ipa
+          path: frontend/ios/App/App.ipa
