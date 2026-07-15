@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import api from '../utils/api';
-import { Plus, Trash2, ExternalLink, Calendar, Loader, FolderOpen, X, ChevronRight, ChevronLeft, Download, Eye, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, ExternalLink, Calendar, Loader, FolderOpen, X, ChevronRight, ChevronLeft, Download, Eye, AlertTriangle, Image, FileText, Film, Play, Zap, RefreshCw } from 'lucide-react';
 
 export default function Dashboard({ setTab }) {
   const [storyboards, setStoryboards] = useState([]);
@@ -814,7 +814,7 @@ export default function Dashboard({ setTab }) {
                           <button
                             onClick={() => handleGenerateVideoPrompts('image-to-video', true)}
                             disabled={generatingType !== null}
-                            className="w-full bg-[#cfae80]/15 hover:bg-[#cfae80]/25 text-[#cfae80] border border-[#cfae80]/30 font-bold py-2.5 px-3 rounded-xl flex items-center justify-center gap-2 text-[9px] uppercase tracking-widest transition-all disabled:opacity-50 mt-1"
+                            className="w-full bg-[#cfae80]/10 hover:bg-[#cfae80]/20 text-[#cfae80] border border-[#cfae80]/20 font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 text-[8.5px] uppercase tracking-wider transition-all disabled:opacity-50 mt-1"
                           >
                             {generatingType === 'image-to-video' ? (
                               <>
@@ -822,7 +822,9 @@ export default function Dashboard({ setTab }) {
                                 Memproses Tulis Ulang...
                               </>
                             ) : (
-                              '⚙️ Tulis Ulang Prompt & Voice Over'
+                              <>
+                                <RefreshCw className="w-3 h-3" /> Tulis Ulang Prompt & Voice Over
+                              </>
                             )}
                           </button>
                         </div>
@@ -1123,7 +1125,7 @@ export default function Dashboard({ setTab }) {
                         <button
                           onClick={() => handleGenerateVideoPrompts('text-to-video', false)}
                           disabled={generatingType !== null}
-                          className="w-full bg-[#cfae80]/10 hover:bg-[#cfae80]/20 text-[#cfae80] border border-[#cfae80]/30 font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 text-[9px] uppercase tracking-widest transition-all disabled:opacity-50"
+                          className="w-full bg-[#cfae80]/10 hover:bg-[#cfae80]/20 text-[#cfae80] border border-[#cfae80]/20 font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 text-[8.5px] uppercase tracking-wider transition-all disabled:opacity-50"
                         >
                           {generatingType === 'text-to-video' ? (
                             <>
@@ -1132,7 +1134,7 @@ export default function Dashboard({ setTab }) {
                             </>
                           ) : (
                             <>
-                              📝 Generate Prompt Text-to-Video
+                              <Sparkles className="w-3.5 h-3.5" /> Generate Prompt Text-to-Video
                             </>
                           )}
                         </button>
@@ -1281,17 +1283,17 @@ export default function Dashboard({ setTab }) {
                             <a
                               href={`/api/storyboards/download?url=${encodeURIComponent(activeVid.video_url)}`}
                               download={`storyboard-${selectedStoryboard.id}-scene-${modalCarouselIdx + 1}.mp4`}
-                              className="w-full bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-2 px-3 rounded-xl text-[9px] uppercase tracking-widest flex items-center justify-center gap-1.5 transition-all text-center"
+                              className="w-full bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-2 px-2.5 rounded-lg text-[8.5px] uppercase tracking-wider flex items-center justify-center gap-1 transition-all text-center"
                             >
-                              ⬇️ Unduh Video
+                              <Download className="w-3.5 h-3.5" /> Unduh Video
                             </a>
                             <a
                               href={activeVid.video_url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="w-full bg-[#131211] hover:bg-[#1a1918] text-slate-350 font-bold py-2 px-3 rounded-xl border border-[#2a2725] text-[9px] uppercase tracking-widest flex items-center justify-center gap-1.5 transition-all text-center"
+                              className="w-full bg-[#131211] hover:bg-[#1a1918] text-slate-350 font-bold py-2 px-2.5 rounded-lg border border-[#2a2725]/60 text-[8.5px] uppercase tracking-wider flex items-center justify-center gap-1 transition-all text-center"
                             >
-                              🔗 Tab Baru
+                              <ExternalLink className="w-3.5 h-3.5 text-[#cfae80]" /> Tab Baru
                             </a>
                           </div>
 
@@ -1362,9 +1364,9 @@ export default function Dashboard({ setTab }) {
                                 {regeneratingCopyId !== activeVid.id && (
                                   <button
                                     onClick={() => handleRegenerateMarketingCopy(activeVid.id)}
-                                    className="bg-[#cfae80]/15 hover:bg-[#cfae80]/25 text-[#cfae80] border border-[#cfae80]/30 font-bold py-1 px-3 rounded-lg text-[8px] uppercase tracking-widest transition-all"
+                                    className="bg-[#cfae80]/10 hover:bg-[#cfae80]/20 text-[#cfae80] border border-[#cfae80]/20 font-bold py-1.5 px-2.5 rounded-lg text-[8px] uppercase tracking-wider flex items-center justify-center gap-1 transition-all"
                                   >
-                                    ✍️ Buat Konten Promosi
+                                    <Sparkles className="w-3 h-3 text-[#cfae80]" /> Buat Konten Promosi
                                   </button>
                                 )}
                               </div>
@@ -1375,9 +1377,9 @@ export default function Dashboard({ setTab }) {
                           <div className="border-t border-[#2a2725]/40 pt-2.5 mt-2.5">
                             <button
                               onClick={() => setShowGenForm(true)}
-                              className="w-full bg-[#131211] hover:bg-[#191817] text-[#cfae80] border border-[#cfae80]/30 font-bold py-2 px-3 rounded-xl text-[9px] uppercase tracking-widest flex items-center justify-center gap-1.5 transition-all"
+                              className="w-full bg-[#131211] hover:bg-[#191817] text-[#cfae80] border border-[#cfae80]/20 font-bold py-1.5 px-2.5 rounded-lg text-[8.5px] uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all"
                             >
-                              ⚙️ Buat Video Baru (Recreate)
+                              <Film className="w-3.5 h-3.5" /> Buat Video Baru (Recreate)
                             </button>
                           </div>
                         </div>
@@ -1390,9 +1392,9 @@ export default function Dashboard({ setTab }) {
                         {sceneVideos.length > 0 && (
                           <button
                             onClick={() => setShowGenForm(false)}
-                            className="w-full bg-slate-900/60 hover:bg-slate-900/80 text-slate-300 border border-slate-800 font-bold py-1.5 px-3 rounded-xl text-[9px] uppercase tracking-widest flex items-center justify-center gap-1 transition-all mb-1"
+                            className="w-full bg-slate-950/40 hover:bg-slate-900/60 text-slate-300 border border-slate-800/80 font-bold py-1.5 px-2.5 rounded-lg text-[8.5px] uppercase tracking-wider flex items-center justify-center gap-1 transition-all mb-1"
                           >
-                            ◀ Kembali ke Video
+                            <ChevronLeft className="w-3.5 h-3.5" /> Kembali ke Video
                           </button>
                         )}
                         {apiKeys.length > 0 && (
@@ -1537,15 +1539,15 @@ export default function Dashboard({ setTab }) {
                         <div className="flex gap-2 mt-2">
                           <button
                             onClick={handleGenerateVideo}
-                            className="flex-1 bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-2.5 px-3 rounded-xl flex items-center justify-center gap-1.5 text-[9px] uppercase tracking-widest transition-all"
+                            className="flex-1 bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 text-[8.5px] uppercase tracking-wider transition-all"
                           >
-                            🎬 Buat Video
+                            <Play className="w-3.5 h-3.5 fill-black" /> Buat Video
                           </button>
                           <button
                             onClick={handleGenerateAllVideos}
-                            className="flex-1 bg-[#cfae80]/15 hover:bg-[#cfae80]/25 text-[#cfae80] border border-[#cfae80]/30 font-bold py-2.5 px-3 rounded-xl flex items-center justify-center gap-1.5 text-[9px] uppercase tracking-widest transition-all"
+                            className="flex-1 bg-[#cfae80]/10 hover:bg-[#cfae80]/20 text-[#cfae80] border border-[#cfae80]/20 font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 text-[8.5px] uppercase tracking-wider transition-all"
                           >
-                            ⚡ Buat Semua (All)
+                            <Zap className="w-3.5 h-3.5 text-[#cfae80] fill-[#cfae80]/10" /> Buat Semua
                           </button>
                         </div>
                       </div>
@@ -1578,14 +1580,14 @@ export default function Dashboard({ setTab }) {
                   <button
                     disabled={regeneratingPages[modalCarouselIdx]}
                     onClick={() => handleRegeneratePage(selectedStoryboard.id, modalCarouselIdx)}
-                    className="w-full bg-[#cfae80]/10 hover:bg-[#cfae80]/20 text-[#cfae80] border border-[#cfae80]/20 font-bold py-1.5 px-3 rounded-lg text-[8.5px] md:text-[10px] uppercase tracking-wider flex items-center justify-center gap-1 transition-all disabled:opacity-50"
+                    className="w-full bg-[#cfae80]/10 hover:bg-[#cfae80]/20 text-[#cfae80] border border-[#cfae80]/20 font-bold py-2 px-3 rounded-lg text-[8.5px] md:text-[10px] uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all disabled:opacity-50"
                   >
-                    🔄 Regenerasi Halaman
+                    <RefreshCw className={`w-3 h-3 ${regeneratingPages[modalCarouselIdx] ? 'animate-spin' : ''}`} /> Regenerasi Halaman
                   </button>
                   
                   <button
                     onClick={() => handleDelete(selectedStoryboard.id)}
-                    className="w-full border border-red-500/20 bg-red-950/5 hover:bg-red-600 hover:text-white text-red-400 font-bold py-1.5 px-3 rounded-lg text-[8px] md:text-[9px] uppercase tracking-wider flex items-center justify-center gap-1 transition-all"
+                    className="w-full border border-red-500/20 bg-red-950/5 hover:bg-red-600 hover:text-white text-red-400 font-bold py-2 px-3 rounded-lg text-[8px] md:text-[9px] uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all"
                   >
                     <Trash2 className="w-3 h-3" />
                     Hapus Storyboard
@@ -1593,40 +1595,46 @@ export default function Dashboard({ setTab }) {
                 </div>
               </div>
 
-              {/* Mobile Bottom Tab Switcher */}
-              <div className="flex md:hidden border-t border-[#2a2725] bg-[#1a1918]/95 backdrop-blur-md fixed bottom-0 left-0 right-0 z-40 px-4 pt-2.5 pb-[env(safe-area-inset-bottom,0.75rem)] gap-3 shrink-0 w-full shadow-lg justify-around">
+              {/* Mobile Bottom Tab Switcher (Premium Native Style) */}
+              <div className="flex md:hidden border-t border-[#2a2725] bg-[#141312]/95 backdrop-blur-md fixed bottom-0 left-0 right-0 z-40 px-6 pt-2 pb-[env(safe-area-inset-bottom,0.75rem)] shrink-0 w-full shadow-2xl justify-between items-center">
                 <button
                   type="button"
                   onClick={() => setActiveMobileTab('image')}
-                  className={`flex-grow py-2 rounded-xl text-[9px] font-bold uppercase tracking-wider transition-all border ${
-                    activeMobileTab === 'image'
-                      ? 'bg-[#cfae80] text-black border-[#cfae80] shadow-md shadow-[#cfae80]/10'
-                      : 'bg-[#2a2725]/30 text-slate-400 border-transparent hover:text-white'
-                  }`}
+                  className="flex flex-col items-center gap-1.5 py-1 px-3 transition-all relative flex-1"
                 >
-                  🖼️ Gambar
+                  <Image className={`w-4 h-4 transition-colors duration-300 ${activeMobileTab === 'image' ? 'text-[#cfae80]' : 'text-slate-400'}`} />
+                  <span className={`text-[8.5px] font-bold tracking-widest uppercase transition-all duration-300 ${activeMobileTab === 'image' ? 'text-[#cfae80]' : 'text-slate-500'}`}>
+                    Gambar
+                  </span>
+                  {activeMobileTab === 'image' && (
+                    <span className="absolute top-0 w-1 h-1 rounded-full bg-[#cfae80] shadow-sm shadow-[#cfae80]"></span>
+                  )}
                 </button>
                 <button
                   type="button"
                   onClick={() => setActiveMobileTab('prompt')}
-                  className={`flex-grow py-2 rounded-xl text-[9px] font-bold uppercase tracking-wider transition-all border ${
-                    activeMobileTab === 'prompt'
-                      ? 'bg-[#cfae80] text-black border-[#cfae80] shadow-md shadow-[#cfae80]/10'
-                      : 'bg-[#2a2725]/30 text-slate-400 border-transparent hover:text-white'
-                  }`}
+                  className="flex flex-col items-center gap-1.5 py-1 px-3 transition-all relative flex-1"
                 >
-                  📝 Naskah
+                  <FileText className={`w-4 h-4 transition-colors duration-300 ${activeMobileTab === 'prompt' ? 'text-[#cfae80]' : 'text-slate-400'}`} />
+                  <span className={`text-[8.5px] font-bold tracking-widest uppercase transition-all duration-300 ${activeMobileTab === 'prompt' ? 'text-[#cfae80]' : 'text-slate-500'}`}>
+                    Naskah
+                  </span>
+                  {activeMobileTab === 'prompt' && (
+                    <span className="absolute top-0 w-1 h-1 rounded-full bg-[#cfae80] shadow-sm shadow-[#cfae80]"></span>
+                  )}
                 </button>
                 <button
                   type="button"
                   onClick={() => setActiveMobileTab('video')}
-                  className={`flex-grow py-2 rounded-xl text-[9px] font-bold uppercase tracking-wider transition-all border ${
-                    activeMobileTab === 'video'
-                      ? 'bg-[#cfae80] text-black border-[#cfae80] shadow-md shadow-[#cfae80]/10'
-                      : 'bg-[#2a2725]/30 text-slate-400 border-transparent hover:text-white'
-                  }`}
+                  className="flex flex-col items-center gap-1.5 py-1 px-3 transition-all relative flex-1"
                 >
-                  🎬 Video
+                  <Film className={`w-4 h-4 transition-colors duration-300 ${activeMobileTab === 'video' ? 'text-[#cfae80]' : 'text-slate-400'}`} />
+                  <span className={`text-[8.5px] font-bold tracking-widest uppercase transition-all duration-300 ${activeMobileTab === 'video' ? 'text-[#cfae80]' : 'text-slate-500'}`}>
+                    Video
+                  </span>
+                  {activeMobileTab === 'video' && (
+                    <span className="absolute top-0 w-1 h-1 rounded-full bg-[#cfae80] shadow-sm shadow-[#cfae80]"></span>
+                  )}
                 </button>
               </div>
             </div>
