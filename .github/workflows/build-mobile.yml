@@ -92,9 +92,9 @@ jobs:
         run: |
           cd frontend/ios/App
           pod install
-          xcodebuild -workspace App.xcworkspace -scheme App -sdk iphoneos -configuration Debug CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO SYMROOT=build clean build
+          xcodebuild -workspace App.xcworkspace -scheme App -sdk iphoneos -configuration Debug CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO -derivedDataPath build clean build
           mkdir -p Payload
-          cp -r build/Debug-iphoneos/App.app Payload/
+          cp -r build/Build/Products/Debug-iphoneos/App.app Payload/
           zip -r App.ipa Payload
           rm -rf Payload
 
