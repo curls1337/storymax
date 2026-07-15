@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import api from '../utils/api';
 import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
+import { CapacitorHttp } from '@capacitor/core';
 import { Plus, Trash2, ExternalLink, Calendar, Loader, FolderOpen, X, ChevronRight, ChevronLeft, Download, Eye, AlertTriangle, Image, FileText, Film, Play, Zap, RefreshCw } from 'lucide-react';
 
 export default function Dashboard({ setTab }) {
@@ -496,55 +498,41 @@ export default function Dashboard({ setTab }) {
     }
 
     try {
-      const response = await fetch(downloadUrl);
-      if (!response.ok) {
+      // Use CapacitorHttp to download file natively (bypasses WKWebView CORS and fetch limitations)
+      const response = await CapacitorHttp.get({
+        url: downloadUrl,
+        responseType: 'base64'
+      });
+
+      if (response.status !== 200) {
         throw new Error(`Server returned HTTP ${response.status}`);
       }
-      const blob = await response.blob();
-      const file = new File([blob], filename, { type: blob.type });
 
-      // Try native sharing sheet first (enables "Save Image" / "Save Video" directly to Photos/Gallery)
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: filename,
-        });
-        if (elementId) setDownloadingId(null);
-        return;
+      const base64Data = response.data;
+      if (!base64Data) {
+        throw new Error('No data received from download proxy');
       }
 
-      // Fallback: Write directly to filesystem Documents folder
-      try {
-        const checkStatus = await Filesystem.checkPermissions();
-        if (checkStatus.publicStorage !== 'granted') {
-          await Filesystem.requestPermissions();
-        }
-      } catch (pe) {
-        console.warn("Permission check error:", pe);
-      }
+      // Write to app internal cache folder (requires ZERO permissions on iOS and Android!)
+      const writeResult = await Filesystem.writeFile({
+        path: filename,
+        data: base64Data,
+        directory: Directory.Cache
+      });
 
-      const reader = new FileReader();
-      reader.readAsDataURL(blob);
-      reader.onloadend = async () => {
-        try {
-          const base64Data = reader.result.split(',')[1];
-          await Filesystem.writeFile({
-            path: filename,
-            data: base64Data,
-            directory: Directory.Documents
-          });
-          alert(`✓ Berhasil Disimpan!\n\nFile disimpan sebagai:\n"${filename}"\n\nLokasi: Folder 'Documents' (Penyimpanan Internal) perangkat Anda. Silakan buka aplikasi File Manager / Files di HP Anda untuk melihat atau membagikannya.`);
-        } catch (writeErr) {
-          console.error("File write error:", writeErr);
-          alert(`Gagal menulis file: ${writeErr.message}`);
-        } finally {
-          if (elementId) setDownloadingId(null);
-        }
-      };
+      const fileUri = writeResult.uri;
+
+      // Launch native sharing sheet using the cached file URI (enables "Save Image" / "Save Video" directly to Photos/Gallery)
+      await Share.share({
+        title: filename,
+        url: fileUri
+      });
+
     } catch (err) {
-      console.error("Native download error:", err);
-      alert(`Gagal menyimpan file. Membuka di browser...`);
+      console.error("Native save/share error:", err);
+      alert(`Gagal menyimpan file secara native. Membuka di browser...`);
       window.open(downloadUrl, '_blank');
+    } finally {
       if (elementId) setDownloadingId(null);
     }
   };
