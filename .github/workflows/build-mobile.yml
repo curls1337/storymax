@@ -23,6 +23,7 @@ jobs:
           rm -f frontend/package-lock.json
           npm install --legacy-peer-deps
           npm install --prefix frontend --legacy-peer-deps
+          npm install --prefix frontend @tailwindcss/oxide-linux-x64-gnu --legacy-peer-deps
 
       - name: Build Frontend
         env:
@@ -73,6 +74,7 @@ jobs:
           rm -f frontend/package-lock.json
           npm install --legacy-peer-deps
           npm install --prefix frontend --legacy-peer-deps
+          npm install --prefix frontend @tailwindcss/oxide-darwin-arm64 @tailwindcss/oxide-darwin-x64 --legacy-peer-deps
 
       - name: Build Frontend
         env:
