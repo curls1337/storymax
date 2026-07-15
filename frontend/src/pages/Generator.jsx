@@ -368,12 +368,31 @@ export default function Generator() {
   const getFullImageUrl = (path) => {
     if (!path) return '';
     if (path.startsWith('http')) return path;
-    return path;
+
+    const base = import.meta.env.VITE_API_URL || '/api';
+    let cleanPath = path;
+    if (path.startsWith('/uploads/')) {
+      cleanPath = path.slice(1);
+    } else if (path.startsWith('uploads/')) {
+      cleanPath = path;
+    } else {
+      cleanPath = path.startsWith('/') ? path.slice(1) : path;
+    }
+
+    if (base.startsWith('http')) {
+      try {
+        const origin = new URL(base).origin;
+        return `${origin}/${cleanPath}`;
+      } catch (e) {
+        return `/${cleanPath}`;
+      }
+    }
+    return `/${cleanPath}`;
   };
 
   const getPreviewUrl = (styleName) => {
     if (!styleName) return '';
-    return `/uploads/previews/${styleName}.png`;
+    return getFullImageUrl(`uploads/previews/${styleName}.png`);
   };
 
   return (

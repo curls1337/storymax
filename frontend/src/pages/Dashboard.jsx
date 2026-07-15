@@ -432,13 +432,30 @@ export default function Dashboard({ setTab }) {
       }
     } catch (e) {}
     if (parsedPath.startsWith('http')) return parsedPath;
-    return parsedPath;
+
+    const base = import.meta.env.VITE_API_URL || '/api';
+    let cleanPath = parsedPath;
+    if (parsedPath.startsWith('/uploads/')) {
+      cleanPath = parsedPath.slice(1);
+    } else if (parsedPath.startsWith('uploads/')) {
+      cleanPath = parsedPath;
+    } else {
+      cleanPath = parsedPath.startsWith('/') ? parsedPath.slice(1) : parsedPath;
+    }
+
+    if (base.startsWith('http')) {
+      try {
+        const origin = new URL(base).origin;
+        return `${origin}/${cleanPath}`;
+      } catch (e) {
+        return `/${cleanPath}`;
+      }
+    }
+    return `/${cleanPath}`;
   };
 
   const getSpecificImageUrl = (path) => {
-    if (!path) return '';
-    if (path.startsWith('http')) return path;
-    return path;
+    return getFullImageUrl(path);
   };
 
   const getDownloadUrl = (sourceUrl) => {
