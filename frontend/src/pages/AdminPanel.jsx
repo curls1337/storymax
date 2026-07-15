@@ -217,15 +217,15 @@ export default function AdminPanel() {
   }
 
   return (
-    <div className="p-8 space-y-10 animate-fadeIn font-sans relative">
+    <div className="p-3 md:p-8 space-y-4 md:space-y-6 animate-fadeIn font-sans relative">
       {/* Header Section */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b border-[#2a2725] pb-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-[#2a2725] pb-4">
         <div>
-          <h1 className="text-4xl font-editorial italic text-white tracking-tight flex items-center gap-3">
-            <ShieldAlert className="w-6 h-6 text-[#cfae80]" />
+          <h1 className="text-xl md:text-3xl font-editorial italic text-white tracking-tight flex items-center gap-2">
+            <ShieldAlert className="w-5 h-5 text-[#cfae80]" />
             Panel Kontrol Admin
           </h1>
-          <p className="text-slate-400 text-xs mt-1.5 font-medium tracking-wide">
+          <p className="text-slate-400 text-[10px] md:text-xs mt-1.5 font-medium tracking-wide">
             Kelola pengguna aplikasi, kolam lisensi API Key Freebeat, dan konfigurasi AI eksternal.
           </p>
         </div>
@@ -244,54 +244,54 @@ export default function AdminPanel() {
       )}
 
       {/* Tabs Layout */}
-      <div className="flex border-b border-[#2a2725]">
+      <div className="flex border-b border-[#2a2725] overflow-x-auto scrollbar-none">
         <button
           onClick={() => { setActiveTab('users'); setError(''); setMessage(''); }}
-          className={`py-3.5 px-6 flex items-center font-bold text-[10px] uppercase tracking-widest border-b-2 transition-all relative ${
+          className={`py-2.5 px-3.5 flex items-center font-bold text-[9px] uppercase tracking-wider border-b-2 transition-all shrink-0 relative ${
             activeTab === 'users'
               ? 'border-[#cfae80] text-white'
               : 'border-transparent text-slate-400 hover:text-white'
           }`}
         >
-          <Users className="w-4 h-4 mr-2" />
+          <Users className="w-3.5 h-3.5 mr-1.5" />
           Manajemen User ({users.length})
         </button>
         <button
           onClick={() => { setActiveTab('keys'); setError(''); setMessage(''); }}
-          className={`py-3.5 px-6 flex items-center font-bold text-[10px] uppercase tracking-widest border-b-2 transition-all relative ${
+          className={`py-2.5 px-3.5 flex items-center font-bold text-[9px] uppercase tracking-wider border-b-2 transition-all shrink-0 relative ${
             activeTab === 'keys'
               ? 'border-[#cfae80] text-white'
               : 'border-transparent text-slate-400 hover:text-white'
           }`}
         >
-          <Key className="w-4 h-4 mr-2" />
+          <Key className="w-3.5 h-3.5 mr-1.5" />
           Kolam API Key ({keys.length})
         </button>
         <button
           onClick={() => { setActiveTab('ai-settings'); setError(''); setMessage(''); }}
-          className={`py-3.5 px-6 flex items-center font-bold text-[10px] uppercase tracking-widest border-b-2 transition-all relative ${
+          className={`py-2.5 px-3.5 flex items-center font-bold text-[9px] uppercase tracking-wider border-b-2 transition-all shrink-0 relative ${
             activeTab === 'ai-settings'
               ? 'border-[#cfae80] text-white'
               : 'border-transparent text-slate-400 hover:text-white'
           }`}
         >
-          <Sparkles className="w-4 h-4 mr-2" />
-          Pengaturan AI Provider
+          <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+          Pengaturan AI
         </button>
       </div>
 
       {/* Content Area */}
       {activeTab === 'users' && (
-        <div className="bg-[#1a1918]/60 border border-[#2a2725] rounded-3xl p-6 relative backdrop-blur-md">
+        <div className="bg-[#1a1918]/60 border border-[#2a2725] rounded-2xl p-4 md:p-6 relative backdrop-blur-md">
           <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#cfae80]/25 to-transparent"></div>
           
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-[10px] font-bold text-white uppercase tracking-widest">Daftar Pengguna Aktif</h3>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-[9px] font-bold text-white uppercase tracking-widest">Daftar Pengguna Aktif</h3>
             <button
               onClick={() => setShowAddUserModal(true)}
-              className="bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-2.5 px-4 rounded-xl flex items-center transition-all shadow-lg text-[10px] uppercase tracking-widest"
+              className="bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-1.5 px-3 rounded-lg flex items-center transition-all shadow-lg text-[9px] uppercase tracking-wider cursor-pointer"
             >
-              <Plus className="w-4 h-4 mr-1.5" />
+              <Plus className="w-3.5 h-3.5 mr-1" />
               Tambah User
             </button>
           </div>
@@ -299,21 +299,21 @@ export default function AdminPanel() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b border-[#2a2725] text-slate-400 text-[10px] font-bold uppercase tracking-widest">
-                  <th className="py-3.5 px-4">ID</th>
-                  <th className="py-3.5 px-4">Username</th>
-                  <th className="py-3.5 px-4">Role</th>
-                  <th className="py-3.5 px-4">Kredit Terpakai</th>
-                  <th className="py-3.5 px-4 text-right">Aksi</th>
+                <tr className="border-b border-[#2a2725] text-slate-400 text-[8.5px] font-bold uppercase tracking-wider">
+                  <th className="py-2.5 px-3">ID</th>
+                  <th className="py-2.5 px-3">Username</th>
+                  <th className="py-2.5 px-3">Role</th>
+                  <th className="py-2.5 px-3">Kredit Terpakai</th>
+                  <th className="py-2.5 px-3 text-right">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#222435] text-xs font-medium">
                 {users.map((u) => (
                   <tr key={u.id} className="hover:bg-white/[0.01] transition-colors">
-                    <td className="py-4 px-4 text-slate-500 font-mono">{u.id}</td>
-                    <td className="py-4 px-4 font-editorial italic text-white text-md">{u.username}</td>
-                    <td className="py-4 px-4">
-                      <span className={`px-2.5 py-0.5 rounded text-[8px] font-bold tracking-widest uppercase ${
+                    <td className="py-2.5 px-3 text-slate-550 font-mono text-[11px]">{u.id}</td>
+                    <td className="py-2.5 px-3 font-editorial italic text-white text-sm">{u.username}</td>
+                    <td className="py-2.5 px-3">
+                      <span className={`px-2 py-0.5 rounded text-[8px] font-bold tracking-wider uppercase ${
                         u.role === 'admin' 
                           ? 'bg-red-950/20 text-red-350 border border-red-500/20' 
                           : 'bg-[#cfae80]/15 text-[#cfae80] border border-[#cfae80]/20'
@@ -321,10 +321,10 @@ export default function AdminPanel() {
                         {u.role}
                       </span>
                     </td>
-                    <td className="py-4 px-4 font-mono text-[#cfae80] font-bold">
+                    <td className="py-2.5 px-3 font-mono text-[#cfae80] font-bold text-[11px]">
                       ⚡ {u.total_credits || 0}
                     </td>
-                    <td className="py-4 px-4 text-right space-x-2">
+                    <td className="py-2.5 px-3 text-right space-x-1.5 whitespace-nowrap">
                       <button
                         onClick={() => {
                           setEditUserId(u.id);
@@ -333,13 +333,13 @@ export default function AdminPanel() {
                           setEditPassword('');
                           setShowEditUserModal(true);
                         }}
-                        className="bg-[#cfae80] text-black hover:bg-[#c5a880] py-1.5 px-3 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all"
+                        className="bg-[#cfae80] text-black hover:bg-[#c5a880] py-1 px-2 rounded-md text-[9px] font-bold uppercase tracking-wider transition-all cursor-pointer"
                       >
                         Edit
                       </button>
                       <button
                         onClick={() => handleDeleteUser(u.id)}
-                        className="bg-red-950/15 border border-red-500/20 hover:bg-red-650 hover:text-white text-red-400 py-1.5 px-3 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all"
+                        className="bg-red-950/15 border border-red-500/20 hover:bg-red-650 hover:text-white text-red-400 py-1 px-2 rounded-md text-[9px] font-bold uppercase tracking-wider transition-all cursor-pointer"
                       >
                         Hapus
                       </button>
@@ -350,27 +350,25 @@ export default function AdminPanel() {
             </table>
           </div>
         </div>
-      )}
-
-      {activeTab === 'keys' && (
-        <div className="bg-[#1a1918]/60 border border-[#2a2725] rounded-3xl p-6 relative backdrop-blur-md">
+      )}      {activeTab === 'keys' && (
+        <div className="bg-[#1a1918]/60 border border-[#2a2725] rounded-2xl p-4 md:p-6 relative backdrop-blur-md">
           <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#cfae80]/25 to-transparent"></div>
           
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-[10px] font-bold text-white uppercase tracking-widest">Kolam Kunci Lisensi Freebeat</h3>
-            <div className="flex gap-2">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-[9px] font-bold text-white uppercase tracking-widest">Kolam Kunci Lisensi Freebeat</h3>
+            <div className="flex gap-1.5">
               <button
                 onClick={() => setShowBulkModal(true)}
-                className="bg-black/40 border border-[#2a2725] hover:bg-slate-850 text-slate-300 font-bold py-2.5 px-4 rounded-xl flex items-center transition-all text-[10px] uppercase tracking-widest"
+                className="bg-black/40 border border-[#2a2725] hover:bg-slate-850 text-slate-350 font-bold py-1.5 px-3 rounded-lg flex items-center transition-all text-[9px] uppercase tracking-wider cursor-pointer"
               >
-                <Database className="w-4 h-4 mr-1.5 text-[#cfae80]" />
+                <Database className="w-3.5 h-3.5 mr-1 text-[#cfae80]" />
                 Bulk Import
               </button>
               <button
                 onClick={() => setShowAddKeyModal(true)}
-                className="bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-2.5 px-4 rounded-xl flex items-center transition-all shadow-lg text-[10px] uppercase tracking-widest"
+                className="bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-1.5 px-3 rounded-lg flex items-center transition-all shadow-lg text-[9px] uppercase tracking-wider cursor-pointer"
               >
-                <Plus className="w-4 h-4 mr-1.5" />
+                <Plus className="w-3.5 h-3.5 mr-1" />
                 Tambah Key
               </button>
             </div>
@@ -379,26 +377,26 @@ export default function AdminPanel() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b border-[#2a2725] text-slate-400 text-[10px] font-bold uppercase tracking-widest">
-                  <th className="py-3.5 px-4">Label</th>
-                  <th className="py-3.5 px-4">Nilai Kunci</th>
-                  <th className="py-3.5 px-4">Kredit Terpakai</th>
-                  <th className="py-3.5 px-4">Status</th>
-                  <th className="py-3.5 px-4 text-right">Aksi</th>
+                <tr className="border-b border-[#2a2725] text-slate-400 text-[8.5px] font-bold uppercase tracking-wider">
+                  <th className="py-2.5 px-3">Label</th>
+                  <th className="py-2.5 px-3">Nilai Kunci</th>
+                  <th className="py-2.5 px-3">Kredit Terpakai</th>
+                  <th className="py-2.5 px-3">Status</th>
+                  <th className="py-2.5 px-3 text-right">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#222435] text-xs font-medium">
                 {keys.map((k) => (
                   <tr key={k.id} className="hover:bg-white/[0.01] transition-colors">
-                    <td className="py-4 px-4 font-editorial italic text-white text-md">{k.label}</td>
-                    <td className="py-4 px-4 font-mono text-slate-500">{k.key_value.substring(0, 16)}••••••••••••••••</td>
-                    <td className="py-4 px-4 font-mono text-[#cfae80] font-bold">
+                    <td className="py-2.5 px-3 font-editorial italic text-white text-sm">{k.label}</td>
+                    <td className="py-2.5 px-3 font-mono text-slate-550 text-[11px]">{k.key_value.substring(0, 16)}••••••••</td>
+                    <td className="py-2.5 px-3 font-mono text-[#cfae80] font-bold text-[11px]">
                       ⚡ {k.total_credits || 0}
                     </td>
-                    <td className="py-4 px-4">
+                    <td className="py-2.5 px-3">
                       <button
                         onClick={() => handleToggleKey(k.id, k.is_active)}
-                        className={`px-3 py-1 rounded text-[9px] font-bold tracking-widest uppercase border transition-all ${
+                        className={`px-2 py-0.5 rounded text-[8px] font-bold tracking-wider uppercase border transition-all cursor-pointer ${
                           k.is_active === 1
                             ? 'bg-green-950/20 text-green-300 border-green-500/20 hover:bg-green-600 hover:text-white'
                             : 'bg-slate-900/40 text-slate-500 border-slate-800 hover:bg-slate-700 hover:text-white'
@@ -407,10 +405,10 @@ export default function AdminPanel() {
                         {k.is_active === 1 ? 'Aktif' : 'Nonaktif'}
                       </button>
                     </td>
-                    <td className="py-4 px-4 text-right">
+                    <td className="py-2.5 px-3 text-right">
                       <button
                         onClick={() => handleDeleteKey(k.id)}
-                        className="bg-red-950/15 border border-red-500/20 hover:bg-red-650 hover:text-white text-red-400 py-1.5 px-3 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all"
+                        className="bg-red-950/15 border border-red-500/20 hover:bg-red-650 hover:text-white text-red-400 py-1 px-2 rounded-md text-[9px] font-bold uppercase tracking-wider transition-all cursor-pointer"
                       >
                         Hapus
                       </button>
@@ -424,21 +422,21 @@ export default function AdminPanel() {
       )}
 
       {activeTab === 'ai-settings' && (
-        <div className="bg-[#1a1918]/60 border border-[#2a2725] rounded-3xl p-6 relative backdrop-blur-md">
+        <div className="bg-[#1a1918]/60 border border-[#2a2725] rounded-2xl p-4 md:p-6 relative backdrop-blur-md">
           <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#cfae80]/25 to-transparent"></div>
           
-          <div className="mb-6 border-b border-[#2a2725] pb-4">
+          <div className="mb-4 border-b border-[#2a2725] pb-3">
             <h3 className="text-sm font-editorial italic text-white mb-1">Pengaturan AI Provider</h3>
-            <p className="text-slate-400 text-[10px] uppercase tracking-wider font-semibold">Konfigurasikan endpoint dan kunci akses untuk AI Prompt Assistant</p>
+            <p className="text-slate-400 text-[8.5px] uppercase tracking-wider font-semibold">Konfigurasikan endpoint dan kunci akses untuk AI Prompt Assistant</p>
           </div>
 
-          <form onSubmit={handleSaveAiSettings} className="space-y-6 max-w-2xl">
+          <form onSubmit={handleSaveAiSettings} className="space-y-4 max-w-2xl">
             <div>
-              <label className="block text-slate-350 text-[10px] font-bold uppercase tracking-widest mb-2">Model AI Antigravity</label>
+              <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Model AI Antigravity</label>
               <select 
                 value={aiModel}
                 onChange={(e) => setAiModel(e.target.value)}
-                className="w-full bg-black/40 border border-[#2a2725] rounded-2xl px-4 py-3.5 text-white text-xs font-semibold focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all"
+                className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white text-xs font-semibold focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all"
               >
                 <option value="gemini-3-flash">Gemini 3 Flash (Default/Cepat)</option>
                 <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
@@ -450,45 +448,45 @@ export default function AdminPanel() {
             </div>
 
             <div>
-              <label className="block text-slate-355 text-[10px] font-bold uppercase tracking-widest mb-2">Local Proxy Endpoint</label>
+              <label className="block text-slate-355 text-[9px] font-bold uppercase tracking-widest mb-1">Local Proxy Endpoint</label>
               <input 
                 type="text" 
                 value={aiEndpoint}
                 onChange={(e) => setAiEndpoint(e.target.value)}
                 placeholder="http://localhost:8045/v1"
-                className="w-full bg-black/40 border border-[#2a2725] rounded-2xl px-4 py-3 text-white placeholder-slate-700 focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs font-mono"
+                className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white placeholder-slate-700 focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs font-mono"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-slate-350 text-[10px] font-bold uppercase tracking-widest mb-2">Proxy API Key</label>
+              <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Proxy API Key</label>
               <input 
                 type="password" 
                 value={aiApiKey}
                 onChange={(e) => setAiApiKey(e.target.value)}
                 placeholder="Masukkan API Key Proxy..."
-                className="w-full bg-black/40 border border-[#2a2725] rounded-2xl px-4 py-3 text-white placeholder-slate-700 focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs font-mono"
+                className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white placeholder-slate-700 focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs font-mono"
                 required
               />
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-[#2a2725]">
+            <div className="flex flex-col sm:flex-row gap-2 pt-3 border-t border-[#2a2725]">
               <button
                 type="button"
                 onClick={handleTestAiSettings}
                 disabled={aiTestLoading || !aiEndpoint || !aiApiKey}
-                className="bg-[#131211] hover:bg-[#1a1918] text-[#cfae80] font-bold py-3.5 px-6 rounded-2xl transition-all border border-[#2a2725] text-[10px] uppercase tracking-widest flex items-center justify-center gap-1.5 disabled:opacity-50"
+                className="bg-[#131211] hover:bg-[#1a1918] text-[#cfae80] font-bold py-2 px-3.5 rounded-lg transition-all border border-[#2a2725] text-[9px] uppercase tracking-wider flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
               >
-                {aiTestLoading ? <Loader className="animate-spin w-4 h-4" /> : 'Check Auth (Generic Test)'}
+                {aiTestLoading ? <Loader className="animate-spin w-3.5 h-3.5" /> : 'Check Auth (Generic Test)'}
               </button>
               
               <button
                 type="submit"
                 disabled={aiSaveLoading}
-                className="bg-[#cfae80] hover:bg-[#c5a880] text-black font-extrabold py-3.5 px-6 rounded-2xl transition-all text-[10px] uppercase tracking-widest flex items-center justify-center gap-1.5 disabled:opacity-50"
+                className="bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-2 px-3.5 rounded-lg transition-all text-[9px] uppercase tracking-wider flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
               >
-                {aiSaveLoading ? <Loader className="animate-spin w-4 h-4" /> : 'Simpan Pengaturan AI'}
+                {aiSaveLoading ? <Loader className="animate-spin w-3.5 h-3.5" /> : 'Simpan Pengaturan AI'}
               </button>
             </div>
           </form>

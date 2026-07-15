@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import api from '../utils/api';
+import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Plus, Trash2, ExternalLink, Calendar, Loader, FolderOpen, X, ChevronRight, ChevronLeft, Download, Eye, AlertTriangle, Image, FileText, Film, Play, Zap, RefreshCw } from 'lucide-react';
 
 export default function Dashboard({ setTab }) {
@@ -455,6 +456,54 @@ export default function Dashboard({ setTab }) {
     return `${cleanBase}/storyboards/download?url=${encodeURIComponent(cleanUrl)}`;
   };
 
+  const downloadFileNative = async (url, filename) => {
+    const isCapacitor = window.Capacitor !== undefined;
+    const downloadUrl = getDownloadUrl(url);
+    
+    if (!isCapacitor) {
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      return;
+    }
+
+    try {
+      try {
+        const checkStatus = await Filesystem.checkPermissions();
+        if (checkStatus.publicStorage !== 'granted') {
+          await Filesystem.requestPermissions();
+        }
+      } catch (pe) {
+        console.warn("Permission check error:", pe);
+      }
+
+      const response = await fetch(downloadUrl);
+      if (!response.ok) {
+        throw new Error(`Server returned HTTP ${response.status}`);
+      }
+      const blob = await response.blob();
+      
+      const reader = new FileReader();
+      reader.readAsDataURL(blob);
+      reader.onloadend = async () => {
+        const base64Data = reader.result.split(',')[1];
+        await Filesystem.writeFile({
+          path: filename,
+          data: base64Data,
+          directory: Directory.Documents
+        });
+        alert(`File berhasil diunduh dan disimpan ke folder Dokumen perangkat Anda sebagai "${filename}"!`);
+      };
+    } catch (err) {
+      console.error("Native download error:", err);
+      alert(`Gagal mengunduh file secara native. Membuka di browser...`);
+      window.open(downloadUrl, '_blank');
+    }
+  };
+
   const getResultImages = (sb) => {
     if (!sb || !sb.image_path) return [];
     try {
@@ -486,6 +535,7 @@ export default function Dashboard({ setTab }) {
   return (
     <div className="p-3 md:p-8 space-y-5 md:space-y-10 animate-fadeIn font-sans relative">
       {/* Header Section */}
+      {/* Desktop Header */}
       <div className="hidden md:flex flex-row justify-between items-center gap-6 border-b border-[#2a2725] pb-6">
         <div>
           <h1 className="text-4xl font-editorial italic text-white tracking-tight">Galeri Storyboard</h1>
@@ -498,7 +548,19 @@ export default function Dashboard({ setTab }) {
           className="border border-[#cfae80] hover:bg-[#cfae80] hover:text-black text-[#cfae80] font-bold py-3 px-6 rounded-2xl transition-all duration-300 text-xs tracking-widest uppercase shrink-0"
         >
           <Plus className="w-4 h-4 inline mr-2" />
-          Mulai Proyek Baru
+          Mulai Project
+        </button>
+      </div>
+
+      {/* Mobile Header */}
+      <div className="flex md:hidden flex-row justify-between items-center border-b border-[#2a2725] pb-3 mb-2">
+        <h1 className="text-lg font-editorial italic text-white">Galeri Storyboard</h1>
+        <button
+          onClick={() => setTab('generator')}
+          className="border border-[#cfae80] hover:bg-[#cfae80] hover:text-black text-[#cfae80] font-bold py-1.5 px-3 rounded-xl transition-all duration-300 text-[10px] tracking-wider uppercase shrink-0"
+        >
+          <Plus className="w-3.5 h-3.5 inline mr-1" />
+          Mulai Project
         </button>
       </div>
 
@@ -726,14 +788,13 @@ export default function Dashboard({ setTab }) {
                         <ExternalLink className="w-3.5 h-3.5 text-[#cfae80]" />
                         Full-Res
                       </a>
-                      <a
-                        href={getDownloadUrl(activeImg)}
-                        download
-                        className="flex-1 bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 text-[8.5px] uppercase tracking-wider transition-all"
+                      <button
+                        onClick={() => downloadFileNative(activeImg, `storyboard-${selectedStoryboard.id}-panel-${modalCarouselIdx + 1}.png`)}
+                        className="flex-1 bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 text-[8.5px] uppercase tracking-wider transition-all cursor-pointer"
                       >
                         <Download className="w-3.5 h-3.5" />
                         Unduh
-                      </a>
+                      </button>
                     </div>
                     
                     <button
@@ -1343,13 +1404,12 @@ export default function Dashboard({ setTab }) {
                           />
 
                           <div className="grid grid-cols-2 gap-2 pt-1">
-                            <a
-                              href={getDownloadUrl(activeVid.video_url)}
-                              download={`storyboard-${selectedStoryboard.id}-scene-${modalCarouselIdx + 1}.mp4`}
-                              className="w-full bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-2 px-2.5 rounded-lg text-[8.5px] uppercase tracking-wider flex items-center justify-center gap-1 transition-all text-center"
+                            <button
+                              onClick={() => downloadFileNative(activeVid.video_url, `storyboard-${selectedStoryboard.id}-scene-${modalCarouselIdx + 1}.mp4`)}
+                              className="w-full bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-2 px-2.5 rounded-lg text-[8.5px] uppercase tracking-wider flex items-center justify-center gap-1 transition-all text-center cursor-pointer"
                             >
                               <Download className="w-3.5 h-3.5" /> Unduh Video
-                            </a>
+                            </button>
                             <a
                               href={activeVid.video_url}
                               target="_blank"

@@ -66,6 +66,7 @@ export default function Generator() {
   const [duration, setDuration] = useState(30);
   const [showFace, setShowFace] = useState(false);
   const [currentCarouselIdx, setCurrentCarouselIdx] = useState(0);
+  const [showLightbox, setShowLightbox] = useState(null);
   
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [hoveredStyle, setHoveredStyle] = useState(null);
@@ -377,7 +378,7 @@ export default function Generator() {
 
   return (
     <div className="p-3 sm:p-6 md:p-8 space-y-4 sm:space-y-6 md:space-y-8 animate-fadeIn relative">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[#1a1918]/60 border border-[#2a2725] p-3.5 sm:p-6 rounded-2xl md:rounded-3xl backdrop-blur-md">
+      <div className="hidden sm:flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[#1a1918]/60 border border-[#2a2725] p-3.5 sm:p-6 rounded-2xl md:rounded-3xl backdrop-blur-md">
         <div>
           <h1 className="text-xl sm:text-2xl md:text-4xl font-editorial italic text-white tracking-tight flex items-center gap-2">
             <Sparkles className="w-5 h-5 md:w-6 md:h-6 text-[#cfae80] fill-[#cfae80]/10" />
@@ -388,23 +389,23 @@ export default function Generator() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        <form onSubmit={handleGenerate} className="lg:col-span-5 bg-[#1a1918]/60 border border-[#2a2725] rounded-2xl md:rounded-3xl p-4 md:p-6 space-y-4 md:space-y-6 backdrop-blur-md relative">
+        <form onSubmit={handleGenerate} className="lg:col-span-5 bg-[#1a1918]/60 border border-[#2a2725] rounded-2xl p-3 md:p-5 space-y-3 md:space-y-4.5 backdrop-blur-md relative">
           <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#cfae80]/25 to-transparent"></div>
-          <div className="flex items-center gap-2 border-b border-[#2a2725] pb-3.5">
-            <Sliders className="w-4 h-4 text-[#cfae80]" />
-            <h3 className="text-[10px] font-bold text-white uppercase tracking-widest">Parameter Kreatif</h3>
+          <div className="flex items-center gap-1.5 border-b border-[#2a2725] pb-2">
+            <Sliders className="w-3.5 h-3.5 text-[#cfae80]" />
+            <h3 className="text-[9px] font-bold text-white uppercase tracking-widest">Parameter Kreatif</h3>
           </div>
 
-          <div className="bg-[#131211]/50 border border-[#2a2725] rounded-2xl p-4 space-y-3">
-            <label className="block text-slate-350 text-[10px] font-bold uppercase tracking-widest">Auto-Fill via Link Tokopedia (Opsional)</label>
+          <div className="bg-[#131211]/50 border border-[#2a2725] rounded-xl p-3 space-y-2.5">
+            <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest">Auto-Fill via Link Tokopedia (Opsional)</label>
             <div className="flex gap-2">
-              <input type="text" value={tokopediaUrl} onChange={(e) => setTokopediaUrl(e.target.value)} className="flex-grow bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2.5 text-xs text-white placeholder-slate-700 focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all" placeholder="Masukkan URL produk Tokopedia..." disabled={scraping || generating} />
-              <button type="button" onClick={handleScrape} disabled={scraping || generating || !tokopediaUrl} className="bg-[#cfae80]/10 border border-[#cfae80]/20 hover:bg-[#cfae80] hover:text-black text-[#cfae80] font-bold text-xs px-4 py-2 rounded-xl transition-all disabled:opacity-50 flex items-center justify-center shrink-0">{scraping ? <Loader className="animate-spin w-4 h-4" /> : 'Isi Form'}</button>
+              <input type="text" value={tokopediaUrl} onChange={(e) => setTokopediaUrl(e.target.value)} className="flex-grow bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-xs text-white placeholder-slate-700 focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all" placeholder="Masukkan URL produk Tokopedia..." disabled={scraping || generating} />
+              <button type="button" onClick={handleScrape} disabled={scraping || generating || !tokopediaUrl} className="bg-[#cfae80]/10 border border-[#cfae80]/20 hover:bg-[#cfae80] hover:text-black text-[#cfae80] font-bold text-[9px] px-3 py-1.5 rounded-lg transition-all disabled:opacity-50 flex items-center justify-center shrink-0">{scraping ? <Loader className="animate-spin w-3.5 h-3.5" /> : 'Isi Form'}</button>
             </div>
             {scrapedImages.length > 0 && (
-              <div className="space-y-2 pt-2.5 border-t border-[#2a2725]">
-                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Pilih Gambar Produk:</span>
-                <div className="flex gap-2 overflow-x-auto pb-1.5 scrollbar-thin">
+              <div className="space-y-2 pt-2 border-t border-[#2a2725]">
+                <span className="text-[8.5px] text-slate-400 font-bold uppercase tracking-wider block">Pilih Gambar Produk:</span>
+                <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
                   {scrapedImages.map((imgUrl, idx) => {
                     const isSelected = selectedRefImages.some(item => item.value === imgUrl);
                     const selectedIndex = selectedRefImages.findIndex(item => item.value === imgUrl) + 1;
@@ -413,11 +414,11 @@ export default function Generator() {
                         key={idx} 
                         type="button" 
                         onClick={() => toggleTokopediaImage(imgUrl)} 
-                        className={`relative shrink-0 w-12 h-12 rounded-lg overflow-hidden border transition-all ${isSelected ? 'border-[#cfae80] ring-1 ring-[#cfae80]/30' : 'border-[#2a2725] hover:border-slate-650'}`}
+                        className={`relative shrink-0 w-10 h-10 rounded-lg overflow-hidden border transition-all ${isSelected ? 'border-[#cfae80] ring-1 ring-[#cfae80]/30' : 'border-[#2a2725] hover:border-slate-650'}`}
                       >
                         <img src={imgUrl} alt={`Scraped ${idx}`} className="w-full h-full object-cover" />
                         {isSelected && (
-                          <div className="absolute top-0.5 right-0.5 bg-[#cfae80] text-black text-[8px] font-extrabold w-4 h-4 rounded-full flex items-center justify-center shadow-md">
+                          <div className="absolute top-0.5 right-0.5 bg-[#cfae80] text-black text-[8px] font-extrabold w-3.5 h-3.5 rounded-full flex items-center justify-center shadow-md">
                             {selectedIndex}
                           </div>
                         )}
@@ -429,11 +430,11 @@ export default function Generator() {
             )}
           </div>
 
-          {/* AI PROMPT WRITER SECTION */}
-          <div className="bg-[#131211]/50 border border-[#2a2725]/60 hover:border-[#cfae80]/20 rounded-2xl p-4.5 space-y-3 transition-colors relative">
-            <div className="flex items-center gap-2">
+          {/* AI PROMPT ASSISTANT SECTION */}
+          <div className="bg-[#131211]/50 border border-[#2a2725]/60 hover:border-[#cfae80]/20 rounded-xl p-3 space-y-2.5 transition-colors relative">
+            <div className="flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-[#cfae80]" />
-              <span className="text-[10px] font-bold uppercase tracking-widest text-[#cfae80]">AI Prompt Assistant</span>
+              <span className="text-[9px] font-bold uppercase tracking-widest text-[#cfae80]">AI Prompt Assistant</span>
             </div>
             
             <div className="flex flex-col gap-2">
@@ -442,14 +443,14 @@ export default function Generator() {
                 value={aiInput}
                 onChange={(e) => setAiInput(e.target.value)}
                 placeholder="Tulis ide kasar (misal: iklan parfum mewah)"
-                className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2.5 text-xs text-white placeholder-slate-700 focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all"
+                className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-xs text-white placeholder-slate-700 focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all"
                 disabled={aiLoading || generating}
               />
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={() => handleGenerateAiPrompt()}
-                  className="flex-grow bg-[#cfae80] hover:bg-[#c5a880] text-black font-extrabold py-2 rounded-xl transition-all text-[10px] uppercase tracking-widest flex items-center justify-center gap-1.5"
+                  className="flex-grow bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-1.5 rounded-lg transition-all text-[8.5px] uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer"
                   disabled={aiLoading || generating || !aiInput.trim()}
                 >
                   {aiLoading && aiInput.trim() !== '' ? <Loader className="animate-spin w-3 h-3" /> : <Sparkles className="w-3 h-3" />}
@@ -458,10 +459,11 @@ export default function Generator() {
                 <button
                   type="button"
                   onClick={() => handleGenerateAiPrompt('minta_ide_acak')}
-                  className="flex-grow bg-[#1a1918] hover:bg-[#2a2725] text-[#cfae80] border border-[#cfae80]/20 font-extrabold py-2 rounded-xl transition-all text-[10px] uppercase tracking-widest flex items-center justify-center gap-1.5"
+                  className="flex-grow bg-[#1a1918] hover:bg-[#2a2725] text-[#cfae80] border border-[#cfae80]/20 font-bold py-1.5 rounded-lg transition-all text-[8.5px] uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer"
                   disabled={aiLoading || generating}
                 >
-                  {aiLoading && aiInput.trim() === '' ? <Loader className="animate-spin w-3 h-3" /> : '💡 Minta Ide'}
+                  {aiLoading && aiInput.trim() === '' ? <Loader className="animate-spin w-3 h-3" /> : null}
+                  Minta Ide
                 </button>
               </div>
             </div>
@@ -472,67 +474,80 @@ export default function Generator() {
           </div>
 
           <div>
-            <label className="block text-slate-350 text-[10px] font-bold uppercase tracking-widest mb-2">Judul Proyek</label>
-            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full bg-black/40 border border-[#2a2725] rounded-2xl px-4 py-3 text-white placeholder-slate-700 focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-sm" placeholder="Contoh: Iklan Mainan Anak Lego" required disabled={generating} />
+            <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Judul Proyek</label>
+            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3.5 py-2.5 text-white placeholder-slate-700 focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs" placeholder="Contoh: Iklan Mainan Anak Lego" required disabled={generating} />
           </div>
 
           <div>
-            <div className="flex justify-between items-center mb-2">
-              <label className="block text-slate-350 text-[10px] font-bold uppercase tracking-widest">Deskripsi Video / Ide Utama</label>
-              <span className={`text-[10px] font-mono transition-colors duration-200 ${prompt.length > 1900 ? 'text-red-400 font-bold' : 'text-slate-500'}`}>
+            <div className="flex justify-between items-center mb-1">
+              <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest">Deskripsi Video / Ide Utama</label>
+              <span className={`text-[9px] font-mono transition-colors duration-200 ${prompt.length > 1900 ? 'text-red-400 font-bold' : 'text-slate-500'}`}>
                 {prompt.length} / 2000
               </span>
             </div>
-            <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={4} className={`w-full bg-black/40 border rounded-2xl px-4 py-3 text-white placeholder-slate-700 focus:outline-none focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-sm resize-none ${prompt.length > 1900 ? 'border-red-500 focus:border-red-500' : 'border-[#2a2725] focus:border-[#cfae80]'}`} placeholder="Jelaskan alur, aksi produk, atau ide utama cerita..." required disabled={generating} />
+            <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={3} className={`w-full bg-black/40 border rounded-xl px-3.5 py-2.5 text-white placeholder-slate-700 focus:outline-none focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs resize-none ${prompt.length > 1900 ? 'border-red-500 focus:border-red-500' : 'border-[#2a2725] focus:border-[#cfae80]'}`} placeholder="Jelaskan alur, aksi produk, atau ide utama cerita..." required disabled={generating} />
             {prompt.length > 1900 && (
-              <p className="text-[10px] text-red-400 mt-1 font-medium">⚠️ Deskripsi terlalu panjang. Hapus beberapa karakter hingga di bawah 1900.</p>
+              <p className="text-[9px] text-red-400 mt-1 font-medium">⚠️ Deskripsi terlalu panjang. Hapus beberapa karakter hingga di bawah 1900.</p>
             )}
           </div>
 
           <div className="relative" ref={dropdownRef}>
-            <label className="block text-slate-350 text-[10px] font-bold uppercase tracking-widest mb-2">Gaya Layout Storyboard</label>
-            <button type="button" onClick={() => setDropdownOpen(!dropdownOpen)} className="w-full bg-black/40 border border-[#2a2725] rounded-2xl px-4 py-3.5 text-white focus:outline-none focus:border-[#cfae80] transition-all text-sm text-left flex justify-between items-center" disabled={generating}>
+            <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Gaya Layout Storyboard</label>
+            <button type="button" onClick={() => setDropdownOpen(!dropdownOpen)} className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-[#cfae80] transition-all text-xs text-left flex justify-between items-center" disabled={generating}>
               <span className="truncate">{LAYOUT_STYLES.find(opt => opt.value === style)?.label || 'Pilih Gaya Layout'}</span>
-              <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${dropdownOpen ? 'rotate-90' : ''}`} />
+              <ChevronRight className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${dropdownOpen ? 'rotate-90' : ''}`} />
             </button>
             {dropdownOpen && (
-              <div className="absolute left-0 mt-2 w-full bg-[#1a1918] border border-[#2a2725] rounded-2xl shadow-2xl z-50 flex max-h-96">
-                <div className="flex-grow overflow-y-auto py-2 divide-y divide-[#2a2725] scrollbar-thin">
+              <div className="absolute left-0 mt-1.5 w-full bg-[#1a1918] border border-[#2a2725] rounded-xl shadow-2xl z-50 flex max-h-64">
+                <div className="flex-grow overflow-y-auto py-1 divide-y divide-[#2a2725] scrollbar-thin">
                   {LAYOUT_STYLES.map((opt) => (
-                    <button key={opt.value} type="button" onClick={() => { setStyle(opt.value); setDropdownOpen(false); setHoveredStyle(null); setAiMatchedLayout(null); }} onMouseEnter={() => setHoveredStyle(opt.value)} onMouseLeave={() => setHoveredStyle(null)} className={`w-full text-left px-4 py-3 hover:bg-[#cfae80]/10 text-xs transition-colors flex flex-col gap-1 ${style === opt.value ? 'bg-[#cfae80]/20 text-white font-bold' : 'text-slate-300'}`}>
+                    <button key={opt.value} type="button" onClick={() => { setStyle(opt.value); setDropdownOpen(false); setHoveredStyle(null); setAiMatchedLayout(null); }} className={`w-full text-left px-3 py-2.5 hover:bg-[#cfae80]/10 text-xs transition-colors flex flex-col gap-0.5 ${style === opt.value ? 'bg-[#cfae80]/20 text-white font-bold' : 'text-slate-350'}`}>
                       <span className="truncate">{opt.label}</span>
-                      <span className="text-[10px] text-slate-500 font-normal">{opt.desc}</span>
+                      <span className="text-[9px] text-slate-500 font-normal">{opt.desc}</span>
                     </button>
                   ))}
                 </div>
-                {hoveredStyle && (
-                  <div className="hidden md:flex absolute left-full top-0 ml-3 bg-[#1a1918] border border-[#2a2725] p-2.5 rounded-2xl shadow-2xl w-60 h-80 flex-col justify-between z-50 animate-fadeIn pointer-events-none">
-                    <div className="flex-grow overflow-hidden rounded-xl border border-[#2a2725] bg-black/40"><img src={getPreviewUrl(hoveredStyle)} alt={`Preview ${hoveredStyle}`} className="w-full h-full object-cover object-top" /></div>
-                    <div className="mt-2 text-center"><span className="text-[9px] font-extrabold text-[#cfae80] uppercase tracking-wider block truncate">{LAYOUT_STYLES.find(opt => opt.value === hoveredStyle)?.label}</span></div>
-                  </div>
-                )}
               </div>
             )}
+            
+            {style && (
+              <div 
+                onClick={() => setShowLightbox(style)}
+                className="w-full h-12 rounded-xl border border-[#2a2725]/60 bg-[#131211]/30 hover:bg-[#1a1918]/50 overflow-hidden relative group cursor-pointer mt-2 flex items-center justify-between px-3 transition-all"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded overflow-hidden bg-black/60 shrink-0 border border-[#2a2725]">
+                    <img src={getPreviewUrl(style)} alt="Style Preview" className="w-full h-full object-cover object-top" />
+                  </div>
+                  <div className="text-left">
+                    <span className="text-[8.5px] font-bold text-slate-300 block uppercase tracking-wider">Pratinjau Layout</span>
+                    <span className="text-[7.5px] text-slate-500 block">Ketuk untuk memperbesar contoh</span>
+                  </div>
+                </div>
+                <Eye className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#cfae80] transition-colors" />
+              </div>
+            )}
+
             {aiMatchedLayout && (
-              <p className="text-[10px] text-[#cfae80] mt-2 font-medium flex items-center gap-1.5 animate-fadeIn">
+              <p className="text-[9px] text-[#cfae80] mt-2 font-medium flex items-center gap-1 animate-fadeIn">
                 <span>✨</span> Ide mengikuti gaya layout: <strong className="underline">{aiMatchedLayout}</strong>
               </p>
             )}
           </div>
 
           <div>
-            <label className="block text-slate-350 text-[10px] font-bold uppercase tracking-widest mb-2">Engine Video</label>
-            <select value={videoEngine} onChange={(e) => handleEngineChange(e.target.value)} className="w-full bg-black/40 border border-[#2a2725] rounded-2xl px-4 py-3 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs" disabled={generating}>
+            <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Engine Video</label>
+            <select value={videoEngine} onChange={(e) => handleEngineChange(e.target.value)} className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs" disabled={generating}>
               <option value="seedance">SeedDance (15 Detik/Panel)</option>
               <option value="omni">Omni (10 Detik/Panel)</option>
               <option value="veo">Veo (8 Detik/Panel)</option>
             </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-slate-350 text-[10px] font-bold uppercase tracking-widest mb-2">Jumlah Panel</label>
-              <select value={gridCount} onChange={(e) => setGridCount(Number(e.target.value))} className="w-full bg-black/40 border border-[#2a2725] rounded-2xl px-4 py-3 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs" disabled={generating}>
+              <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Jumlah Panel</label>
+              <select value={gridCount} onChange={(e) => setGridCount(Number(e.target.value))} className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs" disabled={generating}>
                 <option value={4}>4 Panel</option>
                 <option value={6}>6 Panel</option>
                 <option value={8}>8 Panel</option>
@@ -541,8 +556,8 @@ export default function Generator() {
               </select>
             </div>
             <div>
-              <label className="block text-slate-355 text-[10px] font-bold uppercase tracking-widest mb-2">Durasi Video</label>
-              <select value={duration} onChange={(e) => setDuration(Number(e.target.value))} className="w-full bg-black/40 border border-[#2a2725] rounded-2xl px-4 py-3 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs" disabled={generating}>
+              <label className="block text-slate-355 text-[9px] font-bold uppercase tracking-widest mb-1">Durasi Video</label>
+              <select value={duration} onChange={(e) => setDuration(Number(e.target.value))} className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs" disabled={generating}>
                 {(ENGINE_DURATIONS[videoEngine] || ENGINE_DURATIONS.seedance).map((opt) => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
@@ -551,8 +566,8 @@ export default function Generator() {
           </div>
 
           <div>
-            <label className="block text-slate-350 text-[10px] font-bold uppercase tracking-widest mb-2">Model Generator AI</label>
-            <select value={model} onChange={(e) => setModel(e.target.value)} className="w-full bg-black/40 border border-[#2a2725] rounded-2xl px-4 py-3 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs" disabled={generating}>
+            <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Model Generator AI</label>
+            <select value={model} onChange={(e) => setModel(e.target.value)} className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs" disabled={generating}>
               <option value="80">Nano Banana 2 (Model 80)</option>
               <option value="64">Nano Banana Pro (Model 64)</option>
               <option value="108">GPT-Image 2 (Model 108)</option>
@@ -562,8 +577,8 @@ export default function Generator() {
           </div>
 
           <div>
-            <label className="block text-slate-350 text-[10px] font-bold uppercase tracking-widest mb-2">Ukuran Gambar (Aspect Ratio)</label>
-            <select value={aspectRatio} onChange={(e) => setAspectRatio(e.target.value)} className="w-full bg-black/40 border border-[#2a2725] rounded-2xl px-4 py-3 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs" disabled={generating}>
+            <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Ukuran Gambar (Aspect Ratio)</label>
+            <select value={aspectRatio} onChange={(e) => setAspectRatio(e.target.value)} className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs" disabled={generating}>
               <option value="1:1">1:1 (Square)</option>
               <option value="16:9">16:9 (Landscape)</option>
               <option value="9:16">9:16 (Portrait)</option>
@@ -571,13 +586,13 @@ export default function Generator() {
           </div>
 
           {/* REFERENCE IMAGES SECTION */}
-          <div className="bg-[#131211]/50 border border-[#2a2725] rounded-2xl p-4 space-y-3">
+          <div className="bg-[#131211]/50 border border-[#2a2725] rounded-xl p-3 space-y-2.5">
             <div className="flex justify-between items-center">
-              <label className="block text-slate-350 text-[10px] font-bold uppercase tracking-widest">Referensi Gambar ({selectedRefImages.length})</label>
+              <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest">Referensi Gambar ({selectedRefImages.length})</label>
               <button 
                 type="button" 
                 onClick={() => fileInputRef.current?.click()} 
-                className="text-[10px] font-bold text-[#cfae80] hover:underline uppercase tracking-wider flex items-center gap-1"
+                className="text-[9px] font-bold text-[#cfae80] hover:underline uppercase tracking-wider flex items-center gap-1 cursor-pointer"
                 disabled={generating}
               >
                 <Upload className="w-3 h-3" /> Unggah File
@@ -600,7 +615,7 @@ export default function Generator() {
                     <button 
                       type="button" 
                       onClick={() => removeSelectedImage(img.id)} 
-                      className="absolute top-1 right-1 p-1 bg-black/85 text-red-400 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500 hover:text-white"
+                      className="absolute top-1 right-1 p-1 bg-black/85 text-red-400 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500 hover:text-white cursor-pointer"
                       disabled={generating}
                     >
                       <X className="w-2.5 h-2.5" />
@@ -619,7 +634,7 @@ export default function Generator() {
                 ))}
               </div>
             ) : (
-              <div className="text-[10px] text-slate-650 text-center py-4 border border-dashed border-[#2a2725] rounded-xl">
+              <div className="text-[9px] text-slate-500 text-center py-2 border border-dashed border-[#2a2725] rounded-lg">
                 Tidak ada referensi gambar terpilih. Klik gambar Tokopedia di atas atau unggah gambar lokal.
               </div>
             )}
@@ -627,11 +642,11 @@ export default function Generator() {
 
           {apiKeys.length > 0 && (
             <div>
-              <label className="block text-slate-350 text-[10px] font-bold uppercase tracking-widest mb-2">Pilih API Key Freebeat</label>
+              <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Pilih API Key Freebeat</label>
               <select 
                 value={apiKeyId} 
                 onChange={(e) => setApiKeyId(e.target.value)} 
-                className="w-full bg-black/40 border border-[#2a2725] rounded-2xl px-4 py-3 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs"
+                className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs"
                 disabled={generating}
               >
                 <option value="auto">Pilih Otomatis (Auto-detect)</option>
@@ -644,23 +659,23 @@ export default function Generator() {
             </div>
           )}
 
-          <div className="flex items-center gap-3 bg-black/20 border border-[#2a2725] rounded-2xl p-4 transition-all hover:border-[#cfae80]/30">
+          <div className="flex items-center gap-3 bg-black/20 border border-[#2a2725] rounded-xl p-3 transition-all hover:border-[#cfae80]/30">
             <input 
               type="checkbox" 
               id="showFace" 
               checked={showFace} 
               onChange={(e) => setShowFace(e.target.checked)} 
-              className="w-4.5 h-4.5 rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 focus:ring-offset-0 cursor-pointer accent-[#cfae80]"
+              className="w-4 h-4 rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 focus:ring-offset-0 cursor-pointer accent-[#cfae80]"
               disabled={generating}
             />
-            <label htmlFor="showFace" className="text-xs font-bold text-slate-350 cursor-pointer select-none">
+            <label htmlFor="showFace" className="text-[10px] font-bold text-slate-300 cursor-pointer select-none">
               Tampilkan Wajah Manusia
-              <span className="block text-[9px] text-slate-500 font-normal mt-0.5">Aktifkan jika ingin menyertakan wajah manusia (Aksi wajah rentan ditolak filter AI).</span>
+              <span className="block text-[8.5px] text-slate-500 font-normal mt-0.5">Aktifkan jika ingin menyertakan wajah manusia (Aksi wajah rentan ditolak filter AI).</span>
             </label>
           </div>
 
           {/* Voice Over settings */}
-          <div className="bg-[#131211]/30 border border-[#2a2725] rounded-2xl p-4 space-y-3.5">
+          <div className="bg-[#131211]/30 border border-[#2a2725] rounded-xl p-3 space-y-2.5">
             <label className="flex items-center gap-2 cursor-pointer select-none">
               <input 
                 type="checkbox" 
@@ -669,17 +684,17 @@ export default function Generator() {
                 className="rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5"
                 disabled={generating}
               />
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300">Sertakan Voice Over (VO)</span>
+              <span className="text-[9px] font-bold uppercase tracking-wider text-slate-300">Sertakan Voice Over (VO)</span>
             </label>
             
             {enableVo && (
-              <div className="space-y-3 animate-fadeIn">
-                <div className="space-y-1.5">
-                  <label className="block text-slate-350 text-[10px] font-bold uppercase tracking-widest block">Pilih Bahasa Narasi</label>
+              <div className="space-y-2.5 animate-fadeIn">
+                <div className="space-y-1">
+                  <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest">Pilih Bahasa Narasi</label>
                   <select 
                     value={voLanguage} 
                     onChange={(e) => setVoLanguage(e.target.value)} 
-                    className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs font-semibold"
+                    className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs font-semibold"
                     disabled={generating}
                   >
                     <option value="Bahasa Indonesia">Bahasa Indonesia</option>
@@ -689,12 +704,12 @@ export default function Generator() {
                     <option value="Mandarin">Mandarin (Cina)</option>
                   </select>
                 </div>
-                <div className="space-y-1.5">
-                  <label className="block text-slate-350 text-[10px] font-bold uppercase tracking-widest block">Gaya Bahasa Narasi</label>
+                <div className="space-y-1">
+                  <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest">Gaya Bahasa Narasi</label>
                   <select 
                     value={voTone} 
                     onChange={(e) => setVoTone(e.target.value)} 
-                    className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs font-semibold"
+                    className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs font-semibold"
                     disabled={generating}
                   >
                     <option value="casual">Casual / Santai (Akrab)</option>
@@ -710,14 +725,14 @@ export default function Generator() {
             )}
           </div>
 
-          <button type="submit" disabled={generating || apiKeys.length === 0 || prompt.length > 1900} className="w-full bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-3.5 px-4 rounded-2xl transition-all shadow-lg hover:shadow-[#cfae80]/10 disabled:opacity-50 flex items-center justify-center gap-2 text-xs uppercase tracking-widest">
-            {generating ? <><Loader className="animate-spin w-4 h-4" /> Memproses...</> : <><Sparkles className="w-4 h-4" /> Generate Storyboard AI</>}
+          <button type="submit" disabled={generating || apiKeys.length === 0 || prompt.length > 1900} className="w-full bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-2.5 px-4 rounded-xl transition-all shadow-lg hover:shadow-[#cfae80]/10 disabled:opacity-50 flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-wider cursor-pointer">
+            {generating ? <><Loader className="animate-spin w-3.5 h-3.5" /> Memproses...</> : <><Sparkles className="w-3.5 h-3.5" /> Generate Storyboard AI</>}
           </button>
         </form>
 
-        <div className="lg:col-span-7 bg-[#1a1918]/60 border border-[#2a2725] rounded-2xl md:rounded-3xl p-4 md:p-6 min-h-[400px] md:min-h-[500px] flex flex-col justify-between relative overflow-hidden backdrop-blur-md">
+        <div className="lg:col-span-7 bg-[#1a1918]/60 border border-[#2a2725] rounded-2xl p-4 min-h-[400px] md:min-h-[500px] flex flex-col justify-between relative overflow-hidden backdrop-blur-md">
           <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#cfae80]/25 to-transparent"></div>
-          <div className="flex justify-between items-center mb-5 border-b border-[#2a2725] pb-3.5">
+          <div className="flex justify-between items-center mb-4 border-b border-[#2a2725] pb-2">
             <h3 className="text-[10px] font-bold text-white uppercase tracking-widest flex items-center gap-2"><ImageIcon className="w-4 h-4 text-[#cfae80]" /> Hasil Visualisasi</h3>
           </div>
 
@@ -861,6 +876,41 @@ export default function Generator() {
           Live Logs
           {generating && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
         </button>
+      )}
+
+      {/* Lightbox Layout Preview Modal */}
+      {showLightbox && (
+        <div className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-4 md:p-8 animate-fadeIn">
+          <div className="relative max-w-lg w-full bg-[#1a1918]/95 border border-[#2a2725] rounded-3xl p-4 flex flex-col items-center justify-between gap-4 max-h-[85vh] shadow-2xl">
+            <button 
+              type="button" 
+              onClick={() => setShowLightbox(null)} 
+              className="absolute top-3.5 right-3.5 p-1.5 bg-black/60 hover:bg-red-500/20 hover:text-red-400 text-slate-400 rounded-full transition-all border border-white/5 cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <h3 className="text-[10px] font-bold text-white uppercase tracking-widest text-center mt-2.5">
+              Pratinjau: {LAYOUT_STYLES.find(opt => opt.value === showLightbox)?.label}
+            </h3>
+            <div className="flex-grow w-full overflow-hidden rounded-xl border border-[#2a2725] bg-black/45 flex items-center justify-center">
+              <img 
+                src={getPreviewUrl(showLightbox)} 
+                alt={`Preview ${showLightbox}`} 
+                className="max-w-full max-h-[50vh] object-contain rounded-lg" 
+              />
+            </div>
+            <p className="text-[9px] text-slate-400 text-center px-4 leading-relaxed">
+              {LAYOUT_STYLES.find(opt => opt.value === showLightbox)?.desc} - Gaya tata letak komik/kolase yang akan digunakan untuk menghasilkan halaman storyboard Anda.
+            </p>
+            <button 
+              type="button" 
+              onClick={() => setShowLightbox(null)} 
+              className="w-full bg-[#cfae80] hover:bg-[#c5a880] text-black font-extrabold py-2 rounded-xl text-[10px] uppercase tracking-widest transition-all cursor-pointer"
+            >
+              Tutup Pratinjau
+            </button>
+          </div>
+        </div>
       )}
 
     </div>
