@@ -86,53 +86,25 @@ export default function App() {
 
       {/* MOBILE HEADER */}
       <header className="lg:hidden bg-[#1a1918]/90 border-b border-[#2a2725] flex items-center justify-between px-6 pt-[env(safe-area-inset-top,0.75rem)] pb-3 z-20 backdrop-blur-md shrink-0">
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={() => setSidebarOpen(true)}
-            className="text-slate-400 hover:text-white p-1"
-            aria-label="Open menu"
-          >
-            <Menu className="w-6 h-6" />
-          </button>
-          <h2 className="text-xl font-editorial italic text-white flex items-center gap-2 select-none lowercase">
-            <Zap className="w-4 h-4 text-[#cfae80] fill-[#cfae80]/15" />
-            <span>story<span className="text-[#cfae80] font-normal">max</span></span>
-          </h2>
-        </div>
+        <h2 className="text-xl font-editorial italic text-white flex items-center gap-2 select-none lowercase">
+          <Zap className="w-4 h-4 text-[#cfae80] fill-[#cfae80]/15" />
+          <span>story<span className="text-[#cfae80] font-normal">max</span></span>
+        </h2>
         <span className="px-2.5 py-0.5 rounded bg-[#cfae80]/10 text-[#cfae80] text-[8px] font-bold tracking-widest uppercase border border-[#cfae80]/20">
           PRO
         </span>
       </header>
 
-      {/* BACKDROP FOR MOBILE DRAWER */}
-      {sidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* SIDEBAR PANEL */}
-      <aside className={`fixed inset-y-0 left-0 w-64 bg-[#1a1918] border-r border-[#2a2725] flex flex-col justify-between h-full z-40 transform transition-transform duration-300 backdrop-blur-md overflow-y-auto shrink-0 lg:static lg:translate-x-0 lg:z-20 lg:bg-[#1a1918]/90 lg:shrink-0 ${
-        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-      }`}>
+      {/* SIDEBAR PANEL (Only on desktop) */}
+      <aside className="hidden lg:flex flex-col w-64 bg-[#1a1918] border-r border-[#2a2725] justify-between h-full z-20 shrink-0 bg-[#1a1918]/90">
         <div className="relative">
-          {/* Close button inside sidebar on mobile */}
-          <button 
-            onClick={() => setSidebarOpen(false)}
-            className="absolute top-5 right-5 lg:hidden text-slate-400 hover:text-white p-1"
-            aria-label="Close menu"
-          >
-            <X className="w-5 h-5" />
-          </button>
-
           {/* Logo Brand */}
           <div className="p-6 border-b border-[#2a2725] flex items-center justify-between">
             <h2 className="text-2xl font-editorial italic text-white flex items-center gap-2 select-none lowercase">
               <Zap className="w-5 h-5 text-[#cfae80] fill-[#cfae80]/15" />
               <span>story<span className="text-[#cfae80] font-normal">max</span></span>
             </h2>
-            <span className="px-2 py-0.5 rounded bg-[#cfae80]/10 text-[#cfae80] text-[8px] font-bold tracking-widest uppercase border border-[#cfae80]/20">
+            <span className="px-2.5 py-0.5 rounded bg-[#cfae80]/10 text-[#cfae80] text-[8px] font-bold tracking-widest uppercase border border-[#cfae80]/20">
               PRO
             </span>
           </div>

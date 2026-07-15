@@ -469,9 +469,9 @@ export default function Dashboard({ setTab }) {
   }
 
   return (
-    <div className="p-8 space-y-10 animate-fadeIn font-sans relative">
+    <div className="p-3 md:p-8 space-y-5 md:space-y-10 animate-fadeIn font-sans relative">
       {/* Header Section */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b border-[#2a2725] pb-6">
+      <div className="hidden md:flex flex-row justify-between items-center gap-6 border-b border-[#2a2725] pb-6">
         <div>
           <h1 className="text-4xl font-editorial italic text-white tracking-tight">Galeri Storyboard</h1>
           <p className="text-slate-400 text-xs mt-1.5 font-medium tracking-wide">
@@ -511,11 +511,11 @@ export default function Dashboard({ setTab }) {
           </button>
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-4 md:space-y-6">
           <h3 className="text-[10px] font-bold uppercase tracking-widest text-[#cfae80]">Semua Riwayat Storyboard</h3>
           
           {/* COMPACT CARD GRID */}
-          <div className="grid grid-cols-1 min-[400px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
+          <div className="grid grid-cols-3 min-[480px]:grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-3 md:gap-5">
             {storyboards.map((sb) => {
               const isProcessing = sb.status === 'processing';
               const isFailed = sb.status === 'failed';
@@ -544,14 +544,14 @@ export default function Dashboard({ setTab }) {
                   {/* Thumbnail Container (4:3 ratio) */}
                   <div className="aspect-[4/3] bg-black/40 relative overflow-hidden flex items-center justify-center border-b border-[#2a2725]">
                     {isProcessing ? (
-                      <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2">
-                        <Loader className="animate-spin text-[#cfae80] w-6 h-6" />
-                        <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest animate-pulse">Sedang Membuat...</span>
+                      <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-1.5 p-1 text-center">
+                        <Loader className="animate-spin text-[#cfae80] w-4.5 h-4.5" />
+                        <span className="text-[6.5px] font-bold text-slate-400 uppercase tracking-widest animate-pulse">Membuat...</span>
                       </div>
                     ) : isFailed ? (
-                      <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2">
-                        <AlertTriangle className="text-red-400 w-6 h-6" />
-                        <span className="text-[8px] font-bold text-red-400 uppercase tracking-widest">Generasi Gagal</span>
+                      <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-1.5 p-1 text-center">
+                        <AlertTriangle className="text-red-400 w-4.5 h-4.5" />
+                        <span className="text-[6.5px] font-bold text-red-400 uppercase tracking-widest">Gagal</span>
                       </div>
                     ) : (
                       <>
@@ -562,8 +562,8 @@ export default function Dashboard({ setTab }) {
                         />
                         {/* Subtle hover icon overlay */}
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                          <div className="p-2.5 bg-[#cfae80] text-black rounded-full shadow-lg transform translate-y-2 group-hover:translate-y-0 transition-transform duration-350">
-                            <Eye className="w-4 h-4" />
+                          <div className="p-2 bg-[#cfae80] text-black rounded-full shadow-lg transform translate-y-2 group-hover:translate-y-0 transition-transform duration-350">
+                            <Eye className="w-3.5 h-3.5" />
                           </div>
                         </div>
                       </>
@@ -571,34 +571,30 @@ export default function Dashboard({ setTab }) {
                   </div>
 
                   {/* Card Info (Very Compact) */}
-                  <div className="p-3.5 flex flex-col justify-between flex-grow">
-                    <h4 className="font-editorial italic text-white text-sm truncate group-hover:text-[#cfae80] transition-colors">{sb.title}</h4>
-                    <div className="flex items-center justify-between text-[9px] text-slate-500 mt-2 pt-2 border-t border-[#2a2725]/60 font-medium">
-                      <span>
+                  <div className="p-2 flex flex-col justify-between flex-grow">
+                    <h4 className="font-editorial italic text-white text-[10px] md:text-sm truncate group-hover:text-[#cfae80] transition-colors">{sb.title}</h4>
+                    <div className="flex items-center justify-between text-[8px] md:text-[9px] text-slate-500 mt-1 md:mt-2 pt-1 md:pt-2 border-t border-[#2a2725]/60 font-medium">
+                      <span className="truncate">
                         {new Date(sb.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
                       </span>
                       {isProcessing ? (
-                        <span className="text-[#cfae80] font-bold uppercase tracking-wider text-[8px] animate-pulse">Memproses</span>
+                        <span className="text-[#cfae80] font-bold uppercase tracking-wider text-[7px] animate-pulse">Proses</span>
                       ) : isFailed ? (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             handleDelete(sb.id);
                           }}
-                          className="text-red-400 hover:text-red-300 font-bold uppercase tracking-widest text-[8px] flex items-center gap-1 transition-all"
+                          className="text-red-400 hover:text-red-300 font-bold uppercase tracking-widest text-[7px] flex items-center gap-0.5 transition-all"
                         >
-                          <Trash2 className="w-3 h-3" /> Hapus
+                          <Trash2 className="w-2.5 h-2.5" /> Hapus
                         </button>
                       ) : (
-                        <div className="flex items-center gap-1.5 font-bold text-[#cfae80]">
+                        <div className="flex items-center gap-1 font-bold text-[#cfae80] shrink-0">
                           <span>
                             {getPageCount(sb.image_path) > 1 
                               ? `${getPageCount(sb.image_path)}p` 
                               : '15s'}
-                          </span>
-                          <span>•</span>
-                          <span className="flex items-center text-slate-400">
-                            ⚡ {sb.used_credits || 0}
                           </span>
                         </div>
                       )}
@@ -1580,23 +1576,23 @@ export default function Dashboard({ setTab }) {
                 </div>
                 </div>
 
-                <div className="space-y-3 mt-6 pt-5 border-t border-[#2a2725]">
+                <div className="space-y-2 mt-4 pt-3.5 border-t border-[#2a2725]">
                   <div className="flex gap-2">
                     <a
                       href={getSpecificImageUrl(activeImg)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex-1 bg-[#131211] hover:bg-[#1a1918] text-slate-200 font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-1.5 border border-[#2a2725] text-[10px] uppercase tracking-widest"
+                      className="flex-1 bg-[#131211] hover:bg-[#1a1918] text-slate-200 font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1 border border-[#2a2725] text-[8.5px] md:text-[10px] uppercase tracking-wider transition-all"
                     >
-                      <ExternalLink className="w-3.5 h-3.5 text-[#cfae80]" />
+                      <ExternalLink className="w-3 h-3 text-[#cfae80]" />
                       Full-Res
                     </a>
                     <a
                       href={`/api/storyboards/download?url=${encodeURIComponent(activeImg)}`}
                       download
-                      className="flex-1 bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-widest"
+                      className="flex-1 bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1 text-[8.5px] md:text-[10px] uppercase tracking-wider transition-all"
                     >
-                      <Download className="w-3.5 h-3.5" />
+                      <Download className="w-3 h-3" />
                       Unduh
                     </a>
                   </div>
@@ -1604,16 +1600,16 @@ export default function Dashboard({ setTab }) {
                   <button
                     disabled={regeneratingPages[modalCarouselIdx]}
                     onClick={() => handleRegeneratePage(selectedStoryboard.id, modalCarouselIdx)}
-                    className="w-full bg-[#cfae80]/15 hover:bg-[#cfae80]/25 text-[#cfae80] border border-[#cfae80]/30 font-bold py-2.5 px-4 rounded-xl text-[10px] uppercase tracking-widest flex items-center justify-center gap-1.5 transition-all disabled:opacity-50"
+                    className="w-full bg-[#cfae80]/10 hover:bg-[#cfae80]/20 text-[#cfae80] border border-[#cfae80]/20 font-bold py-1.5 px-3 rounded-lg text-[8.5px] md:text-[10px] uppercase tracking-wider flex items-center justify-center gap-1 transition-all disabled:opacity-50"
                   >
-                    🔄 Regenerasi Halaman Ini
+                    🔄 Regenerasi Halaman
                   </button>
                   
                   <button
                     onClick={() => handleDelete(selectedStoryboard.id)}
-                    className="w-full border border-red-500/25 bg-red-950/10 hover:bg-red-650 hover:text-white text-red-400 font-bold py-2.5 px-4 rounded-xl text-[9px] uppercase tracking-widest flex items-center justify-center gap-1.5 transition-colors"
+                    className="w-full border border-red-500/20 bg-red-950/5 hover:bg-red-600 hover:text-white text-red-400 font-bold py-1.5 px-3 rounded-lg text-[8px] md:text-[9px] uppercase tracking-wider flex items-center justify-center gap-1 transition-all"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Trash2 className="w-3 h-3" />
                     Hapus Storyboard
                   </button>
                 </div>
