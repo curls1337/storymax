@@ -1051,10 +1051,10 @@ async function downloadProxy(req, res) {
   }
 
   try {
-    const isLocal = url.startsWith('/uploads/');
-    const isFreebeat = url.startsWith('https://') && url.includes('freebeat.ai');
+    const isLocal = url.startsWith('/uploads/') || url.startsWith('uploads/');
+    const isRemote = url.startsWith('https://') || url.startsWith('http://');
 
-    if (!isLocal && !isFreebeat) {
+    if (!isLocal && !isRemote) {
       return res.status(400).json({ message: 'Invalid download source.' });
     }
 

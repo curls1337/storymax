@@ -440,6 +440,21 @@ export default function Dashboard({ setTab }) {
     return path;
   };
 
+  const getDownloadUrl = (sourceUrl) => {
+    if (!sourceUrl) return '';
+    const base = import.meta.env.VITE_API_URL || '/api';
+    const cleanBase = base.endsWith('/') ? base.slice(0, -1) : base;
+    
+    let cleanUrl = sourceUrl;
+    if (!sourceUrl.startsWith('http') && base.startsWith('http')) {
+      const origin = new URL(base).origin;
+      const slashPath = sourceUrl.startsWith('/') ? sourceUrl : `/${sourceUrl}`;
+      cleanUrl = `${origin}${slashPath}`;
+    }
+    
+    return `${cleanBase}/storyboards/download?url=${encodeURIComponent(cleanUrl)}`;
+  };
+
   const getResultImages = (sb) => {
     if (!sb || !sb.image_path) return [];
     try {
@@ -647,48 +662,96 @@ export default function Dashboard({ setTab }) {
                 <div className="w-14"></div> {/* spacer to center the title */}
               </div>
 
-              {/* Left Side: Large Image Carousel */}
-              <div className={`w-full md:w-2/5 bg-black/80 flex flex-col items-center justify-center relative flex-grow md:flex-grow-0 md:min-h-0 border-b md:border-b-0 md:border-r border-[#2a2725] p-4 md:p-0 pb-24 md:pb-0 ${activeMobileTab === 'image' ? 'flex' : 'hidden md:flex'}`}>
-                {regeneratingPages[modalCarouselIdx] ? (
-                  <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center p-6 space-y-3 z-10 animate-fadeIn">
-                    <Loader className="animate-spin text-[#cfae80] w-8 h-8" />
-                    <span className="text-xs font-bold text-[#cfae80] uppercase tracking-widest animate-pulse">Meregenerasi Halaman...</span>
-                    <div className="max-w-md w-full bg-[#131211] border border-[#2a2725] rounded-xl p-4 h-36 overflow-y-auto text-[9px] text-slate-400 font-mono scrollbar-thin whitespace-pre-line leading-relaxed text-left">
-                      {regenLogs[modalCarouselIdx] || 'Mengantre...'}
-                    </div>
-                  </div>
-                ) : (
-                  <img
-                    src={getSpecificImageUrl(activeImg)}
-                    alt={selectedStoryboard.title}
-                    className="max-w-full max-h-[45vh] md:max-h-[75vh] object-contain rounded-2xl border border-[#2a2725]/60 shadow-inner"
-                  />
-                )}
+              {/* Left Side: Large Image Carousel & Action Buttons */}
+              <div className={`w-full md:w-2/5 bg-black/80 flex flex-col justify-between relative flex-grow md:flex-grow-0 md:min-h-0 border-b md:border-b-0 md:border-r border-[#2a2725] p-4 md:p-6 pb-24 md:pb-6 ${activeMobileTab === 'image' ? 'flex' : 'hidden md:flex'}`}>
                 
-                {/* Carousel Navigation */}
-                {images.length > 1 && (
-                  <>
-                    <button 
-                      type="button" 
-                      onClick={() => setModalCarouselIdx(prev => (prev > 0 ? prev - 1 : images.length - 1))} 
-                      className="absolute left-4 p-2 bg-black/70 hover:bg-[#cfae80] hover:text-black text-white rounded-full transition-all border border-white/10"
+                {/* Image display wrapper */}
+                <div className="flex-grow flex items-center justify-center relative min-h-[35vh]">
+                  {regeneratingPages[modalCarouselIdx] ? (
+                    <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center p-6 space-y-3 z-10 animate-fadeIn">
+                      <Loader className="animate-spin text-[#cfae80] w-8 h-8" />
+                      <span className="text-xs font-bold text-[#cfae80] uppercase tracking-widest animate-pulse">Meregenerasi Halaman...</span>
+                      <div className="max-w-md w-full bg-[#131211] border border-[#2a2725] rounded-xl p-4 h-36 overflow-y-auto text-[9px] text-slate-400 font-mono scrollbar-thin whitespace-pre-line leading-relaxed text-left">
+                        {regenLogs[modalCarouselIdx] || 'Mengantre...'}
+                      </div>
+                    </div>
+                  ) : (
+                    <img
+                      src={getSpecificImageUrl(activeImg)}
+                      alt={selectedStoryboard.title}
+                      className="max-w-full max-h-[45vh] md:max-h-[60vh] object-contain rounded-2xl border border-[#2a2725]/60 shadow-inner"
+                    />
+                  )}
+                  
+                  {/* Carousel Navigation */}
+                  {images.length > 1 && (
+                    <>
+                      <button 
+                        type="button" 
+                        onClick={() => setModalCarouselIdx(prev => (prev > 0 ? prev - 1 : images.length - 1))} 
+                        className="absolute left-0 p-2 bg-black/70 hover:bg-[#cfae80] hover:text-black text-white rounded-full transition-all border border-white/10"
+                      >
+                        <ChevronRight className="rotate-180 w-4 h-4" />
+                      </button>
+                      <button 
+                        type="button" 
+                        onClick={() => setModalCarouselIdx(prev => (prev < images.length - 1 ? prev + 1 : 0))} 
+                        className="absolute right-0 p-2 bg-black/70 hover:bg-[#cfae80] hover:text-black text-white rounded-full transition-all border border-white/10"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                {/* Page Index indicator & Actions */}
+                <div className="space-y-3 mt-4 shrink-0">
+                  {images.length > 1 && (
+                    <div className="text-center">
+                      <span className="bg-[#1a1918] px-3 py-1 rounded-full text-[9px] font-bold tracking-widest uppercase border border-[#2a2725] text-slate-400">
+                        Panel {modalCarouselIdx + 1} dari {images.length}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Actions under image */}
+                  <div className="space-y-2 pt-2">
+                    <div className="flex gap-2">
+                      <a
+                        href={getSpecificImageUrl(activeImg)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 bg-[#131211] hover:bg-[#1a1918] text-slate-200 font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 border border-[#2a2725]/65 text-[8.5px] uppercase tracking-wider transition-all"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5 text-[#cfae80]" />
+                        Full-Res
+                      </a>
+                      <a
+                        href={getDownloadUrl(activeImg)}
+                        download
+                        className="flex-1 bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 text-[8.5px] uppercase tracking-wider transition-all"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        Unduh
+                      </a>
+                    </div>
+                    
+                    <button
+                      disabled={regeneratingPages[modalCarouselIdx]}
+                      onClick={() => handleRegeneratePage(selectedStoryboard.id, modalCarouselIdx)}
+                      className="w-full bg-[#cfae80]/10 hover:bg-[#cfae80]/20 text-[#cfae80] border border-[#cfae80]/20 font-bold py-2 px-3 rounded-lg text-[8.5px] uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all disabled:opacity-50"
                     >
-                      <ChevronRight className="rotate-180 w-4 h-4" />
-                    </button>
-                    <button 
-                      type="button" 
-                      onClick={() => setModalCarouselIdx(prev => (prev < images.length - 1 ? prev + 1 : 0))} 
-                      className="absolute right-4 p-2 bg-black/70 hover:bg-[#cfae80] hover:text-black text-white rounded-full transition-all border border-white/10"
-                    >
-                      <ChevronRight className="w-4 h-4" />
+                      <RefreshCw className={`w-3.5 h-3.5 ${regeneratingPages[modalCarouselIdx] ? 'animate-spin' : ''}`} /> Regenerasi Halaman
                     </button>
                     
-                    {/* Page Index indicator */}
-                    <div className="absolute bottom-4 bg-black/70 px-3 py-1 rounded-full text-[9px] font-bold tracking-widest uppercase border border-white/10 text-slate-300">
-                      Panel {modalCarouselIdx + 1} dari {images.length}
-                    </div>
-                  </>
-                )}
+                    <button
+                      onClick={() => handleDelete(selectedStoryboard.id)}
+                      className="w-full border border-red-500/20 bg-red-950/5 hover:bg-red-650 hover:text-white text-red-400 font-bold py-2 px-3 rounded-lg text-[8.5px] uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" /> Hapus Storyboard
+                    </button>
+                  </div>
+                </div>
               </div>
 
               {/* Middle Column: Editorial Metadata & Prompts */}
@@ -1281,7 +1344,7 @@ export default function Dashboard({ setTab }) {
 
                           <div className="grid grid-cols-2 gap-2 pt-1">
                             <a
-                              href={`/api/storyboards/download?url=${encodeURIComponent(activeVid.video_url)}`}
+                              href={getDownloadUrl(activeVid.video_url)}
                               download={`storyboard-${selectedStoryboard.id}-scene-${modalCarouselIdx + 1}.mp4`}
                               className="w-full bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-2 px-2.5 rounded-lg text-[8.5px] uppercase tracking-wider flex items-center justify-center gap-1 transition-all text-center"
                             >
@@ -1554,44 +1617,6 @@ export default function Dashboard({ setTab }) {
                     );
                   })()}
                 </div>
-                </div>
-
-                <div className="space-y-2 mt-4 pt-3.5 border-t border-[#2a2725]">
-                  <div className="flex gap-2">
-                    <a
-                      href={getSpecificImageUrl(activeImg)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex-1 bg-[#131211] hover:bg-[#1a1918] text-slate-200 font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1 border border-[#2a2725] text-[8.5px] md:text-[10px] uppercase tracking-wider transition-all"
-                    >
-                      <ExternalLink className="w-3 h-3 text-[#cfae80]" />
-                      Full-Res
-                    </a>
-                    <a
-                      href={`/api/storyboards/download?url=${encodeURIComponent(activeImg)}`}
-                      download
-                      className="flex-1 bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1 text-[8.5px] md:text-[10px] uppercase tracking-wider transition-all"
-                    >
-                      <Download className="w-3 h-3" />
-                      Unduh
-                    </a>
-                  </div>
-                  
-                  <button
-                    disabled={regeneratingPages[modalCarouselIdx]}
-                    onClick={() => handleRegeneratePage(selectedStoryboard.id, modalCarouselIdx)}
-                    className="w-full bg-[#cfae80]/10 hover:bg-[#cfae80]/20 text-[#cfae80] border border-[#cfae80]/20 font-bold py-2 px-3 rounded-lg text-[8.5px] md:text-[10px] uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all disabled:opacity-50"
-                  >
-                    <RefreshCw className={`w-3 h-3 ${regeneratingPages[modalCarouselIdx] ? 'animate-spin' : ''}`} /> Regenerasi Halaman
-                  </button>
-                  
-                  <button
-                    onClick={() => handleDelete(selectedStoryboard.id)}
-                    className="w-full border border-red-500/20 bg-red-950/5 hover:bg-red-600 hover:text-white text-red-400 font-bold py-2 px-3 rounded-lg text-[8px] md:text-[9px] uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                    Hapus Storyboard
-                  </button>
                 </div>
               </div>
 
