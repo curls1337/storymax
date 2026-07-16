@@ -336,9 +336,9 @@ You are provided with ${panelImages.length} page images of a storyboard. Each pa
 Your task is to analyze all the pages sequentially and write a distinct visual prompt and voiceover script for EACH of the ${totalScenes} pages.
 
 For each page (scene):
-1. "imageToVideoPrompt": A highly dynamic, action-oriented Image-to-Video prompt in English (80-150 words) that explicitly directs the AI video model to animate the scene, starting from the visual layout of that specific page. Describe the movement, action, and camera motion (e.g. "smooth tracking shot", "camera rotates around the subject", "fluid character gestures", "elements float in slow motion"). Keep it active.
-2. "textToVideoPrompt": A comprehensive text-to-video prompt in English (80-150 words) describing the product details, scene setting, lighting, mood, camera style, and action from scratch for that page, in case the user wants to generate it purely from text.
-3. "narration": A voiceover narration script paragraph in the language: "${voLanguage || 'Bahasa Indonesia'}". ${toneClause} The narration must fit the page duration.
+1. "imageToVideoPrompt": A highly dynamic, action-oriented Image-to-Video prompt in English (80-150 words) that explicitly directs the AI video model to animate the scene, starting from the visual layout of that specific page. Crucial: The prompt must instruct the video AI model to animate the sequence of panels chronologically (from top-left to bottom-right) to form a cohesive, flowing narrative video clip for that page. Describe the actions, transitions, and camera movement (e.g. "smooth tracking shot", "fluid transitions between panels", "sequential animation of the product demonstration"). Keep it active.
+2. "textToVideoPrompt": A comprehensive text-to-video prompt in English (80-150 words) describing the product details, scene setting, lighting, mood, camera style, and chronological action sequence across all the panels on that page from scratch.
+3. "narration": A voiceover narration script paragraph in the language: "${voLanguage || 'Bahasa Indonesia'}". ${toneClause} The narration must fit the page duration and align with the chronological visual action of that page.
 
 You MUST return the output strictly in this JSON format (do not wrap in markdown \`\`\`json blocks):
 {
@@ -362,8 +362,8 @@ You are provided with ${panelImages.length} page images of a storyboard. Each pa
 Your task is to analyze all the pages sequentially and write a distinct visual prompt for EACH of the ${totalScenes} pages.
 
 For each page (scene):
-1. "imageToVideoPrompt": A highly dynamic, action-oriented Image-to-Video prompt in English (80-150 words) that directs the AI model to animate the scene, starting from that page's layout. Describe the movement, action, and camera motion.
-2. "textToVideoPrompt": A comprehensive text-to-video prompt in English (80-150 words) describing the product details, scene setting, lighting, mood, camera style, and action from scratch for that page.
+1. "imageToVideoPrompt": A highly dynamic, action-oriented Image-to-Video prompt in English (80-150 words) that directs the AI model to animate the scene, starting from that page's layout. Crucial: The prompt must instruct the video AI model to animate the sequence of panels chronologically (from top-left to bottom-right) to form a cohesive, flowing narrative video clip for that page. Describe the actions, transitions, and camera movement.
+2. "textToVideoPrompt": A comprehensive text-to-video prompt in English (80-150 words) describing the product details, scene setting, lighting, mood, camera style, and chronological action sequence across all the panels on that page from scratch.
 
 You MUST return the output strictly in this JSON format (do not wrap in markdown \`\`\`json blocks):
 {
