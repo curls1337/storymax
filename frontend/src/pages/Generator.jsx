@@ -293,7 +293,7 @@ export default function Generator({ setTab }) {
     setAiError('');
     setAiMatchedLayout(null);
     try {
-      const res = await api.post('/ai/write-prompt', { concept: targetConcept });
+      const res = await api.post('/ai/write-prompt', { concept: targetConcept, style });
       const { title: aiTitle, description: aiDesc, layout: aiLayout } = res.data;
       setTitle(aiTitle || '');
       setPrompt(aiDesc || '');

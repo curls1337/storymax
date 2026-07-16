@@ -25,7 +25,8 @@ const LAYOUT_STYLES = [
   { value: 'retro_comic', label: '10. Retro Comic Book Pop-Art (Pop-Up Bubble) (Pop-Art/Komikal)' },
   { value: 'mystical_grimoire', label: '11. Mystical Apothecary Grimoire (Quill-Ink) (Vintage/Ramuan Sihir)' },
   { value: 'concrete_gallery', label: '12. Minimalist Concrete Gallery (3D Shadows) (Semen/Mewah)' },
-  { value: 'watercolor_sketchbook', label: '13. Watercolor Artist\'s Sketchbook (Watercolor Splash) (Artistik/Cat Air)' }
+  { value: 'watercolor_sketchbook', label: '13. Watercolor Artist\'s Sketchbook (Watercolor Splash) (Artistik/Cat Air)' },
+  { value: 'capsule_transform', label: '14. ASMR Mechanical Capsule Transformation (Mainan Lipat/Transformasi)' }
 ];
 
 
@@ -72,7 +73,7 @@ function httpRequest(url, headers, body) {
 }
 
 async function writePrompt(req, res) {
-  const { concept } = req.body;
+  const { concept, style } = req.body;
   if (!concept) {
     return res.status(400).json({ message: 'Ide kasar (concept) harus diisi.' });
   }
@@ -118,12 +119,24 @@ async function writePrompt(req, res) {
 
     const layoutListText = LAYOUT_STYLES.map(s => `- "${s.value}": ${s.label}`).join('\n');
 
-    const payload = {
-      model: settings?.model || 'gemini-3-flash',
-      messages: [
-        {
-          role: 'system',
-          content: `Anda adalah seorang sutradara video iklan komersial profesional dan desainer storyboard.
+    let systemInstruction = '';
+    const styleExists = style && LAYOUT_STYLES.some(s => s.value === style);
+    
+    if (styleExists) {
+      systemInstruction = `Anda adalah seorang sutradara video iklan komersial profesional dan desainer storyboard.
+Tugas Anda adalah menerima ide kasar dari pengguna, lalu menghasilkan:
+1. Sebuah Judul Proyek yang elegan, padat, dan premium (maksimal 5 kata).
+2. Sebuah Deskripsi Storyboard rinci yang siap digunakan sebagai prompt AI (berisi detail visual, gaya sinematik, sudut kamera, warna, dan pencahayaan) yang secara khusus ditulis agar serasi dan cocok dengan gaya layout storyboard: "${style}".
+3. Key 'layout' harus bernilai "${style}" (karena pengguna telah memilih gaya ini).
+
+Anda harus mengembalikan respon hanya dalam format JSON mentah dengan key 'title', 'description', dan 'layout'. Jangan bungkus dalam markdown (jangan pakai \`\`\`json). Contoh output:
+{
+  "title": "Judul Elegan",
+  "description": "Deskripsi visual rinci...",
+  "layout": "${style}"
+}`;
+    } else {
+      systemInstruction = `Anda adalah seorang sutradara video iklan komersial profesional dan desainer storyboard.
 Tugas Anda adalah menerima ide kasar dari pengguna, lalu menghasilkan:
 1. Sebuah Judul Proyek yang elegan, padat, dan premium (maksimal 5 kata).
 2. Sebuah Deskripsi Storyboard rinci yang siap digunakan sebagai prompt AI (berisi detail visual, gaya sinematik, sudut kamera, warna, dan pencahayaan).
@@ -135,7 +148,15 @@ Anda harus mengembalikan respon hanya dalam format JSON mentah dengan key 'title
   "title": "Judul Elegan",
   "description": "Deskripsi visual rinci...",
   "layout": "baking_timeline"
-}`
+}`;
+    }
+
+    const payload = {
+      model: settings?.model || 'gemini-3-flash',
+      messages: [
+        {
+          role: 'system',
+          content: systemInstruction
         },
         {
           role: 'user',
