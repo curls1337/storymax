@@ -202,7 +202,7 @@ export default function App() {
       <main ref={mainRef} className="flex-grow h-full min-h-0 overflow-y-auto bg-darkBg pb-20 lg:pb-0">
         <div className="w-full min-h-full flex flex-col justify-start px-4 sm:px-6 md:px-8 py-6 md:py-8">
           {tab === 'dashboard' && <Dashboard setTab={setTab} />}
-          {tab === 'generator' && <Generator />}
+          {tab === 'generator' && <Generator setTab={setTab} />}
           {tab === 'settings' && <Settings onLogout={handleLogout} />}
           {tab === 'admin' && user.role === 'admin' && <AdminPanel />}
         </div>

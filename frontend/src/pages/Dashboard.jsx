@@ -19,6 +19,17 @@ export default function Dashboard({ setTab }) {
     try {
       const res = await api.get('/storyboards');
       setStoryboards(res.data);
+      
+      // Auto open newly generated storyboard
+      const autoOpenId = localStorage.getItem('openStoryboardId');
+      if (autoOpenId) {
+        const match = res.data.find(sb => sb.id === Number(autoOpenId));
+        if (match) {
+          setSelectedStoryboard(match);
+          setModalCarouselIdx(0);
+          localStorage.removeItem('openStoryboardId');
+        }
+      }
     } catch (err) {
       setError('Gagal memuat riwayat storyboard.');
     } finally {

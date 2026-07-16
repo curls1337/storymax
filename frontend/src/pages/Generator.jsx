@@ -53,7 +53,7 @@ const ENGINE_DURATIONS = {
   ]
 };
 
-export default function Generator() {
+export default function Generator({ setTab }) {
   const [title, setTitle] = useState('');
   const [prompt, setPrompt] = useState('');
   const [style, setStyle] = useState('cinematic_production');
@@ -880,6 +880,24 @@ export default function Generator() {
                   </div>
                 );
               })()}
+              
+              {/* Buka Video Studio Banner */}
+              <div className="w-full bg-[#1c1a19] border border-[#cfae80]/20 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 mt-3">
+                <div className="text-left">
+                  <h4 className="text-xs font-bold text-white tracking-wide">Storyboard & Voiceover Siap!</h4>
+                  <p className="text-[10px] text-slate-400 mt-1">Naskah naskah/voiceover Anda telah di-generate secara otomatis. Klik tombol untuk langsung membuka Video Studio.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    localStorage.setItem('openStoryboardId', String(result.id));
+                    if (setTab) setTab('dashboard');
+                  }}
+                  className="bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-2.5 px-5 rounded-xl text-[9px] uppercase tracking-widest transition-all shadow-md shadow-[#cfae80]/15 cursor-pointer shrink-0"
+                >
+                  🎬 Buka Video Studio
+                </button>
+              </div>
             </div>
           ) : (
             <div className="flex-grow flex flex-col items-center justify-center text-slate-500 py-16"><ImageIcon className="w-8 h-8 mb-4 text-[#cfae80]/60" /><p className="text-[10px] font-bold uppercase tracking-wider text-slate-450">Isi parameter lalu jalankan generator.</p></div>
