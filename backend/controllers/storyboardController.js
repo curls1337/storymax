@@ -131,6 +131,16 @@ function getEnhancedPrompt(style, userPrompt, gridCount = 6, showFace = false, s
   if (style === 'watercolor_sketchbook') {
     return `A creative watercolor artist's sketchbook storyboard layout. Rough watercolor sketch paper background. The panels show watercolor painted scenes of: ${finalPromptText} for scenes ${startScene} to ${endScene}. Below each panel, there are handwritten pencil notes for 'ARTISTIC SCENE', 'COLOR PALETTE', and 'AUDIO MOOD'. Artistic, cozy watercolor album style. ${faceClause}. --ar 3:4`;
   }
+  if (style === 'capsule_transform') {
+    return `A professional video storyboard presentation sheet. Clean minimal design on a solid dark-gray background. Widescreen panels showing chronological stages of a mechanical capsule toy transforming on a white tabletop.
+- Panel ${startScene}: A compact, sleek high-tech metallic capsule toy pod resting on a white desk, with color accents and design details inspired by ${finalPromptText}.
+- Panel ${startScene+1}: A finger presses a small glowing activation button on the side of the capsule pod.
+- Panel ${startScene+2}: The capsule pod is placed on the desk and begins to hum, glowing with bright orange/gold LED line accents as thin seams and joints start opening.
+- Panel ${startScene+3}: The capsule pod mechanically unfolds, gears, joints, and micro-parts expanding outwards on the desk surface.
+- Panel ${startScene+4}: The structure rapidly transforms, building the limbs, chassis, and body of ${finalPromptText} with satisfying mechanical movements.
+- Panel ${startScene+5}: The fully transformed, highly detailed mechanical figure of ${finalPromptText} standing proudly on the white desk.
+Below each panel, there are small white text labels for 'TRANSFORMATION STAGE', 'SFX / AUDIO', and 'CAMERA ANGLE'. Cozy ASMR toy transformation style. ${faceClause}. --ar 3:4`;
+  }
 
   return userPrompt + ", " + faceClause; // Default fallback
 }
