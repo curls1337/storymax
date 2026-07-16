@@ -141,6 +141,16 @@ function getEnhancedPrompt(style, userPrompt, gridCount = 6, showFace = false, s
 - Panel ${startScene+5}: The fully transformed, highly detailed assembled version of ${finalPromptText} standing proudly on the white desk.
 Below each panel, there are small white text labels for 'TRANSFORMATION STAGE', 'SFX / AUDIO', and 'CAMERA ANGLE'. Cozy ASMR toy transformation style. ${faceClause}. --ar 3:4`;
   }
+  if (style === 'capsule_toss_transform') {
+    return `A professional video storyboard presentation sheet. Clean minimal design on a solid dark-gray background. Widescreen panels showing chronological stages of a mechanical capsule toy transforming on a white tabletop.
+- Panel ${startScene}: Close-up of a hand holding a compact, sleek high-tech metallic capsule toy pod. The shape, panel curves, colors, logos, and styling of this initial capsule pod are custom-tailored to look exactly like a miniature compressed container representation of ${finalPromptText} (e.g. sharing its exact colors and design language).
+- Panel ${startScene+1}: A thumb presses a small glowing brass activation button on the side of this custom-styled ${finalPromptText} capsule pod in the hand.
+- Panel ${startScene+2}: The hand gently tosses the capsule pod onto a white desk. The pod slides smoothly across the surface and spins slightly to a stop.
+- Panel ${startScene+3}: Upon stopping, the capsule pod immediately begins to hum, glowing with bright custom LED lines (matching the aesthetic of ${finalPromptText}) as thin seams and joints start opening.
+- Panel ${startScene+4}: The structure rapidly transforms, building the chassis, body panels, and exact shape of ${finalPromptText} with satisfying, swift mechanical movements.
+- Panel ${startScene+5}: The fully transformed, highly detailed assembled version of ${finalPromptText} standing proudly on the white desk.
+Below each panel, there are small white text labels for 'TRANSFORMATION STAGE', 'SFX / AUDIO', and 'CAMERA ANGLE'. Cozy ASMR toy transformation style. ${faceClause}. --ar 3:4`;
+  }
 
   return userPrompt + ", " + faceClause; // Default fallback
 }

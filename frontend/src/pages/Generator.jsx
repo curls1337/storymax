@@ -23,7 +23,8 @@ const LAYOUT_STYLES = [
   { value: 'mystical_grimoire', label: '11. Mystical Apothecary Grimoire (Quill-Ink)', desc: 'Vintage/Ramuan Sihir' },
   { value: 'concrete_gallery', label: '12. Minimalist Concrete Gallery (3D Shadows)', desc: 'Semen/Mewah' },
   { value: 'watercolor_sketchbook', label: '13. Watercolor Artist\'s Sketchbook (Watercolor Splash)', desc: 'Artistik/Cat Air' },
-  { value: 'capsule_transform', label: '14. ASMR Mechanical Capsule Transformation', desc: 'Mainan Lipat/Transformasi Robot (Viral)' }
+  { value: 'capsule_transform', label: '14. ASMR Mechanical Capsule Transformation', desc: 'Mainan Lipat/Transformasi Robot (Viral)' },
+  { value: 'capsule_toss_transform', label: '15. ASMR Tactile Capsule Toss & Transformation', desc: 'Dilempar Lembut/Membuka di Meja (Viral)' }
 ];
 
 

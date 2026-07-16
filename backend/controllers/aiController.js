@@ -26,7 +26,8 @@ const LAYOUT_STYLES = [
   { value: 'mystical_grimoire', label: '11. Mystical Apothecary Grimoire (Quill-Ink) (Vintage/Ramuan Sihir)' },
   { value: 'concrete_gallery', label: '12. Minimalist Concrete Gallery (3D Shadows) (Semen/Mewah)' },
   { value: 'watercolor_sketchbook', label: '13. Watercolor Artist\'s Sketchbook (Watercolor Splash) (Artistik/Cat Air)' },
-  { value: 'capsule_transform', label: '14. ASMR Mechanical Capsule Transformation (Mainan Lipat/Transformasi)' }
+  { value: 'capsule_transform', label: '14. ASMR Mechanical Capsule Transformation (Mainan Lipat/Transformasi)' },
+  { value: 'capsule_toss_transform', label: '15. ASMR Tactile Capsule Toss & Transformation (Kotak Dilempar Lembut)' }
 ];
 
 
