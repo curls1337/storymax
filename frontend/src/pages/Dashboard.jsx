@@ -4,7 +4,7 @@ import api from '../utils/api';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { CapacitorHttp } from '@capacitor/core';
-import { Plus, Trash2, ExternalLink, Calendar, Loader, FolderOpen, X, ChevronRight, ChevronLeft, Download, Eye, AlertTriangle, Image, FileText, Film, Play, Zap, RefreshCw } from 'lucide-react';
+import { Plus, Trash2, ExternalLink, Calendar, Loader, FolderOpen, X, ChevronRight, ChevronLeft, Download, Eye, AlertTriangle, Image, FileText, Film, Play, Zap, RefreshCw, Sparkles } from 'lucide-react';
 
 export default function Dashboard({ setTab }) {
   const [storyboards, setStoryboards] = useState([]);
