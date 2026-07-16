@@ -133,9 +133,9 @@ function getEnhancedPrompt(style, userPrompt, gridCount = 6, showFace = false, s
   }
   if (style === 'capsule_transform') {
     return `A professional video storyboard presentation sheet. Clean minimal design on a solid dark-gray background. Widescreen panels showing chronological stages of a mechanical capsule toy transforming on a white tabletop.
-- Panel ${startScene}: A compact, sleek high-tech metallic capsule toy pod resting on a white desk, with color accents and design details inspired by ${finalPromptText}.
-- Panel ${startScene+1}: A finger presses a small glowing activation button on the side of the capsule pod.
-- Panel ${startScene+2}: The capsule pod is placed on the desk and begins to hum, glowing with bright orange/gold LED line accents as thin seams and joints start opening.
+- Panel ${startScene}: A compact, sleek high-tech metallic capsule toy pod resting on a white desk. The shape, panel curves, colors, logos, and styling of this initial capsule pod are custom-tailored to look exactly like a miniature compressed container representation of ${finalPromptText} (e.g. sharing its exact colors and design language).
+- Panel ${startScene+1}: A finger presses a small glowing activation button on the side of this custom-styled ${finalPromptText} capsule pod.
+- Panel ${startScene+2}: The capsule pod is placed on the desk and begins to hum, glowing with bright custom LED lines (matching the aesthetic of ${finalPromptText}) as thin seams and joints start opening.
 - Panel ${startScene+3}: The capsule pod mechanically unfolds, gears, joints, and micro-parts expanding outwards on the desk surface.
 - Panel ${startScene+4}: The structure rapidly transforms, building the chassis, body panels, and exact shape of ${finalPromptText} with satisfying mechanical movements.
 - Panel ${startScene+5}: The fully transformed, highly detailed assembled version of ${finalPromptText} standing proudly on the white desk.
