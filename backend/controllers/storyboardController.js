@@ -48,31 +48,34 @@ function getTransformationSteps(gridCount, startScene, finalPromptText, style) {
   const isToss = style === 'capsule_toss_transform';
   const steps = [];
 
+  const cameraClause = "The camera is completely static, locked on a stable tripod, with absolutely no camera movement, no pans, no zoom, and no rotation. The camera remains 100% stationary, observing the transformation from a fixed close-up angle.";
+  const backgroundClause = "The white tabletop and background remain completely solid, static, and unaffected. Only the capsule pod in the center undergoes the physical mechanical transformation.";
+
   if (gridCount <= 4) {
     steps.push(`- Panel ${startScene}: Close-up of a hand holding a compact, sleek high-tech metallic capsule toy pod custom-designed with colors and aesthetics of ${finalPromptText}.`);
     steps.push(`- Panel ${startScene+1}: A thumb presses the activation button on the capsule pod in the hand ${isToss ? 'and tosses it gently onto a white desk' : 'and places it on a white desk'}.`);
-    steps.push(`- Panel ${startScene+2}: The capsule pod lands on the desk, slides to a stop, and immediately begins to glow and mechanically unfold.`);
-    steps.push(`- Panel ${startScene+3}: The structure completes its rapid transformation, assembling into a highly detailed version of ${finalPromptText} resting on the desk.`);
+    steps.push(`- Panel ${startScene+2}: The capsule pod lands on the desk, slides to a stop, and immediately begins to glow and mechanically unfold. ${cameraClause} ${backgroundClause}`);
+    steps.push(`- Panel ${startScene+3}: The structure completes its rapid transformation, assembling into a highly detailed miniature model version of ${finalPromptText} resting on the desk. ${cameraClause} ${backgroundClause}`);
   } else if (gridCount <= 6) {
     steps.push(`- Panel ${startScene}: Close-up of a hand holding a compact, sleek high-tech metallic capsule toy pod custom-designed with colors and aesthetics of ${finalPromptText}.`);
     steps.push(`- Panel ${startScene+1}: A thumb presses a small glowing brass activation button on the side of the capsule pod.`);
-    steps.push(`- Panel ${startScene+2}: The capsule pod is ${isToss ? 'gently tossed onto a white desk, sliding smoothly and spinning to a stop' : 'placed calmly on a white desk'}.`);
-    steps.push(`- Panel ${startScene+3}: The capsule pod begins to hum, glowing with custom LED lines (matching the aesthetic of ${finalPromptText}) as thin seams and joints start opening.`);
-    steps.push(`- Panel ${startScene+4}: The capsule pod mechanically unfolds, gears, hinges, and micro-parts expanding outwards on the desk surface.`);
-    steps.push(`- Panel ${startScene+5}: The fully transformed, highly detailed assembled version of ${finalPromptText} standing proudly on the white desk.`);
+    steps.push(`- Panel ${startScene+2}: The capsule pod is ${isToss ? 'gently tossed onto a white desk, sliding smoothly and spinning to a stop' : 'placed calmly on a white desk'}. ${cameraClause} ${backgroundClause}`);
+    steps.push(`- Panel ${startScene+3}: The capsule pod begins to hum, glowing with custom LED lines (matching the aesthetic of ${finalPromptText}) as thin seams and joints start opening. ${cameraClause} ${backgroundClause}`);
+    steps.push(`- Panel ${startScene+4}: The capsule pod mechanically unfolds, gears, hinges, and micro-parts expanding outwards on the desk surface. ${cameraClause} ${backgroundClause}`);
+    steps.push(`- Panel ${startScene+5}: The fully transformed, highly detailed assembled miniature model of ${finalPromptText} standing proudly on the white desk. ${cameraClause} ${backgroundClause}`);
   } else {
     steps.push(`- Panel ${startScene}: Close-up of a hand holding a compact, sleek high-tech metallic capsule toy pod custom-designed with colors and aesthetics of ${finalPromptText}.`);
     steps.push(`- Panel ${startScene+1}: A close-up of a thumb pressing a small glowing brass activation button on the side of the capsule pod.`);
     steps.push(`- Panel ${startScene+2}: The hand ${isToss ? 'gently tosses the capsule pod onto a white desk' : 'places the capsule pod on a white desk'}.`);
-    steps.push(`- Panel ${startScene+3}: The capsule pod ${isToss ? 'slides smoothly across the desk surface and spins to a stop' : 'rests on the desk and begins to hum'}.`);
-    steps.push(`- Panel ${startScene+4}: The capsule pod starts glowing with bright custom LED lines along its seams.`);
-    steps.push(`- Panel ${startScene+5}: Casing panels and thin joints begin to unlock and shift open.`);
-    steps.push(`- Panel ${startScene+6}: Internal gears, hinges, and micro-parts mechanically unfold and expand outwards.`);
+    steps.push(`- Panel ${startScene+3}: The capsule pod ${isToss ? 'slides smoothly across the desk surface and spins to a stop' : 'rests on the desk and begins to hum'}. ${cameraClause} ${backgroundClause}`);
+    steps.push(`- Panel ${startScene+4}: The capsule pod starts glowing with bright custom LED lines along its seams. ${cameraClause} ${backgroundClause}`);
+    steps.push(`- Panel ${startScene+5}: Casing panels and thin joints begin to unlock and shift open. ${cameraClause} ${backgroundClause}`);
+    steps.push(`- Panel ${startScene+6}: Internal gears, hinges, and micro-parts mechanically unfold and expand outwards. ${cameraClause} ${backgroundClause}`);
     
     for (let i = 7; i < gridCount - 1; i++) {
-      steps.push(`- Panel ${startScene+i}: The structure rapidly transforms, building the chassis and body panels of ${finalPromptText} with satisfying mechanical movements.`);
+      steps.push(`- Panel ${startScene+i}: The structure rapidly transforms, building the chassis and body panels of ${finalPromptText} with satisfying mechanical movements. ${cameraClause} ${backgroundClause}`);
     }
-    steps.push(`- Panel ${startScene+gridCount-1}: The fully transformed, highly detailed assembled version of ${finalPromptText} standing proudly on the white desk.`);
+    steps.push(`- Panel ${startScene+gridCount-1}: The fully transformed, highly detailed assembled miniature model of ${finalPromptText} standing proudly on the white desk. ${cameraClause} ${backgroundClause}`);
   }
   return steps.join('\n');
 }

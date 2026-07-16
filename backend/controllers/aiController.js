@@ -348,10 +348,17 @@ async function generateVideoPromptsInternal({ storyboardId, promptType, regenera
     toneClause = `Crucial: The tone and writing style of the voiceover script MUST strictly follow this style (in the narration language): "${toneDesc}". You must rewrite the narration using vocabulary, slang, emotional triggers, or structural patterns that perfectly match this style. For example, if it is casual or comedy, use slang and conversational Indonesian.`;
   }
 
+  let capsuleStyleClause = '';
+  if (storyboard.style === 'capsule_transform' || storyboard.style === 'capsule_toss_transform') {
+    capsuleStyleClause = `\nCRITICAL REQUIREMENT - LOCKED STATIC CAMERA: Because the storyboard layout style is "${storyboard.style}", you MUST explicitly instruct the video AI model that the camera is completely static and stationary, locked on a stable tripod. Absolutely no camera movement, no pans, no zoom, and no rotations. The camera remains 100% still.
+CRITICAL REQUIREMENT - PHYSICAL TOY TRANSFORMATION: Only the central capsule pod undergoes a physical mechanical transformation (unfolding plates, gears, and hinges expanding outwards to assemble into the target object). The white tabletop and background must remain completely still, solid, and unaffected. The final product must look like a high-fidelity physical model toy.`;
+  }
+
   let systemInstruction = '';
   if (enableVo) {
     systemInstruction = `You are an expert AI Video Director and master video prompting engineer specializing in high-fidelity commercial video generation.
 ${durationClause}
+${capsuleStyleClause}
 
 You are provided with ${panelImages.length} page images of a storyboard. Each page image contains ${gridDescText}. This means there are exactly ${totalScenes} pages (scenes) in total.
 
@@ -378,6 +385,7 @@ Ensure there are exactly ${totalScenes} items in the "scenes" array correspondin
   } else {
     systemInstruction = `You are an expert AI Video Director and master video prompting engineer specializing in high-fidelity commercial video generation.
 ${durationClause}
+${capsuleStyleClause}
 
 You are provided with ${panelImages.length} page images of a storyboard. Each page image contains ${gridDescText}. This means there are exactly ${totalScenes} pages (scenes) in total.
 
