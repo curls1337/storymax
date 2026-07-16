@@ -65,6 +65,7 @@ export default function Generator({ setTab }) {
   const [model, setModel] = useState('108');
   const [aspectRatio, setAspectRatio] = useState('1:1');
   const [videoEngine, setVideoEngine] = useState('seedance');
+  const [containerShape, setContainerShape] = useState('auto');
   const [duration, setDuration] = useState(30);
   const [showFace, setShowFace] = useState(false);
   const [currentCarouselIdx, setCurrentCarouselIdx] = useState(0);
@@ -354,7 +355,8 @@ export default function Generator({ setTab }) {
         enableVo,
         voLanguage: enableVo ? voLanguage : undefined,
         voTone: enableVo ? voTone : undefined,
-        videoEngine
+        videoEngine,
+        containerShape
       });
       const { taskId } = res.data;
       setCurrentTaskId(taskId);
@@ -513,6 +515,25 @@ export default function Generator({ setTab }) {
                   </div>
                 </div>
                 <Eye className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#cfae80] transition-colors" />
+              </div>
+            )}
+
+            {(style === 'capsule_transform' || style === 'capsule_toss_transform') && (
+              <div className="mt-3 space-y-1.5 animate-fadeIn">
+                <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest">Bentuk Wadah Awal (Kotak/Kapsul)</label>
+                <select 
+                  value={containerShape} 
+                  onChange={(e) => setContainerShape(e.target.value)} 
+                  className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs"
+                  disabled={generating}
+                >
+                  <option value="auto" className="bg-[#1a1918]">Otomatis (Deteksi dari Judul)</option>
+                  <option value="rectangular_block" className="bg-[#1a1918]">Kotak Balok Ramping (Cocok untuk Motor/Sepeda)</option>
+                  <option value="cube" className="bg-[#1a1918]">Kubus Geometris Kokoh (Cocok untuk Gedung/Rumah)</option>
+                  <option value="low_profile_box" className="bg-[#1a1918]">Kapsul Ceper / Aerodinamis (Cocok untuk Mobil)</option>
+                  <option value="cylindrical_capsule" className="bg-[#1a1918]">Kapsul Silinder Bulat (Cocok untuk Gadget/Mainan Klasik)</option>
+                  <option value="sphere" className="bg-[#1a1918]">Kubah Bola Bulat (Cocok untuk Robot/Mainan Bulat)</option>
+                </select>
               </div>
             )}
 

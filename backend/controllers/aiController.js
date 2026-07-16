@@ -352,16 +352,30 @@ async function generateVideoPromptsInternal({ storyboardId, promptType, regenera
   if (storyboard.style === 'capsule_transform' || storyboard.style === 'capsule_toss_transform') {
     const promptLower = ((storyboard.prompt || '') + ' ' + (storyboard.title || '')).toLowerCase();
     let containerShape = "a high-tech metallic capsule toy pod";
+    let finalAssemble = "robot";
     if (/\b(motor|bike|motorcycle|beat|vespa|xmax|nmax|scoopy|aerox|ninja|harley|ducati)\b/i.test(promptLower)) {
       containerShape = "a compact, sleek high-tech metallic container block (rectangular-shaped with rounded corners)";
+      finalAssemble = "motorcycle";
     } else if (/\b(gedung|rumah|building|house|villa|office|apartment|hotel|arsitektur|architecture|room)\b/i.test(promptLower)) {
       containerShape = "a solid geometric metallic cube pod";
+      finalAssemble = "building";
     } else if (/\b(mobil|car|sedan|suv|civic|bmw|porsche|tesla|toyota|honda|ferrari|lamborghini)\b/i.test(promptLower)) {
       containerShape = "an aerodynamic, low-profile rectangular metallic capsule box";
+      finalAssemble = "car";
     }
 
-    capsuleStyleClause = `\nCRITICAL REQUIREMENT - LOCKED STATIC CAMERA: Because the storyboard layout style is "${storyboard.style}", you MUST explicitly instruct the video AI model that the camera is completely static and stationary, locked on a stable tripod. Absolutely no camera movement, no pans, no zoom, and no rotations. The camera remains 100% still, capturing from a three-quarter perspective angle to show the object's 3D depth and shadows.
-CRITICAL REQUIREMENT - PHYSICAL TOY TRANSFORMATION: Only the central container (which starts as ${containerShape}) undergoes a physical mechanical transformation (unfolding plates, gears, and hinges expanding outwards to assemble into the target object). The white tabletop and background must remain completely still, solid, and unaffected. Soft 3D ambient occlusion shadows are cast beneath the object onto the table surface. The final product must look like a high-fidelity physical model toy.`;
+    capsuleStyleClause = `
+CRITICAL VIDEO ANNIHILATION OF CAMERA MOVEMENT & CINEMATIC PANS:
+Because the storyboard layout style is "${storyboard.style}", you MUST NOT use any generic cinematic camera moves, camera rotations, orbits, pans, or sweeps in your video prompts. The camera MUST remain completely static, stationary, and locked on a tripod for the entire transformation sequence.
+
+CRITICAL TRANSFORMATION ORDER & MOTION:
+The video must animate the mechanical transformation step-by-step:
+1. The container (starting as ${containerShape}) lies on the white table.
+2. First phase: Mechanical legs/feet unfold and extend from the bottom of the container, raising the object up.
+3. Second phase: The body/torso/chassis expands and stretches upwards, revealing moving gears and internal joints.
+4. Third phase: The arms/exterior panels/wheels unfold and snap into their final places.
+5. Final phase: Only in the final 2 seconds of the video does the camera cut/zoom to a detailed close-up shot of the finished assembled ${finalAssemble} (matching the final product details).
+The tabletop and background must remain completely still and unchanged throughout. The narration must describe the satisfying tactile ASMR clicks, gears turning, and mechanical parts locking into place.`;
   }
 
   let systemInstruction = '';

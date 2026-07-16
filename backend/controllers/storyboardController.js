@@ -44,37 +44,52 @@ function formatTime(sec) {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-function getInitialContainerDescription(finalPromptText) {
+function getInitialContainerDescription(finalPromptText, selectedShape = 'auto') {
   const promptLower = (finalPromptText || '').toLowerCase();
   
-  // 1. Motor / Sepeda (Motorcycle, Motor, Bike, Beat, Vespa, Xmax, Nmax, dll)
-  if (/\b(motor|bike|motorcycle|beat|vespa|xmax|nmax|scoopy|aerox|ninja|harley|ducati)\b/i.test(promptLower)) {
+  let shapeKey = selectedShape;
+  if (shapeKey === 'auto' || !shapeKey) {
+    if (/\b(motor|bike|motorcycle|beat|vespa|xmax|nmax|scoopy|aerox|ninja|harley|ducati)\b/i.test(promptLower)) {
+      shapeKey = 'rectangular_block';
+    } else if (/\b(gedung|rumah|building|house|villa|office|apartment|hotel|arsitektur|architecture|room)\b/i.test(promptLower)) {
+      shapeKey = 'cube';
+    } else if (/\b(mobil|car|sedan|suv|civic|bmw|porsche|tesla|toyota|honda|ferrari|lamborghini)\b/i.test(promptLower)) {
+      shapeKey = 'low_profile_box';
+    } else {
+      shapeKey = 'cylindrical_capsule';
+    }
+  }
+
+  if (shapeKey === 'rectangular_block') {
     return {
       shapeEn: "a compact, sleek high-tech metallic container block (rectangular-shaped with rounded corners)",
       shapeId: "kotak balok ramping dengan sudut melengkung",
       unfoldingActionEn: "the rectangular container block starts opening its plates"
     };
   }
-  
-  // 2. Gedung / Rumah / Villa / Arsitektur (Gedung, Rumah, Building, House, Villa, Office, Room, dll)
-  if (/\b(gedung|rumah|building|house|villa|office|apartment|hotel|arsitektur|architecture|room)\b/i.test(promptLower)) {
+  if (shapeKey === 'cube') {
     return {
       shapeEn: "a solid geometric metallic cube pod",
       shapeId: "kotak kubus geometris kokoh",
       unfoldingActionEn: "the geometric cube starts unfolding its structural plates"
     };
   }
-  
-  // 3. Mobil / Sedan / SUV (Mobil, Car, Sedan, SUV, Civic, BMW, Porsche, dll)
-  if (/\b(mobil|car|sedan|suv|civic|bmw|porsche|tesla|toyota|honda|ferrari|lamborghini)\b/i.test(promptLower)) {
+  if (shapeKey === 'low_profile_box') {
     return {
       shapeEn: "an aerodynamic, low-profile rectangular metallic capsule box",
       shapeId: "kotak kapsul ceper dengan sudut aerodinamis",
       unfoldingActionEn: "the low-profile rectangular box starts unlocking its panels"
     };
   }
+  if (shapeKey === 'sphere') {
+    return {
+      shapeEn: "a futuristic high-tech metallic spherical pod",
+      shapeId: "kubah bola bulat metalik futuristik",
+      unfoldingActionEn: "the spherical pod starts opening its mechanical seams"
+    };
+  }
   
-  // 4. Robot / Mecha / Gadget / Lainnya
+  // default cylindrical_capsule
   return {
     shapeEn: "a high-tech metallic capsule toy pod",
     shapeId: "kapsul mainan metalik silinder",
@@ -82,46 +97,46 @@ function getInitialContainerDescription(finalPromptText) {
   };
 }
 
-function getTransformationSteps(gridCount, startScene, finalPromptText, style) {
+function getTransformationSteps(gridCount, startScene, finalPromptText, style, selectedShape = 'auto') {
   const isToss = style === 'capsule_toss_transform';
   const steps = [];
 
-  const container = getInitialContainerDescription(finalPromptText);
+  const container = getInitialContainerDescription(finalPromptText, selectedShape);
 
-  const cameraClause = "The camera is completely static and stationary, locked on a stable tripod, capturing the scene from a three-quarter perspective angle (3/4 view showing the top, front, and side of the object to create a strong 3D sense of depth). Medium shot distance, displaying the entire object and white tabletop surface clearly. No camera panning, no zoom, and no rotations.";
-  const backgroundClause = "The white tabletop and background remain completely solid, static, and unaffected. Only the central object undergoes physical mechanical transformation. Soft 3D ambient occlusion shadows are cast beneath the object onto the table surface.";
+  const staticCameraClause = "The camera is completely static and stationary, locked on a stable tripod. Absolutely no camera movement, no pans, no zoom, and no rotations. The camera remains 100% still, capturing from a three-quarter perspective angle to show the object's 3D depth and shadows. The white tabletop and background remain completely solid and unaffected.";
+  const finalCameraClause = "Close-up shot of the finished product, showing the detailed paint finish, branding, and intricate mechanical joints in crisp detail.";
+  const backgroundClause = "The white tabletop and background remain completely solid, static, and unaffected. Soft 3D ambient occlusion shadows are cast beneath the object onto the table surface.";
 
   if (gridCount <= 4) {
     steps.push(`- Panel ${startScene}: Close-up of a hand holding ${container.shapeEn} custom-designed with colors and branding elements of ${finalPromptText}.`);
     steps.push(`- Panel ${startScene+1}: A thumb presses the activation button on the container in the hand ${isToss ? 'and tosses it gently onto a white desk' : 'and places it on a white desk'}.`);
-    steps.push(`- Panel ${startScene+2}: The container lands on the desk, slides to a stop, and immediately begins to glow and mechanically unfold. ${cameraClause} ${backgroundClause}`);
-    steps.push(`- Panel ${startScene+3}: The structure completes its rapid transformation, assembling into a highly detailed miniature 3D model version of ${finalPromptText} resting on the desk. ${cameraClause} ${backgroundClause}`);
+    steps.push(`- Panel ${startScene+2}: The container lands on the desk, slides to a stop. First phase of transformation: mechanical legs fold out from the bottom to lift it up, followed by torso expansion. ${staticCameraClause} ${backgroundClause}`);
+    steps.push(`- Panel ${startScene+3}: The transformation completes, assembling into a highly detailed miniature 3D model version of ${finalPromptText} resting on the desk. ${finalCameraClause} ${backgroundClause}`);
   } else if (gridCount <= 6) {
     steps.push(`- Panel ${startScene}: Close-up of a hand holding ${container.shapeEn} custom-designed with colors and branding elements of ${finalPromptText}.`);
-    steps.push(`- Panel ${startScene+1}: A thumb presses a small glowing brass activation button on the side of the container.`);
-    steps.push(`- Panel ${startScene+2}: The container is ${isToss ? 'gently tossed onto a white desk, sliding smoothly and spinning to a stop' : 'placed calmly on a white desk'}. ${cameraClause} ${backgroundClause}`);
-    steps.push(`- Panel ${startScene+3}: The container begins to hum, glowing with custom LED lines as thin seams and joints start opening. ${cameraClause} ${backgroundClause}`);
-    steps.push(`- Panel ${startScene+4}: ${container.unfoldingActionEn}, gears, hinges, and micro-parts expanding outwards on the desk surface. ${cameraClause} ${backgroundClause}`);
-    steps.push(`- Panel ${startScene+5}: The fully transformed, highly detailed assembled miniature 3D model of ${finalPromptText} standing proudly on the white desk. ${cameraClause} ${backgroundClause}`);
+    steps.push(`- Panel ${startScene+1}: A thumb presses a small glowing brass activation button on the side of the container in the hand.`);
+    steps.push(`- Panel ${startScene+2}: The container is ${isToss ? 'gently tossed onto a white desk, sliding smoothly and spinning to a stop' : 'placed calmly on a white desk'}. ${staticCameraClause} ${backgroundClause}`);
+    steps.push(`- Panel ${startScene+3}: First phase of transformation: mechanical legs and feet unfold and extend from the bottom of the container, raising the object up. ${staticCameraClause} ${backgroundClause}`);
+    steps.push(`- Panel ${startScene+4}: Second phase: the torso and body expand upwards, revealing moving internal gears and mechanisms. ${staticCameraClause} ${backgroundClause}`);
+    steps.push(`- Panel ${startScene+5}: The fully transformed, highly detailed assembled miniature 3D model of ${finalPromptText} standing proudly on the white desk. ${finalCameraClause} ${backgroundClause}`);
   } else {
     steps.push(`- Panel ${startScene}: Close-up of a hand holding ${container.shapeEn} custom-designed with colors and branding elements of ${finalPromptText}.`);
-    steps.push(`- Panel ${startScene+1}: A close-up of a thumb pressing a small glowing brass activation button on the side of the container.`);
-    steps.push(`- Panel ${startScene+2}: The hand ${isToss ? 'gently tosses the container onto a white desk' : 'places the container on a white desk'}.`);
-    steps.push(`- Panel ${startScene+3}: The container ${isToss ? 'slides smoothly across the desk surface and spins to a stop' : 'rests on the desk and begins to hum'}. ${cameraClause} ${backgroundClause}`);
-    steps.push(`- Panel ${startScene+4}: The container starts glowing with bright custom LED lines along its seams. ${cameraClause} ${backgroundClause}`);
-    steps.push(`- Panel ${startScene+5}: Casing panels and thin joints begin to unlock and shift open. ${cameraClause} ${backgroundClause}`);
-    steps.push(`- Panel ${startScene+6}: Internal gears, hinges, and micro-parts mechanically unfold and expand outwards. ${cameraClause} ${backgroundClause}`);
+    steps.push(`- Panel ${startScene+1}: A close-up of a thumb pressing a small glowing brass activation button on the side of the container in the hand.`);
+    steps.push(`- Panel ${startScene+2}: The hand ${isToss ? 'gently tosses the container onto a white desk, sliding to a stop' : 'places the container on a white desk'}. ${staticCameraClause} ${backgroundClause}`);
+    steps.push(`- Panel ${startScene+3}: First phase of transformation: mechanical legs and feet unfold and extend from the bottom of the container, raising the object up. ${staticCameraClause} ${backgroundClause}`);
+    steps.push(`- Panel ${startScene+4}: Second phase: the torso and body expand upwards, exposing moving internal gears and joints. ${staticCameraClause} ${backgroundClause}`);
+    steps.push(`- Panel ${startScene+5}: Third phase: arms, side panels, wheels, or additional mechanical components fold out and lock into place. ${staticCameraClause} ${backgroundClause}`);
     
-    for (let i = 7; i < gridCount - 1; i++) {
-      steps.push(`- Panel ${startScene+i}: The structure rapidly transforms, building the chassis and body panels of ${finalPromptText} with satisfying mechanical movements. ${cameraClause} ${backgroundClause}`);
+    for (let i = 6; i < gridCount - 1; i++) {
+      steps.push(`- Panel ${startScene+i}: The structure completes the transformation, body panels snapping shut, alignment of all joints finalized. ${staticCameraClause} ${backgroundClause}`);
     }
-    steps.push(`- Panel ${startScene+gridCount-1}: The fully transformed, highly detailed assembled miniature 3D model of ${finalPromptText} standing proudly on the white desk. ${cameraClause} ${backgroundClause}`);
+    steps.push(`- Panel ${startScene+gridCount-1}: The fully transformed, highly detailed assembled miniature 3D model of ${finalPromptText} standing proudly on the white desk. ${finalCameraClause} ${backgroundClause}`);
   }
   return steps.join('\n');
 }
 
 // Enhance prompt based on selected template, custom grid count, and start scene
-function getEnhancedPrompt(style, userPrompt, gridCount = 6, showFace = false, startScene = 1, totalDuration = 60, secondsPerPage = 15, hasRefImage = false) {
+function getEnhancedPrompt(style, userPrompt, gridCount = 6, showFace = false, startScene = 1, totalDuration = 60, secondsPerPage = 15, hasRefImage = false, containerShape = 'auto') {
   // Truncate userPrompt to 350 characters to prevent final prompt exceeding Freebeat's 2000 character limit
   userPrompt = userPrompt && userPrompt.length > 350 ? userPrompt.substring(0, 350) + '...' : (userPrompt || '');
   const endScene = startScene + gridCount - 1;
@@ -208,7 +223,7 @@ function getEnhancedPrompt(style, userPrompt, gridCount = 6, showFace = false, s
     return `A creative watercolor artist's sketchbook storyboard layout. Rough watercolor sketch paper background. The panels show watercolor painted scenes of: ${finalPromptText} for scenes ${startScene} to ${endScene}. Below each panel, there are handwritten pencil notes for 'ARTISTIC SCENE', 'COLOR PALETTE', and 'AUDIO MOOD'. Artistic, cozy watercolor album style. ${faceClause}. --ar 3:4`;
   }
   if (style === 'capsule_transform' || style === 'capsule_toss_transform') {
-    const stepsText = getTransformationSteps(gridCount, startScene, finalPromptText, style);
+    const stepsText = getTransformationSteps(gridCount, startScene, finalPromptText, style, containerShape);
     return `A professional video storyboard presentation sheet. Clean minimal design on a solid dark-gray background. Widescreen panels showing chronological stages of a mechanical capsule toy transforming on a white tabletop.
 ${stepsText}
 Below each panel, there are small white text labels for 'TRANSFORMATION STAGE', 'SFX / AUDIO', and 'CAMERA ANGLE'. Cozy ASMR toy transformation style. ${faceClause}. --ar 3:4`;
@@ -456,7 +471,7 @@ async function getAvailableApiKey(db) {
 }
 
 async function generateStoryboard(req, res) {
-  const { title, prompt, style, apiKeyId, refImageBase64, refImageUrl, refImages, gridCount, model, duration, showFace, aspectRatio, enableVo, voLanguage, voTone, videoEngine } = req.body;
+  const { title, prompt, style, apiKeyId, refImageBase64, refImageUrl, refImages, gridCount, model, duration, showFace, aspectRatio, enableVo, voLanguage, voTone, videoEngine, containerShape } = req.body;
 
   if (!title || !prompt || !style || !apiKeyId) {
     return res.status(400).json({ message: 'Title, prompt, style, and API Key ID are required.' });
@@ -507,7 +522,8 @@ async function generateStoryboard(req, res) {
     enableVo: !!enableVo,
     voLanguage: voLanguage || 'Bahasa Indonesia',
     voTone: voTone || 'casual',
-    videoEngine: selectedEngine
+    videoEngine: selectedEngine,
+    containerShape: containerShape || 'auto'
   });
 
   // Create unique task ID immediately
@@ -700,7 +716,7 @@ async function generateStoryboard(req, res) {
           const endScene = pageNum * Number(gridCount);
 
           const pageConcept = (subPrompts && subPrompts[pageIdx]) ? subPrompts[pageIdx] : prompt;
-          let pagePrompt = getEnhancedPrompt(style, pageConcept, Number(gridCount) || 6, showFace, startScene, totalDuration, secondsPerPage, !!finalRefImagePath);
+          let pagePrompt = getEnhancedPrompt(style, pageConcept, Number(gridCount) || 6, showFace, startScene, totalDuration, secondsPerPage, !!finalRefImagePath, containerShape);
           pagePrompt = pagePrompt.replace(/"/g, "'");
           if (style !== 'single_premium_showcase') {
             pagePrompt = `Page ${pageNum} of ${pageCount}, Scenes ${startScene}-${endScene} (time segment ${formatTime(startSec)} to ${formatTime(endSec)}). ` + pagePrompt;
@@ -1272,7 +1288,7 @@ async function regenerateStoryboardPage(req, res) {
         const pageConcept = (subPrompts && subPrompts[pageIdx]) ? subPrompts[pageIdx] : storyboard.prompt;
         
         const startScene = pageIdx * Number(gridCount) + 1;
-        let pagePrompt = getEnhancedPrompt(style, pageConcept, Number(gridCount) || 6, showFace, startScene, genParams.duration || (pageCount * secondsPerPage), secondsPerPage);
+        let pagePrompt = getEnhancedPrompt(style, pageConcept, Number(gridCount) || 6, showFace, startScene, genParams.duration || (pageCount * secondsPerPage), secondsPerPage, false, genParams.containerShape);
         pagePrompt = pagePrompt.replace(/"/g, "'");
 
         activeTasks[taskId].logs += `[2/3] Mengirimkan perintah generate ke Freebeat...\n` +
