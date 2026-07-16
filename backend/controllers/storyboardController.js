@@ -137,8 +137,8 @@ function getEnhancedPrompt(style, userPrompt, gridCount = 6, showFace = false, s
 - Panel ${startScene+1}: A finger presses a small glowing activation button on the side of the capsule pod.
 - Panel ${startScene+2}: The capsule pod is placed on the desk and begins to hum, glowing with bright orange/gold LED line accents as thin seams and joints start opening.
 - Panel ${startScene+3}: The capsule pod mechanically unfolds, gears, joints, and micro-parts expanding outwards on the desk surface.
-- Panel ${startScene+4}: The structure rapidly transforms, building the limbs, chassis, and body of ${finalPromptText} with satisfying mechanical movements.
-- Panel ${startScene+5}: The fully transformed, highly detailed mechanical figure of ${finalPromptText} standing proudly on the white desk.
+- Panel ${startScene+4}: The structure rapidly transforms, building the chassis, body panels, and exact shape of ${finalPromptText} with satisfying mechanical movements.
+- Panel ${startScene+5}: The fully transformed, highly detailed assembled version of ${finalPromptText} standing proudly on the white desk.
 Below each panel, there are small white text labels for 'TRANSFORMATION STAGE', 'SFX / AUDIO', and 'CAMERA ANGLE'. Cozy ASMR toy transformation style. ${faceClause}. --ar 3:4`;
   }
 
