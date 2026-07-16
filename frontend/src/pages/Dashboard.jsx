@@ -231,6 +231,27 @@ export default function Dashboard({ setTab }) {
   }, [modalCarouselIdx, selectedStoryboard, videoGenType, videoGenerateAudio]);
 
   useEffect(() => {
+    if (selectedStoryboard) {
+      const m = VIDEO_MODELS.find(x => x.value === videoModel);
+      if (m) {
+        let targetSec = 15;
+        try {
+          const params = JSON.parse(selectedStoryboard.generation_params);
+          const engine = params.videoEngine || 'seedance';
+          if (engine === 'omni') targetSec = 10;
+          else if (engine.startsWith('veo')) targetSec = 8;
+        } catch (e) {}
+
+        if (m.durations.includes(targetSec)) {
+          setVideoDuration(String(targetSec));
+        } else {
+          setVideoDuration(String(m.durations[m.durations.length - 1]));
+        }
+      }
+    }
+  }, [selectedStoryboard, videoModel]);
+
+  useEffect(() => {
     let interval;
     if (videoTaskId) {
       interval = setInterval(async () => {

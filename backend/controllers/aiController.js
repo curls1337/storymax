@@ -280,6 +280,23 @@ async function generateVideoPromptsInternal({ storyboardId, promptType, regenera
 
   const totalScenes = panelImages.length;
 
+  let gridCount = 6;
+  if (storyboard.generation_params) {
+    try {
+      const params = JSON.parse(storyboard.generation_params);
+      if (params.gridCount) {
+        gridCount = Number(params.gridCount);
+      }
+    } catch (e) {}
+  }
+
+  let gridDescText = `exactly ${gridCount} panels`;
+  if (gridCount === 4) gridDescText = "exactly 4 panels arranged in a 2x2 grid (from top-left, top-right, bottom-left, to bottom-right)";
+  else if (gridCount === 6) gridDescText = "exactly 6 panels arranged in a 3x2 grid (3 columns, 2 rows)";
+  else if (gridCount === 8) gridDescText = "exactly 8 panels arranged in a 4x2 grid (4 columns, 2 rows)";
+  else if (gridCount === 9) gridDescText = "exactly 9 panels arranged in a 3x3 grid (3 columns, 3 rows)";
+  else if (gridCount === 12) gridDescText = "exactly 12 panels arranged in a 4x3 grid (4 columns, 3 rows)";
+
   let durationClause = '';
   const durVal = videoDuration || 'auto';
   if (durVal === 'auto') {
@@ -314,53 +331,53 @@ async function generateVideoPromptsInternal({ storyboardId, promptType, regenera
     systemInstruction = `You are an expert AI Video Director and master video prompting engineer specializing in high-fidelity commercial video generation.
 ${durationClause}
 
-You are provided with ${panelImages.length} page images of a storyboard. Each page image contains exactly 4 panels arranged in a 2x2 grid (from top-left, top-right, bottom-left, to bottom-right). This means there are exactly ${totalScenes} scenes in total.
+You are provided with ${panelImages.length} page images of a storyboard. Each page image contains ${gridDescText}. This means there are exactly ${totalScenes} pages (scenes) in total.
 
-Your task is to analyze all the panels sequentially and write a distinct visual prompt and voiceover script for EACH of the ${totalScenes} scenes.
+Your task is to analyze all the pages sequentially and write a distinct visual prompt and voiceover script for EACH of the ${totalScenes} pages.
 
-For each scene:
-1. "imageToVideoPrompt": A highly dynamic, action-oriented Image-to-Video prompt in English (80-150 words) that explicitly directs the AI video model to animate the scene, starting from the visual layout of that specific panel. Describe the movement, action, and camera motion (e.g. "smooth tracking shot", "camera rotates around the subject", "fluid character gestures", "elements float in slow motion"). Keep it active.
-2. "textToVideoPrompt": A comprehensive text-to-video prompt in English (80-150 words) describing the product details, scene setting, lighting, mood, camera style, and action from scratch for that scene, in case the user wants to generate it purely from text.
-3. "narration": A voiceover narration script paragraph in the language: "${voLanguage || 'Bahasa Indonesia'}". ${toneClause} The narration must fit the scene duration.
+For each page (scene):
+1. "imageToVideoPrompt": A highly dynamic, action-oriented Image-to-Video prompt in English (80-150 words) that explicitly directs the AI video model to animate the scene, starting from the visual layout of that specific page. Describe the movement, action, and camera motion (e.g. "smooth tracking shot", "camera rotates around the subject", "fluid character gestures", "elements float in slow motion"). Keep it active.
+2. "textToVideoPrompt": A comprehensive text-to-video prompt in English (80-150 words) describing the product details, scene setting, lighting, mood, camera style, and action from scratch for that page, in case the user wants to generate it purely from text.
+3. "narration": A voiceover narration script paragraph in the language: "${voLanguage || 'Bahasa Indonesia'}". ${toneClause} The narration must fit the page duration.
 
 You MUST return the output strictly in this JSON format (do not wrap in markdown \`\`\`json blocks):
 {
   "scenes": [
     {
       "scene_idx": 0,
-      "imageToVideoPrompt": "<English motion prompt for Scene 1>",
-      "textToVideoPrompt": "<English full text prompt for Scene 1>",
-      "narration": "<Voiceover script for Scene 1>"
+      "imageToVideoPrompt": "<English motion prompt for Page 1>",
+      "textToVideoPrompt": "<English full text prompt for Page 1>",
+      "narration": "<Voiceover script for Page 1>"
     },
     ...
   ]
 }
-Ensure there are exactly ${totalScenes} items in the "scenes" array corresponding to the panels in sequence.`;
+Ensure there are exactly ${totalScenes} items in the "scenes" array corresponding to the pages in sequence.`;
   } else {
     systemInstruction = `You are an expert AI Video Director and master video prompting engineer specializing in high-fidelity commercial video generation.
 ${durationClause}
 
-You are provided with ${panelImages.length} page images of a storyboard. Each page image contains exactly 4 panels arranged in a 2x2 grid. This means there are exactly ${totalScenes} scenes in total.
+You are provided with ${panelImages.length} page images of a storyboard. Each page image contains ${gridDescText}. This means there are exactly ${totalScenes} pages (scenes) in total.
 
-Your task is to analyze all the panels sequentially and write a distinct visual prompt for EACH of the ${totalScenes} scenes.
+Your task is to analyze all the pages sequentially and write a distinct visual prompt for EACH of the ${totalScenes} pages.
 
-For each scene:
-1. "imageToVideoPrompt": A highly dynamic, action-oriented Image-to-Video prompt in English (80-150 words) that directs the AI model to animate the scene, starting from that panel's layout. Describe the movement, action, and camera motion.
-2. "textToVideoPrompt": A comprehensive text-to-video prompt in English (80-150 words) describing the product details, scene setting, lighting, mood, camera style, and action from scratch for that scene.
+For each page (scene):
+1. "imageToVideoPrompt": A highly dynamic, action-oriented Image-to-Video prompt in English (80-150 words) that directs the AI model to animate the scene, starting from that page's layout. Describe the movement, action, and camera motion.
+2. "textToVideoPrompt": A comprehensive text-to-video prompt in English (80-150 words) describing the product details, scene setting, lighting, mood, camera style, and action from scratch for that page.
 
 You MUST return the output strictly in this JSON format (do not wrap in markdown \`\`\`json blocks):
 {
   "scenes": [
     {
       "scene_idx": 0,
-      "imageToVideoPrompt": "<English motion prompt for Scene 1>",
-      "textToVideoPrompt": "<English full text prompt for Scene 1>",
+      "imageToVideoPrompt": "<English motion prompt for Page 1>",
+      "textToVideoPrompt": "<English full text prompt for Page 1>",
       "narration": null
     },
     ...
   ]
 }
-Ensure there are exactly ${totalScenes} items in the "scenes" array corresponding to the panels in sequence.`;
+Ensure there are exactly ${totalScenes} items in the "scenes" array corresponding to the pages in sequence.`;
   }
 
   const payload = {
