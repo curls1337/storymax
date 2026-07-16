@@ -520,12 +520,40 @@ export default function Generator() {
               <div className="absolute left-0 mt-1.5 w-full bg-[#1a1918] border border-[#2a2725] rounded-xl shadow-2xl z-50 flex max-h-64">
                 <div className="flex-grow overflow-y-auto py-1 divide-y divide-[#2a2725] scrollbar-thin">
                   {LAYOUT_STYLES.map((opt) => (
-                    <button key={opt.value} type="button" onClick={() => { setStyle(opt.value); setDropdownOpen(false); setHoveredStyle(null); setAiMatchedLayout(null); }} className={`w-full text-left px-3 py-2.5 hover:bg-[#cfae80]/10 text-xs transition-colors flex flex-col gap-0.5 ${style === opt.value ? 'bg-[#cfae80]/20 text-white font-bold' : 'text-slate-350'}`}>
+                    <button 
+                      key={opt.value} 
+                      type="button" 
+                      onClick={() => { setStyle(opt.value); setDropdownOpen(false); setHoveredStyle(null); setAiMatchedLayout(null); }} 
+                      onMouseEnter={() => setHoveredStyle(opt.value)}
+                      onMouseLeave={() => setHoveredStyle(null)}
+                      className={`w-full text-left px-3 py-2.5 hover:bg-[#cfae80]/10 text-xs transition-colors flex flex-col gap-0.5 ${style === opt.value ? 'bg-[#cfae80]/20 text-white font-bold' : 'text-slate-350'}`}
+                    >
                       <span className="truncate">{opt.label}</span>
                       <span className="text-[9px] text-slate-500 font-normal">{opt.desc}</span>
                     </button>
                   ))}
                 </div>
+
+                {/* Floating Preview Card - Desktop (PC) Only */}
+                {hoveredStyle && (
+                  <div className="hidden lg:block absolute left-full ml-3 top-0 w-80 bg-[#1a1918]/95 border border-[#2a2725] rounded-2xl p-4 shadow-2xl z-[60] pointer-events-none animate-fadeIn">
+                    <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#cfae80]/25 to-transparent"></div>
+                    <h4 className="text-[10px] font-bold text-white uppercase tracking-widest mb-3 flex items-center gap-1.5 pb-2 border-b border-[#2a2725]">
+                      <Eye className="w-3.5 h-3.5 text-[#cfae80]" />
+                      Pratinjau Layout
+                    </h4>
+                    <div className="aspect-video w-full overflow-hidden rounded-xl border border-[#2a2725] bg-black/45 flex items-center justify-center mb-3">
+                      <img 
+                        src={getPreviewUrl(hoveredStyle)} 
+                        alt={`Preview ${hoveredStyle}`} 
+                        className="max-w-full max-h-full object-contain rounded-lg" 
+                      />
+                    </div>
+                    <p className="text-[9px] text-slate-400 leading-relaxed">
+                      {LAYOUT_STYLES.find(opt => opt.value === hoveredStyle)?.desc} - Gaya tata letak komik/kolase yang akan digunakan untuk menghasilkan halaman storyboard Anda.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
             
