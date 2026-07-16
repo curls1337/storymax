@@ -1474,8 +1474,10 @@ export default function Dashboard({ setTab }) {
                           
                           <video 
                             key={activeVid.id} // re-mount player when switching videos
-                            src={activeVid.video_url} 
+                            src={getFullImageUrl(activeVid.video_url)} 
                             controls 
+                            playsInline
+                            preload="auto"
                             className="w-full rounded-xl border border-[#2a2725] bg-black max-h-48"
                           />
 
