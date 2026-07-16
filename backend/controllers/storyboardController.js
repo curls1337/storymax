@@ -44,6 +44,39 @@ function formatTime(sec) {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
+function getTransformationSteps(gridCount, startScene, finalPromptText, style) {
+  const isToss = style === 'capsule_toss_transform';
+  const steps = [];
+
+  if (gridCount <= 4) {
+    steps.push(`- Panel ${startScene}: Close-up of a hand holding a compact, sleek high-tech metallic capsule toy pod custom-designed with colors and aesthetics of ${finalPromptText}.`);
+    steps.push(`- Panel ${startScene+1}: A thumb presses the activation button on the capsule pod in the hand ${isToss ? 'and tosses it gently onto a white desk' : 'and places it on a white desk'}.`);
+    steps.push(`- Panel ${startScene+2}: The capsule pod lands on the desk, slides to a stop, and immediately begins to glow and mechanically unfold.`);
+    steps.push(`- Panel ${startScene+3}: The structure completes its rapid transformation, assembling into a highly detailed version of ${finalPromptText} resting on the desk.`);
+  } else if (gridCount <= 6) {
+    steps.push(`- Panel ${startScene}: Close-up of a hand holding a compact, sleek high-tech metallic capsule toy pod custom-designed with colors and aesthetics of ${finalPromptText}.`);
+    steps.push(`- Panel ${startScene+1}: A thumb presses a small glowing brass activation button on the side of the capsule pod.`);
+    steps.push(`- Panel ${startScene+2}: The capsule pod is ${isToss ? 'gently tossed onto a white desk, sliding smoothly and spinning to a stop' : 'placed calmly on a white desk'}.`);
+    steps.push(`- Panel ${startScene+3}: The capsule pod begins to hum, glowing with custom LED lines (matching the aesthetic of ${finalPromptText}) as thin seams and joints start opening.`);
+    steps.push(`- Panel ${startScene+4}: The capsule pod mechanically unfolds, gears, hinges, and micro-parts expanding outwards on the desk surface.`);
+    steps.push(`- Panel ${startScene+5}: The fully transformed, highly detailed assembled version of ${finalPromptText} standing proudly on the white desk.`);
+  } else {
+    steps.push(`- Panel ${startScene}: Close-up of a hand holding a compact, sleek high-tech metallic capsule toy pod custom-designed with colors and aesthetics of ${finalPromptText}.`);
+    steps.push(`- Panel ${startScene+1}: A close-up of a thumb pressing a small glowing brass activation button on the side of the capsule pod.`);
+    steps.push(`- Panel ${startScene+2}: The hand ${isToss ? 'gently tosses the capsule pod onto a white desk' : 'places the capsule pod on a white desk'}.`);
+    steps.push(`- Panel ${startScene+3}: The capsule pod ${isToss ? 'slides smoothly across the desk surface and spins to a stop' : 'rests on the desk and begins to hum'}.`);
+    steps.push(`- Panel ${startScene+4}: The capsule pod starts glowing with bright custom LED lines along its seams.`);
+    steps.push(`- Panel ${startScene+5}: Casing panels and thin joints begin to unlock and shift open.`);
+    steps.push(`- Panel ${startScene+6}: Internal gears, hinges, and micro-parts mechanically unfold and expand outwards.`);
+    
+    for (let i = 7; i < gridCount - 1; i++) {
+      steps.push(`- Panel ${startScene+i}: The structure rapidly transforms, building the chassis and body panels of ${finalPromptText} with satisfying mechanical movements.`);
+    }
+    steps.push(`- Panel ${startScene+gridCount-1}: The fully transformed, highly detailed assembled version of ${finalPromptText} standing proudly on the white desk.`);
+  }
+  return steps.join('\n');
+}
+
 // Enhance prompt based on selected template, custom grid count, and start scene
 function getEnhancedPrompt(style, userPrompt, gridCount = 6, showFace = false, startScene = 1, totalDuration = 60, secondsPerPage = 15, hasRefImage = false) {
   // Truncate userPrompt to 350 characters to prevent final prompt exceeding Freebeat's 2000 character limit
@@ -131,24 +164,10 @@ function getEnhancedPrompt(style, userPrompt, gridCount = 6, showFace = false, s
   if (style === 'watercolor_sketchbook') {
     return `A creative watercolor artist's sketchbook storyboard layout. Rough watercolor sketch paper background. The panels show watercolor painted scenes of: ${finalPromptText} for scenes ${startScene} to ${endScene}. Below each panel, there are handwritten pencil notes for 'ARTISTIC SCENE', 'COLOR PALETTE', and 'AUDIO MOOD'. Artistic, cozy watercolor album style. ${faceClause}. --ar 3:4`;
   }
-  if (style === 'capsule_transform') {
+  if (style === 'capsule_transform' || style === 'capsule_toss_transform') {
+    const stepsText = getTransformationSteps(gridCount, startScene, finalPromptText, style);
     return `A professional video storyboard presentation sheet. Clean minimal design on a solid dark-gray background. Widescreen panels showing chronological stages of a mechanical capsule toy transforming on a white tabletop.
-- Panel ${startScene}: A compact, sleek high-tech metallic capsule toy pod resting on a white desk. The shape, panel curves, colors, logos, and styling of this initial capsule pod are custom-tailored to look exactly like a miniature compressed container representation of ${finalPromptText} (e.g. sharing its exact colors and design language).
-- Panel ${startScene+1}: A finger presses a small glowing activation button on the side of this custom-styled ${finalPromptText} capsule pod.
-- Panel ${startScene+2}: The capsule pod is placed on the desk and begins to hum, glowing with bright custom LED lines (matching the aesthetic of ${finalPromptText}) as thin seams and joints start opening.
-- Panel ${startScene+3}: The capsule pod mechanically unfolds, gears, joints, and micro-parts expanding outwards on the desk surface.
-- Panel ${startScene+4}: The structure rapidly transforms, building the chassis, body panels, and exact shape of ${finalPromptText} with satisfying mechanical movements.
-- Panel ${startScene+5}: The fully transformed, highly detailed assembled version of ${finalPromptText} standing proudly on the white desk.
-Below each panel, there are small white text labels for 'TRANSFORMATION STAGE', 'SFX / AUDIO', and 'CAMERA ANGLE'. Cozy ASMR toy transformation style. ${faceClause}. --ar 3:4`;
-  }
-  if (style === 'capsule_toss_transform') {
-    return `A professional video storyboard presentation sheet. Clean minimal design on a solid dark-gray background. Widescreen panels showing chronological stages of a mechanical capsule toy transforming on a white tabletop.
-- Panel ${startScene}: Close-up of a hand holding a compact, sleek high-tech metallic capsule toy pod. The shape, panel curves, colors, logos, and styling of this initial capsule pod are custom-tailored to look exactly like a miniature compressed container representation of ${finalPromptText} (e.g. sharing its exact colors and design language).
-- Panel ${startScene+1}: A thumb presses a small glowing brass activation button on the side of this custom-styled ${finalPromptText} capsule pod in the hand.
-- Panel ${startScene+2}: The hand gently tosses the capsule pod onto a white desk. The pod slides smoothly across the surface and spins slightly to a stop.
-- Panel ${startScene+3}: Upon stopping, the capsule pod immediately begins to hum, glowing with bright custom LED lines (matching the aesthetic of ${finalPromptText}) as thin seams and joints start opening.
-- Panel ${startScene+4}: The structure rapidly transforms, building the chassis, body panels, and exact shape of ${finalPromptText} with satisfying, swift mechanical movements.
-- Panel ${startScene+5}: The fully transformed, highly detailed assembled version of ${finalPromptText} standing proudly on the white desk.
+${stepsText}
 Below each panel, there are small white text labels for 'TRANSFORMATION STAGE', 'SFX / AUDIO', and 'CAMERA ANGLE'. Cozy ASMR toy transformation style. ${faceClause}. --ar 3:4`;
   }
 

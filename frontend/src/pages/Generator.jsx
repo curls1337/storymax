@@ -451,67 +451,6 @@ export default function Generator({ setTab }) {
             )}
           </div>
 
-          {/* AI PROMPT ASSISTANT SECTION */}
-          <div className="bg-[#131211]/50 border border-[#2a2725]/60 hover:border-[#cfae80]/20 rounded-xl p-3 space-y-2.5 transition-colors relative">
-            <div className="flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-[#cfae80]" />
-              <span className="text-[9px] font-bold uppercase tracking-widest text-[#cfae80]">AI Prompt Assistant</span>
-            </div>
-            
-            <div className="flex flex-col gap-2">
-              <input
-                type="text"
-                value={aiInput}
-                onChange={(e) => setAiInput(e.target.value)}
-                placeholder="Tulis ide kasar (misal: iklan parfum mewah)"
-                className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-xs text-white placeholder-slate-700 focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all"
-                disabled={aiLoading || generating}
-              />
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleGenerateAiPrompt()}
-                  className="flex-grow bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-1.5 rounded-lg transition-all text-[8.5px] uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer"
-                  disabled={aiLoading || generating || !aiInput.trim()}
-                >
-                  {aiLoading && aiInput.trim() !== '' ? <Loader className="animate-spin w-3 h-3" /> : <Sparkles className="w-3 h-3" />}
-                  Tulis AI
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleGenerateAiPrompt('minta_ide_acak')}
-                  className="flex-grow bg-[#1a1918] hover:bg-[#2a2725] text-[#cfae80] border border-[#cfae80]/20 font-bold py-1.5 rounded-lg transition-all text-[8.5px] uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer"
-                  disabled={aiLoading || generating}
-                >
-                  {aiLoading && aiInput.trim() === '' ? <Loader className="animate-spin w-3 h-3" /> : null}
-                  Minta Ide
-                </button>
-              </div>
-            </div>
-            
-            {aiError && (
-              <p className="text-[9px] text-red-400 mt-1 font-medium">{aiError}</p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Judul Proyek</label>
-            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3.5 py-2.5 text-white placeholder-slate-700 focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs" placeholder="Contoh: Iklan Mainan Anak Lego" required disabled={generating} />
-          </div>
-
-          <div>
-            <div className="flex justify-between items-center mb-1">
-              <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest">Deskripsi Video / Ide Utama</label>
-              <span className={`text-[9px] font-mono transition-colors duration-200 ${prompt.length > 1900 ? 'text-red-400 font-bold' : 'text-slate-500'}`}>
-                {prompt.length} / 2000
-              </span>
-            </div>
-            <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={3} className={`w-full bg-black/40 border rounded-xl px-3.5 py-2.5 text-white placeholder-slate-700 focus:outline-none focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs resize-none ${prompt.length > 1900 ? 'border-red-500 focus:border-red-500' : 'border-[#2a2725] focus:border-[#cfae80]'}`} placeholder="Jelaskan alur, aksi produk, atau ide utama cerita..." required disabled={generating} />
-            {prompt.length > 1900 && (
-              <p className="text-[9px] text-red-400 mt-1 font-medium">⚠️ Deskripsi terlalu panjang. Hapus beberapa karakter hingga di bawah 1900.</p>
-            )}
-          </div>
-
           <div className="relative" ref={dropdownRef}>
             <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Gaya Layout Storyboard</label>
             <button type="button" onClick={() => setDropdownOpen(!dropdownOpen)} className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-[#cfae80] transition-all text-xs text-left flex justify-between items-center" disabled={generating}>
@@ -581,6 +520,67 @@ export default function Generator({ setTab }) {
               <p className="text-[9px] text-[#cfae80] mt-2 font-medium flex items-center gap-1 animate-fadeIn">
                 <span>✨</span> Ide mengikuti gaya layout: <strong className="underline">{aiMatchedLayout}</strong>
               </p>
+            )}
+          </div>
+
+          {/* AI PROMPT ASSISTANT SECTION */}
+          <div className="bg-[#131211]/50 border border-[#2a2725]/60 hover:border-[#cfae80]/20 rounded-xl p-3 space-y-2.5 transition-colors relative">
+            <div className="flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-[#cfae80]" />
+              <span className="text-[9px] font-bold uppercase tracking-widest text-[#cfae80]">AI Prompt Assistant</span>
+            </div>
+            
+            <div className="flex flex-col gap-2">
+              <input
+                type="text"
+                value={aiInput}
+                onChange={(e) => setAiInput(e.target.value)}
+                placeholder="Tulis ide kasar (misal: iklan parfum mewah)"
+                className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-xs text-white placeholder-slate-700 focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all"
+                disabled={aiLoading || generating}
+              />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleGenerateAiPrompt()}
+                  className="flex-grow bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-1.5 rounded-lg transition-all text-[8.5px] uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer"
+                  disabled={aiLoading || generating || !aiInput.trim()}
+                >
+                  {aiLoading && aiInput.trim() !== '' ? <Loader className="animate-spin w-3 h-3" /> : <Sparkles className="w-3 h-3" />}
+                  Tulis AI
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleGenerateAiPrompt('minta_ide_acak')}
+                  className="flex-grow bg-[#1a1918] hover:bg-[#2a2725] text-[#cfae80] border border-[#cfae80]/20 font-bold py-1.5 rounded-lg transition-all text-[8.5px] uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer"
+                  disabled={aiLoading || generating}
+                >
+                  {aiLoading && aiInput.trim() === '' ? <Loader className="animate-spin w-3 h-3" /> : null}
+                  Minta Ide
+                </button>
+              </div>
+            </div>
+            
+            {aiError && (
+              <p className="text-[9px] text-red-400 mt-1 font-medium">{aiError}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Judul Proyek</label>
+            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3.5 py-2.5 text-white placeholder-slate-700 focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs" placeholder="Contoh: Iklan Mainan Anak Lego" required disabled={generating} />
+          </div>
+
+          <div>
+            <div className="flex justify-between items-center mb-1">
+              <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest">Deskripsi Video / Ide Utama</label>
+              <span className={`text-[9px] font-mono transition-colors duration-200 ${prompt.length > 1900 ? 'text-red-400 font-bold' : 'text-slate-500'}`}>
+                {prompt.length} / 2000
+              </span>
+            </div>
+            <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={3} className={`w-full bg-black/40 border rounded-xl px-3.5 py-2.5 text-white placeholder-slate-700 focus:outline-none focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs resize-none ${prompt.length > 1900 ? 'border-red-500 focus:border-red-500' : 'border-[#2a2725] focus:border-[#cfae80]'}`} placeholder="Jelaskan alur, aksi produk, atau ide utama cerita..." required disabled={generating} />
+            {prompt.length > 1900 && (
+              <p className="text-[9px] text-red-400 mt-1 font-medium">⚠️ Deskripsi terlalu panjang. Hapus beberapa karakter hingga di bawah 1900.</p>
             )}
           </div>
 
