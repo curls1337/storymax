@@ -350,8 +350,18 @@ async function generateVideoPromptsInternal({ storyboardId, promptType, regenera
 
   let capsuleStyleClause = '';
   if (storyboard.style === 'capsule_transform' || storyboard.style === 'capsule_toss_transform') {
-    capsuleStyleClause = `\nCRITICAL REQUIREMENT - LOCKED STATIC CAMERA: Because the storyboard layout style is "${storyboard.style}", you MUST explicitly instruct the video AI model that the camera is completely static and stationary, locked on a stable tripod. Absolutely no camera movement, no pans, no zoom, and no rotations. The camera remains 100% still.
-CRITICAL REQUIREMENT - PHYSICAL TOY TRANSFORMATION: Only the central capsule pod undergoes a physical mechanical transformation (unfolding plates, gears, and hinges expanding outwards to assemble into the target object). The white tabletop and background must remain completely still, solid, and unaffected. The final product must look like a high-fidelity physical model toy.`;
+    const promptLower = ((storyboard.prompt || '') + ' ' + (storyboard.title || '')).toLowerCase();
+    let containerShape = "a high-tech metallic capsule toy pod";
+    if (/\b(motor|bike|motorcycle|beat|vespa|xmax|nmax|scoopy|aerox|ninja|harley|ducati)\b/i.test(promptLower)) {
+      containerShape = "a compact, sleek high-tech metallic container block (rectangular-shaped with rounded corners)";
+    } else if (/\b(gedung|rumah|building|house|villa|office|apartment|hotel|arsitektur|architecture|room)\b/i.test(promptLower)) {
+      containerShape = "a solid geometric metallic cube pod";
+    } else if (/\b(mobil|car|sedan|suv|civic|bmw|porsche|tesla|toyota|honda|ferrari|lamborghini)\b/i.test(promptLower)) {
+      containerShape = "an aerodynamic, low-profile rectangular metallic capsule box";
+    }
+
+    capsuleStyleClause = `\nCRITICAL REQUIREMENT - LOCKED STATIC CAMERA: Because the storyboard layout style is "${storyboard.style}", you MUST explicitly instruct the video AI model that the camera is completely static and stationary, locked on a stable tripod. Absolutely no camera movement, no pans, no zoom, and no rotations. The camera remains 100% still, capturing from a three-quarter perspective angle to show the object's 3D depth and shadows.
+CRITICAL REQUIREMENT - PHYSICAL TOY TRANSFORMATION: Only the central container (which starts as ${containerShape}) undergoes a physical mechanical transformation (unfolding plates, gears, and hinges expanding outwards to assemble into the target object). The white tabletop and background must remain completely still, solid, and unaffected. Soft 3D ambient occlusion shadows are cast beneath the object onto the table surface. The final product must look like a high-fidelity physical model toy.`;
   }
 
   let systemInstruction = '';

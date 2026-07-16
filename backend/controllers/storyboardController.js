@@ -44,38 +44,78 @@ function formatTime(sec) {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
+function getInitialContainerDescription(finalPromptText) {
+  const promptLower = (finalPromptText || '').toLowerCase();
+  
+  // 1. Motor / Sepeda (Motorcycle, Motor, Bike, Beat, Vespa, Xmax, Nmax, dll)
+  if (/\b(motor|bike|motorcycle|beat|vespa|xmax|nmax|scoopy|aerox|ninja|harley|ducati)\b/i.test(promptLower)) {
+    return {
+      shapeEn: "a compact, sleek high-tech metallic container block (rectangular-shaped with rounded corners)",
+      shapeId: "kotak balok ramping dengan sudut melengkung",
+      unfoldingActionEn: "the rectangular container block starts opening its plates"
+    };
+  }
+  
+  // 2. Gedung / Rumah / Villa / Arsitektur (Gedung, Rumah, Building, House, Villa, Office, Room, dll)
+  if (/\b(gedung|rumah|building|house|villa|office|apartment|hotel|arsitektur|architecture|room)\b/i.test(promptLower)) {
+    return {
+      shapeEn: "a solid geometric metallic cube pod",
+      shapeId: "kotak kubus geometris kokoh",
+      unfoldingActionEn: "the geometric cube starts unfolding its structural plates"
+    };
+  }
+  
+  // 3. Mobil / Sedan / SUV (Mobil, Car, Sedan, SUV, Civic, BMW, Porsche, dll)
+  if (/\b(mobil|car|sedan|suv|civic|bmw|porsche|tesla|toyota|honda|ferrari|lamborghini)\b/i.test(promptLower)) {
+    return {
+      shapeEn: "an aerodynamic, low-profile rectangular metallic capsule box",
+      shapeId: "kotak kapsul ceper dengan sudut aerodinamis",
+      unfoldingActionEn: "the low-profile rectangular box starts unlocking its panels"
+    };
+  }
+  
+  // 4. Robot / Mecha / Gadget / Lainnya
+  return {
+    shapeEn: "a high-tech metallic capsule toy pod",
+    shapeId: "kapsul mainan metalik silinder",
+    unfoldingActionEn: "the capsule pod starts opening its seams"
+  };
+}
+
 function getTransformationSteps(gridCount, startScene, finalPromptText, style) {
   const isToss = style === 'capsule_toss_transform';
   const steps = [];
 
-  const cameraClause = "The camera is completely static, locked on a stable tripod, with absolutely no camera movement, no pans, no zoom, and no rotation. The camera remains 100% stationary, observing the transformation from a fixed close-up angle.";
-  const backgroundClause = "The white tabletop and background remain completely solid, static, and unaffected. Only the capsule pod in the center undergoes the physical mechanical transformation.";
+  const container = getInitialContainerDescription(finalPromptText);
+
+  const cameraClause = "The camera is completely static and stationary, locked on a stable tripod, capturing the scene from a three-quarter perspective angle (3/4 view showing the top, front, and side of the object to create a strong 3D sense of depth). Medium shot distance, displaying the entire object and white tabletop surface clearly. No camera panning, no zoom, and no rotations.";
+  const backgroundClause = "The white tabletop and background remain completely solid, static, and unaffected. Only the central object undergoes physical mechanical transformation. Soft 3D ambient occlusion shadows are cast beneath the object onto the table surface.";
 
   if (gridCount <= 4) {
-    steps.push(`- Panel ${startScene}: Close-up of a hand holding a compact, sleek high-tech metallic capsule toy pod custom-designed with colors and aesthetics of ${finalPromptText}.`);
-    steps.push(`- Panel ${startScene+1}: A thumb presses the activation button on the capsule pod in the hand ${isToss ? 'and tosses it gently onto a white desk' : 'and places it on a white desk'}.`);
-    steps.push(`- Panel ${startScene+2}: The capsule pod lands on the desk, slides to a stop, and immediately begins to glow and mechanically unfold. ${cameraClause} ${backgroundClause}`);
-    steps.push(`- Panel ${startScene+3}: The structure completes its rapid transformation, assembling into a highly detailed miniature model version of ${finalPromptText} resting on the desk. ${cameraClause} ${backgroundClause}`);
+    steps.push(`- Panel ${startScene}: Close-up of a hand holding ${container.shapeEn} custom-designed with colors and branding elements of ${finalPromptText}.`);
+    steps.push(`- Panel ${startScene+1}: A thumb presses the activation button on the container in the hand ${isToss ? 'and tosses it gently onto a white desk' : 'and places it on a white desk'}.`);
+    steps.push(`- Panel ${startScene+2}: The container lands on the desk, slides to a stop, and immediately begins to glow and mechanically unfold. ${cameraClause} ${backgroundClause}`);
+    steps.push(`- Panel ${startScene+3}: The structure completes its rapid transformation, assembling into a highly detailed miniature 3D model version of ${finalPromptText} resting on the desk. ${cameraClause} ${backgroundClause}`);
   } else if (gridCount <= 6) {
-    steps.push(`- Panel ${startScene}: Close-up of a hand holding a compact, sleek high-tech metallic capsule toy pod custom-designed with colors and aesthetics of ${finalPromptText}.`);
-    steps.push(`- Panel ${startScene+1}: A thumb presses a small glowing brass activation button on the side of the capsule pod.`);
-    steps.push(`- Panel ${startScene+2}: The capsule pod is ${isToss ? 'gently tossed onto a white desk, sliding smoothly and spinning to a stop' : 'placed calmly on a white desk'}. ${cameraClause} ${backgroundClause}`);
-    steps.push(`- Panel ${startScene+3}: The capsule pod begins to hum, glowing with custom LED lines (matching the aesthetic of ${finalPromptText}) as thin seams and joints start opening. ${cameraClause} ${backgroundClause}`);
-    steps.push(`- Panel ${startScene+4}: The capsule pod mechanically unfolds, gears, hinges, and micro-parts expanding outwards on the desk surface. ${cameraClause} ${backgroundClause}`);
-    steps.push(`- Panel ${startScene+5}: The fully transformed, highly detailed assembled miniature model of ${finalPromptText} standing proudly on the white desk. ${cameraClause} ${backgroundClause}`);
+    steps.push(`- Panel ${startScene}: Close-up of a hand holding ${container.shapeEn} custom-designed with colors and branding elements of ${finalPromptText}.`);
+    steps.push(`- Panel ${startScene+1}: A thumb presses a small glowing brass activation button on the side of the container.`);
+    steps.push(`- Panel ${startScene+2}: The container is ${isToss ? 'gently tossed onto a white desk, sliding smoothly and spinning to a stop' : 'placed calmly on a white desk'}. ${cameraClause} ${backgroundClause}`);
+    steps.push(`- Panel ${startScene+3}: The container begins to hum, glowing with custom LED lines as thin seams and joints start opening. ${cameraClause} ${backgroundClause}`);
+    steps.push(`- Panel ${startScene+4}: ${container.unfoldingActionEn}, gears, hinges, and micro-parts expanding outwards on the desk surface. ${cameraClause} ${backgroundClause}`);
+    steps.push(`- Panel ${startScene+5}: The fully transformed, highly detailed assembled miniature 3D model of ${finalPromptText} standing proudly on the white desk. ${cameraClause} ${backgroundClause}`);
   } else {
-    steps.push(`- Panel ${startScene}: Close-up of a hand holding a compact, sleek high-tech metallic capsule toy pod custom-designed with colors and aesthetics of ${finalPromptText}.`);
-    steps.push(`- Panel ${startScene+1}: A close-up of a thumb pressing a small glowing brass activation button on the side of the capsule pod.`);
-    steps.push(`- Panel ${startScene+2}: The hand ${isToss ? 'gently tosses the capsule pod onto a white desk' : 'places the capsule pod on a white desk'}.`);
-    steps.push(`- Panel ${startScene+3}: The capsule pod ${isToss ? 'slides smoothly across the desk surface and spins to a stop' : 'rests on the desk and begins to hum'}. ${cameraClause} ${backgroundClause}`);
-    steps.push(`- Panel ${startScene+4}: The capsule pod starts glowing with bright custom LED lines along its seams. ${cameraClause} ${backgroundClause}`);
+    steps.push(`- Panel ${startScene}: Close-up of a hand holding ${container.shapeEn} custom-designed with colors and branding elements of ${finalPromptText}.`);
+    steps.push(`- Panel ${startScene+1}: A close-up of a thumb pressing a small glowing brass activation button on the side of the container.`);
+    steps.push(`- Panel ${startScene+2}: The hand ${isToss ? 'gently tosses the container onto a white desk' : 'places the container on a white desk'}.`);
+    steps.push(`- Panel ${startScene+3}: The container ${isToss ? 'slides smoothly across the desk surface and spins to a stop' : 'rests on the desk and begins to hum'}. ${cameraClause} ${backgroundClause}`);
+    steps.push(`- Panel ${startScene+4}: The container starts glowing with bright custom LED lines along its seams. ${cameraClause} ${backgroundClause}`);
     steps.push(`- Panel ${startScene+5}: Casing panels and thin joints begin to unlock and shift open. ${cameraClause} ${backgroundClause}`);
     steps.push(`- Panel ${startScene+6}: Internal gears, hinges, and micro-parts mechanically unfold and expand outwards. ${cameraClause} ${backgroundClause}`);
     
     for (let i = 7; i < gridCount - 1; i++) {
       steps.push(`- Panel ${startScene+i}: The structure rapidly transforms, building the chassis and body panels of ${finalPromptText} with satisfying mechanical movements. ${cameraClause} ${backgroundClause}`);
     }
-    steps.push(`- Panel ${startScene+gridCount-1}: The fully transformed, highly detailed assembled miniature model of ${finalPromptText} standing proudly on the white desk. ${cameraClause} ${backgroundClause}`);
+    steps.push(`- Panel ${startScene+gridCount-1}: The fully transformed, highly detailed assembled miniature 3D model of ${finalPromptText} standing proudly on the white desk. ${cameraClause} ${backgroundClause}`);
   }
   return steps.join('\n');
 }
