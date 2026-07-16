@@ -479,9 +479,10 @@ export default function Dashboard({ setTab }) {
   const downloadFileNative = async (url, filename, elementId) => {
     if (elementId) setDownloadingId(elementId);
     const isCapacitor = window.Capacitor !== undefined;
+    const platform = isCapacitor ? window.Capacitor.getPlatform() : 'web';
     const downloadUrl = getDownloadUrl(url);
     
-    if (!isCapacitor) {
+    if (!isCapacitor || platform === 'web') {
       try {
         const link = document.createElement('a');
         link.href = downloadUrl;
@@ -497,8 +498,25 @@ export default function Dashboard({ setTab }) {
       return;
     }
 
+    // iOS Platform: Share the public HTTP URL directly.
+    // iOS native UIActivityViewController will fetch and offer "Save Image" / "Save Video"
+    if (platform === 'ios') {
+      try {
+        await Share.share({
+          url: downloadUrl
+        });
+      } catch (err) {
+        console.error("iOS share error:", err);
+        alert(`Gagal menyimpan file secara native. Membuka di browser...`);
+        window.open(downloadUrl, '_blank');
+      } finally {
+        if (elementId) setDownloadingId(null);
+      }
+      return;
+    }
+
+    // Android Platform: Download to native cache, write file, and share local URI
     try {
-      // Use CapacitorHttp to download file natively (bypasses WKWebView CORS and fetch limitations)
       const response = await CapacitorHttp.get({
         url: downloadUrl,
         responseType: 'base64'
@@ -513,7 +531,7 @@ export default function Dashboard({ setTab }) {
         throw new Error('No data received from download proxy');
       }
 
-      // Write to app internal cache folder (requires ZERO permissions on iOS and Android!)
+      // Write to app internal cache folder (zero permissions required)
       const writeResult = await Filesystem.writeFile({
         path: filename,
         data: base64Data,
@@ -522,14 +540,14 @@ export default function Dashboard({ setTab }) {
 
       const fileUri = writeResult.uri;
 
-      // Launch native sharing sheet using the cached file URI (enables "Save Image" / "Save Video" directly to Photos/Gallery)
+      // Share cached file URI on Android
       await Share.share({
         title: filename,
         url: fileUri
       });
 
     } catch (err) {
-      console.error("Native save/share error:", err);
+      console.error("Android native save/share error:", err);
       alert(`Gagal menyimpan file secara native. Membuka di browser...`);
       window.open(downloadUrl, '_blank');
     } finally {
