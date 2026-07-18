@@ -3,28 +3,7 @@ import api from '../utils/api';
 import { Sparkles, Loader, Download, ExternalLink, AlertTriangle, Terminal, X, ChevronRight, Upload, Image as ImageIcon, Zap, Sliders, Eye } from 'lucide-react';
 
 const LAYOUT_STYLES = [
-  { value: 'cinematic_production', label: '1. Professional Film Production Storyboard', desc: 'Gelap/Cinematic' },
-  { value: 'chalkboard_polaroid', label: '2. Chalkboard Polaroid Recipe Board', desc: 'Kapur/Makanan' },
-  { value: 'fashion_moodboard', label: '3A. Minimalist Fashion Moodboard', desc: 'Minimalis/Pakaian' },
-  { value: 'vintage_fashion', label: '3B. Vintage Fashion Scrapbook & Sketch', desc: 'Retro/Pakaian' },
-  { value: 'influencer_journal', label: '4A. Social Creator Vlog Journal', desc: 'Ceria/Talent UGC' },
-  { value: 'tech_vlog', label: '4B. Tech Vlog Viewfinder (Camera HUD)', desc: 'Gelap/Reviewer Gadget' },
-  { value: 'unboxing_kraft', label: '5A. Unboxing Kraft Parcel Sheet', desc: 'Kardus Cokelat/Unboxing' },
-  { value: 'gift_unboxing', label: '5B. Premium Gift Unboxing Jurnal', desc: 'Minimalis Marmer/Unboxing' },
-  { value: 'pov_unboxing', label: '5C. POV Hands-On First Impression', desc: 'POV/Taktil Unboxing' },
-  { value: 'blueprint_miniature', label: '6A. Architect\'s Drafting Blueprint', desc: 'Biru Tua/Miniatur' },
-  { value: 'workbench_miniature', label: '6B. Vintage Mechanical Workbench', desc: 'Kayu Gelap/Miniatur' },
-  { value: 'building_timelapse', label: '7A. Construction Progress Timeline Chart', desc: 'Kuning Gading/Timelapse' },
-  { value: 'solar_transit', label: '7B. Solar Transit Hyperlapse (Day & Night)', desc: 'Abu Arang/Timelapse' },
-  { value: 'shadow_play_timelapse', label: '8A. Shadow-Play Gallery Board (Leaf Shadows)', desc: 'Semen/Timelapse Umum' },
-  { value: 'hanging_photo_timelapse', label: '8B. Hanging Photo Wire (Darkroom Style)', desc: 'Bata Putih/Timelapse Umum' },
-  { value: 'cyberpunk_schematic', label: '9. Cyberpunk Tech Schematic (Neon HUD)', desc: 'Cyberpunk/Futuristik' },
-  { value: 'retro_comic', label: '10. Retro Comic Book Pop-Art (Pop-Up Bubble)', desc: 'Pop-Art/Komikal' },
-  { value: 'mystical_grimoire', label: '11. Mystical Apothecary Grimoire (Quill-Ink)', desc: 'Vintage/Ramuan Sihir' },
-  { value: 'concrete_gallery', label: '12. Minimalist Concrete Gallery (3D Shadows)', desc: 'Semen/Mewah' },
-  { value: 'watercolor_sketchbook', label: '13. Watercolor Artist\'s Sketchbook (Watercolor Splash)', desc: 'Artistik/Cat Air' },
-  { value: 'capsule_transform', label: '14. ASMR Mechanical Capsule Transformation', desc: 'Mainan Lipat/Transformasi Robot (Viral)' },
-  { value: 'capsule_toss_transform', label: '15. ASMR Tactile Capsule Toss & Transformation', desc: 'Dilempar Lembut/Membuka di Meja (Viral)' }
+  { value: 'premium_vertical_row', label: 'Premium Vertical Row Storyboard', desc: 'Gaya tata letak vertikal baris bertumpuk premium dengan aksen kuning dan kolom info di kiri.' }
 ];
 
 
@@ -56,9 +35,10 @@ const ENGINE_DURATIONS = {
 };
 
 export default function Generator({ setTab }) {
+  const [mode, setMode] = useState('tokopedia');
   const [title, setTitle] = useState('');
   const [prompt, setPrompt] = useState('');
-  const [style, setStyle] = useState('cinematic_production');
+  const [style, setStyle] = useState('premium_vertical_row');
   const [apiKeyId, setApiKeyId] = useState('auto');
   const [apiKeys, setApiKeys] = useState([]);
   const [gridCount, setGridCount] = useState(6);
@@ -295,7 +275,15 @@ export default function Generator({ setTab }) {
     setAiError('');
     setAiMatchedLayout(null);
     try {
-      const res = await api.post('/ai/write-prompt', { concept: targetConcept, style });
+      const res = await api.post('/ai/write-prompt', { 
+        concept: targetConcept, 
+        style,
+        videoEngine,
+        gridCount,
+        duration,
+        hasRefImage: selectedRefImages.length > 0,
+        refImage: selectedRefImages.length > 0 ? (selectedRefImages[0].type === 'base64' ? selectedRefImages[0].value : selectedRefImages[0].value) : null
+      });
       const { title: aiTitle, description: aiDesc, layout: aiLayout } = res.data;
       setTitle(aiTitle || '');
       setPrompt(aiDesc || '');
@@ -339,8 +327,9 @@ export default function Generator({ setTab }) {
     });
 
     try {
+      const finalTitle = mode === 'manual' ? (prompt.substring(0, 30).trim() || 'Manual Project') + '...' : title;
       const res = await api.post('/storyboards/generate', { 
-        title, 
+        title: finalTitle, 
         prompt, 
         style, 
         apiKeyId, 
@@ -399,6 +388,64 @@ export default function Generator({ setTab }) {
     return getFullImageUrl(`uploads/previews/${styleName}.png`);
   };
 
+  const renderRefImagesSection = () => (
+    <div className="bg-[#131211]/50 border border-[#2a2725] rounded-xl p-3 space-y-2.5">
+      <div className="flex justify-between items-center">
+        <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest">Referensi Gambar ({selectedRefImages.length})</label>
+        <button 
+          type="button" 
+          onClick={() => fileInputRef.current?.click()} 
+          className="text-[9px] font-bold text-[#cfae80] hover:underline uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+          disabled={generating}
+        >
+          <Upload className="w-3 h-3" /> Unggah File
+        </button>
+        <input 
+          type="file" 
+          ref={fileInputRef} 
+          onChange={handleFileChange} 
+          className="hidden" 
+          multiple 
+          accept="image/*" 
+        />
+      </div>
+
+      {selectedRefImages.length > 0 ? (
+        <div className="grid grid-cols-4 gap-2 pt-1">
+          {selectedRefImages.map((img) => (
+            <div key={img.id} className="relative aspect-square rounded-lg overflow-hidden border border-[#2a2725] group bg-black/40">
+              <img src={img.preview} alt="Preview" className="w-full h-full object-cover" />
+              <button 
+                type="button" 
+                onClick={() => removeSelectedImage(img.id)} 
+                className="absolute top-1 right-1 p-1 bg-black/85 text-red-400 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500 hover:text-white cursor-pointer"
+                disabled={generating}
+              >
+                <X className="w-2.5 h-2.5" />
+              </button>
+              {img.type === 'url' && (
+                <span className="absolute bottom-1 left-1 px-1 py-0.5 bg-black/80 text-[7px] text-[#cfae80] rounded font-bold uppercase">
+                  Tokopedia
+                </span>
+              )}
+              {img.type === 'base64' && (
+                <span className="absolute bottom-1 left-1 px-1 py-0.5 bg-black/80 text-[7px] text-sky-400 rounded font-bold uppercase">
+                  Lokal
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-[9px] text-slate-500 text-center py-2 border border-dashed border-[#2a2725] rounded-lg">
+          {mode === 'tokopedia' 
+            ? 'Tidak ada referensi gambar terpilih. Klik gambar Tokopedia di atas atau unggah gambar lokal.' 
+            : 'Tidak ada referensi gambar terpilih. Unggah gambar produk Anda di atas.'}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className="p-3 sm:p-6 md:p-8 space-y-4 sm:space-y-6 md:space-y-8 animate-fadeIn relative">
       <div className="hidden sm:flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[#1a1918]/60 border border-[#2a2725] p-3.5 sm:p-6 rounded-2xl md:rounded-3xl backdrop-blur-md">
@@ -419,39 +466,67 @@ export default function Generator({ setTab }) {
             <h3 className="text-[9px] font-bold text-white uppercase tracking-widest">Parameter Kreatif</h3>
           </div>
 
-          <div className="bg-[#131211]/50 border border-[#2a2725] rounded-xl p-3 space-y-2.5">
-            <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest">Auto-Fill via Link Tokopedia (Opsional)</label>
-            <div className="flex gap-2">
-              <input type="text" value={tokopediaUrl} onChange={(e) => setTokopediaUrl(e.target.value)} className="flex-grow bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-xs text-white placeholder-slate-700 focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all" placeholder="Masukkan URL produk Tokopedia..." disabled={scraping || generating} />
-              <button type="button" onClick={handleScrape} disabled={scraping || generating || !tokopediaUrl} className="bg-[#cfae80]/10 border border-[#cfae80]/20 hover:bg-[#cfae80] hover:text-black text-[#cfae80] font-bold text-[9px] px-3 py-1.5 rounded-lg transition-all disabled:opacity-50 flex items-center justify-center shrink-0">{scraping ? <Loader className="animate-spin w-3.5 h-3.5" /> : 'Isi Form'}</button>
-            </div>
-            {scrapedImages.length > 0 && (
-              <div className="space-y-2 pt-2 border-t border-[#2a2725]">
-                <span className="text-[8.5px] text-slate-400 font-bold uppercase tracking-wider block">Pilih Gambar Produk:</span>
-                <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
-                  {scrapedImages.map((imgUrl, idx) => {
-                    const isSelected = selectedRefImages.some(item => item.value === imgUrl);
-                    const selectedIndex = selectedRefImages.findIndex(item => item.value === imgUrl) + 1;
-                    return (
-                      <button 
-                        key={idx} 
-                        type="button" 
-                        onClick={() => toggleTokopediaImage(imgUrl)} 
-                        className={`relative shrink-0 w-10 h-10 rounded-lg overflow-hidden border transition-all ${isSelected ? 'border-[#cfae80] ring-1 ring-[#cfae80]/30' : 'border-[#2a2725] hover:border-slate-650'}`}
-                      >
-                        <img src={imgUrl} alt={`Scraped ${idx}`} className="w-full h-full object-cover" />
-                        {isSelected && (
-                          <div className="absolute top-0.5 right-0.5 bg-[#cfae80] text-black text-[8px] font-extrabold w-3.5 h-3.5 rounded-full flex items-center justify-center shadow-md">
-                            {selectedIndex}
-                          </div>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+          {/* Mode Selector Buttons */}
+          <div className="flex bg-black/40 border border-[#2a2725] rounded-xl p-1 gap-1">
+            <button
+              type="button"
+              onClick={() => setMode('tokopedia')}
+              className={`flex-1 text-[9.5px] font-bold uppercase tracking-widest py-2 rounded-lg transition-all ${
+                mode === 'tokopedia'
+                  ? 'bg-[#cfae80] text-black shadow-md'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              Tokopedia
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('manual')}
+              className={`flex-1 text-[9.5px] font-bold uppercase tracking-widest py-2 rounded-lg transition-all ${
+                mode === 'manual'
+                  ? 'bg-[#cfae80] text-black shadow-md'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              Manual
+            </button>
           </div>
+
+          {mode === 'tokopedia' && (
+            <div className="bg-[#131211]/50 border border-[#2a2725] rounded-xl p-3 space-y-2.5">
+              <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest">Auto-Fill via Link Tokopedia (Opsional)</label>
+              <div className="flex gap-2">
+                <input type="text" value={tokopediaUrl} onChange={(e) => setTokopediaUrl(e.target.value)} className="flex-grow bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-xs text-white placeholder-slate-700 focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all" placeholder="Masukkan URL produk Tokopedia..." disabled={scraping || generating} />
+                <button type="button" onClick={handleScrape} disabled={scraping || generating || !tokopediaUrl} className="bg-[#cfae80]/10 border border-[#cfae80]/20 hover:bg-[#cfae80] hover:text-black text-[#cfae80] font-bold text-[9px] px-3 py-1.5 rounded-lg transition-all disabled:opacity-50 flex items-center justify-center shrink-0">{scraping ? <Loader className="animate-spin w-3.5 h-3.5" /> : 'Isi Form'}</button>
+              </div>
+              {scrapedImages.length > 0 && (
+                <div className="space-y-2 pt-2 border-t border-[#2a2725]">
+                  <span className="text-[8.5px] text-slate-400 font-bold uppercase tracking-wider block">Pilih Gambar Produk:</span>
+                  <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+                    {scrapedImages.map((imgUrl, idx) => {
+                      const isSelected = selectedRefImages.some(item => item.value === imgUrl);
+                      const selectedIndex = selectedRefImages.findIndex(item => item.value === imgUrl) + 1;
+                      return (
+                        <button 
+                          key={idx} 
+                          type="button" 
+                          onClick={() => toggleTokopediaImage(imgUrl)} 
+                          className={`relative shrink-0 w-10 h-10 rounded-lg overflow-hidden border transition-all ${isSelected ? 'border-[#cfae80] ring-1 ring-[#cfae80]/30' : 'border-[#2a2725] hover:border-slate-650'}`}
+                        >
+                          <img src={imgUrl} alt={`Scraped ${idx}`} className="w-full h-full object-cover" />
+                          {isSelected && (
+                            <div className="absolute top-0.5 right-0.5 bg-[#cfae80] text-black text-[8px] font-extrabold w-3.5 h-3.5 rounded-full flex items-center justify-center shadow-md">
+                              {selectedIndex}
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="relative" ref={dropdownRef}>
             <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Gaya Layout Storyboard</label>
@@ -544,67 +619,10 @@ export default function Generator({ setTab }) {
             )}
           </div>
 
-          {/* AI PROMPT ASSISTANT SECTION */}
-          <div className="bg-[#131211]/50 border border-[#2a2725]/60 hover:border-[#cfae80]/20 rounded-xl p-3 space-y-2.5 transition-colors relative">
-            <div className="flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-[#cfae80]" />
-              <span className="text-[9px] font-bold uppercase tracking-widest text-[#cfae80]">AI Prompt Assistant</span>
-            </div>
-            
-            <div className="flex flex-col gap-2">
-              <input
-                type="text"
-                value={aiInput}
-                onChange={(e) => setAiInput(e.target.value)}
-                placeholder="Tulis ide kasar (misal: iklan parfum mewah)"
-                className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-xs text-white placeholder-slate-700 focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all"
-                disabled={aiLoading || generating}
-              />
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleGenerateAiPrompt()}
-                  className="flex-grow bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-1.5 rounded-lg transition-all text-[8.5px] uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer"
-                  disabled={aiLoading || generating || !aiInput.trim()}
-                >
-                  {aiLoading && aiInput.trim() !== '' ? <Loader className="animate-spin w-3 h-3" /> : <Sparkles className="w-3 h-3" />}
-                  Tulis AI
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleGenerateAiPrompt('minta_ide_acak')}
-                  className="flex-grow bg-[#1a1918] hover:bg-[#2a2725] text-[#cfae80] border border-[#cfae80]/20 font-bold py-1.5 rounded-lg transition-all text-[8.5px] uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer"
-                  disabled={aiLoading || generating}
-                >
-                  {aiLoading && aiInput.trim() === '' ? <Loader className="animate-spin w-3 h-3" /> : null}
-                  Minta Ide
-                </button>
-              </div>
-            </div>
-            
-            {aiError && (
-              <p className="text-[9px] text-red-400 mt-1 font-medium">{aiError}</p>
-            )}
-          </div>
+          {/* Manual Mode only: Referensi Gambar (Moved below layout style) */}
+          {mode === 'manual' && renderRefImagesSection()}
 
-          <div>
-            <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Judul Proyek</label>
-            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3.5 py-2.5 text-white placeholder-slate-700 focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs" placeholder="Contoh: Iklan Mainan Anak Lego" required disabled={generating} />
-          </div>
-
-          <div>
-            <div className="flex justify-between items-center mb-1">
-              <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest">Deskripsi Video / Ide Utama</label>
-              <span className={`text-[9px] font-mono transition-colors duration-200 ${prompt.length > 1900 ? 'text-red-400 font-bold' : 'text-slate-500'}`}>
-                {prompt.length} / 2000
-              </span>
-            </div>
-            <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={3} className={`w-full bg-black/40 border rounded-xl px-3.5 py-2.5 text-white placeholder-slate-700 focus:outline-none focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs resize-none ${prompt.length > 1900 ? 'border-red-500 focus:border-red-500' : 'border-[#2a2725] focus:border-[#cfae80]'}`} placeholder="Jelaskan alur, aksi produk, atau ide utama cerita..." required disabled={generating} />
-            {prompt.length > 1900 && (
-              <p className="text-[9px] text-red-400 mt-1 font-medium">⚠️ Deskripsi terlalu panjang. Hapus beberapa karakter hingga di bawah 1900.</p>
-            )}
-          </div>
-
+          {/* Engine Video */}
           <div>
             <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Engine Video</label>
             <select value={videoEngine} onChange={(e) => handleEngineChange(e.target.value)} className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs" disabled={generating}>
@@ -614,6 +632,7 @@ export default function Generator({ setTab }) {
             </select>
           </div>
 
+          {/* Jumlah Panel and Durasi Video */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Jumlah Panel</label>
@@ -635,6 +654,7 @@ export default function Generator({ setTab }) {
             </div>
           </div>
 
+          {/* Model Generator AI */}
           <div>
             <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Model Generator AI</label>
             <select value={model} onChange={(e) => setModel(e.target.value)} className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs" disabled={generating}>
@@ -646,6 +666,7 @@ export default function Generator({ setTab }) {
             </select>
           </div>
 
+          {/* Ukuran Gambar (Aspect Ratio) */}
           <div>
             <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Ukuran Gambar (Aspect Ratio)</label>
             <select value={aspectRatio} onChange={(e) => setAspectRatio(e.target.value)} className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs" disabled={generating}>
@@ -655,60 +676,109 @@ export default function Generator({ setTab }) {
             </select>
           </div>
 
-          {/* REFERENCE IMAGES SECTION */}
-          <div className="bg-[#131211]/50 border border-[#2a2725] rounded-xl p-3 space-y-2.5">
-            <div className="flex justify-between items-center">
-              <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest">Referensi Gambar ({selectedRefImages.length})</label>
-              <button 
-                type="button" 
-                onClick={() => fileInputRef.current?.click()} 
-                className="text-[9px] font-bold text-[#cfae80] hover:underline uppercase tracking-wider flex items-center gap-1 cursor-pointer"
-                disabled={generating}
-              >
-                <Upload className="w-3 h-3" /> Unggah File
-              </button>
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                onChange={handleFileChange} 
-                className="hidden" 
-                multiple 
-                accept="image/*" 
-              />
+          {/* Manual Mode only: AI Prompt Assistant (Moved below Aspect Ratio) */}
+          {mode === 'manual' && (
+            <div className="bg-[#131211]/50 border border-[#2a2725]/60 hover:border-[#cfae80]/20 rounded-xl p-3 space-y-2.5 transition-colors relative animate-fadeIn">
+              <div className="flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-[#cfae80]" />
+                <span className="text-[9px] font-bold uppercase tracking-widest text-[#cfae80]">AI Prompt Assistant</span>
+              </div>
+              
+              <div className="flex flex-col gap-2">
+                <input
+                  type="text"
+                  value={aiInput}
+                  onChange={(e) => setAiInput(e.target.value)}
+                  placeholder="Tulis ide kasar (misal: iklan parfum mewah)"
+                  className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-xs text-white placeholder-slate-700 focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all"
+                  disabled={aiLoading || generating}
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleGenerateAiPrompt()}
+                    className="flex-grow bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-1.5 rounded-lg transition-all text-[8.5px] uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer"
+                    disabled={aiLoading || generating || !aiInput.trim()}
+                  >
+                    {aiLoading && aiInput.trim() !== '' ? <Loader className="animate-spin w-3 h-3" /> : <Sparkles className="w-3 h-3" />}
+                    Tulis AI
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleGenerateAiPrompt('minta_ide_acak')}
+                    className="flex-grow bg-[#1a1918] hover:bg-[#2a2725] text-[#cfae80] border border-[#cfae80]/20 font-bold py-1.5 rounded-lg transition-all text-[8.5px] uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer"
+                    disabled={aiLoading || generating}
+                  >
+                    {aiLoading && aiInput.trim() === '' ? <Loader className="animate-spin w-3 h-3" /> : null}
+                    Minta Ide
+                  </button>
+                </div>
+              </div>
+              
+              {aiError && (
+                <p className="text-[9px] text-red-400 mt-1 font-medium">{aiError}</p>
+              )}
             </div>
+          )}
 
-            {selectedRefImages.length > 0 ? (
-              <div className="grid grid-cols-4 gap-2 pt-1">
-                {selectedRefImages.map((img) => (
-                  <div key={img.id} className="relative aspect-square rounded-lg overflow-hidden border border-[#2a2725] group bg-black/40">
-                    <img src={img.preview} alt="Preview" className="w-full h-full object-cover" />
-                    <button 
-                      type="button" 
-                      onClick={() => removeSelectedImage(img.id)} 
-                      className="absolute top-1 right-1 p-1 bg-black/85 text-red-400 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500 hover:text-white cursor-pointer"
-                      disabled={generating}
-                    >
-                      <X className="w-2.5 h-2.5" />
-                    </button>
-                    {img.type === 'url' && (
-                      <span className="absolute bottom-1 left-1 px-1 py-0.5 bg-black/80 text-[7px] text-[#cfae80] rounded font-bold uppercase">
-                        Tokopedia
-                      </span>
-                    )}
-                    {img.type === 'base64' && (
-                      <span className="absolute bottom-1 left-1 px-1 py-0.5 bg-black/80 text-[7px] text-sky-400 rounded font-bold uppercase">
-                        Lokal
-                      </span>
-                    )}
-                  </div>
-                ))}
+          {/* Manual Mode only: Prompt (Moved below AI Prompt Assistant) */}
+          {mode === 'manual' && (
+            <div>
+              <div className="flex justify-between items-center mb-1">
+                <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest">Prompt</label>
+                <span className={`text-[9px] font-mono transition-colors duration-200 ${prompt.length > 1500 ? 'text-red-400 font-bold' : 'text-slate-500'}`}>
+                  {prompt.length} / 1500
+                </span>
               </div>
-            ) : (
-              <div className="text-[9px] text-slate-500 text-center py-2 border border-dashed border-[#2a2725] rounded-lg">
-                Tidak ada referensi gambar terpilih. Klik gambar Tokopedia di atas atau unggah gambar lokal.
+              <textarea 
+                value={prompt} 
+                onChange={(e) => setPrompt(e.target.value)} 
+                rows={3} 
+                className={`w-full bg-black/40 border rounded-xl px-3.5 py-2.5 text-white placeholder-slate-700 focus:outline-none focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs resize-none ${prompt.length > 1500 ? 'border-red-500 focus:border-red-500' : 'border-[#2a2725] focus:border-[#cfae80]'}`} 
+                placeholder="Tulis prompt visual yang detail untuk storyboard Anda..."
+                required={mode === 'manual'}
+                disabled={generating} 
+              />
+              {prompt.length > 1500 && (
+                <p className="text-[9px] text-red-400 mt-1 font-medium">⚠️ Deskripsi terlalu panjang. Hapus beberapa karakter hingga di bawah 1500.</p>
+              )}
+            </div>
+          )}
+
+          {/* Tokopedia Mode only: Judul Proyek */}
+          {mode === 'tokopedia' && (
+            <div>
+              <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Judul Proyek</label>
+              <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3.5 py-2.5 text-white placeholder-slate-700 focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs" placeholder="Contoh: Iklan Mainan Anak Lego" required={mode === 'tokopedia'} disabled={generating} />
+            </div>
+          )}
+
+          {/* Tokopedia Mode only: Deskripsi Video / Ide Utama */}
+          {mode === 'tokopedia' && (
+            <div>
+              <div className="flex justify-between items-center mb-1">
+                <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest">Deskripsi Video / Ide Utama</label>
+                <span className={`text-[9px] font-mono transition-colors duration-200 ${prompt.length > 1500 ? 'text-red-400 font-bold' : 'text-slate-500'}`}>
+                  {prompt.length} / 1500
+                </span>
               </div>
-            )}
-          </div>
+              <textarea 
+                value={prompt} 
+                onChange={(e) => setPrompt(e.target.value)} 
+                rows={3} 
+                className={`w-full bg-black/40 border rounded-xl px-3.5 py-2.5 text-white placeholder-slate-700 focus:outline-none focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs resize-none ${prompt.length > 1500 ? 'border-red-500 focus:border-red-500' : 'border-[#2a2725] focus:border-[#cfae80]'}`} 
+                placeholder="Jelaskan alur, aksi produk, atau ide utama cerita..." 
+                required={mode === 'tokopedia'}
+                disabled={generating} 
+              />
+              {prompt.length > 1500 && (
+                <p className="text-[9px] text-red-400 mt-1 font-medium">⚠️ Deskripsi terlalu panjang. Hapus beberapa karakter hingga di bawah 1500.</p>
+              )}
+            </div>
+          )}
+
+          {/* Tokopedia Mode only: Referensi Gambar (At the bottom) */}
+          {mode === 'tokopedia' && renderRefImagesSection()}
 
           {apiKeys.length > 0 && (
             <div>
@@ -795,7 +865,7 @@ export default function Generator({ setTab }) {
             )}
           </div>
 
-          <button type="submit" disabled={generating || apiKeys.length === 0 || prompt.length > 1900} className="w-full bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-2.5 px-4 rounded-xl transition-all shadow-lg hover:shadow-[#cfae80]/10 disabled:opacity-50 flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-wider cursor-pointer">
+          <button type="submit" disabled={generating || apiKeys.length === 0 || prompt.length > 1500} className="w-full bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-2.5 px-4 rounded-xl transition-all shadow-lg hover:shadow-[#cfae80]/10 disabled:opacity-50 flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-wider cursor-pointer">
             {generating ? <><Loader className="animate-spin w-3.5 h-3.5" /> Memproses...</> : <><Sparkles className="w-3.5 h-3.5" /> Generate Storyboard AI</>}
           </button>
         </form>

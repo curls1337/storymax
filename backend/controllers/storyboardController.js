@@ -12,6 +12,17 @@ const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
 // In-memory active tasks logs storage
 const activeTasks = {};
 
+async function saveTaskState(db, storyboardId, taskState) {
+  try {
+    await db.run(
+      'UPDATE storyboards SET active_task_data = ? WHERE id = ?',
+      [JSON.stringify(taskState), storyboardId]
+    );
+  } catch (err) {
+    console.error('Failed to save task state to DB:', err);
+  }
+}
+
 async function checkAndDisableKeyIfOutofCredits(db, apiKeyId, errorText, taskObj) {
   if (!apiKeyId || !errorText) return;
   const lowerErr = errorText.toLowerCase();
@@ -137,8 +148,8 @@ function getTransformationSteps(gridCount, startScene, finalPromptText, style, s
 
 // Enhance prompt based on selected template, custom grid count, and start scene
 function getEnhancedPrompt(style, userPrompt, gridCount = 6, showFace = false, startScene = 1, totalDuration = 60, secondsPerPage = 15, hasRefImage = false, containerShape = 'auto') {
-  // Truncate userPrompt to 350 characters to prevent final prompt exceeding Freebeat's 2000 character limit
-  userPrompt = userPrompt && userPrompt.length > 350 ? userPrompt.substring(0, 350) + '...' : (userPrompt || '');
+  // Truncate userPrompt to 1000 characters to prevent final prompt exceeding Freebeat's 2000 character limit
+  userPrompt = userPrompt && userPrompt.length > 1000 ? userPrompt.substring(0, 1000) + '...' : (userPrompt || '');
   const endScene = startScene + gridCount - 1;
   const gridLayout = getGridLayoutDescription(gridCount, startScene);
   
@@ -146,6 +157,7 @@ function getEnhancedPrompt(style, userPrompt, gridCount = 6, showFace = false, s
   const startSec = pageIdx * secondsPerPage;
   const endSec = (pageIdx + 1) * secondsPerPage;
   const timeString = `${formatTime(startSec)} - ${formatTime(endSec)}`;
+  const pageNum = pageIdx + 1;
 
   let gridDesc = '';
   if (gridCount === 4) gridDesc = `2x2 grid of 4 panels showing scenes ${startScene} to ${endScene}`;
@@ -159,77 +171,19 @@ function getEnhancedPrompt(style, userPrompt, gridCount = 6, showFace = false, s
     ? "featuring natural human faces and character expressions, close-up lifestyle angles, high-end commercial style"
     : "no human faces, faceless, no portraits, focus only on hands, details and product";
 
-  const refClause = "The reference image shows the main subject/product. Throughout all the storyboard panels, accurately maintain the visual appearance, details, and branding of the subject/product from the reference image.";
+  let refClause = '';
+  if (pageIdx === 0) {
+    refClause = "The reference image shows the main subject/product. Throughout all the storyboard panels, accurately maintain the visual appearance, details, branding, and color of the subject/product from the reference image. If the product in the reference image is red, paint it red in the panels; do not paint the product yellow. The color yellow should ONLY be used for labels, numbers, borders, and UI text elements outside the panels.";
+  } else {
+    refClause = "The reference image is the previous page of this storyboard. You MUST maintain the exact same design layout, dark charcoal background theme, header typography, yellow square index columns, and visual style. Also, preserve the exact same subject/product (e.g. the specific car/character) and its original color (e.g., red if it is red in the previous page) shown in the widescreen panels of the reference image, but show the new scene descriptions in the panels of this page.";
+  }
   const finalPromptText = hasRefImage ? `${userPrompt}. (Note: ${refClause})` : userPrompt;
 
-  if (style === 'cinematic_production') {
-    return `A professional video storyboard presentation sheet. Vertical 3:4 aspect ratio, clean minimal dark-mode design with solid black background. Top header with title 'PRODUCTION STORYBOARD' in clean bold sans-serif font. Main grid: A neat ${gridDesc} with fine white borders. Each frame shows: ${finalPromptText}, rendered with cinematic lighting, high-contrast shadows, dramatic side-lighting, and rich film-grain textures. Below each frame, there are small white text labels for 'SHOT TYPE', 'CAMERA ACTION', and 'VOICE-OVER'. ${faceClause}. Shot on 8k cinema camera. --ar 3:4`;
-  }
-  if (style === 'chalkboard_polaroid') {
-    return `A creative storyboard layout. Blackboard chalk background. Polaroid photo panels showing: ${finalPromptText} are arranged on the board. Around the polaroids, there are subtle hand-drawn chalk lines and annotations. Below the photos, there are handwritten chalk text fields showing 'SCENE:', 'ACTION:', and 'AUDIO:' for scenes ${startScene} to ${endScene}. Cozy chalkboard polaroid aesthetic. ${faceClause}. --ar 3:4`;
-  }
-  if (style === 'fashion_moodboard') {
-    return `A creative minimalist lookbook storyboard layout. Flat lay of neutral-tone cards and paper tags on a clean light-beige linen texture background. The layout features elegant card panels showing: ${finalPromptText}, separated by fine grey borders. Thin elegant sans-serif text labels below the cards display 'PANEL DETAIL', 'CAMERA ANGLE', and 'AUDIO / VO' for scenes ${startScene} to ${endScene}. Clean minimal design, elegant typography. ${faceClause}. --ar 3:4`;
-  }
-  if (style === 'vintage_fashion') {
-    return `A highly creative vintage scrapbook storyboard layout. Light brown kraft paper background. The layout features torn polaroid photos showing: ${finalPromptText}, combined with hand-drawn pencil sketches. Black ink handwritten labels for 'SCENE DETAIL', 'CAMERA MOTION', and 'AUDIO' are written below each panel for scenes ${startScene} to ${endScene}, with hand-drawn sketch borders and stitching lines connecting the elements. Cozy vintage sketchbook aesthetic. ${faceClause}. --ar 3:4`;
-  }
-  if (style === 'influencer_journal') {
-    return `A highly creative storyboard journal layout. White dotted grid notebook paper background. The layout features square card panels showing: ${finalPromptText} with bright studio lighting for scenes ${startScene} to ${endScene}. Colorful sticky note tape boxes next to the panels show handwritten labels for 'ACTION' and 'VOICE OVER'. Small hand-drawn doodle stars and annotations decorate the empty spaces. Fun, authentic creator journal style. ${faceClause}. --ar 3:4`;
-  }
-  if (style === 'tech_vlog') {
-    return `A professional video camera monitor storyboard sheet. Solid dark-gray background. The layout features widescreen video panels styled with thin camera viewfinder HUD overlays (red REC dot, audio meters) showing: ${finalPromptText} for scenes ${startScene} to ${endScene}. Below each panel, there are small clean white text labels: 'SHOT TYPE', 'CAMERA ANGLE', and 'VOICE OVER / GFX'. High-tech, minimal editing monitor style. ${faceClause}. --ar 3:4`;
-  }
-  if (style === 'unboxing_kraft') {
-    return `A highly creative storyboard layout. Corrugated brown cardboard texture background. Widescreen panels framed inside brown paper shipping tape borders show: ${finalPromptText} for scenes ${startScene} to ${endScene}. Shipping label sticker boxes next to the panels display 'SCENE STEP', 'ACTION', and 'VOICE OVER' in typewriter font. Rustic, organic delivery package aesthetic. ${faceClause}. --ar 3:4`;
-  }
-  if (style === 'gift_unboxing') {
-    return `A highly creative storyboard layout. Clean white marble tabletop background with subtle ribbon accents. The layout features elegant soft-cornered square panels showing: ${finalPromptText} for scenes ${startScene} to ${endScene}. Below each panel, there are small elegant minimal labels for 'SCENE DETAIL', 'VISUAL FOCUS', and 'VO / MUSIC'. Soft, luxury, elegant minimalist aesthetic. ${faceClause}. --ar 3:4`;
-  }
-  if (style === 'pov_unboxing') {
-    return `A professional POV storyboard sheet. Clean studio background with soft out-of-focus shelves. Widescreen panels showing first-person POV views of: ${finalPromptText} for scenes ${startScene} to ${endScene}. Below each panel, there is a clean layout with small sans-serif labels for 'POV ACTION', 'SHOT SCALE', and 'VOICE OVER'. Professional pre-production log sheet style. ${faceClause}. --ar 3:4`;
-  }
-  if (style === 'blueprint_miniature') {
-    return `A highly creative blueprint storyboard layout. Dark blue blueprint paper texture background with thin white grid lines. Widescreen panels framed inside dashed white outlines, decorated with technical drawing symbols and dimension lines, show: ${finalPromptText} for scenes ${startScene} to ${endScene}. Below each panel, there are white technical text fields for 'SCENE STEP', 'MEASURES / VALUES', and 'AUDIO / VO' in a clean blueprint font. Architectural drafting desk style. ${faceClause}. --ar 3:4`;
-  }
-  if (style === 'workbench_miniature') {
-    return `A creative vintage workbench storyboard layout. Rustic dark wood workbench tabletop background. Widescreen panels showing: ${finalPromptText} for scenes ${startScene} to ${endScene} are styled as hanging manila paper tags with tiny metal paperclips. Below each panel, there are typewriter-style text boxes for 'SCENE TASK', 'ACTION DETAILS', and 'VO / SFX'. Industrial, mechanical crafting aesthetic. ${faceClause}. --ar 3:4`;
-  }
-  if (style === 'building_timelapse') {
-    return `A creative timelapse progress storyboard layout. Ivory millimeter graph paper background. Widescreen 16:9 panels showing stages of: ${finalPromptText}, arranged along a horizontal timeline path for scenes ${startScene} to ${endScene}. Below the panels, there are small text fields for 'TIMELINE INDEX', 'TIME ELAPSED', and 'CAMERA MOTION' with thin timeline arrows connecting the panels. Professional progress ledger style. ${faceClause}. --ar 3:4`;
-  }
-  if (style === 'solar_transit') {
-    return `A professional timelapse storyboard sheet. Solid dark charcoal background. Widescreen 16:9 panels showing stages of: ${finalPromptText}, featuring dramatic daylight transitions from sunrise, bright noon, golden sunset, to glowing night skyline for scenes ${startScene} to ${endScene}. Digital orange timestamps are displayed above the panels. Below the panels, there are small white labels for 'SCENE PHASE', 'LIGHTING TRANSIT', and 'HYPERLAPSE SPEED'. High-contrast modern hyperlapse style. ${faceClause}. --ar 3:4`;
-  }
-  if (style === 'shadow_play_timelapse') {
-    return `A highly creative minimalist storyboard layout. Smooth light gray concrete tabletop background with realistic shadows of window frames and tree leaves falling across the board. Matte photo print panels showing chronological stages of: ${finalPromptText} for scenes ${startScene} to ${endScene}. Below each panel, there are small elegant grey labels for 'SCENE TIMELINE', 'ACTION CHANGE', and 'CAMERA SHOT & ANGLE'. Modern art gallery catalog style, clean and highly realistic. ${faceClause}. --ar 3:4`;
-  }
-  if (style === 'hanging_photo_timelapse') {
-    return `A creative storyboard layout. Clean white brick studio wall background. Polaroid photos showing stages of: ${finalPromptText} for scenes ${startScene} to ${endScene} are hanging sequentially from a thin steel wire using small wooden clothespins. Below the wire, there are small neat white labels attached to the wall for 'PHOTO LOG', 'SCENE ACTION', and 'EXPOSURE SETTINGS'. Cozy, artistic darkroom style with realistic soft shadows. ${faceClause}. --ar 3:4`;
-  }
-  if (style === 'cyberpunk_schematic') {
-    return `A creative cyberpunk tech schematic storyboard layout. Dark neon blue blueprint grid background with glowing circuit line patterns. Widescreen panels styled as floating holographic terminal grids show: ${finalPromptText} for scenes ${startScene} to ${endScene}. Below the panels, there are terminal-style text boxes for 'SCENE STAGE', 'HUD INTERFACE', and 'AUDIO SPECTRUM' with neon blue digital text. Futuristic, cyberpunk style. ${faceClause}. --ar 3:4`;
-  }
-  if (style === 'retro_comic') {
-    return `A creative retro comic book pop-art storyboard layout. Vintage half-tone yellowed comic paper background. The panels are styled as thick black comic strip boxes showing: ${finalPromptText} in a pop-art cartoon style for scenes ${startScene} to ${endScene}. Below the panels, there are yellow narrator caption boxes containing text fields for 'SCENE ACTION', 'SOUND FX', and 'VIBES'. Fun, energetic retro comic book style. ${faceClause}. --ar 3:4`;
-  }
-  if (style === 'mystical_grimoire') {
-    return `A creative mystical apothecary grimoire storyboard layout. Weathered ancient parchment paper texture background with faint star charts. Widescreen panels showing watercolor drawings of: ${finalPromptText} are drawn on the page for scenes ${startScene} to ${endScene}. Cursive quill-ink calligraphy labels next to the drawings display 'RITUAL STEP', 'ALCHEMY ELEMENTS', and 'AUDIO CHANT'. Magical, cozy witchy ledger style. ${faceClause}. --ar 3:4`;
-  }
-  if (style === 'concrete_gallery') {
-    return `A creative minimalist concrete gallery storyboard layout. Dark industrial raw concrete background. Widescreen panels showing: ${finalPromptText} are styled as floating acrylic glass frames with strong 3D shadows for scenes ${startScene} to ${endScene}. Below each panel, there are small matte black steel labels with white text for 'SPATIAL LAYOUT', 'SCENE DETAIL', and 'AMBIENT SOUND'. High-end, premium minimalist portfolio style. ${faceClause}. --ar 3:4`;
-  }
-  if (style === 'watercolor_sketchbook') {
-    return `A creative watercolor artist's sketchbook storyboard layout. Rough watercolor sketch paper background. The panels show watercolor painted scenes of: ${finalPromptText} for scenes ${startScene} to ${endScene}. Below each panel, there are handwritten pencil notes for 'ARTISTIC SCENE', 'COLOR PALETTE', and 'AUDIO MOOD'. Artistic, cozy watercolor album style. ${faceClause}. --ar 3:4`;
-  }
-  if (style === 'capsule_transform' || style === 'capsule_toss_transform') {
-    const stepsText = getTransformationSteps(gridCount, startScene, finalPromptText, style, containerShape);
-    return `A professional video storyboard presentation sheet. Clean minimal design on a solid dark-gray background. Widescreen panels showing chronological stages of a mechanical capsule toy transforming on a white tabletop.
-${stepsText}
-Below each panel, there are small white text labels for 'TRANSFORMATION STAGE', 'SFX / AUDIO', and 'CAMERA ANGLE'. Cozy ASMR toy transformation style. ${faceClause}. --ar 3:4`;
+  if (style === 'premium_vertical_row') {
+    return `A professional video storyboard presentation sheet, vertical layout, clean dark-charcoal background. At the top, there is a prominent header titled 'STORYBOARD PART ${pageNum}' in bold yellow and white sans-serif font, with a yellow-bordered details box showing 'DURASI', 'RASIO', 'LOKASI', and 'TEMA'. The main content is a vertical stack of widescreen video panels (rows) showing: ${finalPromptText}. Each row features a clean separation: on the left side, there is a dark column with a yellow square panel index number (e.g., '1', '2'), shot name, description, and ASMR sound details in clean white and yellow text. On the right side is the widescreen panel image. At the very bottom, a horizontal yellow arrow transition bar showing 'TRANSISI / ENDING'. Highly structured, clean typography, high-contrast, cinematic lighting. ${faceClause}. --ar 3:4`;
   }
 
-  return userPrompt + ", " + faceClause; // Default fallback
+  return `A professional video storyboard presentation sheet, vertical layout, clean dark-charcoal background. At the top, there is a prominent header titled 'STORYBOARD PART ${pageNum}' in bold yellow and white sans-serif font, with a yellow-bordered details box showing 'DURASI', 'RASIO', 'LOKASI', and 'TEMA'. The main content is a vertical stack of widescreen video panels (rows) showing: ${finalPromptText}. Each row features a clean separation: on the left side, there is a dark column with a yellow square panel index number (e.g., '1', '2'), shot name, description, and ASMR sound details in clean white and yellow text. On the right side is the widescreen panel image. At the very bottom, a horizontal yellow arrow transition bar showing 'TRANSISI / ENDING'. Highly structured, clean typography, high-contrast, cinematic lighting. ${faceClause}. --ar 3:4`; // Default fallback
 }
 
 // Download image from URL helper with User-Agent and Timeout support
@@ -529,21 +483,11 @@ async function generateStoryboard(req, res) {
   // Create unique task ID immediately
   const taskId = 'task_' + Date.now();
   let storyboardId = null;
-  try {
-    const insertResult = await db.run(
-      'INSERT INTO storyboards (user_id, title, prompt, image_path, used_credits, api_key_id, status, generation_params) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [req.user.id, title, prompt, '[]', 0, parsedApiKeyId, 'processing', generationParams]
-    );
-    storyboardId = insertResult.lastID;
-  } catch (dbErr) {
-    console.error('Failed to create initial storyboard record:', dbErr);
-    return res.status(500).json({ message: 'Gagal membuat rekam storyboard awal.', error: dbErr.message });
-  }
 
-  activeTasks[taskId] = {
+  const initialTaskState = {
     status: 'processing',
     apiKeyId: parsedApiKeyId,
-    storyboardId,
+    storyboardId: null, // set below
     logs: '=== INVENTARISASI GENERATOR STORYBOARD MULTI-PAGE ===\n\n' +
           `[1/4] Menyiapkan parameter...\n` +
           `Judul Proyek : ${title}\n` +
@@ -554,54 +498,110 @@ async function generateStoryboard(req, res) {
           `Engine Video : ${selectedEngine.toUpperCase()}\n` +
           `Durasi Video : ${totalDuration} Detik (${pageCount} Halaman)\n\n`,
     result: null,
-    error: null
+    error: null,
+    
+    // Recovery properties
+    pageCount,
+    secondsPerPage,
+    totalDuration,
+    aspectRatio,
+    selectedModel,
+    style,
+    gridCount: gridCount || 6,
+    showFace: !!showFace,
+    containerShape: containerShape || 'auto',
+    prompt,
+    title,
+    enableVo: !!enableVo,
+    voLanguage: voLanguage || 'Bahasa Indonesia',
+    voTone: voTone || 'casual',
+    videoEngine: selectedEngine,
+    subPrompts: null,
+    refImages: refImages || [],
+    refImageBase64: refImageBase64 || '',
+    refImageUrl: refImageUrl || '',
+    finalRefImagePath: undefined,
+    imagePaths: [],
+    totalCreditsUsed: 0,
+    currentPageIdx: 0,
+    currentTaskInfo: null
   };
+
+  try {
+    const insertResult = await db.run(
+      'INSERT INTO storyboards (user_id, title, prompt, image_path, used_credits, api_key_id, status, generation_params, task_id, active_task_data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [req.user.id, title, prompt, '[]', 0, parsedApiKeyId, 'processing', generationParams, taskId, JSON.stringify(initialTaskState)]
+    );
+    storyboardId = insertResult.lastID;
+    initialTaskState.storyboardId = storyboardId;
+    activeTasks[taskId] = initialTaskState;
+    await saveTaskState(db, storyboardId, initialTaskState);
+  } catch (dbErr) {
+    console.error('Failed to create initial storyboard record:', dbErr);
+    return res.status(500).json({ message: 'Gagal membuat rekam storyboard awal.', error: dbErr.message });
+  }
 
   // Respond immediately with taskId and storyboardId to prevent blocking HTTP timeouts
   res.json({ taskId, storyboardId, status: 'processing' });
 
   // Run the process completely in background
-  (async () => {
-    let totalCreditsUsed = 0;
-    try {
-      const db = getDb();
-      
-      if (!keyRecord) {
-        activeTasks[taskId].status = 'failed';
-        activeTasks[taskId].error = 'Selected API Key is invalid or inactive.';
-        activeTasks[taskId].logs += '[ERROR] Selected API Key is invalid or inactive.\n';
-        await db.run('UPDATE storyboards SET status = ? WHERE id = ?', ['failed', storyboardId]);
-        return;
-      }
+  runStoryboardGeneratorBackground(taskId, storyboardId);
+}
 
-      // Split the storyboard prompt into chronological parts using AI
-      activeTasks[taskId].logs += `[1.2/4] Menganalisis konsep cerita dan memecah menjadi ${pageCount} segmen visual kronologis menggunakan AI...\n`;
-      const subPrompts = await splitStoryboardPromptWithAI(prompt, pageCount, db);
-      const isFallback = subPrompts.every(p => p === prompt);
-      if (isFallback && pageCount > 1) {
-        activeTasks[taskId].logs += `  [INFO] Layanan AI Split sedang mengalami gangguan (HTTP 503/RTO). Menggunakan konsep cerita asli untuk setiap halaman (fallback).\n`;
+async function runStoryboardGeneratorBackground(taskId, storyboardId) {
+  const db = getDb();
+  const task = activeTasks[taskId];
+  if (!task) return;
+
+  try {
+    const keyRecord = await db.get('SELECT * FROM api_keys WHERE id = ?', [task.apiKeyId]);
+    if (!keyRecord || !keyRecord.is_active) {
+      task.status = 'failed';
+      task.error = 'Selected API Key is invalid or inactive.';
+      task.logs += '[ERROR] Selected API Key is invalid or inactive.\n';
+      await db.run('UPDATE storyboards SET status = ? WHERE id = ?', ['failed', storyboardId]);
+      await saveTaskState(db, storyboardId, task);
+      return;
+    }
+
+    const parsedApiKeyId = keyRecord.id;
+    let currentKeyRecord = keyRecord;
+    const localCliPath = path.join(__dirname, '..', 'node_modules', 'freebeat-cli', 'dist', 'index.js');
+    const hasLocalCli = fs.existsSync(localCliPath);
+    const publicDir = uploadsDir;
+
+    // 1. Split the storyboard prompt into chronological parts using AI if starting fresh
+    if (task.subPrompts === null) {
+      task.logs += `[1.2/4] Menganalisis konsep cerita dan memecah menjadi ${task.pageCount} segmen visual kronologis menggunakan AI...\n`;
+      await saveTaskState(db, storyboardId, task);
+      
+      const subPrompts = await splitStoryboardPromptWithAI(task.prompt, task.pageCount, db);
+      task.subPrompts = subPrompts;
+      
+      const isFallback = subPrompts.every(p => p === task.prompt);
+      if (isFallback && task.pageCount > 1) {
+        task.logs += `  [INFO] Layanan AI Split sedang mengalami gangguan (HTTP 503/RTO). Menggunakan konsep cerita asli untuk setiap halaman (fallback).\n`;
       } else {
         for (let i = 0; i < subPrompts.length; i++) {
-          activeTasks[taskId].logs += `  Halaman ${i+1}: ${subPrompts[i].substring(0, 100)}...\n`;
+          task.logs += `  Halaman ${i+1}: ${subPrompts[i].substring(0, 100)}...\n`;
         }
       }
-      activeTasks[taskId].logs += `\n`;
+      task.logs += `\n`;
+      await saveTaskState(db, storyboardId, task);
+    }
 
-      const localCliPath = path.join(__dirname, '..', 'node_modules', 'freebeat-cli', 'dist', 'index.js');
-      const hasLocalCli = fs.existsSync(localCliPath);
-
-      // Save Reference Images (Base64 or URL)
+    // 2. Save Reference Images if starting fresh
+    if (task.finalRefImagePath === undefined) {
       const savedRefImagePaths = [];
-      let refImagesList = refImages || [];
+      let refImagesList = task.refImages || [];
       if (refImagesList.length === 0) {
-        if (refImageBase64) {
-          refImagesList.push({ base64: refImageBase64 });
-        } else if (refImageUrl) {
-          refImagesList.push({ url: refImageUrl });
+        if (task.refImageBase64) {
+          refImagesList.push({ base64: task.refImageBase64 });
+        } else if (task.refImageUrl) {
+          refImagesList.push({ url: task.refImageUrl });
         }
       }
 
-      const publicDir = uploadsDir;
       if (refImagesList.length > 0 && !fs.existsSync(publicDir)) {
         fs.mkdirSync(publicDir, { recursive: true });
       }
@@ -610,7 +610,7 @@ async function generateStoryboard(req, res) {
         const item = refImagesList[i];
         let refImagePath = '';
         if (item.base64) {
-          activeTasks[taskId].logs += `Mengolah gambar referensi [${i+1}] (Base64)...\n`;
+          task.logs += `Mengolah gambar referensi [${i+1}] (Base64)...\n`;
           const matches = item.base64.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
           if (matches && matches.length === 3) {
             const buffer = Buffer.from(matches[2], 'base64');
@@ -619,15 +619,15 @@ async function generateStoryboard(req, res) {
             fs.writeFileSync(refImagePath, buffer);
           }
         } else if (item.url) {
-          activeTasks[taskId].logs += `Mengunduh gambar referensi [${i+1}] dari URL: ${item.url}...\n`;
+          task.logs += `Mengunduh gambar referensi [${i+1}] dari URL: ${item.url}...\n`;
           try {
             const refFilename = `ref_${Date.now()}_${i}.png`;
             refImagePath = path.join(publicDir, refFilename);
             await downloadFile(item.url, refImagePath);
-            activeTasks[taskId].logs += `Gambar referensi [${i+1}] berhasil diunduh secara lokal.\n`;
+            task.logs += `Gambar referensi [${i+1}] berhasil diunduh secara lokal.\n`;
           } catch (err) {
             console.warn('Could not download reference image from URL:', err.message);
-            activeTasks[taskId].logs += `[WARNING] Gagal mengunduh gambar referensi [${i+1}]: ${err.message}. Melanjutkan tanpa gambar referensi ini.\n`;
+            task.logs += `[WARNING] Gagal mengunduh gambar referensi [${i+1}]: ${err.message}. Melanjutkan tanpa gambar referensi ini.\n`;
             refImagePath = '';
           }
         }
@@ -653,10 +653,10 @@ async function generateStoryboard(req, res) {
       let finalRefImagePath = '';
       if (savedRefImagePaths.length === 1) {
         finalRefImagePath = savedRefImagePaths[0];
-        activeTasks[taskId].logs += `Ref Gambar   : ${path.basename(finalRefImagePath)}\n\n`;
+        task.logs += `Ref Gambar   : ${path.basename(finalRefImagePath)}\n\n`;
       } else if (savedRefImagePaths.length > 1) {
-        activeTasks[taskId].logs += `Ref Gambar Asli: ${savedRefImagePaths.map(p => path.basename(p)).join(', ')}\n`;
-        activeTasks[taskId].logs += `[1.5/4] Menggabungkan ${savedRefImagePaths.length} gambar referensi menjadi 1 kolase side-by-side untuk Freebeat...\n`;
+        task.logs += `Ref Gambar Asli: ${savedRefImagePaths.map(p => path.basename(p)).join(', ')}\n`;
+        task.logs += `[1.5/4] Menggabungkan ${savedRefImagePaths.length} gambar referensi menjadi 1 kolase side-by-side untuk Freebeat...\n`;
         try {
           const combinedFilename = `combined_ref_${Date.now()}.png`;
           const combinedPath = path.join(publicDir, combinedFilename);
@@ -680,52 +680,67 @@ async function generateStoryboard(req, res) {
 
           await canvas.write(combinedPath);
           finalRefImagePath = combinedPath.replace(/\\/g, '/');
-          activeTasks[taskId].logs += `Kolase referensi berhasil dibuat: ${combinedFilename}\n\n`;
+          task.logs += `Kolase referensi berhasil dibuat: ${combinedFilename}\n\n`;
         } catch (stitchErr) {
           console.error('Failed to stitch reference images:', stitchErr);
-          activeTasks[taskId].logs += `[WARNING] Gagal menggabungkan gambar referensi: ${stitchErr.message}. Menggunakan gambar pertama sebagai fallback.\n\n`;
+          task.logs += `[WARNING] Gagal menggabungkan gambar referensi: ${stitchErr.message}. Menggunakan gambar pertama sebagai fallback.\n\n`;
           finalRefImagePath = savedRefImagePaths[0];
         }
       } else {
-        activeTasks[taskId].logs += `Ref Gambar   : Tidak ada\n\n`;
+        task.logs += `Ref Gambar   : Tidak ada\n\n`;
       }
-      activeTasks[taskId].logs += `[2/4] Mengirim perintah generate ke Freebeat (Batching: Maks. 2 Halaman secara paralel dengan jeda 5 detik)...\n`;
+      task.finalRefImagePath = finalRefImagePath;
+      await saveTaskState(db, storyboardId, task);
+    }
 
-      const imagePaths = [];
-      let currentError = null;
+    task.logs += `[2/4] Mengirim perintah generate ke Freebeat secara sekuensial (Satu per satu)...\n`;
+    await saveTaskState(db, storyboardId, task);
 
-      // Process in batches of 2 pages
-      const batchSize = 2;
-      for (let batchStart = 0; batchStart < pageCount; batchStart += batchSize) {
-        const batchPages = [];
-        for (let j = 0; j < batchSize && (batchStart + j) < pageCount; j++) {
-          batchPages.push(batchStart + j);
+    let currentError = null;
+
+    for (let pageIdx = task.currentPageIdx; pageIdx < task.pageCount; pageIdx++) {
+      task.currentPageIdx = pageIdx;
+      await saveTaskState(db, storyboardId, task);
+
+      const pageNum = pageIdx + 1;
+      const startSec = pageIdx * task.secondsPerPage;
+      const endSec = (pageIdx + 1) * task.secondsPerPage;
+      const startScene = pageIdx * Number(task.gridCount) + 1;
+      const endScene = (pageIdx + 1) * Number(task.gridCount);
+
+      task.logs += `\n[Halaman ${pageNum}] Memulai proses generasi Halaman ${pageNum} dari ${task.pageCount}...\n`;
+      await saveTaskState(db, storyboardId, task);
+
+      // Resolve reference image for this page
+      let pageRefPath = '';
+      if (pageIdx === 0) {
+        pageRefPath = task.finalRefImagePath;
+      } else {
+        pageRefPath = task.imagePaths[pageIdx - 1];
+        if (pageRefPath) {
+          task.logs += `[Halaman ${pageNum}] Menggunakan hasil Halaman ${pageIdx} langsung dari URL sebagai referensi...\n`;
+          await saveTaskState(db, storyboardId, task);
         }
+      }
 
-        activeTasks[taskId].logs += `\n[Batch] Memproses Halaman [${batchPages.map(p => p+1).join(', ')}] dari ${pageCount}...\n`;
+      // Check if we already have batch information (resume scenario)
+      let taskInfo = task.currentTaskInfo;
+      if (!taskInfo) {
+        const pageConcept = (task.subPrompts && task.subPrompts[pageIdx]) ? task.subPrompts[pageIdx] : task.prompt;
+        let pagePrompt = getEnhancedPrompt(task.style, pageConcept, Number(task.gridCount) || 6, task.showFace, startScene, task.totalDuration, task.secondsPerPage, !!pageRefPath, task.containerShape);
+        pagePrompt = pagePrompt.replace(/"/g, "'");
+        if (task.style !== 'single_premium_showcase') {
+          pagePrompt = `Page ${pageNum} of ${task.pageCount}, Scenes ${startScene}-${endScene} (time segment ${formatTime(startSec)} to ${formatTime(endSec)}). ` + pagePrompt;
+        }
+        pagePrompt = safeClampPrompt(pagePrompt, 1995);
 
-        const launchedTasks = [];
+        task.logs += `[Halaman ${pageNum}] Prompt: ${pagePrompt.substring(0, 120)}...\n`;
+        await saveTaskState(db, storyboardId, task);
 
-        // 1. Launch pages in the current batch sequentially with a 5-second delay
-        for (let i = 0; i < batchPages.length; i++) {
-          const pageIdx = batchPages[i];
-          const pageNum = pageIdx + 1;
-          const startSec = (pageNum - 1) * secondsPerPage;
-          const endSec = pageNum * secondsPerPage;
-          const startScene = (pageNum - 1) * Number(gridCount) + 1;
-          const endScene = pageNum * Number(gridCount);
+        taskInfo = null;
+        let submitSuccess = false;
 
-          const pageConcept = (subPrompts && subPrompts[pageIdx]) ? subPrompts[pageIdx] : prompt;
-          let pagePrompt = getEnhancedPrompt(style, pageConcept, Number(gridCount) || 6, showFace, startScene, totalDuration, secondsPerPage, !!finalRefImagePath, containerShape);
-          pagePrompt = pagePrompt.replace(/"/g, "'");
-          if (style !== 'single_premium_showcase') {
-            pagePrompt = `Page ${pageNum} of ${pageCount}, Scenes ${startScene}-${endScene} (time segment ${formatTime(startSec)} to ${formatTime(endSec)}). ` + pagePrompt;
-          }
-          pagePrompt = safeClampPrompt(pagePrompt, 1995);
-
-          activeTasks[taskId].logs += `[Halaman ${pageNum}] Memulai pendaftaran task...\n`;
-          activeTasks[taskId].logs += `[Halaman ${pageNum}] Prompt: ${pagePrompt.substring(0, 120)}...\n`;
-
+        while (!submitSuccess) {
           let spawnCmd;
           let spawnArgs;
 
@@ -733,20 +748,20 @@ async function generateStoryboard(req, res) {
             spawnCmd = 'node';
             spawnArgs = [
               localCliPath,
-              '--api-key', keyRecord.key_value
+              '--api-key', currentKeyRecord.key_value
             ];
           } else {
             spawnCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
             spawnArgs = [
               '-p', 'freebeat-cli',
               'freebeat',
-              '--api-key', keyRecord.key_value
+              '--api-key', currentKeyRecord.key_value
             ];
           }
 
           let sizeArgs = [];
-          const reqAspectRatio = aspectRatio ? String(aspectRatio) : '1:1';
-          if (selectedModel === '108') {
+          const reqAspectRatio = task.aspectRatio ? String(task.aspectRatio) : '1:1';
+          if (task.selectedModel === '108') {
             if (reqAspectRatio === '16:9') {
               sizeArgs = ['--resolution', '1920x1088'];
             } else if (reqAspectRatio === '9:16') {
@@ -758,12 +773,10 @@ async function generateStoryboard(req, res) {
             sizeArgs = ['--size', reqAspectRatio];
           }
 
-          const pageRefPath = finalRefImagePath;
-
           if (pageRefPath) {
             spawnArgs.push(
               'image', 'edit',
-              '--model', selectedModel,
+              '--model', task.selectedModel,
               '--image', pageRefPath,
               '--prompt', pagePrompt,
               '--count', '1',
@@ -773,7 +786,7 @@ async function generateStoryboard(req, res) {
           } else {
             spawnArgs.push(
               'image', 'generate',
-              '--model', selectedModel,
+              '--model', task.selectedModel,
               '--prompt', pagePrompt,
               '--count', '1',
               '--json',
@@ -782,7 +795,7 @@ async function generateStoryboard(req, res) {
           }
 
           try {
-            const taskInfo = await new Promise((resolve, reject) => {
+            taskInfo = await new Promise((resolve, reject) => {
               const child = spawn(spawnCmd, spawnArgs);
               let stdout = '';
               let stderr = '';
@@ -799,10 +812,21 @@ async function generateStoryboard(req, res) {
                       errMsg = stdout.trim();
                     }
                   }
-                  activeTasks[taskId].logs += `\n[Freebeat CLI Error - Halaman ${pageNum}]\nSTDOUT:\n${stdout}\nSTDERR:\n${stderr}\n`;
-                  await checkAndDisableKeyIfOutofCredits(db, parsedApiKeyId, errMsg || stdout || stderr, activeTasks[taskId]);
-                  return reject(new Error(`CLI Halaman ${pageNum} gagal: ${errMsg || code}`));
+                  
+                  const lowerErr = (errMsg || '').toLowerCase() + (stdout || '').toLowerCase() + (stderr || '').toLowerCase();
+                  const isCreditErr = lowerErr.includes('credit') || lowerErr.includes('balance') || lowerErr.includes('insufficient') || lowerErr.includes('limit') || lowerErr.includes('depleted') || lowerErr.includes('payment') || lowerErr.includes('out of');
+                  
+                  if (isCreditErr) {
+                    task.logs += `\n[Auto-Disable] API Key ID ${currentKeyRecord.id} (${currentKeyRecord.label}) kehabisan kredit. Menonaktifkan key.\n`;
+                    await db.run('UPDATE api_keys SET is_active = 0 WHERE id = ?', [currentKeyRecord.id]);
+                    reject({ type: 'credit', message: errMsg || 'Credits are not enough' });
+                  } else {
+                    task.logs += `\n[Freebeat CLI Error - Halaman ${pageNum}]\nSTDOUT:\n${stdout}\nSTDERR:\n${stderr}\n`;
+                    reject(new Error(`CLI Halaman ${pageNum} gagal: ${errMsg || code}`));
+                  }
+                  return;
                 }
+                
                 try {
                   const genJson = JSON.parse(stdout.trim());
                   const batchId = genJson.data?.batchId || genJson.batchId;
@@ -823,17 +847,39 @@ async function generateStoryboard(req, res) {
               });
             });
 
-            launchedTasks.push(taskInfo);
-            activeTasks[taskId].logs += `[Halaman ${pageNum}] Pendaftaran sukses (BatchID: ${taskInfo.batchId}).\n`;
-
-            // Delay 5 seconds before starting next task launch in the same batch
-            if (i < batchPages.length - 1) {
-              activeTasks[taskId].logs += `Menunggu 5 detik sebelum mendaftarkan halaman berikutnya di batch ini...\n`;
-              await new Promise(r => setTimeout(r, 5000));
+            submitSuccess = true;
+          } catch (err) {
+            if (err && err.type === 'credit') {
+              const nextKey = await db.get('SELECT * FROM api_keys WHERE is_active = 1 LIMIT 1');
+              if (nextKey) {
+                task.logs += `[SYSTEM] Beralih secara otomatis ke API Key alternatif: ${nextKey.label}...\n`;
+                await saveTaskState(db, storyboardId, task);
+                currentKeyRecord = nextKey;
+                task.apiKeyId = nextKey.id;
+                await db.run('UPDATE storyboards SET api_key_id = ? WHERE id = ?', [nextKey.id, storyboardId]);
+              } else {
+                currentError = 'Semua API Key Freebeat yang aktif telah kehabisan kredit.';
+                break;
+              }
+            } else {
+              const errStr = String(err.message || err).toLowerCase();
+              const isNetworkErr = errStr.includes('network') || errStr.includes('econnreset') || errStr.includes('timeout') || errStr.includes('socket') || errStr.includes('connection');
+              
+              if (isNetworkErr) {
+                task.pageRetries = task.pageRetries || {};
+                task.pageRetries[pageNum] = (task.pageRetries[pageNum] || 0) + 1;
+                
+                if (task.pageRetries[pageNum] <= 3) {
+                  task.logs += `[SYSTEM] Terdeteksi gangguan koneksi Freebeat (${err.message || err}). Melakukan uji coba ulang (Retry ${task.pageRetries[pageNum]}/3) dalam 3 detik...\n`;
+                  await saveTaskState(db, storyboardId, task);
+                  await new Promise(r => setTimeout(r, 3000));
+                  continue;
+                }
+              }
+              
+              currentError = err.message || err;
+              break;
             }
-          } catch (launchErr) {
-            currentError = launchErr.message;
-            break;
           }
         }
 
@@ -841,210 +887,211 @@ async function generateStoryboard(req, res) {
           break;
         }
 
-        // 2. Poll all launched tasks in this batch in parallel
-        if (launchedTasks.length > 0) {
-          activeTasks[taskId].logs += `[Batch] Semua halaman di batch ini berhasil didaftarkan. Memulai polling status paralel...\n`;
+        task.currentTaskInfo = taskInfo;
+        task.logs += `[Halaman ${pageNum}] Pendaftaran sukses (BatchID: ${taskInfo.batchId}). Memulai polling status...\n`;
+        await saveTaskState(db, storyboardId, task);
+      } else {
+        task.logs += `[Halaman ${pageNum}] Melanjutkan pemantauan status tugas render (BatchID: ${taskInfo.batchId})...\n`;
+        await saveTaskState(db, storyboardId, task);
+      }
 
-          const pollPromises = launchedTasks.map((taskInfo) => {
-            const { pageNum, batchId, serialNo } = taskInfo;
-            
-            return new Promise((resolve, reject) => {
-              let pollCount = 0;
-              const maxPolls = 120;
-              const pollInterval = setInterval(() => {
-                pollCount++;
-                activeTasks[taskId].logs += `[Halaman ${pageNum}] Memeriksa status render (${pollCount}/${maxPolls})...\n`;
+      // 2. Poll status for this page
+      try {
+        const creditsUsed = await new Promise((resolve, reject) => {
+          let pollCount = 0;
+          const maxPolls = 120;
+          const pollInterval = setInterval(() => {
+            pollCount++;
+            task.logs += `[Halaman ${pageNum}] Memeriksa status render (${pollCount}/${maxPolls})...\n`;
+            saveTaskState(db, storyboardId, task).catch(() => {});
 
-                let statusCmd;
-                let statusArgs;
+            let statusCmd;
+            let statusArgs;
 
-                if (hasLocalCli) {
-                  statusCmd = 'node';
-                  statusArgs = [
-                    localCliPath,
-                    '--api-key', keyRecord.key_value
-                  ];
-                } else {
-                  statusCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-                  statusArgs = [
-                    '-p', 'freebeat-cli',
-                    'freebeat',
-                    '--api-key', keyRecord.key_value
-                  ];
-                }
+            if (hasLocalCli) {
+              statusCmd = 'node';
+              statusArgs = [
+                localCliPath,
+                '--api-key', currentKeyRecord.key_value
+              ];
+            } else {
+              statusCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+              statusArgs = [
+                '-p', 'freebeat-cli',
+                'freebeat',
+                '--api-key', currentKeyRecord.key_value
+              ];
+            }
 
-                statusArgs.push('task', 'status', batchId, '--json');
-                if (serialNo) statusArgs.push('--serial-no', serialNo);
+            statusArgs.push('task', 'status', taskInfo.batchId, '--json');
+            if (taskInfo.serialNo) statusArgs.push('--serial-no', taskInfo.serialNo);
 
-                const childStatus = spawn(statusCmd, statusArgs);
+            const childStatus = spawn(statusCmd, statusArgs);
 
-                let statusStdout = '';
-                let statusStderr = '';
-                childStatus.stdout.on('data', (d) => statusStdout += d.toString());
-                childStatus.stderr.on('data', (d) => statusStderr += d.toString());
+            let statusStdout = '';
+            let statusStderr = '';
+            childStatus.stdout.on('data', (d) => statusStdout += d.toString());
+            childStatus.stderr.on('data', (d) => statusStderr += d.toString());
 
-                childStatus.on('close', async (statusCode) => {
-                  if (statusCode !== 0) {
-                    let errMsg = statusStderr.trim();
-                    if (!errMsg && statusStdout) {
-                      try {
-                        const parsed = JSON.parse(statusStdout.trim());
-                        errMsg = parsed.message || parsed.msg || parsed.error?.message || statusStdout.trim();
-                      } catch (e) {
-                        errMsg = statusStdout.trim();
-                      }
-                    }
-                    activeTasks[taskId].logs += `\n[Freebeat Status Check Error - Halaman ${pageNum}]\nSTDOUT:\n${statusStdout}\nSTDERR:\n${statusStderr}\n`;
-                    await checkAndDisableKeyIfOutofCredits(db, parsedApiKeyId, errMsg || statusStdout || statusStderr, activeTasks[taskId]);
-                    activeTasks[taskId].logs += `[WARNING][Halaman ${pageNum}] Gagal memeriksa status: ${errMsg || statusCode}\n`;
-                    if (pollCount >= maxPolls) {
-                      clearInterval(pollInterval);
-                      reject(new Error(`Timeout pada Halaman ${pageNum}`));
-                    }
-                    return;
-                  }
-
+            childStatus.on('close', async (statusCode) => {
+              if (statusCode !== 0) {
+                let errMsg = statusStderr.trim();
+                if (!errMsg && statusStdout) {
                   try {
-                    const statusJson = JSON.parse(statusStdout.trim());
-                    const dataObj = statusJson.data || statusJson;
-                    const item = dataObj?.items?.[0] || (dataObj?.results && dataObj?.results[0]);
+                    const parsed = JSON.parse(statusStdout.trim());
+                    errMsg = parsed.message || parsed.msg || parsed.error?.message || statusStdout.trim();
+                  } catch (e) {
+                    errMsg = statusStdout.trim();
+                  }
+                }
+                task.logs += `\n[Freebeat Status Check Error - Halaman ${pageNum}]\nSTDOUT:\n${statusStdout}\nSTDERR:\n${statusStderr}\n`;
+                await checkAndDisableKeyIfOutofCredits(db, parsedApiKeyId, errMsg || statusStdout || statusStderr, task);
+                task.logs += `[WARNING][Halaman ${pageNum}] Gagal memeriksa status: ${errMsg || statusCode}\n`;
+                if (pollCount >= maxPolls) {
+                  clearInterval(pollInterval);
+                  reject(new Error(`Timeout pada Halaman ${pageNum}`));
+                }
+                return;
+              }
 
-                    if (item) {
-                      const renderStatus = item.status || dataObj.status;
-                      if (renderStatus === 'SUCCESS' || renderStatus === 'COMPLETED' || renderStatus === 'completed') {
-                        clearInterval(pollInterval);
-                        let remoteUrl = item.imageUrl || 
-                                        item.image_url || 
-                                        item.videoUrl || 
-                                        item.video_url || 
-                                        item.url || 
-                                        item.image_path || 
-                                        item.imagePath || 
-                                        dataObj.imageUrl || 
-                                        dataObj.image_url || 
-                                        dataObj.url || 
-                                        dataObj.videoUrl || 
-                                        dataObj.video_url;
+              try {
+                const statusJson = JSON.parse(statusStdout.trim());
+                const dataObj = statusJson.data || statusJson;
+                const item = dataObj?.items?.[0] || (dataObj?.results && dataObj?.results[0]);
 
-                        if (!remoteUrl) {
-                          const editImgs = item.editImages || item.edit_images || dataObj.editImages || dataObj.edit_images;
-                          if (editImgs) {
-                            if (Array.isArray(editImgs) && editImgs.length > 0) {
-                              remoteUrl = editImgs[0];
-                            } else if (typeof editImgs === 'string') {
-                              remoteUrl = editImgs;
-                            }
-                          }
+                if (item) {
+                  const renderStatus = item.status || dataObj.status;
+                  if (renderStatus === 'SUCCESS' || renderStatus === 'COMPLETED' || renderStatus === 'completed') {
+                    clearInterval(pollInterval);
+                    let remoteUrl = item.imageUrl || 
+                                    item.image_url || 
+                                    item.videoUrl || 
+                                    item.video_url || 
+                                    item.url || 
+                                    item.image_path || 
+                                    item.imagePath || 
+                                    dataObj.imageUrl || 
+                                    dataObj.image_url || 
+                                    dataObj.url || 
+                                    dataObj.videoUrl || 
+                                    dataObj.video_url;
+
+                    if (!remoteUrl) {
+                      const editImgs = item.editImages || item.edit_images || dataObj.editImages || dataObj.edit_images;
+                      if (editImgs) {
+                        if (Array.isArray(editImgs) && editImgs.length > 0) {
+                          remoteUrl = editImgs[0];
+                        } else if (typeof editImgs === 'string') {
+                          remoteUrl = editImgs;
                         }
-
-                        if (!remoteUrl) {
-                          const imgs = item.images || item.generateImages || item.generate_images || dataObj.images || dataObj.generateImages || dataObj.generate_images;
-                          if (imgs) {
-                            if (Array.isArray(imgs) && imgs.length > 0) {
-                              remoteUrl = imgs[0];
-                            } else if (typeof imgs === 'string') {
-                              remoteUrl = imgs;
-                            }
-                          }
-                        }
-
-                        if (!remoteUrl) {
-                          console.error('[status check] SUCCESS but no URL found. Item:', JSON.stringify(item), 'DataObj:', JSON.stringify(dataObj));
-                          return reject(new Error(`URL hasil Halaman ${pageNum} tidak ditemukan.`));
-                        }
-                        
-                        const credits = item.usedCredits || item.needCredits || 23;
-                        activeTasks[taskId].logs += `[Halaman ${pageNum}] Sukses! Link asli: ${remoteUrl} (Kredit: ${credits})\n`;
-                        imagePaths[pageNum - 1] = remoteUrl;
-                        resolve(credits);
-                      } else if (renderStatus === 'FAILED' || renderStatus === 'ERROR' || renderStatus === 'failed') {
-                        clearInterval(pollInterval);
-                        const errMsg = item.errorMessage || `Gagal render Halaman ${pageNum}`;
-                        activeTasks[taskId].logs += `\n[Freebeat Render Error - Halaman ${pageNum}]\nError Message: ${errMsg}\n`;
-                        await checkAndDisableKeyIfOutofCredits(db, parsedApiKeyId, errMsg, activeTasks[taskId]);
-                        reject(new Error(errMsg));
                       }
                     }
-                  } catch (err) {
-                    // Ignore intermediate parsing errors
-                  }
 
-                  if (pollCount >= maxPolls) {
+                    if (!remoteUrl) {
+                      const imgs = item.images || item.generateImages || item.generate_images || dataObj.images || dataObj.generateImages || dataObj.generate_images;
+                      if (imgs) {
+                        if (Array.isArray(imgs) && imgs.length > 0) {
+                          remoteUrl = imgs[0];
+                        } else if (typeof imgs === 'string') {
+                          remoteUrl = imgs;
+                        }
+                      }
+                    }
+
+                    if (!remoteUrl) {
+                      console.error('[status check] SUCCESS but no URL found. Item:', JSON.stringify(item), 'DataObj:', JSON.stringify(dataObj));
+                      return reject(new Error(`URL hasil Halaman ${pageNum} tidak ditemukan.`));
+                    }
+                    
+                    const credits = item.usedCredits || item.needCredits || 23;
+                    task.logs += `[Halaman ${pageNum}] Sukses! Link asli: ${remoteUrl} (Kredit: ${credits})\n`;
+                    task.imagePaths[pageIdx] = remoteUrl;
+                    resolve(credits);
+                  } else if (renderStatus === 'FAILED' || renderStatus === 'ERROR' || renderStatus === 'failed') {
                     clearInterval(pollInterval);
-                    reject(new Error(`Timeout render Halaman ${pageNum}`));
+                    const errMsg = item.errorMessage || `Gagal render Halaman ${pageNum}`;
+                    task.logs += `\n[Freebeat Render Error - Halaman ${pageNum}]\nError Message: ${errMsg}\n`;
+                    await checkAndDisableKeyIfOutofCredits(db, parsedApiKeyId, errMsg, task);
+                    reject(new Error(errMsg));
                   }
-                });
-              }, 15000);
+                }
+              } catch (err) {
+                // Ignore parsing errors
+              }
+
+              if (pollCount >= maxPolls) {
+                clearInterval(pollInterval);
+                reject(new Error(`Timeout render Halaman ${pageNum}`));
+              }
             });
-          });
-
-          try {
-            const batchCredits = await Promise.all(pollPromises);
-            batchCredits.forEach(credits => {
-              totalCreditsUsed += (Number(credits) || 0);
-            });
-            activeTasks[taskId].logs += `[Batch] Halaman [${batchPages.map(p => p+1).join(', ')}] selesai diproses!\n`;
-          } catch (pollErr) {
-            currentError = pollErr.message;
-            break;
-          }
-        }
-      }
-
-      if (currentError) {
-        activeTasks[taskId].status = 'failed';
-        activeTasks[taskId].error = currentError;
-        activeTasks[taskId].logs += `[ERROR] Kesalahan fatal dalam proses generasi: ${currentError}\n`;
-        await db.run('UPDATE storyboards SET status = ? WHERE id = ?', ['failed', storyboardId]);
-        return;
-      }
-
-      // Success! Update DB
-      const dbPathString = JSON.stringify(imagePaths);
-      await db.run(
-        'UPDATE storyboards SET image_path = ?, used_credits = ?, status = ? WHERE id = ?',
-        [dbPathString, totalCreditsUsed, 'success', storyboardId]
-      );
-      
-      const newStoryboardId = storyboardId;
-
-      activeTasks[taskId].logs += `[AI Video Prompts] Men-generate otomatis prompt video Image-to-Video ${enableVo ? 'dan voiceover ' : ''}di latar belakang...\n`;
-      try {
-        const { generateVideoPromptsInternal } = require('./aiController');
-        await generateVideoPromptsInternal({
-          storyboardId: newStoryboardId,
-          promptType: 'image-to-video',
-          regenerate: true,
-          enableVo: !!enableVo,
-          voLanguage: enableVo ? voLanguage : undefined,
-          voTone: enableVo ? voTone : undefined,
-          videoDuration: totalDuration
+          }, 15000);
         });
-        activeTasks[taskId].logs += `[AI Video Prompts] Prompt video berhasil di-generate secara otomatis.\n`;
-      } catch (promptErr) {
-        console.error('Failed to auto-generate video prompt for new storyboard:', promptErr.message);
-        activeTasks[taskId].logs += `[WARNING] Gagal menulis prompt video otomatis: ${promptErr.message}. Anda bisa membuatnya secara manual di Dashboard.\n`;
+        
+        task.totalCreditsUsed += (Number(creditsUsed) || 0);
+        task.currentTaskInfo = null; // Clear page's task info as it completed successfully!
+        task.logs += `[Halaman ${pageNum}] Selesai diproses!\n`;
+        await saveTaskState(db, storyboardId, task);
+
+      } catch (pollErr) {
+        currentError = pollErr.message;
+        break;
       }
-
-      activeTasks[taskId].status = 'success';
-      activeTasks[taskId].result = {
-        id: newStoryboardId,
-        title,
-        prompt,
-        image_path: dbPathString
-      };
-      activeTasks[taskId].logs += `\n=== SEMUA PROSES BERHASIL SELESAI ===\n`;
-
-    } catch (bgError) {
-      activeTasks[taskId].status = 'failed';
-      activeTasks[taskId].error = bgError.message;
-      activeTasks[taskId].logs += `[ERROR] Kesalahan fatal background task: ${bgError.message}\n`;
-      try {
-        const db = getDb();
-        await db.run('UPDATE storyboards SET status = ? WHERE id = ?', ['failed', storyboardId]);
-      } catch (e) {}
     }
-  })();
+
+    if (currentError) {
+      task.status = 'failed';
+      task.error = currentError;
+      task.logs += `[ERROR] Kesalahan fatal dalam proses generasi: ${currentError}\n`;
+      await db.run('UPDATE storyboards SET status = ? WHERE id = ?', ['failed', storyboardId]);
+      await saveTaskState(db, storyboardId, task);
+      return;
+    }
+
+    // Success! Update DB
+    const dbPathString = JSON.stringify(task.imagePaths);
+    await db.run(
+      'UPDATE storyboards SET image_path = ?, used_credits = ?, status = ? WHERE id = ?',
+      [dbPathString, task.totalCreditsUsed, 'success', storyboardId]
+    );
+    
+    task.logs += `[AI Video Prompts] Men-generate otomatis prompt video Image-to-Video ${task.enableVo ? 'dan voiceover ' : ''}di latar belakang...\n`;
+    await saveTaskState(db, storyboardId, task);
+    try {
+      const { generateVideoPromptsInternal } = require('./aiController');
+      await generateVideoPromptsInternal({
+        storyboardId: storyboardId,
+        promptType: 'image-to-video',
+        regenerate: true,
+        enableVo: !!task.enableVo,
+        voLanguage: task.enableVo ? task.voLanguage : undefined,
+        voTone: task.enableVo ? task.voTone : undefined,
+        videoDuration: task.totalDuration
+      });
+      task.logs += `[AI Video Prompts] Prompt video berhasil di-generate secara otomatis.\n`;
+    } catch (promptErr) {
+      console.error('Failed to auto-generate video prompt for new storyboard:', promptErr.message);
+      task.logs += `[WARNING] Gagal menulis prompt video otomatis: ${promptErr.message}. Anda bisa membuatnya secara manual di Dashboard.\n`;
+    }
+
+    task.status = 'success';
+    task.result = {
+      id: storyboardId,
+      title: task.title,
+      prompt: task.prompt,
+      image_path: dbPathString
+    };
+    task.logs += `\n=== SEMUA PROSES BERHASIL SELESAI ===\n`;
+    await saveTaskState(db, storyboardId, task);
+
+  } catch (bgError) {
+    task.status = 'failed';
+    task.error = bgError.message;
+    task.logs += `[ERROR] Kesalahan fatal background task: ${bgError.message}\n`;
+    try {
+      await db.run('UPDATE storyboards SET status = ? WHERE id = ?', ['failed', storyboardId]);
+      await saveTaskState(db, storyboardId, task);
+    } catch (e) {}
+  }
 }
 
 async function getTaskStatus(req, res) {
@@ -1474,16 +1521,40 @@ async function regenerateStoryboardPage(req, res) {
   }
 }
 
-async function cleanProcessingStoryboardsOnStartup() {
+async function resumeProcessingStoryboardsOnStartup() {
   try {
     const { getDb } = require('../db');
     const db = getDb();
-    const result = await db.run('UPDATE storyboards SET status = "failed" WHERE status = "processing"');
-    if (result.changes > 0) {
-      console.log(`[Startup Cleanup] Marked ${result.changes} orphaned/stuck processing storyboard(s) as failed.`);
+    
+    // Fetch all storyboards with status 'processing'
+    const storyboards = await db.all('SELECT * FROM storyboards WHERE status = "processing"');
+    if (storyboards.length === 0) return;
+    
+    console.log(`[Startup Resume] Found ${storyboards.length} storyboards in 'processing' status. Attempting to resume...`);
+    
+    for (const sb of storyboards) {
+      if (!sb.active_task_data) {
+        console.log(`[Startup Resume] Storyboard ID ${sb.id} has no task data. Marking as failed.`);
+        await db.run('UPDATE storyboards SET status = "failed" WHERE id = ?', [sb.id]);
+        continue;
+      }
+      
+      try {
+        const taskState = JSON.parse(sb.active_task_data);
+        const taskId = sb.task_id || ('task_resume_' + sb.id);
+        
+        taskState.logs += `\n[SYSTEM] Server direstart/deploy. Menyambungkan kembali pemantauan dan melanjutkan proses...\n`;
+        activeTasks[taskId] = taskState;
+        
+        // Start background process to resume this task
+        runStoryboardGeneratorBackground(taskId, sb.id);
+      } catch (parseErr) {
+        console.error(`[Startup Resume] Failed to parse task data for storyboard ID ${sb.id}:`, parseErr);
+        await db.run('UPDATE storyboards SET status = "failed" WHERE id = ?', [sb.id]);
+      }
     }
   } catch (err) {
-    console.error('Failed to cleanup processing storyboards:', err);
+    console.error('[Startup Resume] Error during startup recovery:', err);
   }
 }
 
@@ -1497,6 +1568,6 @@ module.exports = {
   getActiveTasksDebug,
   downloadProxy,
   regenerateStoryboardPage,
-  cleanProcessingStoryboardsOnStartup,
+  resumeProcessingStoryboardsOnStartup,
   activeTasks
 };

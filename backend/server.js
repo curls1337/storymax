@@ -64,14 +64,14 @@ initDb()
       process.exit(1);
     });
 
-    // Auto resume monitoring any processing videos at startup and clean up stuck storyboards
+    // Auto resume monitoring any processing videos and storyboards at startup
     try {
       const { resumeProcessingVideos } = require('./controllers/videoController');
-      const { cleanProcessingStoryboardsOnStartup } = require('./controllers/storyboardController');
+      const { resumeProcessingStoryboardsOnStartup } = require('./controllers/storyboardController');
       resumeProcessingVideos();
-      cleanProcessingStoryboardsOnStartup();
+      resumeProcessingStoryboardsOnStartup();
     } catch (e) {
-      console.error('Error starting video recovery or storyboard cleanup:', e);
+      console.error('Error starting video or storyboard recovery:', e);
     }
   })
   .catch((err) => {

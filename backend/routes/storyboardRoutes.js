@@ -1,5 +1,6 @@
 const express = require('express');
 const { getUserStoryboards, generateStoryboard, deleteStoryboard, getActiveKeys, getTaskStatus, scrapeProductUrl, getActiveTasksDebug, downloadProxy, regenerateStoryboardPage } = require('../controllers/storyboardController');
+const { regenerateStoryboardMarketingCopy } = require('../controllers/videoController');
 const { authenticateToken } = require('../middleware/authMiddleware');
 
 const router = express.Router();
@@ -15,6 +16,7 @@ router.get('/tasks/:taskId', getTaskStatus);
 router.post('/generate', generateStoryboard);
 router.post('/scrape', scrapeProductUrl);
 router.post('/:id/regenerate-page', regenerateStoryboardPage);
+router.post('/:id/scenes/:sceneIdx/marketing-copy', regenerateStoryboardMarketingCopy);
 router.delete('/:id', deleteStoryboard);
 
 module.exports = router;

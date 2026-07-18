@@ -88,6 +88,42 @@ export default function Dashboard({ setTab }) {
     }
   };
 
+  const [generatingStoryboardCopy, setGeneratingStoryboardCopy] = useState(false);
+
+  const handleRegenerateStoryboardMarketingCopy = async () => {
+    if (!selectedStoryboard) return;
+    setGeneratingStoryboardCopy(true);
+    try {
+      const res = await api.post(`/storyboards/${selectedStoryboard.id}/scenes/${modalCarouselIdx}/marketing-copy`);
+      setSelectedStoryboard(prev => {
+        let videoPrompts = [];
+        try {
+          videoPrompts = JSON.parse(prev.video_prompts) || [];
+        } catch (e) {
+          videoPrompts = [];
+        }
+        if (!Array.isArray(videoPrompts)) videoPrompts = [];
+        if (!videoPrompts[modalCarouselIdx]) {
+          videoPrompts[modalCarouselIdx] = { scene_idx: modalCarouselIdx };
+        }
+        videoPrompts[modalCarouselIdx].marketing_title = res.data.marketing_title;
+        videoPrompts[modalCarouselIdx].marketing_description = res.data.marketing_description;
+        
+        const updated = {
+          ...prev,
+          video_prompts: JSON.stringify(videoPrompts)
+        };
+        setStoryboards(list => list.map(item => item.id === prev.id ? updated : item));
+        return updated;
+      });
+    } catch (err) {
+      console.error("Error regenerating storyboard marketing copy:", err);
+      alert('Gagal membuat naskah promosi.');
+    } finally {
+      setGeneratingStoryboardCopy(false);
+    }
+  };
+
   const [generatingType, setGeneratingType] = useState(null); // 'image-to-video', 'text-to-video', or null
   const [videoPromptError, setVideoPromptError] = useState('');
   const [enableVoI2v, setEnableVoI2v] = useState(false);
@@ -107,12 +143,12 @@ export default function Dashboard({ setTab }) {
   const [activeVideoIdx, setActiveVideoIdx] = useState(0);
   const [showGenForm, setShowGenForm] = useState(false);
 
-  const [videoModel, setVideoModel] = useState('pixverse-c1');
-  const [videoGenType, setVideoGenType] = useState('image');
+  const [videoModel, setVideoModel] = useState('seedance-2.0-fast');
+  const [videoGenType, setVideoGenType] = useState('reference');
   const [videoStudioPrompt, setVideoStudioPrompt] = useState('');
-  const [videoDuration, setVideoDuration] = useState('5');
+  const [videoDuration, setVideoDuration] = useState('15');
   const [videoResolution, setVideoResolution] = useState('720p');
-  const [videoAspectRatio, setVideoAspectRatio] = useState('auto');
+  const [videoAspectRatio, setVideoAspectRatio] = useState('9:16');
   const [videoGenerateAudio, setVideoGenerateAudio] = useState(false);
   const [apiKeys, setApiKeys] = useState([]);
   const [selectedApiKeyId, setSelectedApiKeyId] = useState('auto');
@@ -194,12 +230,7 @@ export default function Dashboard({ setTab }) {
       api.get('/storyboards/keys')
         .then(res => {
           setApiKeys(res.data);
-          const exists = res.data.find(k => k.id === selectedStoryboard.api_key_id);
-          if (exists) {
-            setSelectedApiKeyId(selectedStoryboard.api_key_id);
-          } else if (res.data.length > 0) {
-            setSelectedApiKeyId(res.data[0].id);
-          }
+          setSelectedApiKeyId('auto');
         })
         .catch(err => console.error("Error fetching keys:", err));
 
@@ -225,7 +256,7 @@ export default function Dashboard({ setTab }) {
   useEffect(() => {
     if (selectedStoryboard) {
       const { imageToVideoPrompt: i2v, textToVideoPrompt: t2v, narration } = parseVideoPrompts(selectedStoryboard.video_prompts, modalCarouselIdx);
-      let basePrompt = videoGenType === 'image' ? (i2v || '') : (t2v || '');
+      let basePrompt = (videoGenType === 'image' || videoGenType === 'reference' || videoGenType === 'transition') ? (i2v || '') : (t2v || '');
       
       if (videoGenerateAudio && narration) {
         let lang = 'Bahasa Indonesia';
@@ -839,26 +870,6 @@ export default function Dashboard({ setTab }) {
                       alt={selectedStoryboard.title}
                       className="max-w-full max-h-[45vh] md:max-h-[60vh] object-contain rounded-2xl border border-[#2a2725]/60 shadow-inner"
                     />
-                  )}
-                  
-                  {/* Carousel Navigation */}
-                  {images.length > 1 && (
-                    <>
-                      <button 
-                        type="button" 
-                        onClick={() => setModalCarouselIdx(prev => (prev > 0 ? prev - 1 : images.length - 1))} 
-                        className="absolute left-0 p-2 bg-black/70 hover:bg-[#cfae80] hover:text-black text-white rounded-full transition-all border border-white/10"
-                      >
-                        <ChevronRight className="rotate-180 w-4 h-4" />
-                      </button>
-                      <button 
-                        type="button" 
-                        onClick={() => setModalCarouselIdx(prev => (prev < images.length - 1 ? prev + 1 : 0))} 
-                        className="absolute right-0 p-2 bg-black/70 hover:bg-[#cfae80] hover:text-black text-white rounded-full transition-all border border-white/10"
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
-                    </>
                   )}
                 </div>
 
@@ -1541,82 +1552,6 @@ export default function Dashboard({ setTab }) {
                             </a>
                           </div>
 
-                          {/* AI Copywriting / Marketing Info */}
-                          <div className="bg-[#181716] border border-[#2a2725]/80 rounded-xl p-3 space-y-3 mt-2 animate-fadeIn text-left">
-                            <div className="flex items-center justify-between border-b border-[#2a2725]/50 pb-1.5">
-                              <span className="text-[8px] font-bold text-[#cfae80] uppercase tracking-widest flex items-center gap-1">
-                                📢 AI Marketing Copy
-                              </span>
-                              {activeVid.marketing_title && (
-                                <button
-                                  onClick={() => handleRegenerateMarketingCopy(activeVid.id)}
-                                  disabled={regeneratingCopyId !== null}
-                                  className="text-[8px] text-slate-400 hover:text-[#cfae80] font-bold uppercase tracking-widest transition-colors disabled:opacity-50"
-                                >
-                                  {regeneratingCopyId === activeVid.id ? 'Memproses...' : 'Tulis Ulang'}
-                                </button>
-                              )}
-                            </div>
-
-                            {activeVid.marketing_title ? (
-                              <div className="space-y-2.5">
-                                {/* Title display */}
-                                <div className="space-y-1">
-                                  <div className="flex justify-between items-center text-[7px] font-bold text-slate-400 uppercase tracking-widest">
-                                    <span>Judul (Max 100 Karakter)</span>
-                                    <button 
-                                      onClick={() => {
-                                        navigator.clipboard.writeText(activeVid.marketing_title);
-                                        alert('Judul berhasil disalin!');
-                                      }}
-                                      className="text-[#cfae80] hover:underline"
-                                    >
-                                      Salin
-                                    </button>
-                                  </div>
-                                  <div className="bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] font-semibold break-words leading-relaxed font-sans">
-                                    {activeVid.marketing_title}
-                                  </div>
-                                </div>
-
-                                {/* Description & Hashtags display */}
-                                <div className="space-y-1">
-                                  <div className="flex justify-between items-center text-[7px] font-bold text-slate-400 uppercase tracking-widest">
-                                    <span>Deskripsi & Hashtag</span>
-                                    <button 
-                                      onClick={() => {
-                                        navigator.clipboard.writeText(activeVid.marketing_description);
-                                        alert('Deskripsi & Hashtag berhasil disalin!');
-                                      }}
-                                      className="text-[#cfae80] hover:underline"
-                                    >
-                                      Salin
-                                    </button>
-                                  </div>
-                                  <div className="bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-slate-300 text-[9.5px] leading-relaxed break-words whitespace-pre-line font-sans max-h-32 overflow-y-auto scrollbar-thin">
-                                    {activeVid.marketing_description}
-                                  </div>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="flex flex-col items-center justify-center py-4 gap-2 text-center">
-                                <span className="text-[9px] text-slate-500 italic">
-                                  {regeneratingCopyId === activeVid.id 
-                                    ? '⏳ Sedang menulis konten promosi...' 
-                                    : 'Belum ada konten promosi / Gagal dibuat.'}
-                                </span>
-                                {regeneratingCopyId !== activeVid.id && (
-                                  <button
-                                    onClick={() => handleRegenerateMarketingCopy(activeVid.id)}
-                                    className="bg-[#cfae80]/10 hover:bg-[#cfae80]/20 text-[#cfae80] border border-[#cfae80]/20 font-bold py-1.5 px-2.5 rounded-lg text-[8px] uppercase tracking-wider flex items-center justify-center gap-1 transition-all"
-                                  >
-                                    <Sparkles className="w-3 h-3 text-[#cfae80]" /> Buat Konten Promosi
-                                  </button>
-                                )}
-                              </div>
-                            )}
-                          </div>
-
                           {/* Recreate Button */}
                           <div className="border-t border-[#2a2725]/40 pt-2.5 mt-2.5">
                             <button
@@ -1669,9 +1604,6 @@ export default function Dashboard({ setTab }) {
                               if (m) {
                                 setVideoDuration(String(m.durations[0]));
                                 setVideoResolution(m.resolutions[0]);
-                                if (!m.supportsAudio) {
-                                  setVideoGenerateAudio(false);
-                                }
                               }
                             }}
                             className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] focus:outline-none focus:border-[#cfae80] transition-all font-semibold"
@@ -1688,16 +1620,18 @@ export default function Dashboard({ setTab }) {
                             value={videoGenType}
                             onChange={(e) => {
                               setVideoGenType(e.target.value);
-                              if (e.target.value === 'image') {
-                                setVideoStudioPrompt(imageToVideoPrompt || '');
-                              } else {
+                              if (e.target.value === 'text') {
                                 setVideoStudioPrompt(textToVideoPrompt || '');
+                              } else {
+                                setVideoStudioPrompt(imageToVideoPrompt || '');
                               }
                             }}
                             className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] focus:outline-none focus:border-[#cfae80] transition-all font-semibold"
                           >
                             <option value="image">Image-to-Video (I2V - Gunakan Gambar Panel)</option>
                             <option value="text">Text-to-Video (T2V - Hanya Prompt Teks)</option>
+                            <option value="transition">Transition-to-Video (Transisi Gambar)</option>
+                            <option value="reference">Reference-to-Video (Referensi Karakter/Produk)</option>
                           </select>
                         </div>
 
@@ -1761,24 +1695,17 @@ export default function Dashboard({ setTab }) {
                           </div>
                         </div>
 
-                        {(() => {
-                          const m = VIDEO_MODELS.find(x => x.value === videoModel);
-                          const supportsAudio = m?.supportsAudio;
-                          return (
-                            <label className={`flex items-center gap-2 cursor-pointer select-none border-t border-[#2a2725]/40 pt-2 pb-1 ${!supportsAudio ? 'opacity-40 cursor-not-allowed' : ''}`}>
-                              <input
-                                type="checkbox"
-                                checked={videoGenerateAudio}
-                                disabled={!supportsAudio}
-                                onChange={(e) => setVideoGenerateAudio(e.target.checked)}
-                                className="rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 disabled:opacity-50"
-                              />
-                              <span className="text-[9px] font-bold uppercase tracking-wider text-slate-350">
-                                Hasilkan Audio / Sound Effect {!supportsAudio && <span className="text-[8px] text-red-500/80 font-medium normal-case ml-1">(Model ini tidak mendukung audio)</span>}
-                              </span>
-                            </label>
-                          );
-                        })()}
+                        <label className="flex items-center gap-2 cursor-pointer select-none border-t border-[#2a2725]/40 pt-2 pb-1">
+                          <input
+                            type="checkbox"
+                            checked={videoGenerateAudio}
+                            onChange={(e) => setVideoGenerateAudio(e.target.checked)}
+                            className="rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5"
+                          />
+                          <span className="text-[9px] font-bold uppercase tracking-wider text-slate-350">
+                            Hasilkan Audio / Sound Effect (Voiceover)
+                          </span>
+                        </label>
 
                         <div className="flex gap-2 mt-2">
                           <button
@@ -1799,6 +1726,143 @@ export default function Dashboard({ setTab }) {
                   })()}
                 </div>
                 </div>
+
+                {/* AI Copywriting / Marketing Info (Global) */}
+                {(() => {
+                  const activeScenePromptObj = selectedStoryboard && selectedStoryboard.video_prompts
+                    ? (() => {
+                        try {
+                          const parsed = JSON.parse(selectedStoryboard.video_prompts);
+                          return Array.isArray(parsed) ? parsed[modalCarouselIdx] : null;
+                        } catch (e) {
+                          return null;
+                        }
+                      })()
+                    : null;
+
+                  const sceneVideosList = videos
+                    .filter(v => v.scene_idx === modalCarouselIdx)
+                    .sort((a, b) => b.id - a.id);
+                  const activeVideo = sceneVideosList[0];
+
+                  const displayMarketingTitle = activeVideo?.marketing_title || activeScenePromptObj?.marketing_title;
+                  const displayMarketingDesc = activeVideo?.marketing_description || activeScenePromptObj?.marketing_description;
+
+                  return (
+                    <div className="bg-[#181716] border border-[#2a2725]/80 rounded-xl p-3 space-y-3 mt-4 text-left shrink-0">
+                      <h4 className="text-[9px] font-bold text-[#cfae80] uppercase tracking-widest flex items-center gap-1.5 border-b border-[#2a2725]/45 pb-1">
+                        📢 AI Marketing Copy
+                      </h4>
+
+                      {displayMarketingTitle || displayMarketingDesc ? (
+                        <div className="space-y-2.5 animate-fadeIn">
+                          {/* Title display */}
+                          <div className="space-y-1">
+                            <div className="flex justify-between items-center text-[7px] font-bold text-slate-400 uppercase tracking-widest">
+                              <span>Judul (Max 100 Karakter)</span>
+                              <button 
+                                onClick={() => {
+                                  navigator.clipboard.writeText(displayMarketingTitle);
+                                  alert('Judul berhasil disalin!');
+                                }}
+                                className="text-[#cfae80] hover:underline cursor-pointer"
+                              >
+                                Salin
+                              </button>
+                            </div>
+                            <div className="bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] font-semibold break-words leading-relaxed font-sans">
+                              {displayMarketingTitle}
+                            </div>
+                          </div>
+
+                          {/* Description & Hashtags display */}
+                          <div className="space-y-1">
+                            <div className="flex justify-between items-center text-[7px] font-bold text-slate-400 uppercase tracking-widest">
+                              <span>Deskripsi & Hashtag</span>
+                              <button 
+                                onClick={() => {
+                                  navigator.clipboard.writeText(displayMarketingDesc);
+                                  alert('Deskripsi & Hashtag berhasil disalin!');
+                                }}
+                                className="text-[#cfae80] hover:underline cursor-pointer"
+                              >
+                                Salin
+                              </button>
+                            </div>
+                            <div className="bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-slate-300 text-[9.5px] leading-relaxed break-words whitespace-pre-line font-sans max-h-32 overflow-y-auto scrollbar-thin">
+                              {displayMarketingDesc}
+                            </div>
+                          </div>
+
+                          {/* Option to regenerate */}
+                          <div className="pt-1.5 flex justify-end">
+                            <button
+                              onClick={async () => {
+                                if (activeVideo) {
+                                  await handleRegenerateMarketingCopy(activeVideo.id);
+                                } else {
+                                  await handleRegenerateStoryboardMarketingCopy();
+                                }
+                              }}
+                              disabled={regeneratingCopyId || generatingStoryboardCopy}
+                              className="bg-[#cfae80]/5 hover:bg-[#cfae80]/15 text-[#cfae80] border border-[#cfae80]/20 font-bold py-1 px-2 rounded text-[7.5px] uppercase tracking-wider flex items-center justify-center gap-1 transition-all disabled:opacity-50"
+                            >
+                              <Sparkles className="w-2.5 h-2.5" /> Buat Ulang
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center py-4 gap-2 text-center">
+                          <span className="text-[9px] text-slate-500 italic">
+                            {regeneratingCopyId || generatingStoryboardCopy
+                              ? '⏳ Sedang menulis konten promosi...' 
+                              : 'Belum ada konten promosi.'}
+                          </span>
+                          {!regeneratingCopyId && !generatingStoryboardCopy && (
+                            <button
+                              onClick={async () => {
+                                if (activeVideo) {
+                                  await handleRegenerateMarketingCopy(activeVideo.id);
+                                } else {
+                                  await handleRegenerateStoryboardMarketingCopy();
+                                }
+                              }}
+                              className="bg-[#cfae80]/10 hover:bg-[#cfae80]/20 text-[#cfae80] border border-[#cfae80]/20 font-bold py-1.5 px-2.5 rounded-lg text-[8px] uppercase tracking-wider flex items-center justify-center gap-1 transition-all cursor-pointer"
+                            >
+                              <Sparkles className="w-3 h-3 text-[#cfae80]" /> Buat Konten Promosi
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Carousel Navigation at the very bottom of the Video Studio column */}
+                {images.length > 1 && (
+                  <div className="border-t border-[#2a2725]/60 pt-4 mt-4 space-y-2 shrink-0">
+                    <label className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80] block text-left">Navigasi Halaman Storyboard</label>
+                    <div className="flex items-center justify-between bg-black/45 border border-[#2a2725] rounded-xl p-2">
+                      <button
+                        type="button"
+                        onClick={() => setModalCarouselIdx(prev => (prev > 0 ? prev - 1 : images.length - 1))}
+                        className="p-1.5 bg-[#131211] hover:bg-[#cfae80] hover:text-black text-[#cfae80] rounded-lg transition-all border border-[#2a2725] cursor-pointer"
+                      >
+                        <ChevronLeft className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="text-[9px] font-bold text-white uppercase tracking-wider">
+                        Halaman {modalCarouselIdx + 1} dari {images.length}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setModalCarouselIdx(prev => (prev < images.length - 1 ? prev + 1 : 0))}
+                        className="p-1.5 bg-[#131211] hover:bg-[#cfae80] hover:text-black text-[#cfae80] rounded-lg transition-all border border-[#2a2725] cursor-pointer"
+                      >
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Mobile Bottom Tab Switcher (Premium Native Style) */}

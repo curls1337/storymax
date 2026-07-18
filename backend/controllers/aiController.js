@@ -6,28 +6,7 @@ const { getDb } = require('../db');
 const { uploadsDir } = require('../config');
 
 const LAYOUT_STYLES = [
-  { value: 'cinematic_production', label: '1. Professional Film Production Storyboard (Gelap/Cinematic)' },
-  { value: 'chalkboard_polaroid', label: '2. Chalkboard Polaroid Recipe Board (Kapur/Makanan)' },
-  { value: 'fashion_moodboard', label: '3A. Minimalist Fashion Moodboard (Minimalis/Pakaian)' },
-  { value: 'vintage_fashion', label: '3B. Vintage Fashion Scrapbook & Sketch (Retro/Pakaian)' },
-  { value: 'influencer_journal', label: '4A. Social Creator Vlog Journal (Ceria/Talent UGC)' },
-  { value: 'tech_vlog', label: '4B. Tech Vlog Viewfinder (Camera HUD) (Gelap/Reviewer Gadget)' },
-  { value: 'unboxing_kraft', label: '5A. Unboxing Kraft Parcel Sheet (Kardus Cokelat/Unboxing)' },
-  { value: 'gift_unboxing', label: '5B. Premium Gift Unboxing Jurnal (Minimalis Marmer/Unboxing)' },
-  { value: 'pov_unboxing', label: '5C. POV Hands-On First Impression (POV/Taktil Unboxing)' },
-  { value: 'blueprint_miniature', label: '6A. Architect\'s Drafting Blueprint (Biru Tua/Miniatur)' },
-  { value: 'workbench_miniature', label: '6B. Vintage Mechanical Workbench (Kayu Gelap/Miniatur)' },
-  { value: 'building_timelapse', label: '7A. Construction Progress Timeline Chart (Kuning Gading/Timelapse)' },
-  { value: 'solar_transit', label: '7B. Solar Transit Hyperlapse (Day & Night) (Abu Arang/Timelapse)' },
-  { value: 'shadow_play_timelapse', label: '8A. Shadow-Play Gallery Board (Leaf Shadows) (Semen/Timelapse Umum)' },
-  { value: 'hanging_photo_timelapse', label: '8B. Hanging Photo Wire (Darkroom Style) (Bata Putih/Timelapse Umum)' },
-  { value: 'cyberpunk_schematic', label: '9. Cyberpunk Tech Schematic (Neon HUD) (Cyberpunk/Futuristik)' },
-  { value: 'retro_comic', label: '10. Retro Comic Book Pop-Art (Pop-Up Bubble) (Pop-Art/Komikal)' },
-  { value: 'mystical_grimoire', label: '11. Mystical Apothecary Grimoire (Quill-Ink) (Vintage/Ramuan Sihir)' },
-  { value: 'concrete_gallery', label: '12. Minimalist Concrete Gallery (3D Shadows) (Semen/Mewah)' },
-  { value: 'watercolor_sketchbook', label: '13. Watercolor Artist\'s Sketchbook (Watercolor Splash) (Artistik/Cat Air)' },
-  { value: 'capsule_transform', label: '14. ASMR Mechanical Capsule Transformation (Mainan Lipat/Transformasi)' },
-  { value: 'capsule_toss_transform', label: '15. ASMR Tactile Capsule Toss & Transformation (Kotak Dilempar Lembut)' }
+  { value: 'premium_vertical_row', label: 'Premium Vertical Row Storyboard (Dark & Yellow)' }
 ];
 
 
@@ -74,7 +53,7 @@ function httpRequest(url, headers, body) {
 }
 
 async function writePrompt(req, res) {
-  const { concept, style } = req.body;
+  const { concept, style, videoEngine, gridCount, duration, aspectRatio, hasRefImage, refImage } = req.body;
   if (!concept) {
     return res.status(400).json({ message: 'Ide kasar (concept) harus diisi.' });
   }
@@ -92,7 +71,7 @@ async function writePrompt(req, res) {
     "Iklan keyboard mekanikal RGB kustom dengan keycaps warna pastel retro bergaya komik/pop-art.",
     "Iklan tas ransel petualangan outdoor anti-air yang dibawa mendaki menembus hujan di puncak gunung.",
     "Iklan lilin aromaterapi menenangkan dengan kepulan asap tipis di samping buku grimoire mistis hangat.",
-    "Iklan minuman kaleng bersoda dingin yang menyegarkan dengan ledakan gelembung dan es batu pecah.",
+    "Iklan minuman kaleng bersoda dingin yang menyegarkan dengan ledakan gelembung and es batu pecah.",
     "Iklan casing smartphone estetik dengan coretan tangan bergaya seni jalanan perkotaan (cyberpunk/pop-art).",
     "Iklan perhiasan kalung emas berlian elegan yang berkilau di leher model di galeri seni beton modern.",
     "Iklan kue kering kering mentega (cookies) yang baru matang diangkat dari oven dapur kayu pedesaan.",
@@ -130,6 +109,8 @@ Tugas Anda adalah menerima ide kasar dari pengguna, lalu menghasilkan:
 2. Sebuah Deskripsi Storyboard rinci yang siap digunakan sebagai prompt AI (berisi detail visual, gaya sinematik, sudut kamera, warna, dan pencahayaan) yang secara khusus ditulis agar serasi dan cocok dengan gaya layout storyboard: "${style}".
 3. Key 'layout' harus bernilai "${style}" (karena pengguna telah memilih gaya ini).
 
+PENTING: Tulis deskripsi secara ringkas, padat, dan sinematik. Total panjang teks untuk nilai 'description' HARUS DI BAWAH 1500 karakter agar muat saat digabung dengan master prompt. Jangan bertele-tele.
+
 Anda harus mengembalikan respon hanya dalam format JSON mentah dengan key 'title', 'description', dan 'layout'. Jangan bungkus dalam markdown (jangan pakai \`\`\`json). Contoh output:
 {
   "title": "Judul Elegan",
@@ -144,12 +125,70 @@ Tugas Anda adalah menerima ide kasar dari pengguna, lalu menghasilkan:
 3. Memilih satu Gaya Layout Storyboard yang paling cocok untuk ide/konsep tersebut dari daftar gaya berikut:
 ${layoutListText}
 
+PENTING: Tulis deskripsi secara ringkas, padat, dan sinematik. Total panjang teks untuk nilai 'description' HARUS DI BAWAH 1500 karakter agar muat saat digabung dengan master prompt. Jangan bertele-tele.
+
 Anda harus mengembalikan respon hanya dalam format JSON mentah dengan key 'title', 'description', dan 'layout' (diisi dengan value/kode dari layout yang Anda pilih). Jangan bungkus dalam markdown (jangan pakai \`\`\`json). Contoh output:
 {
   "title": "Judul Elegan",
   "description": "Deskripsi visual rinci...",
   "layout": "baking_timeline"
 }`;
+    }
+
+    let userMessageContent = concept === 'minta_ide_acak'
+      ? `Buatlah konsep ide video komersial lengkap yang menarik berdasarkan tema acak berikut: "${selectedConcept}"`
+      : `Ide Kasar: ${concept}`;
+
+    // Calculate pageCount and totalPanels based on video engine and duration
+    let secondsPerPage = 15;
+    const engine = videoEngine || 'seedance';
+    if (engine === 'omni') {
+      secondsPerPage = 10;
+    } else if (engine === 'veo') {
+      secondsPerPage = 8;
+    }
+    const durVal = duration ? Number(duration) : 15;
+    const gCount = gridCount ? Number(gridCount) : 6;
+    const pageCount = Math.max(1, Math.min(8, Math.ceil(durVal / secondsPerPage)));
+    const totalPanels = pageCount * gCount;
+
+    // Append context parameters if available to enrich LLM response
+    let contextClause = "\n\nKonteks parameter tambahan untuk diselaraskan dalam prompt deskripsi:";
+    if (videoEngine) contextClause += `\n- Video Engine yang digunakan: ${videoEngine}`;
+    contextClause += `\n- Jumlah halaman storyboard: ${pageCount} Halaman`;
+    contextClause += `\n- Jumlah panel per halaman: ${gCount} Panel`;
+    contextClause += `\n- Total panel sekuensial secara keseluruhan: ${totalPanels} Panel`;
+    if (duration) contextClause += `\n- Total durasi video: ${durVal} detik`;
+    if (aspectRatio) contextClause += `\n- Ukuran gambar/Rasio aspek: ${aspectRatio}`;
+    if (hasRefImage) {
+      contextClause += `\n- Catatan: Pengguna mengunggah gambar referensi produk asli. Pastikan deskripsi prompt fokus untuk menjaga konsistensi produk/subjek dari gambar referensi (pertahankan detail produk tersebut di seluruh panel visual).`;
+    }
+    contextClause += `\n\nSesuaikan deskripsi visual agar selaras dengan parameter-parameter tersebut. Karena durasi video adalah ${durVal} detik dengan engine ${engine}, storyboard ini akan memiliki ${pageCount} halaman dengan ${gCount} panel per halaman (Total: ${totalPanels} panel sekuensial). Alur cerita dalam deskripsi Anda WAJIB merinci pembagian alur panel dari Panel 1 sampai Panel ${totalPanels} secara kronologis untuk mencakup seluruh durasi tersebut agar gambar di setiap halaman tidak berulang.`;
+
+    userMessageContent += contextClause;
+
+    let userMessagePayload = [];
+    if (hasRefImage && refImage) {
+      let base64Data = refImage;
+      if (refImage.startsWith('data:image')) {
+        // Base64 already properly formatted
+      } else {
+        base64Data = `data:image/png;base64,${refImage}`;
+      }
+      userMessagePayload = [
+        {
+          type: 'text',
+          text: userMessageContent
+        },
+        {
+          type: 'image_url',
+          image_url: {
+            url: base64Data
+          }
+        }
+      ];
+    } else {
+      userMessagePayload = userMessageContent;
     }
 
     const payload = {
@@ -161,9 +200,7 @@ Anda harus mengembalikan respon hanya dalam format JSON mentah dengan key 'title
         },
         {
           role: 'user',
-          content: concept === 'minta_ide_acak'
-            ? `Buatlah konsep ide video komersial lengkap yang menarik berdasarkan tema acak berikut: "${selectedConcept}"`
-            : `Ide Kasar: ${concept}`
+          content: userMessagePayload
         }
       ],
       temperature: 0.7
@@ -191,8 +228,8 @@ Anda harus mengembalikan respon hanya dalam format JSON mentah dengan key 'title
 
     try {
       const parsed = JSON.parse(cleanText.trim());
-      // Ensure selected layout is valid, fallback to 'cinematic_production'
-      const selectedLayout = LAYOUT_STYLES.some(s => s.value === parsed.layout) ? parsed.layout : 'cinematic_production';
+      // Ensure selected layout is valid, fallback to 'premium_vertical_row'
+      const selectedLayout = LAYOUT_STYLES.some(s => s.value === parsed.layout) ? parsed.layout : 'premium_vertical_row';
       return res.json({
         title: parsed.title || 'Untitled AI Project',
         description: parsed.description || concept,
@@ -202,7 +239,7 @@ Anda harus mengembalikan respon hanya dalam format JSON mentah dengan key 'title
       return res.json({
         title: concept.substring(0, 20) + '...',
         description: cleanText,
-        layout: 'cinematic_production'
+        layout: 'premium_vertical_row'
       });
     }
 
@@ -277,8 +314,11 @@ async function generateVideoPromptsInternal({ storyboardId, promptType, regenera
   const imageParts = [];
   for (let i = 0; i < panelImages.length; i++) {
     const imgPath = panelImages[i];
-    if (imgPath.startsWith('/uploads/')) {
-      const relativeFilename = imgPath.replace(/^\/?uploads\//, '');
+    
+    // Check if it's a local upload (either relative /uploads/ or absolute URL containing /uploads/)
+    if (imgPath.includes('/uploads/')) {
+      const idx = imgPath.indexOf('/uploads/');
+      const relativeFilename = imgPath.substring(idx + '/uploads/'.length);
       const fullPath = path.join(uploadsDir, relativeFilename);
       if (fs.existsSync(fullPath)) {
         const imgBuffer = fs.readFileSync(fullPath);
@@ -289,14 +329,30 @@ async function generateVideoPromptsInternal({ storyboardId, promptType, regenera
             url: `data:image/png;base64,${base64}`
           }
         });
+        continue;
       }
-    } else if (imgPath.startsWith('http')) {
-      imageParts.push({
-        type: 'image_url',
-        image_url: {
-          url: imgPath
+    }
+
+    // Otherwise, if it starts with http, download and convert to base64
+    if (imgPath.startsWith('http')) {
+      try {
+        const res = await fetch(imgPath);
+        if (res.ok) {
+          const arrayBuffer = await res.arrayBuffer();
+          const imgBuffer = Buffer.from(arrayBuffer);
+          const base64 = imgBuffer.toString('base64');
+          imageParts.push({
+            type: 'image_url',
+            image_url: {
+              url: `data:image/png;base64,${base64}`
+            }
+          });
+        } else {
+          console.error(`Failed to fetch remote image from ${imgPath}, status: ${res.status}`);
         }
-      });
+      } catch (err) {
+        console.error(`Error downloading remote image ${imgPath}:`, err);
+      }
     }
   }
 
@@ -313,23 +369,27 @@ async function generateVideoPromptsInternal({ storyboardId, promptType, regenera
   }
 
   let gridDescText = `exactly ${gridCount} panels`;
-  if (gridCount === 4) gridDescText = "exactly 4 panels arranged in a 2x2 grid (from top-left, top-right, bottom-left, to bottom-right)";
-  else if (gridCount === 6) gridDescText = "exactly 6 panels arranged in a 3x2 grid (3 columns, 2 rows)";
-  else if (gridCount === 8) gridDescText = "exactly 8 panels arranged in a 4x2 grid (4 columns, 2 rows)";
-  else if (gridCount === 9) gridDescText = "exactly 9 panels arranged in a 3x3 grid (3 columns, 3 rows)";
-  else if (gridCount === 12) gridDescText = "exactly 12 panels arranged in a 4x3 grid (4 columns, 3 rows)";
+  if (storyboard.style === 'premium_vertical_row') {
+    gridDescText = `exactly ${gridCount} widescreen panels arranged in a vertical stack (from top to bottom)`;
+  } else {
+    if (gridCount === 4) gridDescText = "exactly 4 panels arranged in a 2x2 grid (from top-left, top-right, bottom-left, to bottom-right)";
+    else if (gridCount === 6) gridDescText = "exactly 6 panels arranged in a 3x2 grid (3 columns, 2 rows)";
+    else if (gridCount === 8) gridDescText = "exactly 8 panels arranged in a 4x2 grid (4 columns, 2 rows)";
+    else if (gridCount === 9) gridDescText = "exactly 9 panels arranged in a 3x3 grid (3 columns, 3 rows)";
+    else if (gridCount === 12) gridDescText = "exactly 12 panels arranged in a 4x3 grid (4 columns, 3 rows)";
+  }
 
   let durationClause = '';
   const durVal = videoDuration || 'auto';
   if (durVal === 'auto') {
     if (targetType === 'image-to-video') {
-      durationClause = `Each individual scene/panel video has a target duration of: Kling/SeedDance/Luma: 15 seconds, Omni: 10 seconds, Gemini: 8 seconds. Adjust the length of each scene's narration to fit these bounds (roughly 2.5 to 3 words per second, e.g. ~24 words for 8s, ~30 words for 10s, ~45 words for 15s).`;
+      durationClause = `Each individual scene/panel video has a target duration of: Kling/SeedDance/Luma: 15 seconds, Omni: 10 seconds, Gemini: 8 seconds. Adjust the length of each scene's narration to fit these bounds (roughly 2.0 words per second, e.g. ~16 words for 8s, ~20 words for 10s, ~30 words for 15s).`;
     } else {
-      durationClause = `Each individual scene/panel video has a target duration of: 15 seconds. If Voiceover (VO) is enabled, the narration for each scene should be roughly 45 words.`;
+      durationClause = `Each individual scene/panel video has a target duration of: 15 seconds. If Voiceover (VO) is enabled, the narration for each scene should be roughly 30 words.`;
     }
   } else {
     const seconds = Number(durVal);
-    const targetWords = Math.round(seconds * 2.8);
+    const targetWords = Math.round(seconds * 2.0);
     durationClause = `Each individual scene/panel video has a target duration of: ${seconds} seconds. If Voiceover (VO) is enabled, the narration for each scene must contain approximately ${targetWords} words.`;
   }
 
@@ -389,9 +449,15 @@ You are provided with ${panelImages.length} page images of a storyboard. Each pa
 Your task is to analyze all the pages sequentially and write a distinct visual prompt and voiceover script for EACH of the ${totalScenes} pages.
 
 For each page (scene):
-1. "imageToVideoPrompt": A highly dynamic, action-oriented Image-to-Video prompt in English (80-150 words) that explicitly directs the AI video model to animate the scene, starting from the visual layout of that specific page. Crucial: The prompt must instruct the video AI model to animate the sequence of panels chronologically (from top-left to bottom-right) to form a cohesive, flowing narrative video clip for that page. Describe the actions, transitions, and camera movement (e.g. "smooth tracking shot", "fluid transitions between panels", "sequential animation of the product demonstration"). Keep it active.
+1. "imageToVideoPrompt": A highly dynamic, action-oriented Image-to-Video prompt in English (80-150 words) that explicitly directs the AI video model to animate the scene, starting from the visual layout of that specific page. Crucial: The prompt must instruct the video AI model to animate the sequence of panels chronologically (from top to bottom for vertical stacked layout, or from top-left to bottom-right for grid layout) to form a cohesive, flowing narrative video clip for that page. Describe the actions, transitions, and camera movement (e.g. "smooth tracking shot", "fluid transitions between panels", "sequential animation of the product demonstration"). Keep it active.
 2. "textToVideoPrompt": A comprehensive text-to-video prompt in English (80-150 words) describing the product details, scene setting, lighting, mood, camera style, and chronological action sequence across all the panels on that page from scratch.
 3. "narration": A voiceover narration script paragraph in the language: "${voLanguage || 'Bahasa Indonesia'}". ${toneClause} The narration must fit the page duration and align with the chronological visual action of that page.
+CRITICAL NARRATION FLOW & STRUCTURE:
+The voiceover narrations across all the ${totalScenes} pages must combine to form one single, continuously flowing script from the first page to the last. Do not treat each page as a standalone video!
+- Page 1 (scene_idx = 0): Must start with the opening hook to grab attention. Strictly DO NOT include any conclusion, promo details, or Call to Action (CTA) phrases like "klik keranjang kuning" or "checkout sekarang" here.
+- Middle Pages (scene_idx between 1 and ${totalScenes - 2}): Focus strictly on detailed features, demonstrations, or benefits. Ensure the sentences connect naturally from the previous page. DO NOT write any CTA or ending here.
+- Final Page (scene_idx = ${totalScenes - 1}): This is the absolute ending of the video. It must conclude the pitch and MUST end with a strong Call to Action (CTA) (e.g. "Klik keranjang kuning sekarang!", "Checkout sekarang sebelum kehabisan!").
+This prevents premature endings and duplicate CTAs in the middle of the storyboard flow.
 
 You MUST return the output strictly in this JSON format (do not wrap in markdown \`\`\`json blocks):
 {
@@ -416,7 +482,7 @@ You are provided with ${panelImages.length} page images of a storyboard. Each pa
 Your task is to analyze all the pages sequentially and write a distinct visual prompt for EACH of the ${totalScenes} pages.
 
 For each page (scene):
-1. "imageToVideoPrompt": A highly dynamic, action-oriented Image-to-Video prompt in English (80-150 words) that directs the AI model to animate the scene, starting from that page's layout. Crucial: The prompt must instruct the video AI model to animate the sequence of panels chronologically (from top-left to bottom-right) to form a cohesive, flowing narrative video clip for that page. Describe the actions, transitions, and camera movement.
+1. "imageToVideoPrompt": A highly dynamic, action-oriented Image-to-Video prompt in English (80-150 words) that directs the AI model to animate the scene, starting from that page's layout. Crucial: The prompt must instruct the video AI model to animate the sequence of panels chronologically (from top to bottom for vertical stacked layout, or from top-left to bottom-right for grid layout) to form a cohesive, flowing narrative video clip for that page. Describe the actions, transitions, and camera movement.
 2. "textToVideoPrompt": A comprehensive text-to-video prompt in English (80-150 words) describing the product details, scene setting, lighting, mood, camera style, and chronological action sequence across all the panels on that page from scratch.
 
 You MUST return the output strictly in this JSON format (do not wrap in markdown \`\`\`json blocks):
@@ -479,7 +545,8 @@ Please analyze the provided image sheet(s) carefully. Generate the requested JSO
   cleanText = cleanText.trim();
 
   if (!cleanText) {
-    throw new Error('Respon dari AI kosong.');
+    console.error('[AI Video Prompts Debug] Empty response content. Full response:', JSON.stringify(resJson, null, 2));
+    throw new Error('Respon dari AI kosong. Hal ini biasanya terjadi jika gambar referensi atau teks prompt terdeteksi sensitif/diblokir oleh filter keamanan (safety filter) AI model. Silakan coba ganti dengan gambar lain.');
   }
 
   // Validate and parse the structured output

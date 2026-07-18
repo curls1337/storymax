@@ -59,6 +59,20 @@ async function initDb() {
     // Column already exists, safe to ignore
   }
 
+  // Ensure task_id column exists in storyboards (migration support)
+  try {
+    await db.exec('ALTER TABLE storyboards ADD COLUMN task_id TEXT');
+  } catch (e) {
+    // Column already exists, safe to ignore
+  }
+
+  // Ensure active_task_data column exists in storyboards (migration support)
+  try {
+    await db.exec('ALTER TABLE storyboards ADD COLUMN active_task_data TEXT');
+  } catch (e) {
+    // Column already exists, safe to ignore
+  }
+
   // Ensure video_prompts column exists if table was already created (migration support)
   try {
     await db.exec('ALTER TABLE storyboards ADD COLUMN video_prompts TEXT');
