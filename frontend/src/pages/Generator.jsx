@@ -85,6 +85,25 @@ export default function Generator({ setTab }) {
   const logContainerRef = useRef(null);
   const fileInputRef = useRef(null);
 
+  const handleDownloadClick = (e, imgUrl) => {
+    const isCapacitor = window.Capacitor !== undefined;
+    const platform = isCapacitor ? window.Capacitor.getPlatform() : 'web';
+    
+    const cleanBase = api.defaults.baseURL ? api.defaults.baseURL.replace(/\/api$/, '') : '';
+    const cleanUrl = imgUrl.startsWith('http') ? imgUrl : `${window.location.origin}${imgUrl}`;
+    const downloadUrl = `${cleanBase}/api/storyboards/download?url=${encodeURIComponent(cleanUrl)}`;
+    
+    if (isCapacitor && (platform === 'ios' || platform === 'android')) {
+      e.preventDefault();
+      try {
+        window.open(downloadUrl, '_system');
+      } catch (err) {
+        console.error("Capacitor download redirect error:", err);
+        window.open(downloadUrl, '_blank');
+      }
+    }
+  };
+
   const handleRegeneratePage = async (storyboardId, pageIdx) => {
     const confirmRegen = window.confirm(`Apakah Anda yakin ingin me-regenerasi Halaman ${pageIdx + 1}? (Proses ini membutuhkan beberapa kredit Freebeat).`);
     if (!confirmRegen) return;
@@ -928,7 +947,7 @@ export default function Generator({ setTab }) {
                             </div>
                             <div className="flex gap-1.5 w-full justify-between pt-1">
                               <a href={getFullImageUrl(img)} target="_blank" rel="noopener noreferrer" className="flex-1 bg-[#131211] hover:bg-[#1a1918] text-slate-200 font-bold py-2 rounded-xl border border-[#2a2725] text-[9px] uppercase tracking-wider text-center flex items-center justify-center gap-1"><ExternalLink className="w-3 h-3 text-[#cfae80]" /> Full</a>
-                              <a href={`/api/storyboards/download?url=${encodeURIComponent(getFullImageUrl(img))}`} download className="flex-1 bg-[#131211] hover:bg-[#1a1918] text-slate-200 font-bold py-2 rounded-xl border border-[#2a2725] text-[9px] uppercase tracking-wider text-center flex items-center justify-center gap-1"><Download className="w-3 h-3" /> Unduh</a>
+                              <a href={`/api/storyboards/download?url=${encodeURIComponent(getFullImageUrl(img))}`} onClick={(e) => handleDownloadClick(e, getFullImageUrl(img))} download className="flex-1 bg-[#131211] hover:bg-[#1a1918] text-slate-200 font-bold py-2 rounded-xl border border-[#2a2725] text-[9px] uppercase tracking-wider text-center flex items-center justify-center gap-1"><Download className="w-3 h-3" /> Unduh</a>
                               <button
                                 type="button"
                                 disabled={regeneratingPages[idx]}
@@ -958,7 +977,7 @@ export default function Generator({ setTab }) {
                         </div>
                         <div className="flex flex-wrap gap-3 justify-end border-t border-[#2a2725] pt-5 w-full">
                           <a href={getFullImageUrl(activeImg)} target="_blank" rel="noopener noreferrer" className="bg-[#131211] hover:bg-[#1a1918] text-slate-200 font-bold py-3.5 px-4 rounded-2xl flex items-center gap-1.5 border border-[#2a2725] text-xs uppercase tracking-wider"><ExternalLink className="w-4 h-4 text-[#cfae80]" /> Resolusi Penuh</a>
-                          <a href={`/api/storyboards/download?url=${encodeURIComponent(getFullImageUrl(activeImg))}`} download className="bg-[#131211] hover:bg-[#1a1918] text-slate-200 font-bold py-3.5 px-4 rounded-2xl flex items-center gap-1.5 border border-[#2a2725] text-xs uppercase tracking-wider"><Download className="w-4 h-4" /> Unduh</a>
+                          <a href={`/api/storyboards/download?url=${encodeURIComponent(getFullImageUrl(activeImg))}`} onClick={(e) => handleDownloadClick(e, getFullImageUrl(activeImg))} download className="bg-[#131211] hover:bg-[#1a1918] text-slate-200 font-bold py-3.5 px-4 rounded-2xl flex items-center gap-1.5 border border-[#2a2725] text-xs uppercase tracking-wider"><Download className="w-4 h-4" /> Unduh</a>
                           <button
                             type="button"
                             disabled={regeneratingPages[0]}

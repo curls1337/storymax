@@ -561,57 +561,11 @@ export default function Dashboard({ setTab }) {
       return;
     }
 
-    // iOS Platform: Share the public HTTP URL directly.
-    // iOS native UIActivityViewController will fetch and offer "Save Image" / "Save Video"
-    if (platform === 'ios') {
-      try {
-        await Share.share({
-          url: downloadUrl
-        });
-      } catch (err) {
-        console.error("iOS share error:", err);
-        alert(`Gagal menyimpan file secara native. Membuka di browser...`);
-        window.open(downloadUrl, '_blank');
-      } finally {
-        if (elementId) setDownloadingId(null);
-      }
-      return;
-    }
-
-    // Android Platform: Download to native cache, write file, and share local URI
+    // Redirect mobile platform downloads directly to system browser (Safari/Chrome)
     try {
-      const response = await CapacitorHttp.get({
-        url: downloadUrl,
-        responseType: 'base64'
-      });
-
-      if (response.status !== 200) {
-        throw new Error(`Server returned HTTP ${response.status}`);
-      }
-
-      const base64Data = response.data;
-      if (!base64Data) {
-        throw new Error('No data received from download proxy');
-      }
-
-      // Write to app internal cache folder (zero permissions required)
-      const writeResult = await Filesystem.writeFile({
-        path: filename,
-        data: base64Data,
-        directory: Directory.Cache
-      });
-
-      const fileUri = writeResult.uri;
-
-      // Share cached file URI on Android
-      await Share.share({
-        title: filename,
-        url: fileUri
-      });
-
+      window.open(downloadUrl, '_system');
     } catch (err) {
-      console.error("Android native save/share error:", err);
-      alert(`Gagal menyimpan file secara native. Membuka di browser...`);
+      console.error("Capacitor external open error:", err);
       window.open(downloadUrl, '_blank');
     } finally {
       if (elementId) setDownloadingId(null);

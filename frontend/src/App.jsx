@@ -60,6 +60,62 @@ export default function App() {
     if (mainRef.current) mainRef.current.scrollTop = 0;
   }, [tab]);
 
+  const [pullDistance, setPullDistance] = useState(0);
+  const touchStartRef = useRef({ x: 0, y: 0 });
+  const isPullingRef = useRef(false);
+
+  useEffect(() => {
+    const mainEl = mainRef.current;
+    if (!mainEl) return;
+
+    const handleTouchStart = (e) => {
+      if (mainEl.scrollTop === 0) {
+        touchStartRef.current = {
+          x: e.touches[0].screenX,
+          y: e.touches[0].screenY
+        };
+        isPullingRef.current = true;
+      }
+    };
+
+    const handleTouchMove = (e) => {
+      if (!isPullingRef.current) return;
+      const currentY = e.touches[0].screenY;
+      const currentX = e.touches[0].screenX;
+      const distY = currentY - touchStartRef.current.y;
+      const distX = currentX - touchStartRef.current.x;
+
+      if (distY > 0 && distY > Math.abs(distX)) {
+        setPullDistance(Math.min(90, distY));
+        if (e.cancelable) {
+          e.preventDefault();
+        }
+      } else if (distY < 0) {
+        isPullingRef.current = false;
+        setPullDistance(0);
+      }
+    };
+
+    const handleTouchEnd = () => {
+      if (!isPullingRef.current) return;
+      isPullingRef.current = false;
+      if (pullDistance > 65) {
+        window.location.reload();
+      } else {
+        setPullDistance(0);
+      }
+    };
+
+    mainEl.addEventListener('touchstart', handleTouchStart, { passive: true });
+    mainEl.addEventListener('touchmove', handleTouchMove, { passive: false });
+    mainEl.addEventListener('touchend', handleTouchEnd);
+
+    return () => {
+      mainEl.removeEventListener('touchstart', handleTouchStart);
+      mainEl.removeEventListener('touchmove', handleTouchMove);
+      mainEl.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [pullDistance, loading]);
 
   if (loading) {
     return (
@@ -199,7 +255,16 @@ export default function App() {
         </div>
       </aside>
 
-      <main ref={mainRef} className="flex-grow h-full min-h-0 overflow-y-auto bg-darkBg pb-20 lg:pb-0">
+      <main ref={mainRef} className="flex-grow h-full min-h-0 overflow-y-auto bg-darkBg pb-20 lg:pb-0 relative">
+        {/* Pull to refresh indicator */}
+        {pullDistance > 0 && (
+          <div 
+            style={{ transform: `translateY(${pullDistance - 55}px)`, opacity: Math.min(1, pullDistance / 60) }}
+            className="absolute top-4 left-1/2 -translate-x-1/2 bg-[#1a1918]/90 border border-[#cfae80]/30 p-2.5 rounded-full z-50 transition-transform duration-75 flex items-center justify-center shadow-2xl backdrop-blur-md"
+          >
+            <Loader className={`w-4 h-4 text-[#cfae80] ${pullDistance > 65 ? 'animate-spin' : ''}`} />
+          </div>
+        )}
         <div className="w-full min-h-full flex flex-col justify-start px-4 sm:px-6 md:px-8 py-6 md:py-8">
           {tab === 'dashboard' && <Dashboard setTab={setTab} />}
           {tab === 'generator' && <Generator setTab={setTab} />}
