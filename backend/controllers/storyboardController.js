@@ -636,15 +636,45 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
             const sharp = require('sharp');
             const buffer = fs.readFileSync(refImagePath);
             const outputPngPath = refImagePath.replace(/\.png$/, '_converted.png');
-            await sharp(buffer)
-              .png()
-              .toFile(outputPngPath);
-            if (fs.existsSync(refImagePath)) {
-              fs.unlinkSync(refImagePath);
+            
+            // Read metadata to check dimensions
+            const image = sharp(buffer);
+            const metadata = await image.metadata();
+            
+            let pipeline = image;
+            // Downscale extremely large images to speed up processing and prevent size limit errors
+            if (metadata.width > 2560 || metadata.height > 2560) {
+              pipeline = pipeline.resize({
+                width: metadata.width > metadata.height ? 2048 : undefined,
+                height: metadata.height >= metadata.width ? 2048 : undefined,
+                fit: 'inside',
+                withoutEnlargement: true
+              });
             }
-            refImagePath = outputPngPath;
+            
+            await pipeline
+              .png({ quality: 90, compressionLevel: 8 })
+              .toFile(outputPngPath);
+            
+            // Check final file size and convert to optimized JPEG if still over 10MB
+            const stats = fs.statSync(outputPngPath);
+            if (stats.size > 10 * 1024 * 1024) {
+              const outputJpgPath = outputPngPath.replace(/_converted\.png$/, '_converted.jpg');
+              await sharp(outputPngPath)
+                .jpeg({ quality: 80, mozjpeg: true })
+                .toFile(outputJpgPath);
+              
+              if (fs.existsSync(outputPngPath)) fs.unlinkSync(outputPngPath);
+              if (fs.existsSync(refImagePath)) fs.unlinkSync(refImagePath);
+              refImagePath = outputJpgPath;
+            } else {
+              if (fs.existsSync(refImagePath)) {
+                fs.unlinkSync(refImagePath);
+              }
+              refImagePath = outputPngPath;
+            }
           } catch (sharpErr) {
-            console.warn(`[sharp] failed to convert reference image to png: ${sharpErr.message}`);
+            console.warn(`[sharp] failed to process reference image: ${sharpErr.message}`);
           }
           savedRefImagePaths.push(refImagePath.replace(/\\/g, '/'));
         }
