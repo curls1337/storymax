@@ -143,7 +143,7 @@ export default function App() {
       {/* MOBILE HEADER */}
       <header className="lg:hidden bg-[#1a1918]/90 border-b border-[#2a2725] flex items-center justify-between px-6 pt-[env(safe-area-inset-top,0.75rem)] pb-3 z-20 backdrop-blur-md shrink-0">
         <h2 className="text-xl font-editorial italic text-white flex items-center gap-2.5 select-none">
-          <img src="/favicon.svg" alt="Storymax Logo" className="w-6 h-6 object-contain rounded-md shadow-sm" />
+          <img src="/logo.png" alt="Storymax Logo" className="w-8 h-8 object-cover rounded-lg shadow-md border border-[#f5c242]/30" />
           <span>story<span className="text-[#cfae80] font-normal">max</span></span>
         </h2>
         <span className="px-2.5 py-0.5 rounded bg-[#cfae80]/10 text-[#cfae80] text-[8px] font-bold tracking-widest uppercase border border-[#cfae80]/20">
@@ -157,7 +157,7 @@ export default function App() {
           {/* Logo Brand */}
           <div className="p-6 border-b border-[#2a2725] flex items-center justify-between">
             <h2 className="text-2xl font-editorial italic text-white flex items-center gap-2.5 select-none">
-              <img src="/favicon.svg" alt="Storymax Logo" className="w-7 h-7 object-contain rounded-lg shadow-sm" />
+              <img src="/logo.png" alt="Storymax Logo" className="w-9 h-9 object-cover rounded-xl shadow-md border border-[#f5c242]/30" />
               <span>story<span className="text-[#cfae80] font-normal">max</span></span>
             </h2>
             <span className="px-2.5 py-0.5 rounded bg-[#cfae80]/10 text-[#cfae80] text-[8px] font-bold tracking-widest uppercase border border-[#cfae80]/20">
