@@ -1108,9 +1108,20 @@ async function mergeStoryboardVideos(req, res) {
   
   function downloadFile(url, destPath) {
     return new Promise((resolve, reject) => {
+      const parsedUrl = new URL(url);
+      const options = {
+        hostname: parsedUrl.hostname,
+        path: parsedUrl.pathname + parsedUrl.search,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        },
+        timeout: 20000
+      };
+      
       const file = fs.createWriteStream(destPath);
       const protocol = url.startsWith('https') ? https : http;
-      protocol.get(url, (response) => {
+      
+      protocol.get(options, (response) => {
         if (response.statusCode !== 200) {
           reject(new Error(`Failed to download: HTTP ${response.statusCode}`));
           return;
