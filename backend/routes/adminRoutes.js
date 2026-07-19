@@ -1,7 +1,7 @@
 const express = require('express');
 const { 
   getAllUsers, createUser, updateUser, deleteUser,
-  getAllKeys, addKey, addKeysBulk, toggleKeyStatus, deleteKey,
+  getAllKeys, addKey, addKeysBulk, toggleKeyStatus, deleteKey, deleteKeysBulk,
   getAiSettings, updateAiSettings, testAiSettings,
   getStorageFiles, deleteStorageFile
 } = require('../controllers/adminController');
@@ -23,6 +23,7 @@ router.delete('/users/:id', deleteUser);
 router.get('/keys', getAllKeys);
 router.post('/keys', addKey);
 router.post('/keys/bulk', addKeysBulk);
+router.post('/keys/bulk-delete', deleteKeysBulk);
 router.put('/keys/:id/toggle', toggleKeyStatus);
 router.delete('/keys/:id', deleteKey);
 

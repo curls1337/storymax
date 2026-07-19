@@ -6,7 +6,22 @@ const { getDb } = require('../db');
 const { uploadsDir } = require('../config');
 
 const LAYOUT_STYLES = [
-  { value: 'premium_vertical_row', label: 'Premium Vertical Row Storyboard (Dark & Yellow)' }
+  { value: 'premium_vertical_row', label: 'Premium Vertical Row Storyboard (Dark & Yellow)' },
+  { value: 'infographic_step_guide', label: 'Infografis Step-by-Step Guide (Nomor & Tutorial)' },
+  { value: 'tiktok_script_table', label: 'TikTok Commercial Script Table (5 Kolom: Scene, Durasi, Visual, VO/Dialog, Text on Screen)' },
+  { value: 'cinematic_matrix_grid', label: 'Cinematic B-Roll Matrix Grid (15 Shot Grid & Technical Summary)' },
+  { value: 'ugc_overlay_card_grid', label: 'UGC Overlay #5a: Clean Card & Bubble Overlay (Skincare/Beauty Style)' },
+  { value: 'ugc_overlay_dark_table', label: 'UGC Overlay #5b: Dark Tech & Sticker Table (Tech Review Style)' },
+  { value: 'ugc_overlay_minimal_clean', label: 'UGC Overlay #5c: Minimal Aesthetic Talking Head (Fashion/Lifestyle Style)' },
+  { value: 'unboxing_cinematic_grid', label: 'Product Unboxing Cinematic Grid (9 Shot Dark & Technical Summary)' },
+  { value: 'ugc_product_showcase_grid', label: 'UGC Product Showcase Grid (9 Shot Light & Pastel Spec Footer)' },
+  { value: 'comic_grunge_storyboard', label: 'Short Story Comic Grunge Storyboard (9 Panel Satirical Cartoon Style)' },
+  { value: 'character_design_turnaround', label: 'Character / Mecha Design & Henshin Sheet (Detailed Turnaround & Henshin Grid)' },
+  { value: 'recipe_cooking_table', label: 'Recipe / Cooking Tutorial ASMR Table (8 Kolom: Time, Scene, Visual, Camera, Continuity, ASMR Audio, Transition, Notes)' },
+  { value: 'clean_step_card_grid', label: 'Clean E-Commerce Step Card Grid (10 Panel Rounded Cards & Purple Badge)' },
+  { value: 'diy_build_process', label: 'DIY Build Process & Miniature Storyboard (6 Row Stack & Right Technical Info Column)' },
+  { value: 'tiny_workers_miniature', label: 'Tiny Workers & Pixar-Style Storyboard (6 Panel 3D Pixar Animation Style)' },
+  { value: 'cube_morph_product', label: '3D Cube Morph Product Transition (CGI Before-After)' }
 ];
 
 
@@ -449,9 +464,25 @@ You are provided with ${panelImages.length} page images of a storyboard. Each pa
 Your task is to analyze all the pages sequentially and write a distinct visual prompt and voiceover script for EACH of the ${totalScenes} pages.
 
 For each page (scene):
-1. "imageToVideoPrompt": A highly dynamic, action-oriented Image-to-Video prompt in English (80-150 words) that explicitly directs the AI video model to animate the scene, starting from the visual layout of that specific page. Crucial: The prompt must instruct the video AI model to animate the sequence of panels chronologically (from top to bottom for vertical stacked layout, or from top-left to bottom-right for grid layout) to form a cohesive, flowing narrative video clip for that page. Describe the actions, transitions, and camera movement (e.g. "smooth tracking shot", "fluid transitions between panels", "sequential animation of the product demonstration"). Keep it active.
-2. "textToVideoPrompt": A comprehensive text-to-video prompt in English (80-150 words) describing the product details, scene setting, lighting, mood, camera style, and chronological action sequence across all the panels on that page from scratch.
+1. "imageToVideoPrompt": A dynamic, pure MOTION and CAMERA DIRECTION prompt in English (60-120 words) tailored for Image-to-Video models that ALREADY have the visual image.
+   - STRICT RULE: DO NOT describe or repeat product details, product colors, or physical packaging appearance, because the image model already sees the image!
+   - FOCUS ONLY ON: Camera movement (e.g. "slow tracking shot", "cinematic pan down", "subtle handheld camera movement"), object/character action motion (e.g. "hands gently opening the box", "fluid water splashes"), and atmospheric lighting effects ("cinematic haze, subtle anamorphic lens flare, shallow depth of field with creamy bokeh, volumetric lighting, motion blur").
+   - VO TIMING (Mandatory since Voiceover is ENABLED): Explicitly specify the Voiceover narration speech timing in the motion prompt (e.g., "At 0s, narrator speaks: '[VO text]'. Simultaneously, camera pans down...").
+
+2. "textToVideoPrompt": A full, self-contained Text-to-Video prompt in English (100-160 words) that describes everything from scratch for video models WITHOUT image input.
+   - Include complete physical product descriptions, scene environment, material textures, lighting, cinematic haze, subtle lens flare, shallow depth of field with soft bokeh, camera angles, and chronological action sequence across all panels on that page.
+   - VO TIMING (Mandatory since Voiceover is ENABLED): Explicitly specify the Voiceover narration speech timing and calm pace in the motion prompt (e.g., "At 0s, narrator speaks at a calm, relaxed, unhurried pace: '[VO text]'. Simultaneously, camera pans down...").
+
 3. "narration": A voiceover narration script paragraph in the language: "${voLanguage || 'Bahasa Indonesia'}". ${toneClause} The narration must fit the page duration and align with the chronological visual action of that page.
+
+CRITICAL SPEECH PACING, TEMPO & WORD COUNT RULES (Strictly prevents fast, rushed, or rapid voiceover):
+- TEMPO & PACING: Write narration to be spoken at a calm, relaxed, articulate, and natural conversational pace. Insert commas (',') and ellipses ('...') strategically to enforce clear, natural breathing pauses so the narrator never sounds rushed or out of breath.
+- STRICT WORD COUNT LIMIT PER SCENE (CALIBRATED BY DURATION):
+  * For ~10-second scene: Strictly MAX 10 to 15 words TOTAL for that scene.
+  * For ~15-second scene: Strictly MAX 18 to 24 words TOTAL for that scene.
+  * For ~20+ second scene: Strictly MAX 25 to 35 words TOTAL for that scene.
+- NEVER cram long, dense sentences into a single scene! Keep phrases short, rhythmic, punchy, and well-spaced.
+
 CRITICAL NARRATION FLOW & STRUCTURE:
 The voiceover narrations across all the ${totalScenes} pages must combine to form one single, continuously flowing script from the first page to the last. Do not treat each page as a standalone video!
 - Page 1 (scene_idx = 0): Must start with the opening hook to grab attention. Strictly DO NOT include any conclusion, promo details, or Call to Action (CTA) phrases like "klik keranjang kuning" or "checkout sekarang" here.
@@ -467,8 +498,8 @@ You MUST return the output strictly in this JSON format (do not wrap in markdown
   "scenes": [
     {
       "scene_idx": 0,
-      "imageToVideoPrompt": "<English motion prompt for Page 1>",
-      "textToVideoPrompt": "<English full text prompt for Page 1>",
+      "imageToVideoPrompt": "<English motion-only & VO timing prompt for Page 1>",
+      "textToVideoPrompt": "<English full descriptive text prompt for Page 1>",
       "narration": "<Voiceover script for Page 1>"
     },
     ...
@@ -485,16 +516,21 @@ You are provided with ${panelImages.length} page images of a storyboard. Each pa
 Your task is to analyze all the pages sequentially and write a distinct visual prompt for EACH of the ${totalScenes} pages.
 
 For each page (scene):
-1. "imageToVideoPrompt": A highly dynamic, action-oriented Image-to-Video prompt in English (80-150 words) that directs the AI model to animate the scene, starting from that page's layout. Crucial: The prompt must instruct the video AI model to animate the sequence of panels chronologically (from top to bottom for vertical stacked layout, or from top-left to bottom-right for grid layout) to form a cohesive, flowing narrative video clip for that page. Describe the actions, transitions, and camera movement.
-2. "textToVideoPrompt": A comprehensive text-to-video prompt in English (80-150 words) describing the product details, scene setting, lighting, mood, camera style, and chronological action sequence across all the panels on that page from scratch.
+1. "imageToVideoPrompt": A dynamic, pure MOTION and CAMERA DIRECTION prompt in English (50-100 words) tailored for Image-to-Video models that ALREADY have the visual image.
+   - STRICT RULE: DO NOT describe or repeat product details, product colors, or physical packaging appearance, because the image model already sees the image!
+   - STRICT RULE: Voiceover is DISABLED for this project. DO NOT include any voiceover timing or narration text in this prompt!
+   - FOCUS ONLY ON: Camera movement (e.g. "slow tracking shot", "cinematic pan down", "subtle handheld camera movement"), object/character action motion (e.g. "hands gently opening the box", "fluid water splashes"), and atmospheric lighting effects ("cinematic haze, subtle anamorphic lens flare, shallow depth of field with creamy bokeh, volumetric lighting, motion blur").
+
+2. "textToVideoPrompt": A full, self-contained Text-to-Video prompt in English (100-160 words) that describes everything from scratch for video models WITHOUT image input.
+   - Include complete physical product descriptions, scene environment, material textures, lighting, cinematic haze, subtle lens flare, shallow depth of field with soft bokeh, camera angles, and chronological action sequence across all panels on that page.
 
 You MUST return the output strictly in this JSON format (do not wrap in markdown \`\`\`json blocks):
 {
   "scenes": [
     {
       "scene_idx": 0,
-      "imageToVideoPrompt": "<English motion prompt for Page 1>",
-      "textToVideoPrompt": "<English full text prompt for Page 1>",
+      "imageToVideoPrompt": "<English motion-only prompt for Page 1>",
+      "textToVideoPrompt": "<English full descriptive text prompt for Page 1>",
       "narration": null
     },
     ...

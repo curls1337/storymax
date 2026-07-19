@@ -12,6 +12,7 @@ export default function Dashboard({ setTab }) {
   const [error, setError] = useState('');
   const [selectedStoryboard, setSelectedStoryboard] = useState(null);
   const [modalCarouselIdx, setModalCarouselIdx] = useState(0);
+  const [activeMergedIdx, setActiveMergedIdx] = useState(0);
   const [activeSceneIdx, setActiveSceneIdx] = useState(0);
   const [activeMobileTab, setActiveMobileTab] = useState('image'); // 'image' | 'prompt' | 'video'
 
@@ -262,16 +263,46 @@ export default function Dashboard({ setTab }) {
         audioBlend: mergeAudioBlend
       });
       
-      // Update selectedStoryboard merged_video_url in state
-      setSelectedStoryboard(prev => ({
-        ...prev,
-        merged_video_url: res.data.merged_video_url
-      }));
+      // Update selectedStoryboard merged_video_url & merged_video_history in state
+      setSelectedStoryboard(prev => {
+        let history = [];
+        if (prev.merged_video_history) {
+          try { history = JSON.parse(prev.merged_video_history); } catch (e) { history = []; }
+        }
+        if (!Array.isArray(history)) history = [];
+        if (res.data.merged_video_history) {
+          try { history = JSON.parse(res.data.merged_video_history); } catch (e) {}
+        } else {
+          if (prev.merged_video_url && !history.includes(prev.merged_video_url)) {
+            history.push(prev.merged_video_url);
+          }
+          if (!history.includes(res.data.merged_video_url)) {
+            history.push(res.data.merged_video_url);
+          }
+        }
+        
+        const updatedHistoryJson = JSON.stringify(history);
+        setActiveMergedIdx(Math.max(0, history.length - 1));
+
+        return {
+          ...prev,
+          merged_video_url: res.data.merged_video_url,
+          merged_video_history: updatedHistoryJson
+        };
+      });
       
       // Update storyboards list state so it stays updated
       setStoryboards(prev => prev.map(sb => {
         if (sb.id === selectedStoryboard.id) {
-          return { ...sb, merged_video_url: res.data.merged_video_url };
+          let history = [];
+          if (res.data.merged_video_history) {
+            try { history = JSON.parse(res.data.merged_video_history); } catch (e) {}
+          }
+          return { 
+            ...sb, 
+            merged_video_url: res.data.merged_video_url,
+            merged_video_history: JSON.stringify(history)
+          };
         }
         return sb;
       }));
@@ -955,32 +986,34 @@ export default function Dashboard({ setTab }) {
 
               {/* Global Storyboard Page Navigation at the Top (Always visible on mobile & desktop) */}
               {images.length > 1 && (
-                <div className="w-full bg-[#161514] border-b border-[#2a2725] px-4 py-2 flex items-center justify-between shrink-0 select-none z-10">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setModalCarouselIdx(prev => (prev > 0 ? prev - 1 : images.length - 1));
-                      setActiveVideoIdx(0);
-                    }}
-                    className="px-3.5 py-1.5 bg-[#1a1918] hover:bg-[#cfae80] hover:text-black text-[#cfae80] rounded-xl transition-all border border-[#2a2725] cursor-pointer text-[9px] font-bold uppercase tracking-wider flex items-center gap-1 shadow-md"
-                  >
-                    <ChevronLeft className="w-3.5 h-3.5" /> Sebelumnya
-                  </button>
-                  
-                  <span className="text-[10px] font-bold text-white uppercase tracking-wider bg-black/45 border border-[#2a2725]/60 px-4 py-1.5 rounded-full">
-                    Halaman {modalCarouselIdx + 1} dari {images.length}
-                  </span>
-                  
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setModalCarouselIdx(prev => (prev < images.length - 1 ? prev + 1 : 0));
-                      setActiveVideoIdx(0);
-                    }}
-                    className="px-3.5 py-1.5 bg-[#1a1918] hover:bg-[#cfae80] hover:text-black text-[#cfae80] rounded-xl transition-all border border-[#2a2725] cursor-pointer text-[9px] font-bold uppercase tracking-wider flex items-center gap-1 shadow-md"
-                  >
-                    Berikutnya <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
+                <div className="w-full bg-[#161514] border-b border-[#2a2725] px-4 py-2 flex items-center justify-center shrink-0 select-none z-10">
+                  <div className="flex items-center gap-1.5 sm:gap-2.5 bg-[#131211] border border-[#2a2725] p-1 rounded-2xl shadow-xl">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setModalCarouselIdx(prev => (prev > 0 ? prev - 1 : images.length - 1));
+                        setActiveVideoIdx(0);
+                      }}
+                      className="px-3 py-1.5 bg-[#1a1918] hover:bg-[#cfae80] hover:text-black text-[#cfae80] rounded-xl transition-all border border-[#2a2725] cursor-pointer text-[9px] font-bold uppercase tracking-wider flex items-center gap-1 shadow-md"
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5" /> Sebelumnya
+                    </button>
+                    
+                    <span className="text-[9.5px] sm:text-[10px] font-bold text-white uppercase tracking-wider px-2.5 py-1">
+                      Halaman {modalCarouselIdx + 1} dari {images.length}
+                    </span>
+                    
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setModalCarouselIdx(prev => (prev < images.length - 1 ? prev + 1 : 0));
+                        setActiveVideoIdx(0);
+                      }}
+                      className="px-3 py-1.5 bg-[#1a1918] hover:bg-[#cfae80] hover:text-black text-[#cfae80] rounded-xl transition-all border border-[#2a2725] cursor-pointer text-[9px] font-bold uppercase tracking-wider flex items-center gap-1 shadow-md"
+                    >
+                      Berikutnya <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -1115,16 +1148,6 @@ export default function Dashboard({ setTab }) {
                         <div className="bg-[#131211]/50 border border-[#2a2725] rounded-xl p-3.5 text-slate-350 text-[11px] leading-relaxed relative max-h-48 overflow-y-auto scrollbar-thin font-mono whitespace-pre-line">
                           {imageToVideoPrompt}
                         </div>
-                        {narration && (
-                          <div className="bg-[#1a1817] border border-[#2a2725]/60 rounded-xl p-3.5 mt-2 space-y-1.5 text-left">
-                            <span className="text-[8.5px] font-extrabold uppercase tracking-widest text-[#cfae80] flex items-center gap-1.5">
-                              🎤 Naskah Voice Over (VO)
-                            </span>
-                            <div className="text-[10.5px] text-slate-300 font-medium leading-relaxed font-sans whitespace-pre-line max-h-32 overflow-y-auto scrollbar-thin">
-                              {narration}
-                            </div>
-                          </div>
-                        )}
                         
                         {/* Options block for rewriting */}
                         <div className="flex flex-col gap-2.5 bg-[#131211]/30 border border-[#2a2725] rounded-xl p-3 mt-1.5">
@@ -1330,16 +1353,6 @@ export default function Dashboard({ setTab }) {
                         <div className="bg-[#131211]/50 border border-[#2a2725] rounded-xl p-3.5 text-slate-350 text-[11px] leading-relaxed relative max-h-48 overflow-y-auto scrollbar-thin font-mono whitespace-pre-line">
                           {textToVideoPrompt}
                         </div>
-                        {narration && (
-                          <div className="bg-[#1a1817] border border-[#2a2725]/60 rounded-xl p-3.5 mt-2 space-y-1.5 text-left">
-                            <span className="text-[8.5px] font-extrabold uppercase tracking-widest text-[#cfae80] flex items-center gap-1.5">
-                              🎤 Naskah Voice Over (VO)
-                            </span>
-                            <div className="text-[10.5px] text-slate-300 font-medium leading-relaxed font-sans whitespace-pre-line max-h-32 overflow-y-auto scrollbar-thin">
-                              {narration}
-                            </div>
-                          </div>
-                        )}
                         
                         {/* Options block for rewriting */}
                         <div className="flex flex-col gap-2.5 bg-[#131211]/30 border border-[#2a2725] rounded-xl p-3 mt-1.5">
@@ -1547,18 +1560,60 @@ export default function Dashboard({ setTab }) {
                         return true;
                       })();
 
+                      const mergedHistory = (() => {
+                        let list = [];
+                        if (selectedStoryboard.merged_video_history) {
+                          try { list = JSON.parse(selectedStoryboard.merged_video_history); } catch (e) { list = []; }
+                        }
+                        if (!Array.isArray(list) || list.length === 0) {
+                          if (selectedStoryboard.merged_video_url) {
+                            list = [selectedStoryboard.merged_video_url];
+                          }
+                        }
+                        return list;
+                      })();
+
+                      const safeMergedIdx = Math.min(activeMergedIdx, Math.max(0, mergedHistory.length - 1));
+                      const activeMergedUrl = mergedHistory[safeMergedIdx] || selectedStoryboard.merged_video_url;
+
                       return (
                         <div className="bg-[#131211]/50 border border-[#cfae80]/20 rounded-2xl p-4 animate-fadeIn">
                           <div className="flex items-center justify-between border-b border-[#2a2725]/30 pb-2 mb-2">
                             <span className="text-[9px] font-bold text-[#cfae80] uppercase tracking-widest flex items-center gap-1.5">
                               🎬 Video Gabungan ({images.length} Part)
                             </span>
+                            {mergedHistory.length > 1 && (
+                              <div className="flex items-center gap-1 bg-[#1a1918] border border-[#2a2725] px-2 py-0.5 rounded-full">
+                                <button
+                                  type="button"
+                                  disabled={safeMergedIdx === 0}
+                                  onClick={() => setActiveMergedIdx(prev => Math.max(0, prev - 1))}
+                                  className="text-[#cfae80] hover:text-white disabled:opacity-30 transition-all p-0.5 cursor-pointer"
+                                  title="Versi Sebelumnya"
+                                >
+                                  <ChevronLeft className="w-3.5 h-3.5" />
+                                </button>
+                                <span className="text-[8px] font-bold text-slate-300 uppercase tracking-wider px-1">
+                                  {safeMergedIdx + 1}/{mergedHistory.length}
+                                </span>
+                                <button
+                                  type="button"
+                                  disabled={safeMergedIdx === mergedHistory.length - 1}
+                                  onClick={() => setActiveMergedIdx(prev => Math.min(mergedHistory.length - 1, prev + 1))}
+                                  className="text-[#cfae80] hover:text-white disabled:opacity-30 transition-all p-0.5 cursor-pointer"
+                                  title="Versi Berikutnya"
+                                >
+                                  <ChevronRight className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            )}
                           </div>
                           
-                          {selectedStoryboard.merged_video_url ? (
+                          {activeMergedUrl ? (
                             <div className="space-y-3">
                               <video 
-                                src={getFullImageUrl(selectedStoryboard.merged_video_url)} 
+                                key={activeMergedUrl}
+                                src={getFullImageUrl(activeMergedUrl)} 
                                 controls 
                                 playsInline
                                 preload="metadata"
@@ -1566,9 +1621,9 @@ export default function Dashboard({ setTab }) {
                               />
                               <div className="grid grid-cols-2 gap-2">
                                 <a
-                                  href={getDownloadUrl(selectedStoryboard.merged_video_url)}
-                                  onClick={(e) => handleDownloadClick(e, selectedStoryboard.merged_video_url, `storyboard-${selectedStoryboard.id}-full.mp4`)}
-                                  download={`storyboard-${selectedStoryboard.id}-full.mp4`}
+                                  href={getDownloadUrl(activeMergedUrl)}
+                                  onClick={(e) => handleDownloadClick(e, activeMergedUrl, `storyboard-${selectedStoryboard.id}-v${safeMergedIdx + 1}-full.mp4`)}
+                                  download={`storyboard-${selectedStoryboard.id}-v${safeMergedIdx + 1}-full.mp4`}
                                   className="w-full bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-2 px-2 rounded-lg text-[8px] uppercase tracking-wider flex items-center justify-center gap-1 transition-all text-center cursor-pointer"
                                 >
                                   <Download className="w-3.5 h-3.5" /> Unduh Full
@@ -1576,7 +1631,7 @@ export default function Dashboard({ setTab }) {
                                 <button
                                   onClick={handleMergeVideos}
                                   disabled={mergingVideos || !hasVideosForEveryPage}
-                                  className="w-full bg-[#131211] hover:bg-[#1a1918] text-slate-350 font-bold py-2 px-2 rounded-lg border border-[#2a2725]/60 text-[8px] uppercase tracking-wider flex items-center justify-center gap-1 transition-all text-center"
+                                  className="w-full bg-[#131211] hover:bg-[#1a1918] text-slate-350 font-bold py-2 px-2 rounded-lg border border-[#2a2725]/60 text-[8px] uppercase tracking-wider flex items-center justify-center gap-1 transition-all text-center cursor-pointer disabled:opacity-50"
                                 >
                                   {mergingVideos ? <Loader className="animate-spin w-3 h-3" /> : '🔄 Gabung Ulang'}
                                 </button>

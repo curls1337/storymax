@@ -3,7 +3,22 @@ import api from '../utils/api';
 import { Sparkles, Loader, Download, ExternalLink, AlertTriangle, Terminal, X, ChevronRight, Upload, Image as ImageIcon, Zap, Sliders, Eye } from 'lucide-react';
 
 const LAYOUT_STYLES = [
-  { value: 'premium_vertical_row', label: 'Premium Vertical Row Storyboard', desc: 'Gaya tata letak vertikal baris bertumpuk premium dengan aksen kuning dan kolom info di kiri.' }
+  { value: 'premium_vertical_row', label: 'Premium Vertical Row Storyboard', desc: 'Gaya tata letak vertikal baris bertumpuk premium dengan aksen kuning dan kolom info di kiri.' },
+  { value: 'infographic_step_guide', label: 'Infografis Step-by-Step Guide', desc: 'Gaya poster infografis bernomor urut (1, 2, 3...) dengan panah transisi, checklist keunggulan & footer icon.' },
+  { value: 'tiktok_script_table', label: 'TikTok Commercial Script Table', desc: 'Gaya tabel naskah iklan TikTok/Reels 5 kolom (Scene, Durasi, Visual, VO/Dialog, Text on Screen) dengan header hero produk.' },
+  { value: 'cinematic_matrix_grid', label: 'Cinematic B-Roll Matrix Grid (15 Shot)', desc: 'Gaya matriks film TVC 5x3 (15 shot) dengan rincian Kamera, Fokus, Aksi, Catatan, serta footer matriks audio & visual style.' },
+  { value: 'ugc_overlay_card_grid', label: 'UGC Overlay #5a: Clean Card & Bubble Overlay', desc: 'Gaya UGC Beauty/Skincare dengan bubble text overlay di atas gambar visual, kartu meta adegan, dan footer 3 callout box.' },
+  { value: 'ugc_overlay_dark_table', label: 'UGC Overlay #5b: Dark Tech & Sticker Table', desc: 'Gaya UGC Review Gadget/Tech dengan tabel 4 kolom berlatar gelap, badge stiker tebal, dan footer hero produk.' },
+  { value: 'ugc_overlay_minimal_clean', label: 'UGC Overlay #5c: Minimal Aesthetic Talking Head', desc: 'Gaya UGC Fashion/Lifestyle dengan layout bersih 6 kolom, badge scene melingkar, soft pastel overlay, dan kotak tips bawah.' },
+  { value: 'unboxing_cinematic_grid', label: 'Product Unboxing Cinematic Grid (9 Shot)', desc: 'Gaya unboxing produk 3x3 (9 adegan) berlatar gelap dengan durasi detik per scene, info Kamera/Aksi, dan footer parameter teknis lengkap.' },
+  { value: 'ugc_product_showcase_grid', label: 'UGC Product Showcase Grid (9 Shot Light)', desc: 'Gaya presentasi produk UGC 3x3 (9 adegan) berlatar terang/pastel dengan info Kamera/Aksi, pencahayaan alami lembut, dan footer parameter lengkap.' },
+  { value: 'comic_grunge_storyboard', label: 'Short Story Comic Grunge Storyboard (9 Panel)', desc: 'Gaya komik bercerita komedi/satir 3x3 (9 panel) bertekstur kotor (grunge), stiker robek, sketsa anime kasar, serta palet warna kusam.' },
+  { value: 'character_design_turnaround', label: 'Character / Mecha Design & Henshin Sheet', desc: 'Tata letak komprehensif untuk giliran visual karakter (Front/Back/Side View), lembar transformasi Henshin/Assembly 16 panel, dan detail spesifikasi teknis.' },
+  { value: 'recipe_cooking_table', label: 'Recipe / Cooking Tutorial ASMR Table (8 Kolom)', desc: 'Gaya tabel detail resep & tutorial masak 8 kolom (Time, Scene, Visual, Camera, Continuity, ASMR Audio, Transition, Notes) dengan baris horizontal kontras tinggi.' },
+  { value: 'clean_step_card_grid', label: 'Clean E-Commerce Step Card Grid (10 Panel)', desc: 'Gaya kisi kartu bersih 5x2 (10 panel) dengan sudut melengkung, badge durasi ungu, deskripsi teks di bawah kartu, dan footer banner pesan utama.' },
+  { value: 'diy_build_process', label: 'DIY Build Process & Miniature Storyboard (6 Row)', desc: 'Gaya lembar panduan DIY & rakit miniatur vertikal 6 baris dengan kolom info teknis di kanan (Visual, Kamera, Aksi, ASMR), diagram pie chart, dan sub-footer Shot Highlights.' },
+  { value: 'tiny_workers_miniature', label: 'Tiny Workers & Pixar-Style Storyboard (6 Panel Grid)', desc: 'Gaya penceritaan miniatur Pixar 3D 2x3 (6 panel) dengan gambar food truck di header kanan, ikon deskripsi di tiap panel, palet warna, dan parameter suasana di footer.' },
+  { value: 'cube_morph_product', label: '3D Cube Morph Product Transition (CGI)', desc: 'Gaya transisi sebelum-sesudah (Before-After) yang mengubah kubus mekanik taktis menjadi produk asli pilihan Anda di atas meja yang sama dengan trigger tekan tombol.' }
 ];
 
 
@@ -404,7 +419,7 @@ export default function Generator({ setTab }) {
 
   const getPreviewUrl = (styleName) => {
     if (!styleName) return '';
-    return getFullImageUrl(`uploads/previews/${styleName}.png`);
+    return getFullImageUrl(`uploads/previews/${styleName}.png?v=3`);
   };
 
   const renderRefImagesSection = () => (
@@ -478,7 +493,7 @@ export default function Generator({ setTab }) {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        <form onSubmit={handleGenerate} className="lg:col-span-5 bg-[#1a1918]/60 border border-[#2a2725] rounded-2xl p-3 md:p-5 space-y-3 md:space-y-4.5 backdrop-blur-md relative">
+        <form onSubmit={handleGenerate} className={`lg:col-span-5 bg-[#1a1918]/60 border border-[#2a2725] rounded-2xl p-3 md:p-5 space-y-3 md:space-y-4.5 backdrop-blur-md relative ${dropdownOpen ? 'z-40' : 'z-10'}`}>
           <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#cfae80]/25 to-transparent"></div>
           <div className="flex items-center gap-1.5 border-b border-[#2a2725] pb-2">
             <Sliders className="w-3.5 h-3.5 text-[#cfae80]" />
@@ -547,7 +562,7 @@ export default function Generator({ setTab }) {
             </div>
           )}
 
-          <div className="relative" ref={dropdownRef}>
+          <div className={`relative ${dropdownOpen ? 'z-50' : 'z-10'}`} ref={dropdownRef}>
             <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Gaya Layout Storyboard</label>
             <button type="button" onClick={() => setDropdownOpen(!dropdownOpen)} className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-[#cfae80] transition-all text-xs text-left flex justify-between items-center" disabled={generating}>
               <span className="truncate">{LAYOUT_STYLES.find(opt => opt.value === style)?.label || 'Pilih Gaya Layout'}</span>
@@ -573,7 +588,7 @@ export default function Generator({ setTab }) {
 
                 {/* Floating Preview Card - Desktop (PC) Only */}
                 {hoveredStyle && (
-                  <div className="hidden lg:block absolute left-full ml-3 top-0 w-80 bg-[#1a1918]/95 border border-[#2a2725] rounded-2xl p-4 shadow-2xl z-[60] pointer-events-none animate-fadeIn">
+                  <div className="hidden lg:block absolute left-full ml-3 top-0 w-80 bg-[#1a1918]/98 border border-[#2a2725] rounded-2xl p-4 shadow-2xl z-[100] pointer-events-none animate-fadeIn backdrop-blur-xl">
                     <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#cfae80]/25 to-transparent"></div>
                     <h4 className="text-[10px] font-bold text-white uppercase tracking-widest mb-3 flex items-center gap-1.5 pb-2 border-b border-[#2a2725]">
                       <Eye className="w-3.5 h-3.5 text-[#cfae80]" />
@@ -583,6 +598,7 @@ export default function Generator({ setTab }) {
                       <img 
                         src={getPreviewUrl(hoveredStyle)} 
                         alt={`Preview ${hoveredStyle}`} 
+                        onError={(e) => { e.target.src = getPreviewUrl('premium_vertical_row'); }}
                         className="max-w-full max-h-full object-contain rounded-lg" 
                       />
                     </div>
@@ -601,7 +617,12 @@ export default function Generator({ setTab }) {
               >
                 <div className="flex items-center gap-2">
                   <div className="w-7 h-7 rounded overflow-hidden bg-black/60 shrink-0 border border-[#2a2725]">
-                    <img src={getPreviewUrl(style)} alt="Style Preview" className="w-full h-full object-cover object-top" />
+                    <img 
+                      src={getPreviewUrl(style)} 
+                      alt="Style Preview" 
+                      onError={(e) => { e.target.src = getPreviewUrl('premium_vertical_row'); }}
+                      className="w-full h-full object-cover object-top" 
+                    />
                   </div>
                   <div className="text-left">
                     <span className="text-[8.5px] font-bold text-slate-300 block uppercase tracking-wider">Pratinjau Layout</span>
@@ -1073,6 +1094,7 @@ export default function Generator({ setTab }) {
               <img 
                 src={getPreviewUrl(showLightbox)} 
                 alt={`Preview ${showLightbox}`} 
+                onError={(e) => { e.target.src = getPreviewUrl('premium_vertical_row'); }}
                 className="max-w-full max-h-[50vh] object-contain rounded-lg" 
               />
             </div>

@@ -1372,11 +1372,28 @@ async function mergeStoryboardVideos(req, res) {
     }
 
     const finalMergedUrl = `/uploads/${outputFilename}`;
-    await db.run('UPDATE storyboards SET merged_video_url = ? WHERE id = ?', [finalMergedUrl, storyboardId]);
+    
+    // Maintain history of all merged video versions generated for this storyboard
+    const sbRecord = await db.get('SELECT merged_video_url, merged_video_history FROM storyboards WHERE id = ?', [storyboardId]);
+    let history = [];
+    if (sbRecord && sbRecord.merged_video_history) {
+      try { history = JSON.parse(sbRecord.merged_video_history); } catch (e) { history = []; }
+    }
+    if (!Array.isArray(history)) history = [];
+    if (sbRecord && sbRecord.merged_video_url && !history.includes(sbRecord.merged_video_url)) {
+      history.push(sbRecord.merged_video_url);
+    }
+    if (!history.includes(finalMergedUrl)) {
+      history.push(finalMergedUrl);
+    }
+
+    const historyJson = JSON.stringify(history);
+    await db.run('UPDATE storyboards SET merged_video_url = ?, merged_video_history = ? WHERE id = ?', [finalMergedUrl, historyJson, storyboardId]);
 
     res.json({
       message: 'Video berhasil digabungkan.',
-      merged_video_url: finalMergedUrl
+      merged_video_url: finalMergedUrl,
+      merged_video_history: historyJson
     });
 
   } catch (err) {

@@ -9,6 +9,7 @@ export default function AdminPanel() {
   const [keys, setKeys] = useState([]);
   const [files, setFiles] = useState([]);
   const [selectedFiles, setSelectedFiles] = useState([]);
+  const [selectedKeyIds, setSelectedKeyIds] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [sortBy, setSortBy] = useState('date_desc');
@@ -219,12 +220,45 @@ export default function AdminPanel() {
 
   const handleDeleteKey = async (id) => {
     if (!window.confirm('Yakin ingin menghapus API Key ini?')) return;
+    setError('');
+    setMessage('');
     try {
       await api.delete(`/admin/keys/${id}`);
       setMessage('API Key berhasil dihapus.');
+      setSelectedKeyIds(prev => prev.filter(item => item !== id));
       fetchKeys();
     } catch (err) {
-      setError('Gagal menghapus API Key.');
+      setError(err.response?.data?.message || 'Gagal menghapus API Key.');
+    }
+  };
+
+  const handleSelectAllKeys = () => {
+    if (selectedKeyIds.length === keys.length) {
+      setSelectedKeyIds([]);
+    } else {
+      setSelectedKeyIds(keys.map(k => k.id));
+    }
+  };
+
+  const handleToggleKeySelect = (id) => {
+    setSelectedKeyIds(prev => 
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleDeleteSelectedKeys = async () => {
+    if (selectedKeyIds.length === 0) return;
+    if (!window.confirm(`Yakin ingin menghapus ${selectedKeyIds.length} API Key terpilih?`)) return;
+    
+    setError('');
+    setMessage('');
+    try {
+      await api.post('/admin/keys/bulk-delete', { ids: selectedKeyIds });
+      setMessage(`${selectedKeyIds.length} API Key berhasil dihapus.`);
+      setSelectedKeyIds([]);
+      fetchKeys();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Gagal menghapus API Key terpilih.');
     }
   };
 
@@ -417,7 +451,16 @@ export default function AdminPanel() {
           
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-[9px] font-bold text-white uppercase tracking-widest">Kolam Kunci Lisensi Freebeat</h3>
-            <div className="flex gap-1.5">
+            <div className="flex gap-1.5 items-center">
+              {selectedKeyIds.length > 0 && (
+                <button
+                  onClick={handleDeleteSelectedKeys}
+                  className="bg-red-950/40 border border-red-500/40 hover:bg-red-600 text-white font-bold py-1.5 px-3 rounded-lg flex items-center transition-all shadow-lg text-[9px] uppercase tracking-wider cursor-pointer animate-fadeIn"
+                >
+                  <Trash2 className="w-3.5 h-3.5 mr-1" />
+                  Hapus Terpilih ({selectedKeyIds.length})
+                </button>
+              )}
               <button
                 onClick={() => setShowBulkModal(true)}
                 className="bg-black/40 border border-[#2a2725] hover:bg-slate-850 text-slate-350 font-bold py-1.5 px-3 rounded-lg flex items-center transition-all text-[9px] uppercase tracking-wider cursor-pointer"
@@ -439,6 +482,14 @@ export default function AdminPanel() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-[#2a2725] text-slate-400 text-[8.5px] font-bold uppercase tracking-wider">
+                  <th className="py-2.5 px-3 w-10 text-center">
+                    <input
+                      type="checkbox"
+                      checked={keys.length > 0 && selectedKeyIds.length === keys.length}
+                      onChange={handleSelectAllKeys}
+                      className="w-3.5 h-3.5 rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 cursor-pointer accent-[#cfae80]"
+                    />
+                  </th>
                   <th className="py-2.5 px-3">Label</th>
                   <th className="py-2.5 px-3">Nilai Kunci</th>
                   <th className="py-2.5 px-3">Kredit Terpakai</th>
@@ -448,7 +499,15 @@ export default function AdminPanel() {
               </thead>
               <tbody className="divide-y divide-[#222435] text-xs font-medium">
                 {keys.map((k) => (
-                  <tr key={k.id} className="hover:bg-white/[0.01] transition-colors">
+                  <tr key={k.id} className={`hover:bg-white/[0.02] transition-colors ${selectedKeyIds.includes(k.id) ? 'bg-[#cfae80]/10' : ''}`}>
+                    <td className="py-2.5 px-3 text-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedKeyIds.includes(k.id)}
+                        onChange={() => handleToggleKeySelect(k.id)}
+                        className="w-3.5 h-3.5 rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 cursor-pointer accent-[#cfae80]"
+                      />
+                    </td>
                     <td className="py-2.5 px-3 font-editorial italic text-white text-sm">{k.label}</td>
                     <td className="py-2.5 px-3 font-mono text-slate-550 text-[11px]">{k.key_value.substring(0, 16)}••••••••</td>
                     <td className="py-2.5 px-3 font-mono text-[#cfae80] font-bold text-[11px]">

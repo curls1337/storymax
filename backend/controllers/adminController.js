@@ -224,10 +224,33 @@ async function deleteKey(req, res) {
 
   try {
     const db = getDb();
+    // Safely remove foreign key references in storyboards first so SQLite deletion never fails
+    await db.run('UPDATE storyboards SET api_key_id = NULL WHERE api_key_id = ?', [id]);
     await db.run('DELETE FROM api_keys WHERE id = ?', [id]);
     res.json({ message: 'API Key deleted successfully.' });
   } catch (error) {
     res.status(500).json({ message: 'Error deleting API Key.', error: error.message });
+  }
+}
+
+async function deleteKeysBulk(req, res) {
+  const { ids } = req.body;
+
+  if (!ids || !Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ message: 'No API Key IDs provided for deletion.' });
+  }
+
+  try {
+    const db = getDb();
+    const placeholders = ids.map(() => '?').join(',');
+    
+    // Safely remove foreign key references in storyboards first
+    await db.run(`UPDATE storyboards SET api_key_id = NULL WHERE api_key_id IN (${placeholders})`, ids);
+    await db.run(`DELETE FROM api_keys WHERE id IN (${placeholders})`, ids);
+
+    res.json({ message: `${ids.length} API Keys deleted successfully.` });
+  } catch (error) {
+    res.status(500).json({ message: 'Error deleting selected API Keys.', error: error.message });
   }
 }
 
@@ -447,6 +470,7 @@ module.exports = {
   addKeysBulk,
   toggleKeyStatus,
   deleteKey,
+  deleteKeysBulk,
   getAiSettings,
   updateAiSettings,
   testAiSettings,
