@@ -3,10 +3,8 @@ const path = require('path');
 const fs = require('fs');
 const http = require('http');
 const https = require('https');
-const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
+const ffmpegPath = require('ffmpeg-static');
 const ffprobeInstaller = require('@ffprobe-installer/ffprobe');
-
-const ffmpegPath = ffmpegInstaller.path;
 const ffprobePath = ffprobeInstaller.path;
 
 if (process.platform !== 'win32') {
