@@ -156,6 +156,36 @@ export default function Dashboard({ setTab }) {
   const [regeneratingPages, setRegeneratingPages] = useState({});
   const [regenLogs, setRegenLogs] = useState({});
   const [downloadingId, setDownloadingId] = useState(null);
+  const [mergingVideos, setMergingVideos] = useState(false);
+
+  const handleMergeVideos = async () => {
+    if (!selectedStoryboard) return;
+    setMergingVideos(true);
+    try {
+      const res = await api.post(`/videos/storyboard/${selectedStoryboard.id}/merge`);
+      
+      // Update selectedStoryboard merged_video_url in state
+      setSelectedStoryboard(prev => ({
+        ...prev,
+        merged_video_url: res.data.merged_video_url
+      }));
+      
+      // Update storyboards list state so it stays updated
+      setStoryboards(prev => prev.map(sb => {
+        if (sb.id === selectedStoryboard.id) {
+          return { ...sb, merged_video_url: res.data.merged_video_url };
+        }
+        return sb;
+      }));
+      
+      alert('Semua video berhasil digabungkan menjadi satu!');
+    } catch (err) {
+      console.error('Error merging videos:', err);
+      alert(err.response?.data?.message || 'Gagal menggabungkan video.');
+    } finally {
+      setMergingVideos(false);
+    }
+  };
 
   const handleRegeneratePage = async (storyboardId, pageIdx) => {
     const confirmRegen = window.confirm(`Apakah Anda yakin ingin me-regenerasi Halaman ${pageIdx + 1}? (Proses ini membutuhkan beberapa kredit Freebeat).`);
@@ -1355,6 +1385,81 @@ export default function Dashboard({ setTab }) {
                     <h3 className="text-[10px] font-bold uppercase tracking-widest text-[#cfae80] flex items-center gap-1.5">
                       🎬 Video Studio (Freebeat)
                     </h3>
+
+                    {/* MERGED VIDEO SECTION */}
+                    {selectedStoryboard && images.length > 1 && (() => {
+                      const hasVideosForEveryPage = (() => {
+                        for (let i = 0; i < images.length; i++) {
+                          const hasSuccess = videos.some(v => v.scene_idx === i && v.status === 'success');
+                          if (!hasSuccess) return false;
+                        }
+                        return true;
+                      })();
+
+                      return (
+                        <div className="bg-[#131211]/50 border border-[#cfae80]/20 rounded-2xl p-4 animate-fadeIn">
+                          <div className="flex items-center justify-between border-b border-[#2a2725]/30 pb-2 mb-2">
+                            <span className="text-[9px] font-bold text-[#cfae80] uppercase tracking-widest flex items-center gap-1.5">
+                              🎬 Video Gabungan ({images.length} Part)
+                            </span>
+                          </div>
+                          
+                          {selectedStoryboard.merged_video_url ? (
+                            <div className="space-y-3">
+                              <video 
+                                src={getFullImageUrl(selectedStoryboard.merged_video_url)} 
+                                controls 
+                                playsInline
+                                preload="metadata"
+                                className="w-full rounded-xl border border-[#2a2725] bg-black max-h-40"
+                              />
+                              <div className="grid grid-cols-2 gap-2">
+                                <a
+                                  href={getDownloadUrl(selectedStoryboard.merged_video_url)}
+                                  onClick={(e) => handleDownloadClick(e, selectedStoryboard.merged_video_url, `storyboard-${selectedStoryboard.id}-full.mp4`)}
+                                  download={`storyboard-${selectedStoryboard.id}-full.mp4`}
+                                  className="w-full bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-2 px-2 rounded-lg text-[8px] uppercase tracking-wider flex items-center justify-center gap-1 transition-all text-center cursor-pointer"
+                                >
+                                  <Download className="w-3.5 h-3.5" /> Unduh Full
+                                </a>
+                                <button
+                                  onClick={handleMergeVideos}
+                                  disabled={mergingVideos || !hasVideosForEveryPage}
+                                  className="w-full bg-[#131211] hover:bg-[#1a1918] text-slate-350 font-bold py-2 px-2 rounded-lg border border-[#2a2725]/60 text-[8px] uppercase tracking-wider flex items-center justify-center gap-1 transition-all text-center"
+                                >
+                                  {mergingVideos ? <Loader className="animate-spin w-3 h-3" /> : '🔄 Gabung Ulang'}
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="space-y-2.5">
+                              <p className="text-[8.5px] text-slate-400 leading-normal">
+                                {hasVideosForEveryPage 
+                                  ? "Semua part video sudah berhasil dibuat! Klik tombol di bawah untuk menggabungkannya menjadi satu video utuh."
+                                  : "Buat/selesaikan video untuk semua part storyboard terlebih dahulu agar dapat digabungkan."
+                                }
+                              </p>
+                              <button
+                                onClick={handleMergeVideos}
+                                disabled={mergingVideos || !hasVideosForEveryPage}
+                                className="w-full bg-[#cfae80]/15 hover:bg-[#cfae80]/25 text-[#cfae80] border border-[#cfae80]/30 disabled:opacity-40 font-bold py-2.5 px-3 rounded-xl flex items-center justify-center gap-1.5 text-[8.5px] uppercase tracking-wider transition-all"
+                              >
+                                {mergingVideos ? (
+                                  <>
+                                    <Loader className="animate-spin w-3.5 h-3.5" />
+                                    Menggabungkan...
+                                  </>
+                                ) : (
+                                  <>
+                                    <span>🎬 Gabungkan Semua Video</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
 
                   {(() => {
                     const sceneVideos = videos

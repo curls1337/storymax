@@ -1102,6 +1102,124 @@ async function generateAllVideos(req, res) {
   }
 }
 
+async function mergeStoryboardVideos(req, res) {
+  const { storyboardId } = req.params;
+  const db = getDb();
+  
+  function downloadFile(url, destPath) {
+    return new Promise((resolve, reject) => {
+      const file = fs.createWriteStream(destPath);
+      const protocol = url.startsWith('https') ? https : http;
+      protocol.get(url, (response) => {
+        if (response.statusCode !== 200) {
+          reject(new Error(`Failed to download: HTTP ${response.statusCode}`));
+          return;
+        }
+        response.pipe(file);
+        file.on('finish', () => {
+          file.close(resolve);
+        });
+      }).on('error', (err) => {
+        fs.unlink(destPath, () => reject(err));
+      });
+    });
+  }
+
+  const tempFiles = [];
+  let listPath = '';
+
+  try {
+    const storyboard = await db.get('SELECT * FROM storyboards WHERE id = ?', [storyboardId]);
+    if (!storyboard) {
+      return res.status(404).json({ message: 'Storyboard tidak ditemukan.' });
+    }
+
+    const videos = await db.all(
+      'SELECT * FROM generated_videos WHERE storyboard_id = ? AND status = "success" ORDER BY scene_idx ASC',
+      [storyboardId]
+    );
+
+    if (!videos || videos.length === 0) {
+      return res.status(400).json({ message: 'Tidak ada video sukses yang ditemukan untuk digabungkan.' });
+    }
+
+    if (videos.length < 2) {
+      return res.status(400).json({ message: 'Minimal harus ada 2 video sukses untuk dapat digabungkan.' });
+    }
+
+    const localPaths = [];
+    for (let i = 0; i < videos.length; i++) {
+      const video = videos[i];
+      const videoUrl = video.video_url;
+      const isLocal = !videoUrl.startsWith('http');
+      let localPath = '';
+
+      if (isLocal) {
+        const relativePath = videoUrl.replace(/^\/?uploads\//, '');
+        localPath = path.join(uploadsDir, relativePath);
+      } else {
+        const tempFilename = `temp_merge_${Date.now()}_${i}.mp4`;
+        localPath = path.join(uploadsDir, tempFilename);
+        tempFiles.push(localPath);
+        await downloadFile(videoUrl, localPath);
+      }
+
+      if (!fs.existsSync(localPath)) {
+        throw new Error(`File video tidak ditemukan secara lokal untuk scene ${video.scene_idx + 1}`);
+      }
+      localPaths.push(localPath);
+    }
+
+    const listFilename = `list_${Date.now()}.txt`;
+    listPath = path.join(uploadsDir, listFilename);
+    const listContent = localPaths.map(p => `file '${p.replace(/\\/g, '/')}'`).join('\n');
+    fs.writeFileSync(listPath, listContent);
+
+    const outputFilename = `merged_${storyboardId}_${Date.now()}.mp4`;
+    const outputPath = path.join(uploadsDir, outputFilename);
+
+    const { exec } = require('child_process');
+    await new Promise((resolve, reject) => {
+      const ffmpegCmd = `ffmpeg -y -f concat -safe 0 -i "${listPath}" -c copy "${outputPath}"`;
+      exec(ffmpegCmd, (error, stdout, stderr) => {
+        if (error) {
+          reject(new Error(`FFmpeg error: ${stderr || error.message}`));
+        } else {
+          resolve();
+        }
+      });
+    });
+
+    if (fs.existsSync(listPath)) {
+      fs.unlinkSync(listPath);
+      listPath = '';
+    }
+    for (const f of tempFiles) {
+      if (fs.existsSync(f)) fs.unlinkSync(f);
+    }
+
+    const finalMergedUrl = `/uploads/${outputFilename}`;
+    await db.run('UPDATE storyboards SET merged_video_url = ? WHERE id = ?', [finalMergedUrl, storyboardId]);
+
+    res.json({
+      message: 'Video berhasil digabungkan.',
+      merged_video_url: finalMergedUrl
+    });
+
+  } catch (err) {
+    if (listPath && fs.existsSync(listPath)) {
+      try { fs.unlinkSync(listPath); } catch (e) {}
+    }
+    for (const f of tempFiles) {
+      if (fs.existsSync(f)) {
+        try { fs.unlinkSync(f); } catch (e) {}
+      }
+    }
+    console.error('[Video Concat] Merging failed:', err);
+    res.status(500).json({ message: 'Gagal menggabungkan video.', error: err.message });
+  }
+}
+
 module.exports = {
   generateVideo,
   getStoryboardVideos,
@@ -1109,5 +1227,6 @@ module.exports = {
   resumeProcessingVideos,
   regenerateVideoMarketingCopy,
   regenerateStoryboardMarketingCopy,
-  generateAllVideos
+  generateAllVideos,
+  mergeStoryboardVideos
 };

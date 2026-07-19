@@ -101,6 +101,13 @@ async function initDb() {
     // Column already exists, safe to ignore
   }
 
+  // Ensure merged_video_url column exists if table was already created (migration support)
+  try {
+    await db.exec('ALTER TABLE storyboards ADD COLUMN merged_video_url TEXT');
+  } catch (e) {
+    // Column already exists, safe to ignore
+  }
+
   // Create AI Settings Table
   await db.exec(`
     CREATE TABLE IF NOT EXISTS ai_settings (
