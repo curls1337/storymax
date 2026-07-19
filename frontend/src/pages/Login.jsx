@@ -46,10 +46,10 @@ export default function Login({ onLoginSuccess }) {
         <div className="absolute top-0 left-10 right-10 h-[1.5px] bg-gradient-to-r from-transparent via-[#cfae80]/25 to-transparent"></div>
 
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center p-3 bg-white/[0.01] border border-[#2a2725] rounded-2xl mb-4">
-            <Zap className="w-6 h-6 text-[#cfae80] fill-[#cfae80]/10" />
+          <div className="inline-flex items-center justify-center p-2.5 bg-white/[0.01] border border-[#2a2725] rounded-2xl mb-4 shadow-lg">
+            <img src="/favicon.svg" alt="Storymax Logo" className="w-10 h-10 object-contain rounded-xl" />
           </div>
-          <h1 className="text-4xl font-editorial italic text-white mb-2.5 lowercase select-none">
+          <h1 className="text-4xl font-editorial italic text-white mb-2.5 select-none">
             story<span className="text-[#cfae80] font-normal">max</span>
           </h1>
           <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest leading-relaxed">

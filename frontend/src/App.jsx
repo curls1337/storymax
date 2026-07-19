@@ -142,8 +142,8 @@ export default function App() {
 
       {/* MOBILE HEADER */}
       <header className="lg:hidden bg-[#1a1918]/90 border-b border-[#2a2725] flex items-center justify-between px-6 pt-[env(safe-area-inset-top,0.75rem)] pb-3 z-20 backdrop-blur-md shrink-0">
-        <h2 className="text-xl font-editorial italic text-white flex items-center gap-2 select-none lowercase">
-          <Zap className="w-4 h-4 text-[#cfae80] fill-[#cfae80]/15" />
+        <h2 className="text-xl font-editorial italic text-white flex items-center gap-2.5 select-none">
+          <img src="/favicon.svg" alt="Storymax Logo" className="w-6 h-6 object-contain rounded-md shadow-sm" />
           <span>story<span className="text-[#cfae80] font-normal">max</span></span>
         </h2>
         <span className="px-2.5 py-0.5 rounded bg-[#cfae80]/10 text-[#cfae80] text-[8px] font-bold tracking-widest uppercase border border-[#cfae80]/20">
@@ -156,8 +156,8 @@ export default function App() {
         <div className="relative">
           {/* Logo Brand */}
           <div className="p-6 border-b border-[#2a2725] flex items-center justify-between">
-            <h2 className="text-2xl font-editorial italic text-white flex items-center gap-2 select-none lowercase">
-              <Zap className="w-5 h-5 text-[#cfae80] fill-[#cfae80]/15" />
+            <h2 className="text-2xl font-editorial italic text-white flex items-center gap-2.5 select-none">
+              <img src="/favicon.svg" alt="Storymax Logo" className="w-7 h-7 object-contain rounded-lg shadow-sm" />
               <span>story<span className="text-[#cfae80] font-normal">max</span></span>
             </h2>
             <span className="px-2.5 py-0.5 rounded bg-[#cfae80]/10 text-[#cfae80] text-[8px] font-bold tracking-widest uppercase border border-[#cfae80]/20">
