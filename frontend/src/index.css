@@ -1,38 +1,39 @@
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;0,9..144,800;1,9..144,350;1,9..144,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --color-darkBg: #131211;
-  --color-darkCard: #1a1918;
-  --color-electricBlue: #8c827a;
-  --color-royalPurple: #cfae80;
-  --color-accentText: #d6c5b3;
+  --color-darkBg: #0c0b0a;
+  --color-darkCard: #141311;
+  --color-electricBlue: #3b82f6;
+  --color-royalPurple: #f5c242;
+  --color-accentText: #fef3c7;
 }
 
 html, body, #root {
   height: 100%;
   overflow: hidden;
   margin: 0;
-  background-color: #131211;
-  color: #edebe7;
-  font-family: 'Plus Jakarta Sans', sans-serif;
-  letter-spacing: -0.01em;
+  background-color: #0c0b0a;
+  color: #f3f4f6;
+  font-family: 'Outfit', 'Inter', sans-serif;
+  letter-spacing: -0.015em;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Custom premium scrollbar */
+/* Custom premium gold scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
 }
 ::-webkit-scrollbar-track {
-  background: #131211;
+  background: #0c0b0a;
 }
 ::-webkit-scrollbar-thumb {
-  background: #4a4542;
+  background: #27241d;
   border-radius: 99px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #cfae80;
+  background: #f5c242;
 }
 
 /* Animations */
@@ -47,15 +48,136 @@ html, body, #root {
 }
 
 .animate-fadeIn {
-  animation: fadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .animate-pulseGlow {
   animation: pulseGlow 10s ease-in-out infinite;
 }
 
-/* Serif helper */
+/* Modern upright sans-serif helper */
 .font-editorial {
-  font-family: 'Fraunces', serif;
+  font-family: 'Outfit', sans-serif !important;
+  font-style: normal !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.025em !important;
 }
+
+/* ==========================================================================
+   BRIGHT PREMIUM GOLD (#F5C242 / #FFD666) AND OBSIDIAN BLACK UTILITIES
+   ========================================================================== */
+
+/* Bright Gold Color & Text overrides */
+.text-\[\#cfae80\] {
+  color: #f5c242 !important; /* Bright Premium Gold */
+}
+.bg-\[\#cfae80\] {
+  background-color: #f5c242 !important;
+  color: #000000 !important;
+}
+.border-\[\#cfae80\] {
+  border-color: #f5c242 !important;
+}
+.hover\:bg-\[\#cfae80\]:hover {
+  background-color: #ffd666 !important;
+}
+.hover\:text-\[\#cfae80\]:hover {
+  color: #ffd666 !important;
+}
+.hover\:border-\[\#cfae80\]:hover {
+  border-color: #f5c242 !important;
+}
+.hover\:border-\[\#cfae80\]\/45:hover {
+  border-color: rgba(245, 194, 66, 0.45) !important;
+}
+.hover\:border-\[\#cfae80\]\/40:hover {
+  border-color: rgba(245, 194, 66, 0.4) !important;
+}
+
+/* Transparencies mapping */
+.text-\[\#cfae80\]\/10 { color: rgba(245, 194, 66, 0.2) !important; }
+.text-\[\#cfae80\]\/20 { color: rgba(245, 194, 66, 0.35) !important; }
+.text-\[\#cfae80\]\/30 { color: rgba(245, 194, 66, 0.5) !important; }
+.bg-\[\#cfae80\]\/10 { background-color: rgba(245, 194, 66, 0.12) !important; }
+.bg-\[\#cfae80\]\/15 { background-color: rgba(245, 194, 66, 0.18) !important; }
+.bg-\[\#cfae80\]\/20 { background-color: rgba(245, 194, 66, 0.22) !important; }
+.bg-\[\#cfae80\]\/25 { background-color: rgba(245, 194, 66, 0.28) !important; }
+.bg-\[\#cfae80\]\/30 { background-color: rgba(245, 194, 66, 0.35) !important; }
+.border-\[\#cfae80\]\/20 { border-color: rgba(245, 194, 66, 0.25) !important; }
+.border-\[\#cfae80\]\/30 { border-color: rgba(245, 194, 66, 0.35) !important; }
+.border-\[\#cfae80\]\/40 { border-color: rgba(245, 194, 66, 0.45) !important; }
+.border-\[\#cfae80\]\/60 { border-color: rgba(245, 194, 66, 0.65) !important; }
+
+/* Group Hover States */
+.group:hover .group-hover\:text-\[\#cfae80\] {
+  color: #ffd666 !important;
+}
+.group:hover .group-hover\:border-\[\#cfae80\]\/40 {
+  border-color: rgba(245, 194, 66, 0.5) !important;
+}
+
+/* Background Overrides from Dull Brown to Obsidian Dark Space */
+.bg-\[\#131211\] {
+  background-color: #0c0b0a !important;
+}
+.md\:bg-\[\#1a1918\] {
+  background-color: #141311 !important;
+}
+.bg-\[\#1a1918\] {
+  background-color: #141311 !important;
+}
+.bg-\[\#1a1918\]\/60 {
+  background-color: rgba(20, 19, 17, 0.7) !important;
+}
+.bg-\[\#1a1918\]\/30 {
+  background-color: rgba(20, 19, 17, 0.4) !important;
+}
+.bg-\[\#161514\] {
+  background-color: #100f0d !important;
+}
+.bg-\[\#131211\]\/50 {
+  background-color: rgba(12, 11, 10, 0.6) !important;
+}
+.bg-\[\#131211\]\/35 {
+  background-color: rgba(12, 11, 10, 0.4) !important;
+}
+.bg-\[\#181716\] {
+  background-color: #12110f !important;
+}
+.bg-\[\#1a1817\] {
+  background-color: #12110f !important;
+}
+
+/* Border Overrides to Sleek Obsidian Charcoal */
+.border-\[\#2a2725\] {
+  border-color: #27241d !important;
+}
+.border-\[\#2a2725\]\/60 {
+  border-color: rgba(39, 36, 29, 0.6) !important;
+}
+.border-\[\#2a2725\]\/65 {
+  border-color: rgba(39, 36, 29, 0.65) !important;
+}
+.border-\[\#2a2725\]\/80 {
+  border-color: rgba(39, 36, 29, 0.8) !important;
+}
+.border-\[\#2a2725\]\/45 {
+  border-color: rgba(39, 36, 29, 0.45) !important;
+}
+.border-\[\#2a2725\]\/30 {
+  border-color: rgba(39, 36, 29, 0.30) !important;
+}
+.md\:border-\[\#2a2725\] {
+  border-color: #27241d !important;
+}
+.hover\:border-\[\#2a2725\]\/80:hover {
+  border-color: rgba(39, 36, 29, 0.8) !important;
+}
+
+/* Fix active menu highlight */
+.border-\[\#cfae80\] {
+  border-color: #f5c242 !important;
+}
+
+
 

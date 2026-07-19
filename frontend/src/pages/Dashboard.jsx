@@ -752,25 +752,45 @@ export default function Dashboard({ setTab }) {
             Kelola dan tinjau arsip visual storyboard video AI Anda.
           </p>
         </div>
-        <button
-          onClick={() => setTab('generator')}
-          className="border border-[#cfae80] hover:bg-[#cfae80] hover:text-black text-[#cfae80] font-bold py-3 px-6 rounded-2xl transition-all duration-300 text-xs tracking-widest uppercase shrink-0"
-        >
-          <Plus className="w-4 h-4 inline mr-2" />
-          Mulai Project
-        </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={fetchStoryboards}
+            className="border border-[#2a2725] bg-black/40 hover:bg-[#cfae80] hover:text-black text-slate-300 font-bold py-3 px-4 rounded-2xl transition-all duration-300 text-xs tracking-widest uppercase shrink-0 flex items-center justify-center gap-1.5"
+          >
+            <RefreshCw className="w-4 h-4" /> Refresh
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab('generator')}
+            className="border border-[#cfae80] hover:bg-[#cfae80] hover:text-black text-[#cfae80] font-bold py-3 px-6 rounded-2xl transition-all duration-300 text-xs tracking-widest uppercase shrink-0"
+          >
+            <Plus className="w-4 h-4 inline mr-2" />
+            Mulai Project
+          </button>
+        </div>
       </div>
 
       {/* Mobile Header */}
       <div className="flex md:hidden flex-row justify-between items-center border-b border-[#2a2725] pb-3 mb-2">
         <h1 className="text-lg font-editorial italic text-white">Galeri Storyboard</h1>
-        <button
-          onClick={() => setTab('generator')}
-          className="border border-[#cfae80] hover:bg-[#cfae80] hover:text-black text-[#cfae80] font-bold py-1.5 px-3 rounded-xl transition-all duration-300 text-[10px] tracking-wider uppercase shrink-0"
-        >
-          <Plus className="w-3.5 h-3.5 inline mr-1" />
-          Mulai Project
-        </button>
+        <div className="flex gap-1.5">
+          <button
+            type="button"
+            onClick={fetchStoryboards}
+            className="border border-[#2a2725] bg-black/40 hover:bg-[#cfae80] hover:text-black text-slate-350 font-bold py-1.5 px-2.5 rounded-xl transition-all duration-300 text-[10px] tracking-wider uppercase shrink-0 flex items-center justify-center"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab('generator')}
+            className="border border-[#cfae80] hover:bg-[#cfae80] hover:text-black text-[#cfae80] font-bold py-1.5 px-3 rounded-xl transition-all duration-300 text-[10px] tracking-wider uppercase shrink-0"
+          >
+            <Plus className="w-3.5 h-3.5 inline mr-1" />
+            Mulai Project
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -904,7 +924,7 @@ export default function Dashboard({ setTab }) {
             onClick={() => { setSelectedStoryboard(null); setVideoPromptError(''); setActiveSceneIdx(0); }}
           >
             <div 
-              className="relative w-full h-full md:max-w-[1300px] md:h-[88vh] bg-[#131211] md:bg-[#1a1918] md:border md:border-[#2a2725] md:rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row my-auto animate-scaleUp"
+              className="relative w-full h-full md:max-w-[1300px] md:h-[88vh] bg-[#131211] md:bg-[#1a1918] md:border md:border-[#2a2725] md:rounded-3xl overflow-hidden shadow-2xl flex flex-col my-auto animate-scaleUp"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Top accent gold line */}
@@ -933,8 +953,41 @@ export default function Dashboard({ setTab }) {
                 <div className="w-14"></div> {/* spacer to center the title */}
               </div>
 
-              {/* Left Side: Large Image Carousel & Action Buttons */}
-              <div className={`w-full md:w-2/5 bg-black/80 flex flex-col justify-between relative flex-grow md:flex-grow-0 md:min-h-0 border-b md:border-b-0 md:border-r border-[#2a2725] p-4 md:p-6 pb-24 md:pb-6 ${activeMobileTab === 'image' ? 'flex' : 'hidden md:flex'}`}>
+              {/* Global Storyboard Page Navigation at the Top (Always visible on mobile & desktop) */}
+              {images.length > 1 && (
+                <div className="w-full bg-[#161514] border-b border-[#2a2725] px-4 py-2 flex items-center justify-between shrink-0 select-none z-10">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModalCarouselIdx(prev => (prev > 0 ? prev - 1 : images.length - 1));
+                      setActiveVideoIdx(0);
+                    }}
+                    className="px-3.5 py-1.5 bg-[#1a1918] hover:bg-[#cfae80] hover:text-black text-[#cfae80] rounded-xl transition-all border border-[#2a2725] cursor-pointer text-[9px] font-bold uppercase tracking-wider flex items-center gap-1 shadow-md"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" /> Sebelumnya
+                  </button>
+                  
+                  <span className="text-[10px] font-bold text-white uppercase tracking-wider bg-black/45 border border-[#2a2725]/60 px-4 py-1.5 rounded-full">
+                    Halaman {modalCarouselIdx + 1} dari {images.length}
+                  </span>
+                  
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModalCarouselIdx(prev => (prev < images.length - 1 ? prev + 1 : 0));
+                      setActiveVideoIdx(0);
+                    }}
+                    className="px-3.5 py-1.5 bg-[#1a1918] hover:bg-[#cfae80] hover:text-black text-[#cfae80] rounded-xl transition-all border border-[#2a2725] cursor-pointer text-[9px] font-bold uppercase tracking-wider flex items-center gap-1 shadow-md"
+                  >
+                    Berikutnya <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+
+              {/* Columns split wrapper */}
+              <div className="flex-grow flex flex-col md:flex-row overflow-hidden min-h-0">
+                {/* Left Side: Large Image Carousel & Action Buttons */}
+                <div className={`w-full md:w-2/5 bg-black/80 flex flex-col justify-between relative flex-grow md:flex-grow-0 md:min-h-0 border-b md:border-b-0 md:border-r border-[#2a2725] p-4 md:p-6 pb-24 md:pb-6 ${activeMobileTab === 'image' ? 'flex' : 'hidden md:flex'}`}>
                 
                 {/* Image display wrapper */}
                 <div className="flex-grow flex items-center justify-center relative min-h-[35vh]">
@@ -2008,32 +2061,8 @@ export default function Dashboard({ setTab }) {
                   );
                 })()}
 
-                {/* Carousel Navigation at the very bottom of the Video Studio column */}
-                {images.length > 1 && (
-                  <div className="border-t border-[#2a2725]/60 pt-4 mt-4 space-y-2 shrink-0">
-                    <label className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80] block text-left">Navigasi Halaman Storyboard</label>
-                    <div className="flex items-center justify-between bg-black/45 border border-[#2a2725] rounded-xl p-2">
-                      <button
-                        type="button"
-                        onClick={() => setModalCarouselIdx(prev => (prev > 0 ? prev - 1 : images.length - 1))}
-                        className="p-1.5 bg-[#131211] hover:bg-[#cfae80] hover:text-black text-[#cfae80] rounded-lg transition-all border border-[#2a2725] cursor-pointer"
-                      >
-                        <ChevronLeft className="w-3.5 h-3.5" />
-                      </button>
-                      <span className="text-[9px] font-bold text-white uppercase tracking-wider">
-                        Halaman {modalCarouselIdx + 1} dari {images.length}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setModalCarouselIdx(prev => (prev < images.length - 1 ? prev + 1 : 0))}
-                        className="p-1.5 bg-[#131211] hover:bg-[#cfae80] hover:text-black text-[#cfae80] rounded-lg transition-all border border-[#2a2725] cursor-pointer"
-                      >
-                        <ChevronRight className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                )}
               </div>
+            </div>
 
               {/* Mobile Bottom Tab Switcher (Premium Native Style) */}
               <div className="flex md:hidden border-t border-[#2a2725] bg-[#141312]/95 backdrop-blur-md fixed bottom-0 left-0 right-0 z-40 px-6 pt-2 pb-[env(safe-area-inset-bottom,0.75rem)] shrink-0 w-full shadow-2xl justify-between items-center">

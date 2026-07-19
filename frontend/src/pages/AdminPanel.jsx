@@ -272,7 +272,7 @@ export default function AdminPanel() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-[#2a2725] pb-4">
         <div>
           <h1 className="text-xl md:text-3xl font-editorial italic text-white tracking-tight flex items-center gap-2">
-            <ShieldAlert className="w-5 h-5 text-[#cfae80]" />
+            <ShieldAlert className="w-5 h-5 text-[#ef4444]" />
             Panel Kontrol Admin
           </h1>
           <p className="text-slate-400 text-[10px] md:text-xs mt-1.5 font-medium tracking-wide">
@@ -303,7 +303,7 @@ export default function AdminPanel() {
               : 'border-transparent text-slate-400 hover:text-white'
           }`}
         >
-          <Users className="w-3.5 h-3.5 mr-1.5" />
+          <Users className="w-3.5 h-3.5 mr-1.5 text-[#3b82f6]" />
           Manajemen User ({users.length})
         </button>
         <button
@@ -314,7 +314,7 @@ export default function AdminPanel() {
               : 'border-transparent text-slate-400 hover:text-white'
           }`}
         >
-          <Key className="w-3.5 h-3.5 mr-1.5" />
+          <Key className="w-3.5 h-3.5 mr-1.5 text-[#eab308]" />
           Kolam API Key ({keys.length})
         </button>
         <button
@@ -325,7 +325,7 @@ export default function AdminPanel() {
               : 'border-transparent text-slate-400 hover:text-white'
           }`}
         >
-          <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+          <Sparkles className="w-3.5 h-3.5 mr-1.5 text-[#a855f7]" />
           Pengaturan AI
         </button>
         <button
@@ -336,7 +336,7 @@ export default function AdminPanel() {
               : 'border-transparent text-slate-400 hover:text-white'
           }`}
         >
-          <FolderOpen className="w-3.5 h-3.5 mr-1.5" />
+          <FolderOpen className="w-3.5 h-3.5 mr-1.5 text-[#10b981]" />
           File Manager ({files.length})
         </button>
       </div>
@@ -689,7 +689,6 @@ export default function AdminPanel() {
                         </th>
                         <th className="py-2.5 px-3 w-16 text-center">Pratinjau</th>
                         <th className="py-2.5 px-3">Nama File / Tipe</th>
-                        <th className="py-2.5 px-3">Path URL</th>
                         <th className="py-2.5 px-3">Ukuran</th>
                         <th className="py-2.5 px-3">Status Unduhan</th>
                         <th className="py-2.5 px-3">Dibuat Pada</th>
@@ -699,7 +698,7 @@ export default function AdminPanel() {
                     <tbody className="divide-y divide-[#222435] text-xs font-medium">
                       {paginatedFiles.length === 0 ? (
                         <tr>
-                          <td colSpan="8" className="py-8 text-center text-slate-500 italic text-[10px] uppercase tracking-wider">
+                          <td colSpan="7" className="py-8 text-center text-slate-500 italic text-[10px] uppercase tracking-wider">
                             Tidak ada file penyimpanan yang terdeteksi
                           </td>
                         </tr>
@@ -759,9 +758,7 @@ export default function AdminPanel() {
                                 </div>
                               </td>
 
-                              <td className="py-2.5 px-3 font-mono text-[10px] text-slate-400 break-all select-all">
-                                {f.path}
-                              </td>
+
 
                               <td className="py-2.5 px-3 font-mono text-white text-[11px] font-bold whitespace-nowrap">
                                 {f.sizeMb}
