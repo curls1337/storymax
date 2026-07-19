@@ -172,10 +172,10 @@ function getEnhancedPrompt(style, userPrompt, gridCount = 6, showFace = false, s
     : "no human faces, faceless, no portraits, focus only on hands, details and product";
 
   let refClause = '';
-  if (pageIdx === 0) {
-    refClause = "The reference image shows the main subject/product. Throughout all the storyboard panels, accurately maintain the visual appearance, details, branding, and color of the subject/product from the reference image. If the product in the reference image is red, paint it red in the panels; do not paint the product yellow. The color yellow should ONLY be used for labels, numbers, borders, and UI text elements outside the panels.";
+  if (style === 'cube_morph_product') {
+    refClause = "The reference image shows the main subject/product. Throughout all the storyboard panels, accurately maintain the visual appearance, details, branding, and color of the subject/product from the reference image. The first image prompt must show the mechanical cube customized with the colors and metallic theme of this product, and the second image prompt must show the final product itself.";
   } else {
-    refClause = "The reference image is the previous page of this storyboard. You MUST maintain the exact same design layout, dark charcoal background theme, header typography, yellow square index columns, and visual style. Also, preserve the exact same subject/product (e.g. the specific car/character) and its original color (e.g., red if it is red in the previous page) shown in the widescreen panels of the reference image, but show the new scene descriptions in the panels of this page.";
+    refClause = "The reference image shows the main subject/product. Throughout all the storyboard panels, accurately maintain the visual appearance, details, branding, and color of the subject/product from the reference image. If the product/subject in the reference image is red, paint it red in the panels; do not paint the product yellow. The color yellow should ONLY be used for labels, numbers, borders, and UI text elements outside the panels.";
   }
   const finalPromptText = hasRefImage ? `${userPrompt}. (Note: ${refClause})` : userPrompt;
 
@@ -811,54 +811,12 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
       task.logs += `\n[Halaman ${pageNum}] Memulai proses generasi Halaman ${pageNum} dari ${task.pageCount}...\n`;
       await saveTaskState(db, storyboardId, task);
 
-      // Resolve reference image for this page
-      let pageRefPath = '';
-      if (pageIdx === 0) {
-        pageRefPath = task.finalRefImagePath;
-      } else {
-        const prevPagePath = task.imagePaths[pageIdx - 1];
-        if (task.finalRefImagePath && prevPagePath) {
-          // Combine original user reference image + previous page result for 100% visual consistency across all pages
-          try {
-            task.logs += `[Halaman ${pageNum}] Menggabungkan gambar referensi asli produk/model + hasil Halaman ${pageIdx} untuk konsistensi visual 100%...\n`;
-            await saveTaskState(db, storyboardId, task);
-
-            const combinedPageRefFilename = `pageref_${Date.now()}_p${pageNum}.png`;
-            const combinedPageRefPath = path.join(publicDir, combinedPageRefFilename);
-
-            const { Jimp } = require('jimp');
-            const origImg = await Jimp.read(task.finalRefImagePath);
-            let prevImg;
-            if (prevPagePath.startsWith('http://') || prevPagePath.startsWith('https://')) {
-              const tempPrevPath = path.join(publicDir, `temp_prev_${Date.now()}_p${pageNum}.png`);
-              await downloadFile(prevPagePath, tempPrevPath);
-              prevImg = await Jimp.read(tempPrevPath);
-              if (fs.existsSync(tempPrevPath)) fs.unlinkSync(tempPrevPath);
-            } else {
-              prevImg = await Jimp.read(prevPagePath);
-            }
-
-            const targetHeight = 600;
-            origImg.resize({ h: targetHeight });
-            prevImg.resize({ h: targetHeight });
-
-            const totalWidth = origImg.width + prevImg.width;
-            const canvas = new Jimp({ width: totalWidth, height: targetHeight, color: 0xFFFFFFFF });
-            canvas.composite(origImg, 0, 0);
-            canvas.composite(prevImg, origImg.width, 0);
-
-            await canvas.write(combinedPageRefPath);
-            pageRefPath = combinedPageRefPath.replace(/\\/g, '/');
-          } catch (stitchPageErr) {
-            console.warn(`[pageRef] Failed to combine page ref: ${stitchPageErr.message}. Fallback to prevPagePath or finalRefImagePath.`);
-            pageRefPath = prevPagePath || task.finalRefImagePath;
-          }
-        } else if (prevPagePath) {
-          pageRefPath = prevPagePath;
-        } else {
-          pageRefPath = task.finalRefImagePath;
-        }
-      }
+       // Resolve reference image for this page
+       // ALWAYS use the clean original reference image (if provided) to maintain product/model consistency.
+       // NEVER combine or use the previous generated page (prevPagePath) as a reference for any style,
+       // as passing a fully formatted storyboard sheet with headers, grids, and old panels causes
+       // severe layout leakage and visual bleeding (inception) of previous scenes into the new panels.
+       let pageRefPath = task.finalRefImagePath || '';
 
       // Check if we already have batch information (resume scenario)
       let taskInfo = task.currentTaskInfo;
