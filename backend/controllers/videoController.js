@@ -8,6 +8,16 @@ const ffprobeInstaller = require('@ffprobe-installer/ffprobe');
 
 const ffmpegPath = ffmpegInstaller.path;
 const ffprobePath = ffprobeInstaller.path;
+
+if (process.platform !== 'win32') {
+  try {
+    if (fs.existsSync(ffmpegPath)) fs.chmodSync(ffmpegPath, 0o755);
+    if (fs.existsSync(ffprobePath)) fs.chmodSync(ffprobePath, 0o755);
+  } catch (chmodErr) {
+    console.error('Failed to set executable permissions on ffmpeg/ffprobe:', chmodErr);
+  }
+}
+
 const { getDb } = require('../db');
 const { activeTasks } = require('./storyboardController');
 
@@ -1248,11 +1258,16 @@ async function mergeStoryboardVideos(req, res) {
     for (let i = 0; i < videos.length; i++) {
       const video = videos[i];
       const videoUrl = video.video_url;
-      const isLocal = !videoUrl.startsWith('http');
+      const isLocal = !videoUrl.startsWith('http') || videoUrl.includes('/uploads/');
       let localPath = '';
 
       if (isLocal) {
-        const relativePath = videoUrl.replace(/^\/?uploads\//, '');
+        let relativePath = videoUrl;
+        if (videoUrl.includes('/uploads/')) {
+          relativePath = videoUrl.substring(videoUrl.indexOf('/uploads/') + 9);
+        } else {
+          relativePath = videoUrl.replace(/^\/?uploads\//, '');
+        }
         localPath = path.join(uploadsDir, relativePath);
       } else {
         const tempFilename = `temp_merge_${Date.now()}_${i}.mp4`;

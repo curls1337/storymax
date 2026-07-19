@@ -10,7 +10,8 @@ export default function AdminPanel() {
   const [files, setFiles] = useState([]);
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [sortBy, setSortBy] = useState('date_desc');
   const [loading, setLoading] = useState(true);
 
   const getFullFileUrl = (filePath) => {
@@ -568,12 +569,62 @@ export default function AdminPanel() {
               </p>
             </div>
             
-            <div className="flex gap-2 w-full md:w-auto justify-end">
+            <div className="flex flex-wrap gap-2 w-full md:w-auto justify-end items-center">
+              {/* Limit selector */}
+              <div className="flex items-center gap-1.5 bg-black/40 border border-[#2a2725] px-2.5 py-1.5 rounded-lg select-none">
+                <span className="text-[7.5px] font-bold text-slate-400 uppercase tracking-widest">Show:</span>
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => { setItemsPerPage(parseInt(e.target.value)); setCurrentPage(1); }}
+                  className="bg-transparent text-white text-[9px] font-bold focus:outline-none cursor-pointer"
+                >
+                  <option value="10" className="bg-[#1a1918]">10</option>
+                  <option value="20" className="bg-[#1a1918]">20</option>
+                  <option value="30" className="bg-[#1a1918]">30</option>
+                  <option value="50" className="bg-[#1a1918]">50</option>
+                  <option value="100" className="bg-[#1a1918]">100</option>
+                  <option value="200" className="bg-[#1a1918]">200</option>
+                </select>
+              </div>
+
+              {/* Sort selector */}
+              <div className="flex items-center gap-1.5 bg-black/40 border border-[#2a2725] px-2.5 py-1.5 rounded-lg select-none">
+                <span className="text-[7.5px] font-bold text-slate-400 uppercase tracking-widest">Urut:</span>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="bg-transparent text-white text-[9px] font-bold focus:outline-none cursor-pointer"
+                >
+                  <option value="date_desc" className="bg-[#1a1918]">Terbaru</option>
+                  <option value="date_asc" className="bg-[#1a1918]">Terlama</option>
+                  <option value="size_desc" className="bg-[#1a1918]">Ukuran Terbesar</option>
+                  <option value="size_asc" className="bg-[#1a1918]">Ukuran Terkecil</option>
+                  <option value="name_asc" className="bg-[#1a1918]">Nama A-Z</option>
+                  <option value="name_desc" className="bg-[#1a1918]">Nama Z-A</option>
+                  <option value="download_desc" className="bg-[#1a1918]">Terbanyak Terunduh</option>
+                </select>
+              </div>
+
+              {/* Select All Global */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (selectedFiles.length === files.length) {
+                    setSelectedFiles([]);
+                  } else {
+                    setSelectedFiles(files.map(f => f.path));
+                  }
+                }}
+                className="bg-black/40 border border-[#2a2725] hover:bg-[#cfae80] hover:text-black text-slate-350 font-bold py-1.5 px-3 rounded-lg flex items-center transition-all text-[8.5px] uppercase tracking-wider cursor-pointer select-none"
+              >
+                {selectedFiles.length === files.length ? 'Batal Centang' : `Centang Semua (${files.length})`}
+              </button>
+
               {selectedFiles.length > 0 && (
                 <button
                   type="button"
                   onClick={handleDeleteSelected}
-                  className="bg-red-950/20 hover:bg-red-650 border border-red-500/25 hover:text-white text-red-400 font-bold py-1.5 px-3 rounded-lg flex items-center transition-all text-[8.5px] uppercase tracking-wider cursor-pointer gap-1.5"
+                  className="bg-red-950/20 hover:bg-red-650 border border-red-500/25 hover:text-white text-red-400 font-bold py-1.5 px-3 rounded-lg flex items-center transition-all text-[8.5px] uppercase tracking-wider cursor-pointer gap-1.5 select-none"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   Hapus Terpilih ({selectedFiles.length})
@@ -582,7 +633,7 @@ export default function AdminPanel() {
               <button
                 type="button"
                 onClick={fetchFiles}
-                className="bg-black/40 border border-[#2a2725] hover:bg-[#cfae80] hover:text-black text-slate-350 font-bold py-1.5 px-3 rounded-lg flex items-center transition-all text-[8.5px] uppercase tracking-wider cursor-pointer gap-1"
+                className="bg-black/40 border border-[#2a2725] hover:bg-[#cfae80] hover:text-black text-slate-350 font-bold py-1.5 px-3 rounded-lg flex items-center transition-all text-[8.5px] uppercase tracking-wider cursor-pointer gap-1 select-none"
               >
                 🔄 Refresh List
               </button>
@@ -591,8 +642,20 @@ export default function AdminPanel() {
 
           <div className="overflow-x-auto">
             {(() => {
-              const totalPages = Math.ceil(files.length / itemsPerPage);
-              const paginatedFiles = files.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+              // Apply local sorting
+              const sortedFiles = [...files].sort((a, b) => {
+                if (sortBy === 'date_desc') return new Date(b.createdAt) - new Date(a.createdAt);
+                if (sortBy === 'date_asc') return new Date(a.createdAt) - new Date(b.createdAt);
+                if (sortBy === 'size_desc') return b.sizeBytes - a.sizeBytes;
+                if (sortBy === 'size_asc') return a.sizeBytes - b.sizeBytes;
+                if (sortBy === 'name_asc') return a.name.localeCompare(b.name);
+                if (sortBy === 'name_desc') return b.name.localeCompare(a.name);
+                if (sortBy === 'download_desc') return b.downloadCount - a.downloadCount;
+                return 0;
+              });
+
+              const totalPages = Math.ceil(sortedFiles.length / itemsPerPage);
+              const paginatedFiles = sortedFiles.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
               const isAllSelected = paginatedFiles.length > 0 && paginatedFiles.every(f => selectedFiles.includes(f.path));
               
               const toggleSelectAll = () => {
