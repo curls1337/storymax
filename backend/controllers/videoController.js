@@ -1203,12 +1203,13 @@ async function mergeStoryboardVideos(req, res) {
     if (Array.isArray(videoIds) && videoIds.length > 0) {
       // Query specific video IDs selected by the user
       const placeholders = videoIds.map(() => '?').join(',');
-      videos = await db.all(
+      const dbVideos = await db.all(
         `SELECT * FROM generated_videos 
-         WHERE id IN (${placeholders}) AND storyboard_id = ? AND status = "success" 
-         ORDER BY scene_idx ASC`,
+         WHERE id IN (${placeholders}) AND storyboard_id = ? AND status = "success"`,
         [...videoIds, storyboardId]
       );
+      // Sort in the exact order of videoIds array to respect custom ordering
+      videos = dbVideos.sort((a, b) => videoIds.indexOf(a.id) - videoIds.indexOf(b.id));
     } else {
       // Fallback: Pick only the latest successful video for each scene_idx (to prevent duplicates)
       const allVideos = await db.all(

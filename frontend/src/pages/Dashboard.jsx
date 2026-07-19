@@ -198,6 +198,39 @@ export default function Dashboard({ setTab }) {
   const [showMergeModal, setShowMergeModal] = useState(false);
   const [mergeTransitionType, setMergeTransitionType] = useState('fade');
   const [mergeAudioBlend, setMergeAudioBlend] = useState(true);
+  const [mergeSequence, setMergeSequence] = useState([]);
+
+  useEffect(() => {
+    if (showMergeModal && selectedStoryboard) {
+      let pagesList = [];
+      try {
+        const parsed = JSON.parse(selectedStoryboard.image_path);
+        pagesList = Array.isArray(parsed) ? parsed : [selectedStoryboard.image_path];
+      } catch (e) {
+        if (selectedStoryboard.image_path && selectedStoryboard.image_path.includes(',')) {
+          pagesList = selectedStoryboard.image_path.split(',').map(s => s.trim());
+        } else if (selectedStoryboard.image_path) {
+          pagesList = [selectedStoryboard.image_path];
+        }
+      }
+      // Initialize sequence: [0, 1, 2, ...]
+      setMergeSequence(pagesList.map((_, i) => i));
+    }
+  }, [showMergeModal, selectedStoryboard]);
+
+  const moveSequenceItem = (index, direction) => {
+    const newSeq = [...mergeSequence];
+    if (direction === 'up' && index > 0) {
+      const temp = newSeq[index];
+      newSeq[index] = newSeq[index - 1];
+      newSeq[index - 1] = temp;
+    } else if (direction === 'down' && index < newSeq.length - 1) {
+      const temp = newSeq[index];
+      newSeq[index] = newSeq[index + 1];
+      newSeq[index + 1] = temp;
+    }
+    setMergeSequence(newSeq);
+  };
 
   const handleMergeVideos = () => {
     if (!selectedStoryboard) return;
@@ -206,23 +239,11 @@ export default function Dashboard({ setTab }) {
 
   const confirmMergeVideos = async () => {
     setShowMergeModal(false);
-    
-    // Parse pages list to know how many panels there are
-    let pagesList = [];
-    try {
-      const parsed = JSON.parse(selectedStoryboard.image_path);
-      pagesList = Array.isArray(parsed) ? parsed : [selectedStoryboard.image_path];
-    } catch (e) {
-      if (selectedStoryboard.image_path && selectedStoryboard.image_path.includes(',')) {
-        pagesList = selectedStoryboard.image_path.split(',').map(s => s.trim());
-      } else if (selectedStoryboard.image_path) {
-        pagesList = [selectedStoryboard.image_path];
-      }
-    }
 
     const videoIds = [];
-    for (let i = 0; i < pagesList.length; i++) {
-      const id = selectedVideoIds[i];
+    for (let i = 0; i < mergeSequence.length; i++) {
+      const pageIdx = mergeSequence[i];
+      const id = selectedVideoIds[pageIdx];
       if (id) {
         videoIds.push(id);
       }
@@ -2104,26 +2125,48 @@ export default function Dashboard({ setTab }) {
                   }
                 }
 
-                return pagesList.map((_, idx) => {
-                  const sceneVids = videos.filter(v => v.scene_idx === idx && v.status === 'success');
+                return mergeSequence.map((pageIdx, idx) => {
+                  const sceneVids = videos.filter(v => v.scene_idx === pageIdx && v.status === 'success');
                   
                   return (
-                    <div key={idx} className="space-y-1 bg-[#131211]/50 border border-[#2a2725]/45 rounded-xl p-3">
-                      <div className="flex justify-between items-center">
-                        <label className="text-[8.5px] font-bold uppercase tracking-wide text-slate-350 text-left">
-                          Halaman {idx + 1}
-                        </label>
-                        <span className="text-[7.5px] font-semibold text-[#cfae80] bg-[#cfae80]/5 px-1.5 py-0.5 rounded border border-[#cfae80]/15">
-                          {sceneVids.length} Versi Sukses
-                        </span>
+                    <div key={pageIdx} className="space-y-1 bg-[#131211]/50 border border-[#2a2725]/45 rounded-xl p-3 flex flex-col">
+                      <div className="flex justify-between items-center pb-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[8px] font-extrabold text-black bg-[#cfae80] rounded-full w-4 h-4 flex items-center justify-center">
+                            {idx + 1}
+                          </span>
+                          <label className="text-[8.5px] font-bold uppercase tracking-wide text-slate-350">
+                            Halaman {pageIdx + 1}
+                          </label>
+                        </div>
+                        
+                        {/* Reorder Buttons */}
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            disabled={idx === 0}
+                            onClick={() => moveSequenceItem(idx, 'up')}
+                            className="px-1.5 py-0.5 text-[8px] bg-black/40 hover:bg-[#cfae80] hover:text-black text-slate-400 disabled:opacity-20 rounded border border-[#2a2725] transition-all cursor-pointer font-bold"
+                          >
+                            ▲ UP
+                          </button>
+                          <button
+                            type="button"
+                            disabled={idx === mergeSequence.length - 1}
+                            onClick={() => moveSequenceItem(idx, 'down')}
+                            className="px-1.5 py-0.5 text-[8px] bg-black/40 hover:bg-[#cfae80] hover:text-black text-slate-400 disabled:opacity-20 rounded border border-[#2a2725] transition-all cursor-pointer font-bold"
+                          >
+                            ▼ DOWN
+                          </button>
+                        </div>
                       </div>
                       
                       {sceneVids.length === 0 ? (
                         <p className="text-[8px] text-red-400 font-bold text-left">Belum ada video sukses untuk halaman ini</p>
                       ) : (
                         <select
-                          value={selectedVideoIds[idx] || ''}
-                          onChange={(e) => setSelectedVideoIds(prev => ({ ...prev, [idx]: parseInt(e.target.value) }))}
+                          value={selectedVideoIds[pageIdx] || ''}
+                          onChange={(e) => setSelectedVideoIds(prev => ({ ...prev, [pageIdx]: parseInt(e.target.value) }))}
                           className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[9.5px] focus:outline-none focus:border-[#cfae80] transition-all font-semibold"
                         >
                           {sceneVids.map(v => (
