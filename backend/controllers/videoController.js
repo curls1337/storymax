@@ -1287,21 +1287,50 @@ async function mergeStoryboardVideos(req, res) {
     const activeTransition = transitionType || 'none';
 
     if (activeTransition === 'none') {
-      const listFilename = `list_${Date.now()}.txt`;
-      listPath = path.join(uploadsDir, listFilename);
-      const listContent = localPaths.map(p => `file '${p.replace(/\\/g, '/')}'`).join('\n');
-      fs.writeFileSync(listPath, listContent);
+      const { width, height } = await getVideoDimensions(localPaths[0]);
 
-      await new Promise((resolve, reject) => {
-        const ffmpegCmd = `"${ffmpegPath}" -y -f concat -safe 0 -i "${listPath}" -c copy "${outputPath}"`;
-        exec(ffmpegCmd, (error, stdout, stderr) => {
-          if (error) {
-            reject(new Error(`FFmpeg error: ${stderr || error.message}`));
-          } else {
-            resolve();
-          }
+      // Pre-process paths: Ensure all have audio
+      const processedPaths = [];
+      for (const p of localPaths) {
+        const { hasAudio, duration } = await getVideoMetadata(p);
+        if (!hasAudio) {
+          const withAudioPath = await ensureVideoHasAudio(p, duration);
+          tempFiles.push(withAudioPath);
+          processedPaths.push(withAudioPath);
+        } else {
+          processedPaths.push(p);
+        }
+      }
+
+      let currentPath = processedPaths[0];
+
+      for (let i = 1; i < processedPaths.length; i++) {
+        const nextPath = processedPaths[i];
+        const nextTempOut = path.join(uploadsDir, `temp_merged_step_${i}_${Date.now()}.mp4`);
+        tempFiles.push(nextTempOut);
+
+        const filterComplex = 
+          `[0:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,setsar=1[v0]; ` +
+          `[1:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,setsar=1[v1]; ` +
+          `[0:a]aresample=async=1:ochl=stereo:osr=44100[a0]; ` +
+          `[1:a]aresample=async=1:ochl=stereo:osr=44100[a1]; ` +
+          `[v0][a0][v1][a1]concat=n=2:v=1:a=1[v][a]`;
+
+        await new Promise((resolve, reject) => {
+          const ffmpegCmd = `"${ffmpegPath}" -y -i "${currentPath}" -i "${nextPath}" -filter_complex "${filterComplex}" -map "[v]" -map "[a]" -c:v libx264 -crf 18 -b:v 6M -preset fast -c:a aac -b:a 192k -pix_fmt yuv420p "${nextTempOut}"`;
+          exec(ffmpegCmd, (error, stdout, stderr) => {
+            if (error) {
+              reject(new Error(`FFmpeg error at step ${i}: ${stderr || error.message}`));
+            } else {
+              resolve();
+            }
+          });
         });
-      });
+
+        currentPath = nextTempOut;
+      }
+
+      fs.copyFileSync(currentPath, outputPath);
     } else {
       // Transition merging
       const { width, height } = await getVideoDimensions(localPaths[0]);
