@@ -453,6 +453,15 @@ The video must animate the mechanical transformation step-by-step:
 The tabletop and background must remain completely still and unchanged throughout. The narration must describe the satisfying tactile ASMR clicks, gears turning, and mechanical parts locking into place.`;
   }
 
+  if (storyboard.style === 'cube_morph_product') {
+    capsuleStyleClause = `
+CRITICAL 3D CUBE MORPH & PRODUCT TRANSITION VIDEO RULES:
+1. STATIC CAMERA REQUIREMENT: The camera MUST be completely static, stationary on a tripod, maintaining a low-profile straight-on horizontal perspective. DO NOT add camera pans, tilts, rotations, sweeps, or zooms during the transition.
+2. GROUND PLANE & BACKGROUND CONTINUITY: The video MUST maintain the exact same worn dirty white tabletop surface and studio environment background. The ground plane must remain completely locked in place.
+3. TRANSFORM DYNAMICS: The video starts with the dark metallic mechanical cube sitting flat on the white tabletop. Internal mechanical segments, pistons, gears, hinges, and plates must split, slide open, rotate, and unfold outwards. The mechanical parts must dynamically grow and reassemble themselves into the target product (matching the second image prompt details) sitting on the exact same tabletop.
+4. ABSOLUTELY NO HANDS or human limbs must appear in the video during the morph sequence. Keep the scene clean, mechanical, and focused on the tactile metal-folding CGI animation.`;
+  }
+
   let systemInstruction = '';
   if (enableVo) {
     systemInstruction = `You are an expert AI Video Director and master video prompting engineer specializing in high-fidelity commercial video generation.
