@@ -1148,7 +1148,7 @@ async function mergeStoryboardVideos(req, res) {
           const duration = parseFloat(stdout.trim()) || 15;
           const audioCmd = `ffprobe -v error -select_streams a:0 -show_entries stream=codec_type -of default=noprint_wrappers=1:nokey=1 "${filePath}"`;
           exec(audioCmd, (aErr, aStdout) => {
-            const hasAudio = !aErr && aStdout.trim() === 'audio';
+            const hasAudio = !aErr && aStdout && aStdout.toLowerCase().includes('audio');
             resolve({ duration, hasAudio });
           });
         }
@@ -1164,8 +1164,8 @@ async function mergeStoryboardVideos(req, res) {
         if (error) {
           resolve({ width: 720, height: 1280 });
         } else {
-          const lines = stdout.trim().split('\n').map(l => parseInt(l.trim()));
-          if (lines.length >= 2 && !isNaN(lines[0]) && !isNaN(lines[1])) {
+          const lines = stdout.trim().split(/\s+/).map(l => parseInt(l.trim())).filter(n => !isNaN(n));
+          if (lines.length >= 2) {
             resolve({ width: lines[0], height: lines[1] });
           } else {
             resolve({ width: 720, height: 1280 });
@@ -1179,7 +1179,7 @@ async function mergeStoryboardVideos(req, res) {
     return new Promise((resolve, reject) => {
       const { exec } = require('child_process');
       const tempOut = path.join(uploadsDir, `silent_audio_${Date.now()}_${Math.random().toString(36).substr(2, 5)}.mp4`);
-      const cmd = `ffmpeg -y -i "${filePath}" -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -c:v copy -c:a aac -shortest "${tempOut}"`;
+      const cmd = `ffmpeg -y -i "${filePath}" -f lavfi -i "anullsrc=channel_layout=stereo:sample_rate=44100" -map 0:v -map 1:a -c:v copy -c:a aac -shortest "${tempOut}"`;
       exec(cmd, (error, stdout, stderr) => {
         if (error) {
           reject(new Error(`Gagal menyuntikkan audio hening: ${stderr || error.message}`));
@@ -1316,8 +1316,8 @@ async function mergeStoryboardVideos(req, res) {
 
         const isAudioBlend = audioBlend !== false;
         const audioFilter = isAudioBlend 
-          ? `[0:a][1:a]acrossfade=d=1[a]` 
-          : `[0:a][1:a]concat=n=2:v=0:a=1[a]`;
+          ? `[0:a]aresample=async=1:ochl=stereo:osr=44100[a0]; [1:a]aresample=async=1:ochl=stereo:osr=44100[a1]; [a0][a1]acrossfade=d=1[a]` 
+          : `[0:a]aresample=async=1:ochl=stereo:osr=44100[a0]; [1:a]aresample=async=1:ochl=stereo:osr=44100[a1]; [a0][a1]concat=n=2:v=0:a=1[a]`;
 
         const filterComplex = 
           `[0:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,setsar=1[v0]; ` +
@@ -1326,7 +1326,8 @@ async function mergeStoryboardVideos(req, res) {
           audioFilter;
 
         await new Promise((resolve, reject) => {
-          const ffmpegCmd = `ffmpeg -y -i "${currentPath}" -i "${nextPath}" -filter_complex "${filterComplex}" -map "[v]" -map "[a]" -c:v libx264 -pix_fmt yuv420p -c:a aac -preset fast "${nextTempOut}"`;
+          // Using -crf 18 and -b:v 6M / -b:a 192k for pristine high-definition video and audio quality!
+          const ffmpegCmd = `ffmpeg -y -i "${currentPath}" -i "${nextPath}" -filter_complex "${filterComplex}" -map "[v]" -map "[a]" -c:v libx264 -crf 18 -b:v 6M -preset fast -c:a aac -b:a 192k -pix_fmt yuv420p "${nextTempOut}"`;
           exec(ffmpegCmd, (error, stdout, stderr) => {
             if (error) {
               reject(new Error(`FFmpeg error at step ${i}: ${stderr || error.message}`));
