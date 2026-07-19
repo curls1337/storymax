@@ -456,7 +456,7 @@ CRITICAL NARRATION FLOW & STRUCTURE:
 The voiceover narrations across all the ${totalScenes} pages must combine to form one single, continuously flowing script from the first page to the last. Do not treat each page as a standalone video!
 - Page 1 (scene_idx = 0): Must start with the opening hook to grab attention. Strictly DO NOT include any conclusion, promo details, or Call to Action (CTA) phrases like "klik keranjang kuning" or "checkout sekarang" here.
 - Middle Pages (scene_idx between 1 and ${totalScenes - 2}): Focus strictly on detailed features, demonstrations, or benefits. Ensure the sentences connect naturally from the previous page. DO NOT write any CTA or ending here.
-- Final Page (scene_idx = ${totalScenes - 1}): This is the absolute ending of the video. It must conclude the pitch and MUST end with a strong Call to Action (CTA) (e.g. "Klik keranjang kuning sekarang!", "Checkout sekarang sebelum kehabisan!").
+- Final Page (scene_idx = ${totalScenes - 1}): This is the absolute ending of the video. It must conclude the pitch with a strong, natural Call to Action (CTA) tailored to the product concept (e.g. "Dapatkan sekarang sebelum promo berakhir!", "Cobain sekarang!", "Pesan milikmu hari ini!", "Cek produknya sekarang!", or appropriate CTA for the platform). Adapt the CTA phrase naturally to the context without repeating the same cliche phrase.
 This prevents premature endings and duplicate CTAs in the middle of the storyboard flow.
 
 You MUST return the output strictly in this JSON format (do not wrap in markdown \`\`\`json blocks):
