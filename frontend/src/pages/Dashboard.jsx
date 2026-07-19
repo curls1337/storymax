@@ -195,9 +195,18 @@ export default function Dashboard({ setTab }) {
     }
   }, [selectedStoryboard, videos]);
 
-  const handleMergeVideos = async () => {
-    if (!selectedStoryboard) return;
+  const [showMergeModal, setShowMergeModal] = useState(false);
+  const [mergeTransitionType, setMergeTransitionType] = useState('fade');
+  const [mergeAudioBlend, setMergeAudioBlend] = useState(true);
 
+  const handleMergeVideos = () => {
+    if (!selectedStoryboard) return;
+    setShowMergeModal(true);
+  };
+
+  const confirmMergeVideos = async () => {
+    setShowMergeModal(false);
+    
     // Parse pages list to know how many panels there are
     let pagesList = [];
     try {
@@ -226,7 +235,11 @@ export default function Dashboard({ setTab }) {
 
     setMergingVideos(true);
     try {
-      const res = await api.post(`/videos/storyboard/${selectedStoryboard.id}/merge`, { videoIds });
+      const res = await api.post(`/videos/storyboard/${selectedStoryboard.id}/merge`, { 
+        videoIds,
+        transitionType: mergeTransitionType,
+        audioBlend: mergeAudioBlend
+      });
       
       // Update selectedStoryboard merged_video_url in state
       setSelectedStoryboard(prev => ({
@@ -2048,6 +2061,135 @@ export default function Dashboard({ setTab }) {
           document.body
         );
       })()}
+
+      {showMergeModal && selectedStoryboard && createPortal(
+        <div 
+          className="fixed inset-0 bg-black/90 md:bg-black/85 md:backdrop-blur-sm flex items-center justify-center p-4 z-[60] select-text animate-fadeIn"
+          onClick={() => setShowMergeModal(false)}
+        >
+          <div 
+            className="relative w-full max-w-md bg-[#1a1918] border border-[#2a2725] rounded-3xl overflow-hidden shadow-2xl p-6 space-y-5 animate-scaleUp"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Top gold line decoration */}
+            <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#cfae80]/40 to-transparent"></div>
+
+            {/* Header */}
+            <div className="flex justify-between items-center pb-2 border-b border-[#2a2725]/60">
+              <h3 className="text-xs font-bold uppercase tracking-widest text-[#cfae80] flex items-center gap-1.5">
+                🎬 Penggabungan Video Premium
+              </h3>
+              <button 
+                onClick={() => setShowMergeModal(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-full border border-white/5 bg-black/40 transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Content: Video Selection per page */}
+            <div className="space-y-4 max-h-60 overflow-y-auto scrollbar-thin pr-1">
+              <span className="text-[9px] font-bold uppercase tracking-widest text-[#cfae80] block">1. Pilih Versi Video per Halaman</span>
+              
+              {(() => {
+                let pagesList = [];
+                try {
+                  const parsed = JSON.parse(selectedStoryboard.image_path);
+                  pagesList = Array.isArray(parsed) ? parsed : [selectedStoryboard.image_path];
+                } catch (e) {
+                  if (selectedStoryboard.image_path && selectedStoryboard.image_path.includes(',')) {
+                    pagesList = selectedStoryboard.image_path.split(',').map(s => s.trim());
+                  } else if (selectedStoryboard.image_path) {
+                    pagesList = [selectedStoryboard.image_path];
+                  }
+                }
+
+                return pagesList.map((_, idx) => {
+                  const sceneVids = videos.filter(v => v.scene_idx === idx && v.status === 'success');
+                  
+                  return (
+                    <div key={idx} className="space-y-1 bg-[#131211]/50 border border-[#2a2725]/45 rounded-xl p-3">
+                      <div className="flex justify-between items-center">
+                        <label className="text-[8.5px] font-bold uppercase tracking-wide text-slate-350 text-left">
+                          Halaman {idx + 1}
+                        </label>
+                        <span className="text-[7.5px] font-semibold text-[#cfae80] bg-[#cfae80]/5 px-1.5 py-0.5 rounded border border-[#cfae80]/15">
+                          {sceneVids.length} Versi Sukses
+                        </span>
+                      </div>
+                      
+                      {sceneVids.length === 0 ? (
+                        <p className="text-[8px] text-red-400 font-bold text-left">Belum ada video sukses untuk halaman ini</p>
+                      ) : (
+                        <select
+                          value={selectedVideoIds[idx] || ''}
+                          onChange={(e) => setSelectedVideoIds(prev => ({ ...prev, [idx]: parseInt(e.target.value) }))}
+                          className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[9.5px] focus:outline-none focus:border-[#cfae80] transition-all font-semibold"
+                        >
+                          {sceneVids.map(v => (
+                            <option key={v.id} value={v.id}>
+                              Video ID {v.id} ({v.model} - {new Date(v.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })})
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+
+            {/* Content: Transitions */}
+            <div className="space-y-3 pt-3 border-t border-[#2a2725]/40 text-left">
+              <span className="text-[9px] font-bold uppercase tracking-widest text-[#cfae80] block">2. Pengaturan Transisi</span>
+              
+              <div className="space-y-1">
+                <label className="text-[8.5px] font-bold uppercase tracking-wide text-slate-350">Efek Transisi Video</label>
+                <select
+                  value={mergeTransitionType}
+                  onChange={(e) => setMergeTransitionType(e.target.value)}
+                  className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] focus:outline-none focus:border-[#cfae80] transition-all font-semibold"
+                >
+                  <option value="none">Cut Langsung (Tanpa Transisi - Instan)</option>
+                  <option value="fade">Crossfade (Fade Halus - 1.0s)</option>
+                  <option value="slideleft">Slide Left (Geser Kiri - 1.0s)</option>
+                  <option value="wipeleft">Wipe Left (Sapu Kiri - 1.0s)</option>
+                  <option value="circleopen">Circle Open (Membulat - 1.0s)</option>
+                </select>
+              </div>
+
+              {mergeTransitionType !== 'none' && (
+                <label className="flex items-center gap-2 cursor-pointer select-none pt-1 animate-fadeIn">
+                  <input 
+                    type="checkbox" 
+                    checked={mergeAudioBlend} 
+                    onChange={(e) => setMergeAudioBlend(e.target.checked)} 
+                    className="rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5"
+                  />
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-slate-300">Seamless Audio Blend (Crossfade Suara)</span>
+                </label>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => setShowMergeModal(false)}
+                className="w-1/2 bg-[#131211] hover:bg-[#1f1d1b] text-slate-300 font-bold py-2.5 px-4 rounded-xl border border-[#2a2725]/60 text-[9px] uppercase tracking-wider transition-all text-center"
+              >
+                Batal
+              </button>
+              <button
+                onClick={confirmMergeVideos}
+                className="w-1/2 bg-[#cfae80] hover:bg-[#c5a880] text-black font-extrabold py-2.5 px-4 rounded-xl text-[9px] uppercase tracking-wider transition-all text-center flex items-center justify-center gap-1.5 shadow-lg shadow-[#cfae80]/5"
+              >
+                🎬 Mulai Gabungkan
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }

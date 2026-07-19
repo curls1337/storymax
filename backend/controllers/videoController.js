@@ -1104,6 +1104,7 @@ async function generateAllVideos(req, res) {
 
 async function mergeStoryboardVideos(req, res) {
   const { storyboardId } = req.params;
+  const { videoIds, transitionType, audioBlend } = req.body || {};
   const db = getDb();
   
   function downloadFile(url, destPath) {
@@ -1136,6 +1137,59 @@ async function mergeStoryboardVideos(req, res) {
     });
   }
 
+  function getVideoMetadata(filePath) {
+    return new Promise((resolve) => {
+      const { exec } = require('child_process');
+      const cmd = `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${filePath}"`;
+      exec(cmd, (error, stdout) => {
+        if (error) {
+          resolve({ duration: 15, hasAudio: true });
+        } else {
+          const duration = parseFloat(stdout.trim()) || 15;
+          const audioCmd = `ffprobe -v error -select_streams a:0 -show_entries stream=codec_type -of default=noprint_wrappers=1:nokey=1 "${filePath}"`;
+          exec(audioCmd, (aErr, aStdout) => {
+            const hasAudio = !aErr && aStdout.trim() === 'audio';
+            resolve({ duration, hasAudio });
+          });
+        }
+      });
+    });
+  }
+
+  function getVideoDimensions(filePath) {
+    return new Promise((resolve) => {
+      const { exec } = require('child_process');
+      const cmd = `ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of default=noprint_wrappers=1:nokey=1 "${filePath}"`;
+      exec(cmd, (error, stdout) => {
+        if (error) {
+          resolve({ width: 720, height: 1280 });
+        } else {
+          const lines = stdout.trim().split('\n').map(l => parseInt(l.trim()));
+          if (lines.length >= 2 && !isNaN(lines[0]) && !isNaN(lines[1])) {
+            resolve({ width: lines[0], height: lines[1] });
+          } else {
+            resolve({ width: 720, height: 1280 });
+          }
+        }
+      });
+    });
+  }
+
+  function ensureVideoHasAudio(filePath) {
+    return new Promise((resolve, reject) => {
+      const { exec } = require('child_process');
+      const tempOut = path.join(uploadsDir, `silent_audio_${Date.now()}_${Math.random().toString(36).substr(2, 5)}.mp4`);
+      const cmd = `ffmpeg -y -i "${filePath}" -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -c:v copy -c:a aac -shortest "${tempOut}"`;
+      exec(cmd, (error, stdout, stderr) => {
+        if (error) {
+          reject(new Error(`Gagal menyuntikkan audio hening: ${stderr || error.message}`));
+        } else {
+          resolve(tempOut);
+        }
+      });
+    });
+  }
+
   const tempFiles = [];
   let listPath = '';
 
@@ -1145,9 +1199,7 @@ async function mergeStoryboardVideos(req, res) {
       return res.status(404).json({ message: 'Storyboard tidak ditemukan.' });
     }
 
-    const { videoIds } = req.body || {};
     let videos = [];
-
     if (Array.isArray(videoIds) && videoIds.length > 0) {
       // Query specific video IDs selected by the user
       const placeholders = videoIds.map(() => '?').join(',');
@@ -1209,32 +1261,94 @@ async function mergeStoryboardVideos(req, res) {
       localPaths.push(localPath);
     }
 
-    const listFilename = `list_${Date.now()}.txt`;
-    listPath = path.join(uploadsDir, listFilename);
-    const listContent = localPaths.map(p => `file '${p.replace(/\\/g, '/')}'`).join('\n');
-    fs.writeFileSync(listPath, listContent);
-
     const outputFilename = `merged_${storyboardId}_${Date.now()}.mp4`;
     const outputPath = path.join(uploadsDir, outputFilename);
-
     const { exec } = require('child_process');
-    await new Promise((resolve, reject) => {
-      const ffmpegCmd = `ffmpeg -y -f concat -safe 0 -i "${listPath}" -c copy "${outputPath}"`;
-      exec(ffmpegCmd, (error, stdout, stderr) => {
-        if (error) {
-          reject(new Error(`FFmpeg error: ${stderr || error.message}`));
-        } else {
-          resolve();
-        }
-      });
-    });
 
-    if (fs.existsSync(listPath)) {
+    const activeTransition = transitionType || 'none';
+
+    if (activeTransition === 'none') {
+      const listFilename = `list_${Date.now()}.txt`;
+      listPath = path.join(uploadsDir, listFilename);
+      const listContent = localPaths.map(p => `file '${p.replace(/\\/g, '/')}'`).join('\n');
+      fs.writeFileSync(listPath, listContent);
+
+      await new Promise((resolve, reject) => {
+        const ffmpegCmd = `ffmpeg -y -f concat -safe 0 -i "${listPath}" -c copy "${outputPath}"`;
+        exec(ffmpegCmd, (error, stdout, stderr) => {
+          if (error) {
+            reject(new Error(`FFmpeg error: ${stderr || error.message}`));
+          } else {
+            resolve();
+          }
+        });
+      });
+    } else {
+      // Transition merging
+      const { width, height } = await getVideoDimensions(localPaths[0]);
+
+      // Pre-process paths: Ensure all have audio
+      const processedPaths = [];
+      for (const p of localPaths) {
+        const { hasAudio } = await getVideoMetadata(p);
+        if (!hasAudio) {
+          const withAudioPath = await ensureVideoHasAudio(p);
+          tempFiles.push(withAudioPath);
+          processedPaths.push(withAudioPath);
+        } else {
+          processedPaths.push(p);
+        }
+      }
+
+      let currentPath = processedPaths[0];
+
+      for (let i = 1; i < processedPaths.length; i++) {
+        const nextPath = processedPaths[i];
+        const { duration: dur1 } = await getVideoMetadata(currentPath);
+
+        const transitionDur = 1.0;
+        let offset = dur1 - transitionDur;
+        if (offset < 0) offset = 0;
+
+        const nextTempOut = path.join(uploadsDir, `temp_merged_step_${i}_${Date.now()}.mp4`);
+        tempFiles.push(nextTempOut);
+
+        const isAudioBlend = audioBlend !== false;
+        const audioFilter = isAudioBlend 
+          ? `[0:a][1:a]acrossfade=d=1[a]` 
+          : `[0:a][1:a]concat=n=2:v=0:a=1[a]`;
+
+        const filterComplex = 
+          `[0:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,setsar=1[v0]; ` +
+          `[1:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,setsar=1[v1]; ` +
+          `[v0][v1]xfade=transition=${activeTransition}:duration=${transitionDur}:offset=${offset.toFixed(2)}[v]; ` +
+          audioFilter;
+
+        await new Promise((resolve, reject) => {
+          const ffmpegCmd = `ffmpeg -y -i "${currentPath}" -i "${nextPath}" -filter_complex "${filterComplex}" -map "[v]" -map "[a]" -c:v libx264 -pix_fmt yuv420p -c:a aac -preset fast "${nextTempOut}"`;
+          exec(ffmpegCmd, (error, stdout, stderr) => {
+            if (error) {
+              reject(new Error(`FFmpeg error at step ${i}: ${stderr || error.message}`));
+            } else {
+              resolve();
+            }
+          });
+        });
+
+        currentPath = nextTempOut;
+      }
+
+      fs.copyFileSync(currentPath, outputPath);
+    }
+
+    if (listPath && fs.existsSync(listPath)) {
       fs.unlinkSync(listPath);
       listPath = '';
     }
     for (const f of tempFiles) {
-      if (fs.existsSync(f)) fs.unlinkSync(f);
+      if (fs.existsSync(f) && f !== outputPath) {
+        try { fs.unlinkSync(f); } catch (e) {}
+      }
     }
 
     const finalMergedUrl = `/uploads/${outputFilename}`;
