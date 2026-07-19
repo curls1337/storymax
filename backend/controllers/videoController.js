@@ -3,6 +3,11 @@ const path = require('path');
 const fs = require('fs');
 const http = require('http');
 const https = require('https');
+const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
+const ffprobeInstaller = require('@ffprobe-installer/ffprobe');
+
+const ffmpegPath = ffmpegInstaller.path;
+const ffprobePath = ffprobeInstaller.path;
 const { getDb } = require('../db');
 const { activeTasks } = require('./storyboardController');
 
@@ -1140,13 +1145,13 @@ async function mergeStoryboardVideos(req, res) {
   function getVideoMetadata(filePath) {
     return new Promise((resolve) => {
       const { exec } = require('child_process');
-      const cmd = `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${filePath}"`;
+      const cmd = `"${ffprobePath}" -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${filePath}"`;
       exec(cmd, (error, stdout) => {
         if (error) {
           resolve({ duration: 15, hasAudio: true });
         } else {
           const duration = parseFloat(stdout.trim()) || 15;
-          const audioCmd = `ffprobe -v error -select_streams a:0 -show_entries stream=codec_type -of default=noprint_wrappers=1:nokey=1 "${filePath}"`;
+          const audioCmd = `"${ffprobePath}" -v error -select_streams a:0 -show_entries stream=codec_type -of default=noprint_wrappers=1:nokey=1 "${filePath}"`;
           exec(audioCmd, (aErr, aStdout) => {
             const hasAudio = !aErr && aStdout && aStdout.toLowerCase().includes('audio');
             resolve({ duration, hasAudio });
@@ -1159,7 +1164,7 @@ async function mergeStoryboardVideos(req, res) {
   function getVideoDimensions(filePath) {
     return new Promise((resolve) => {
       const { exec } = require('child_process');
-      const cmd = `ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of default=noprint_wrappers=1:nokey=1 "${filePath}"`;
+      const cmd = `"${ffprobePath}" -v error -select_streams v:0 -show_entries stream=width,height -of default=noprint_wrappers=1:nokey=1 "${filePath}"`;
       exec(cmd, (error, stdout) => {
         if (error) {
           resolve({ width: 720, height: 1280 });
@@ -1175,11 +1180,11 @@ async function mergeStoryboardVideos(req, res) {
     });
   }
 
-  function ensureVideoHasAudio(filePath) {
+  function ensureVideoHasAudio(filePath, duration = 15) {
     return new Promise((resolve, reject) => {
       const { exec } = require('child_process');
       const tempOut = path.join(uploadsDir, `silent_audio_${Date.now()}_${Math.random().toString(36).substr(2, 5)}.mp4`);
-      const cmd = `ffmpeg -y -i "${filePath}" -f lavfi -i "anullsrc=channel_layout=stereo:sample_rate=44100" -map 0:v -map 1:a -c:v copy -c:a aac -shortest "${tempOut}"`;
+      const cmd = `"${ffmpegPath}" -y -i "${filePath}" -f lavfi -i "anullsrc=channel_layout=stereo:sample_rate=44100" -map 0:v -map 1:a -c:v copy -c:a aac -t ${duration} "${tempOut}"`;
       exec(cmd, (error, stdout, stderr) => {
         if (error) {
           reject(new Error(`Gagal menyuntikkan audio hening: ${stderr || error.message}`));
@@ -1275,7 +1280,7 @@ async function mergeStoryboardVideos(req, res) {
       fs.writeFileSync(listPath, listContent);
 
       await new Promise((resolve, reject) => {
-        const ffmpegCmd = `ffmpeg -y -f concat -safe 0 -i "${listPath}" -c copy "${outputPath}"`;
+        const ffmpegCmd = `"${ffmpegPath}" -y -f concat -safe 0 -i "${listPath}" -c copy "${outputPath}"`;
         exec(ffmpegCmd, (error, stdout, stderr) => {
           if (error) {
             reject(new Error(`FFmpeg error: ${stderr || error.message}`));
@@ -1291,9 +1296,9 @@ async function mergeStoryboardVideos(req, res) {
       // Pre-process paths: Ensure all have audio
       const processedPaths = [];
       for (const p of localPaths) {
-        const { hasAudio } = await getVideoMetadata(p);
+        const { hasAudio, duration } = await getVideoMetadata(p);
         if (!hasAudio) {
-          const withAudioPath = await ensureVideoHasAudio(p);
+          const withAudioPath = await ensureVideoHasAudio(p, duration);
           tempFiles.push(withAudioPath);
           processedPaths.push(withAudioPath);
         } else {
@@ -1327,7 +1332,7 @@ async function mergeStoryboardVideos(req, res) {
 
         await new Promise((resolve, reject) => {
           // Using -crf 18 and -b:v 6M / -b:a 192k for pristine high-definition video and audio quality!
-          const ffmpegCmd = `ffmpeg -y -i "${currentPath}" -i "${nextPath}" -filter_complex "${filterComplex}" -map "[v]" -map "[a]" -c:v libx264 -crf 18 -b:v 6M -preset fast -c:a aac -b:a 192k -pix_fmt yuv420p "${nextTempOut}"`;
+          const ffmpegCmd = `"${ffmpegPath}" -y -i "${currentPath}" -i "${nextPath}" -filter_complex "${filterComplex}" -map "[v]" -map "[a]" -c:v libx264 -crf 18 -b:v 6M -preset fast -c:a aac -b:a 192k -pix_fmt yuv420p "${nextTempOut}"`;
           exec(ffmpegCmd, (error, stdout, stderr) => {
             if (error) {
               reject(new Error(`FFmpeg error at step ${i}: ${stderr || error.message}`));
