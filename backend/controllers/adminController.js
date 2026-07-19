@@ -396,23 +396,30 @@ async function getStorageFiles(req, res) {
 }
 
 async function deleteStorageFile(req, res) {
-  const { filePath } = req.body;
-  if (!filePath) {
-    return res.status(400).json({ message: 'filePath wajib diisi.' });
+  const { filePath, filePaths } = req.body;
+  const pathsToDelete = Array.isArray(filePaths) ? filePaths : (filePath ? [filePath] : []);
+
+  if (pathsToDelete.length === 0) {
+    return res.status(400).json({ message: 'filePath atau filePaths wajib diisi.' });
   }
 
   try {
-    const cleanPath = filePath.replace(/^\/?uploads\//, '');
-    const fullPath = path.join(uploadsDir, cleanPath);
+    const db = getDb();
+    let deletedCount = 0;
 
-    if (fs.existsSync(fullPath)) {
-      fs.unlinkSync(fullPath);
+    for (const p of pathsToDelete) {
+      const cleanPath = p.replace(/^\/?uploads\//, '');
+      const fullPath = path.join(uploadsDir, cleanPath);
+
+      if (fs.existsSync(fullPath)) {
+        fs.unlinkSync(fullPath);
+        deletedCount++;
+      }
       
-      const db = getDb();
-      await db.run('DELETE FROM downloaded_files WHERE file_path = ?', [filePath]);
+      await db.run('DELETE FROM downloaded_files WHERE file_path = ?', [p]);
       
-      const pathWithSlash = filePath.startsWith('/') ? filePath : '/' + filePath;
-      const pathWithoutSlash = filePath.startsWith('/') ? filePath.substring(1) : filePath;
+      const pathWithSlash = p.startsWith('/') ? p : '/' + p;
+      const pathWithoutSlash = p.startsWith('/') ? p.substring(1) : p;
       
       await db.run(
         'UPDATE generated_videos SET video_url = NULL WHERE video_url = ? OR video_url = ?',
@@ -422,11 +429,9 @@ async function deleteStorageFile(req, res) {
         'UPDATE storyboards SET merged_video_url = NULL WHERE merged_video_url = ? OR merged_video_url = ?',
         [pathWithSlash, pathWithoutSlash]
       );
-
-      res.json({ message: 'File berhasil dihapus dari penyimpanan.' });
-    } else {
-      res.status(404).json({ message: 'File tidak ditemukan di penyimpanan disk.' });
     }
+
+    res.json({ message: `${deletedCount} file berhasil dihapus.` });
   } catch (error) {
     res.status(500).json({ message: 'Gagal menghapus file dari penyimpanan.', error: error.message });
   }

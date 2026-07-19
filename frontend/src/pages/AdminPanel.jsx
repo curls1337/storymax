@@ -8,7 +8,17 @@ export default function AdminPanel() {
   const [users, setUsers] = useState([]);
   const [keys, setKeys] = useState([]);
   const [files, setFiles] = useState([]);
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
   const [loading, setLoading] = useState(true);
+
+  const getFullFileUrl = (filePath) => {
+    if (!filePath) return '';
+    const base = import.meta.env.VITE_API_URL || '/api';
+    const cleanBase = base.replace(/\/api\/?$/, '');
+    return `${cleanBase}${filePath.startsWith('/') ? filePath : '/' + filePath}`;
+  };
 
   // Modals & States
   const [showAddUserModal, setShowAddUserModal] = useState(false);
@@ -72,6 +82,7 @@ export default function AdminPanel() {
     try {
       const res = await api.get('/admin/files');
       setFiles(res.data);
+      setSelectedFiles([]);
     } catch (err) {
       console.error('Gagal mengambil file penyimpanan:', err);
     }
@@ -87,6 +98,21 @@ export default function AdminPanel() {
       fetchFiles();
     } catch (err) {
       setError(err.response?.data?.message || 'Gagal menghapus file.');
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedFiles.length === 0) return;
+    if (!window.confirm(`Yakin ingin menghapus ${selectedFiles.length} file terpilih secara permanen dari server penyimpanan?`)) return;
+    setError('');
+    setMessage('');
+    try {
+      await api.delete('/admin/files', { data: { filePaths: selectedFiles } });
+      setMessage(`${selectedFiles.length} file berhasil dihapus dari server.`);
+      setSelectedFiles([]);
+      fetchFiles();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Gagal menghapus file terpilih.');
     }
   };
 
@@ -531,7 +557,7 @@ export default function AdminPanel() {
         <div className="bg-[#1a1918]/60 border border-[#2a2725] rounded-2xl p-4 md:p-6 relative backdrop-blur-md">
           <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#cfae80]/25 to-transparent"></div>
           
-          <div className="flex justify-between items-center mb-4 border-b border-[#2a2725]/60 pb-3">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 mb-4 border-b border-[#2a2725]/60 pb-3">
             <div>
               <h3 className="text-[10px] font-bold text-white uppercase tracking-widest flex items-center gap-1.5">
                 <HardDrive className="w-4 h-4 text-[#cfae80]" />
@@ -541,95 +567,224 @@ export default function AdminPanel() {
                 Total File: {files.length} • Total Ukuran: {(files.reduce((acc, f) => acc + f.sizeBytes, 0) / (1024 * 1024)).toFixed(2)} MB
               </p>
             </div>
-            <button
-              onClick={fetchFiles}
-              className="bg-black/40 border border-[#2a2725] hover:bg-[#cfae80] hover:text-black text-slate-350 font-bold py-1.5 px-3 rounded-lg flex items-center transition-all text-[8.5px] uppercase tracking-wider cursor-pointer"
-            >
-              🔄 Refresh List
-            </button>
+            
+            <div className="flex gap-2 w-full md:w-auto justify-end">
+              {selectedFiles.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleDeleteSelected}
+                  className="bg-red-950/20 hover:bg-red-650 border border-red-500/25 hover:text-white text-red-400 font-bold py-1.5 px-3 rounded-lg flex items-center transition-all text-[8.5px] uppercase tracking-wider cursor-pointer gap-1.5"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Hapus Terpilih ({selectedFiles.length})
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={fetchFiles}
+                className="bg-black/40 border border-[#2a2725] hover:bg-[#cfae80] hover:text-black text-slate-350 font-bold py-1.5 px-3 rounded-lg flex items-center transition-all text-[8.5px] uppercase tracking-wider cursor-pointer gap-1"
+              >
+                🔄 Refresh List
+              </button>
+            </div>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-[#2a2725] text-slate-400 text-[8.5px] font-bold uppercase tracking-wider">
-                  <th className="py-2.5 px-3">Nama File / Tipe</th>
-                  <th className="py-2.5 px-3">Path URL</th>
-                  <th className="py-2.5 px-3">Ukuran</th>
-                  <th className="py-2.5 px-3">Status Unduhan</th>
-                  <th className="py-2.5 px-3">Dibuat Pada</th>
-                  <th className="py-2.5 px-3 text-right">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#222435] text-xs font-medium">
-                {files.length === 0 ? (
-                  <tr>
-                    <td colSpan="6" className="py-8 text-center text-slate-500 italic text-[10px] uppercase tracking-wider">
-                      Tidak ada file penyimpanan yang terdeteksi
-                    </td>
-                  </tr>
-                ) : (
-                  files.map((f, idx) => {
-                    const isVideo = f.name.toLowerCase().endsWith('.mp4');
-                    const isMerged = f.name.toLowerCase().startsWith('merged_');
-                    const fileTypeBadge = isMerged 
-                      ? 'bg-purple-950/20 text-purple-300 border border-purple-500/20'
-                      : isVideo 
-                      ? 'bg-[#cfae80]/15 text-[#cfae80] border border-[#cfae80]/20'
-                      : 'bg-blue-950/20 text-blue-300 border border-blue-500/20';
+            {(() => {
+              const totalPages = Math.ceil(files.length / itemsPerPage);
+              const paginatedFiles = files.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+              const isAllSelected = paginatedFiles.length > 0 && paginatedFiles.every(f => selectedFiles.includes(f.path));
+              
+              const toggleSelectAll = () => {
+                if (isAllSelected) {
+                  const pagePaths = paginatedFiles.map(f => f.path);
+                  setSelectedFiles(prev => prev.filter(p => !pagePaths.includes(p)));
+                } else {
+                  const pagePaths = paginatedFiles.map(f => f.path);
+                  setSelectedFiles(prev => [...new Set([...prev, ...pagePaths])]);
+                }
+              };
 
-                    return (
-                      <tr key={idx} className="hover:bg-white/[0.01] transition-colors">
-                        <td className="py-2.5 px-3">
-                          <div className="flex flex-col gap-0.5">
-                            <span className="text-white text-xs font-semibold break-all">{f.name}</span>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                              <span className={`px-1.5 py-0.5 rounded text-[7px] font-bold tracking-wider uppercase ${fileTypeBadge}`}>
-                                {isMerged ? 'Merged Video' : isVideo ? 'Video Clip' : 'Image/Asset'}
-                              </span>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="py-2.5 px-3 font-mono text-[10px] text-slate-400 break-all select-all">
-                          {f.path}
-                        </td>
-                        <td className="py-2.5 px-3 font-mono text-white text-[11px] font-bold whitespace-nowrap">
-                          {f.sizeMb}
-                        </td>
-                        <td className="py-2.5 px-3">
-                          {f.isDownloaded ? (
-                            <span className="inline-flex items-center gap-1 bg-green-950/20 text-green-300 border border-green-500/20 px-2 py-0.5 rounded text-[8px] font-bold tracking-wider uppercase">
-                              <Check className="w-2.5 h-2.5" /> Terunduh ({f.downloadCount}x)
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 bg-slate-900/40 text-slate-500 border border-slate-800 px-2 py-0.5 rounded text-[8px] font-bold tracking-wider uppercase">
-                              Belum Diunduh
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-2.5 px-3 font-mono text-[10px] text-slate-400 whitespace-nowrap">
-                          {new Date(f.createdAt).toLocaleString('id-ID', {
-                            day: '2-digit',
-                            month: 'short',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </td>
-                        <td className="py-2.5 px-3 text-right">
-                          <button
-                            onClick={() => handleDeleteFile(f.path)}
-                            className="bg-red-950/15 border border-red-500/20 hover:bg-red-650 hover:text-white text-red-400 py-1 px-2.5 rounded-md text-[9px] font-bold uppercase tracking-wider transition-all cursor-pointer inline-flex items-center gap-1"
-                          >
-                            <Trash2 className="w-2.5 h-2.5" /> Hapus
-                          </button>
-                        </td>
+              const toggleSelectFile = (path) => {
+                setSelectedFiles(prev => 
+                  prev.includes(path) ? prev.filter(p => p !== path) : [...prev, path]
+                );
+              };
+
+              return (
+                <>
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-[#2a2725] text-slate-400 text-[8.5px] font-bold uppercase tracking-wider">
+                        <th className="py-2.5 px-3 w-8">
+                          <input 
+                            type="checkbox" 
+                            checked={isAllSelected}
+                            onChange={toggleSelectAll}
+                            className="rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
+                          />
+                        </th>
+                        <th className="py-2.5 px-3 w-16 text-center">Pratinjau</th>
+                        <th className="py-2.5 px-3">Nama File / Tipe</th>
+                        <th className="py-2.5 px-3">Path URL</th>
+                        <th className="py-2.5 px-3">Ukuran</th>
+                        <th className="py-2.5 px-3">Status Unduhan</th>
+                        <th className="py-2.5 px-3">Dibuat Pada</th>
+                        <th className="py-2.5 px-3 text-right">Aksi</th>
                       </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
+                    </thead>
+                    <tbody className="divide-y divide-[#222435] text-xs font-medium">
+                      {paginatedFiles.length === 0 ? (
+                        <tr>
+                          <td colSpan="8" className="py-8 text-center text-slate-500 italic text-[10px] uppercase tracking-wider">
+                            Tidak ada file penyimpanan yang terdeteksi
+                          </td>
+                        </tr>
+                      ) : (
+                        paginatedFiles.map((f, idx) => {
+                          const isVideo = f.name.toLowerCase().endsWith('.mp4');
+                          const isMerged = f.name.toLowerCase().startsWith('merged_');
+                          const fileTypeBadge = isMerged 
+                            ? 'bg-purple-950/20 text-purple-300 border border-purple-500/20'
+                            : isVideo 
+                            ? 'bg-[#cfae80]/15 text-[#cfae80] border border-[#cfae80]/20'
+                            : 'bg-blue-950/20 text-blue-300 border border-blue-500/20';
+
+                          return (
+                            <tr key={f.path} className="hover:bg-white/[0.01] transition-colors">
+                              {/* Checkbox */}
+                              <td className="py-2.5 px-3">
+                                <input 
+                                  type="checkbox" 
+                                  checked={selectedFiles.includes(f.path)}
+                                  onChange={() => toggleSelectFile(f.path)}
+                                  className="rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
+                                />
+                              </td>
+                              
+                              {/* Preview / Thumbnail */}
+                              <td className="py-2.5 px-3 text-center">
+                                <div className="relative w-12 h-12 bg-black/60 rounded-xl overflow-hidden border border-[#2a2725] group flex items-center justify-center shrink-0 shadow-lg mx-auto">
+                                  {isVideo ? (
+                                    <video 
+                                      src={getFullFileUrl(f.path)} 
+                                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                                      muted 
+                                      preload="metadata"
+                                      playsInline
+                                    />
+                                  ) : (
+                                    <img 
+                                      src={getFullFileUrl(f.path)} 
+                                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" 
+                                      alt="preview"
+                                      onError={(e) => { e.target.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23cfae80" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>' }}
+                                    />
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* Details */}
+                              <td className="py-2.5 px-3">
+                                <div className="flex flex-col gap-0.5 max-w-[200px]">
+                                  <span className="text-white text-xs font-semibold break-all leading-tight">{f.name}</span>
+                                  <div className="flex items-center gap-1.5 mt-0.5">
+                                    <span className={`px-1.5 py-0.5 rounded text-[7px] font-bold tracking-wider uppercase ${fileTypeBadge}`}>
+                                      {isMerged ? 'Merged Video' : isVideo ? 'Video Clip' : 'Image/Asset'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </td>
+
+                              <td className="py-2.5 px-3 font-mono text-[10px] text-slate-400 break-all select-all">
+                                {f.path}
+                              </td>
+
+                              <td className="py-2.5 px-3 font-mono text-white text-[11px] font-bold whitespace-nowrap">
+                                {f.sizeMb}
+                              </td>
+
+                              <td className="py-2.5 px-3">
+                                {f.isDownloaded ? (
+                                  <span className="inline-flex items-center gap-1 bg-green-950/20 text-green-300 border border-green-500/20 px-2 py-0.5 rounded text-[8px] font-bold tracking-wider uppercase">
+                                    <Check className="w-2.5 h-2.5" /> Terunduh ({f.downloadCount}x)
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 bg-slate-900/40 text-slate-500 border border-slate-800 px-2 py-0.5 rounded text-[8px] font-bold tracking-wider uppercase">
+                                    Belum Diunduh
+                                  </span>
+                                )}
+                              </td>
+
+                              <td className="py-2.5 px-3 font-mono text-[10px] text-slate-400 whitespace-nowrap">
+                                {new Date(f.createdAt).toLocaleString('id-ID', {
+                                  day: '2-digit',
+                                  month: 'short',
+                                  year: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </td>
+
+                              <td className="py-2.5 px-3 text-right">
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteFile(f.path)}
+                                  className="bg-red-950/15 border border-red-500/20 hover:bg-red-650 hover:text-white text-red-400 py-1.5 px-2.5 rounded-md text-[9px] font-bold uppercase tracking-wider transition-all cursor-pointer inline-flex items-center gap-1"
+                                >
+                                  <Trash2 className="w-2.5 h-2.5" /> Hapus
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+
+                  {/* Pagination Section */}
+                  {totalPages > 1 && (
+                    <div className="flex flex-wrap justify-center items-center gap-1.5 pt-4 border-t border-[#2a2725]/60 mt-4">
+                      <button
+                        type="button"
+                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        disabled={currentPage === 1}
+                        className="px-2.5 py-1.5 text-[9px] bg-black/40 hover:bg-[#cfae80] hover:text-black border border-[#2a2725] rounded-xl text-slate-350 disabled:opacity-20 font-bold transition-all cursor-pointer uppercase tracking-wider"
+                      >
+                        Sebelumnya
+                      </button>
+                      
+                      {Array.from({ length: totalPages }).map((_, idx) => {
+                        const pageNum = idx + 1;
+                        return (
+                          <button
+                            type="button"
+                            key={pageNum}
+                            onClick={() => setCurrentPage(pageNum)}
+                            className={`w-7 h-7 text-[9px] font-bold border rounded-xl transition-all cursor-pointer ${
+                              currentPage === pageNum
+                                ? 'bg-[#cfae80] text-black border-[#cfae80]'
+                                : 'bg-black/40 hover:bg-[#cfae80]/10 text-slate-400 border-[#2a2725]'
+                            }`}
+                          >
+                            {pageNum}
+                          </button>
+                        );
+                      })}
+
+                      <button
+                        type="button"
+                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                        disabled={currentPage === totalPages}
+                        className="px-2.5 py-1.5 text-[9px] bg-black/40 hover:bg-[#cfae80] hover:text-black border border-[#2a2725] rounded-xl text-slate-350 disabled:opacity-20 font-bold transition-all cursor-pointer uppercase tracking-wider"
+                      >
+                        Berikutnya
+                      </button>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
         </div>
       )}
