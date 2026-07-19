@@ -2,7 +2,8 @@ const express = require('express');
 const { 
   getAllUsers, createUser, updateUser, deleteUser,
   getAllKeys, addKey, addKeysBulk, toggleKeyStatus, deleteKey,
-  getAiSettings, updateAiSettings, testAiSettings
+  getAiSettings, updateAiSettings, testAiSettings,
+  getStorageFiles, deleteStorageFile
 } = require('../controllers/adminController');
 const { authenticateToken, requireAdmin } = require('../middleware/authMiddleware');
 
@@ -29,5 +30,9 @@ router.delete('/keys/:id', deleteKey);
 router.get('/ai-settings', getAiSettings);
 router.put('/ai-settings', updateAiSettings);
 router.post('/ai-settings/test', testAiSettings);
+
+// File Manager / Storage Management
+router.get('/files', getStorageFiles);
+router.delete('/files', deleteStorageFile);
 
 module.exports = router;

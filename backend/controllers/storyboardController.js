@@ -1238,6 +1238,32 @@ async function downloadProxy(req, res) {
 
     const filename = path.basename(url.split('?')[0]);
 
+    // Normalize URL path to relative local format to match database entries
+    let dbPathKey = url;
+    if (isRemote) {
+      // If it's a remote URL, see if we can extract local relative path if hosted locally
+      try {
+        const parsed = new URL(url);
+        if (parsed.pathname.includes('/uploads/')) {
+          dbPathKey = parsed.pathname.substring(parsed.pathname.indexOf('/uploads/'));
+        }
+      } catch (e) {}
+    }
+    const normUrl = dbPathKey.startsWith('/') ? dbPathKey : '/' + dbPathKey;
+
+    // Log the file download in downloaded_files table
+    try {
+      const db = getDb();
+      const existing = await db.get('SELECT * FROM downloaded_files WHERE file_path = ?', [normUrl]);
+      if (existing) {
+        await db.run('UPDATE downloaded_files SET download_count = download_count + 1, last_downloaded_at = CURRENT_TIMESTAMP WHERE file_path = ?', [normUrl]);
+      } else {
+        await db.run('INSERT INTO downloaded_files (file_path, download_count) VALUES (?, 1)', [normUrl]);
+      }
+    } catch (dbErr) {
+      console.error('Error logging file download to database:', dbErr);
+    }
+
     if (isLocal) {
       const relativeFilename = url.replace(/^\/?uploads\//, '');
       const fullPath = path.join(uploadsDir, relativeFilename);

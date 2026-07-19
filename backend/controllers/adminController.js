@@ -1,5 +1,8 @@
 const bcrypt = require('bcryptjs');
+const fs = require('fs');
+const path = require('path');
 const { getDb } = require('../db');
+const { uploadsDir } = require('../config');
 const http = require('http');
 const https = require('https');
 
@@ -334,6 +337,101 @@ async function testAiSettings(req, res) {
   }
 }
 
+function getFilesRecursively(dir, relativeTo = dir) {
+  let results = [];
+  if (!fs.existsSync(dir)) return results;
+  const list = fs.readdirSync(dir);
+  for (const file of list) {
+    const filePath = path.join(dir, file);
+    const stat = fs.statSync(filePath);
+    if (stat.isDirectory()) {
+      results = results.concat(getFilesRecursively(filePath, relativeTo));
+    } else {
+      const relPath = path.relative(relativeTo, filePath).replace(/\\/g, '/');
+      results.push({
+        name: file,
+        relativePath: `/uploads/${relPath}`,
+        size: stat.size,
+        createdAt: stat.birthtime || stat.mtime
+      });
+    }
+  }
+  return results;
+}
+
+async function getStorageFiles(req, res) {
+  try {
+    const db = getDb();
+    const filesOnDisk = getFilesRecursively(uploadsDir);
+    
+    const downloadLogs = await db.all('SELECT * FROM downloaded_files');
+    const downloadMap = {};
+    for (const log of downloadLogs) {
+      downloadMap[log.file_path] = {
+        downloadCount: log.download_count,
+        lastDownloadedAt: log.last_downloaded_at
+      };
+    }
+
+    const enhancedFiles = filesOnDisk.map(file => {
+      const key = file.relativePath;
+      const log = downloadMap[key];
+      return {
+        name: file.name,
+        path: file.relativePath,
+        sizeBytes: file.size,
+        sizeMb: (file.size / (1024 * 1024)).toFixed(2) + ' MB',
+        createdAt: file.createdAt,
+        downloadCount: log ? log.downloadCount : 0,
+        isDownloaded: log ? log.downloadCount > 0 : false,
+        lastDownloadedAt: log ? log.lastDownloadedAt : null
+      };
+    });
+
+    enhancedFiles.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    res.json(enhancedFiles);
+  } catch (error) {
+    res.status(500).json({ message: 'Gagal mengambil daftar file penyimpanan.', error: error.message });
+  }
+}
+
+async function deleteStorageFile(req, res) {
+  const { filePath } = req.body;
+  if (!filePath) {
+    return res.status(400).json({ message: 'filePath wajib diisi.' });
+  }
+
+  try {
+    const cleanPath = filePath.replace(/^\/?uploads\//, '');
+    const fullPath = path.join(uploadsDir, cleanPath);
+
+    if (fs.existsSync(fullPath)) {
+      fs.unlinkSync(fullPath);
+      
+      const db = getDb();
+      await db.run('DELETE FROM downloaded_files WHERE file_path = ?', [filePath]);
+      
+      const pathWithSlash = filePath.startsWith('/') ? filePath : '/' + filePath;
+      const pathWithoutSlash = filePath.startsWith('/') ? filePath.substring(1) : filePath;
+      
+      await db.run(
+        'UPDATE generated_videos SET video_url = NULL WHERE video_url = ? OR video_url = ?',
+        [pathWithSlash, pathWithoutSlash]
+      );
+      await db.run(
+        'UPDATE storyboards SET merged_video_url = NULL WHERE merged_video_url = ? OR merged_video_url = ?',
+        [pathWithSlash, pathWithoutSlash]
+      );
+
+      res.json({ message: 'File berhasil dihapus dari penyimpanan.' });
+    } else {
+      res.status(404).json({ message: 'File tidak ditemukan di penyimpanan disk.' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: 'Gagal menghapus file dari penyimpanan.', error: error.message });
+  }
+}
+
 module.exports = {
   getAllUsers,
   createUser,
@@ -346,5 +444,7 @@ module.exports = {
   deleteKey,
   getAiSettings,
   updateAiSettings,
-  testAiSettings
+  testAiSettings,
+  getStorageFiles,
+  deleteStorageFile
 };

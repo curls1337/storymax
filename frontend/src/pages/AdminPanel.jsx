@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import api from '../utils/api';
-import { Users, Key, Plus, Trash2, ShieldAlert, Eye, EyeOff, Loader, Check, X, ShieldCheck, Terminal, UserPlus, Database, Sparkles } from 'lucide-react';
+import { Users, Key, Plus, Trash2, ShieldAlert, Eye, EyeOff, Loader, Check, X, ShieldCheck, Terminal, UserPlus, Database, Sparkles, FolderOpen, HardDrive, DownloadCloud } from 'lucide-react';
 
 export default function AdminPanel() {
   const [activeTab, setActiveTab] = useState('users');
   const [users, setUsers] = useState([]);
   const [keys, setKeys] = useState([]);
+  const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Modals & States
@@ -67,9 +68,31 @@ export default function AdminPanel() {
     }
   };
 
+  const fetchFiles = async () => {
+    try {
+      const res = await api.get('/admin/files');
+      setFiles(res.data);
+    } catch (err) {
+      console.error('Gagal mengambil file penyimpanan:', err);
+    }
+  };
+
+  const handleDeleteFile = async (filePath) => {
+    if (!window.confirm('Yakin ingin menghapus file ini secara permanen dari server penyimpanan?')) return;
+    setError('');
+    setMessage('');
+    try {
+      await api.delete('/admin/files', { data: { filePath } });
+      setMessage('File berhasil dihapus dari server.');
+      fetchFiles();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Gagal menghapus file.');
+    }
+  };
+
   const loadData = async () => {
     setLoading(true);
-    await Promise.all([fetchUsers(), fetchKeys(), fetchAiSettings()]);
+    await Promise.all([fetchUsers(), fetchKeys(), fetchAiSettings(), fetchFiles()]);
     setLoading(false);
   };
 
@@ -277,6 +300,17 @@ export default function AdminPanel() {
         >
           <Sparkles className="w-3.5 h-3.5 mr-1.5" />
           Pengaturan AI
+        </button>
+        <button
+          onClick={() => { setActiveTab('files'); setError(''); setMessage(''); }}
+          className={`py-2.5 px-3.5 flex items-center font-bold text-[9px] uppercase tracking-wider border-b-2 transition-all shrink-0 relative ${
+            activeTab === 'files'
+              ? 'border-[#cfae80] text-white'
+              : 'border-transparent text-slate-400 hover:text-white'
+          }`}
+        >
+          <FolderOpen className="w-3.5 h-3.5 mr-1.5" />
+          File Manager ({files.length})
         </button>
       </div>
 
@@ -490,6 +524,113 @@ export default function AdminPanel() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {activeTab === 'files' && (
+        <div className="bg-[#1a1918]/60 border border-[#2a2725] rounded-2xl p-4 md:p-6 relative backdrop-blur-md">
+          <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#cfae80]/25 to-transparent"></div>
+          
+          <div className="flex justify-between items-center mb-4 border-b border-[#2a2725]/60 pb-3">
+            <div>
+              <h3 className="text-[10px] font-bold text-white uppercase tracking-widest flex items-center gap-1.5">
+                <HardDrive className="w-4 h-4 text-[#cfae80]" />
+                Manajemen File Penyimpanan Server
+              </h3>
+              <p className="text-[8.5px] text-slate-400 font-semibold uppercase tracking-wider mt-1">
+                Total File: {files.length} • Total Ukuran: {(files.reduce((acc, f) => acc + f.sizeBytes, 0) / (1024 * 1024)).toFixed(2)} MB
+              </p>
+            </div>
+            <button
+              onClick={fetchFiles}
+              className="bg-black/40 border border-[#2a2725] hover:bg-[#cfae80] hover:text-black text-slate-350 font-bold py-1.5 px-3 rounded-lg flex items-center transition-all text-[8.5px] uppercase tracking-wider cursor-pointer"
+            >
+              🔄 Refresh List
+            </button>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-[#2a2725] text-slate-400 text-[8.5px] font-bold uppercase tracking-wider">
+                  <th className="py-2.5 px-3">Nama File / Tipe</th>
+                  <th className="py-2.5 px-3">Path URL</th>
+                  <th className="py-2.5 px-3">Ukuran</th>
+                  <th className="py-2.5 px-3">Status Unduhan</th>
+                  <th className="py-2.5 px-3">Dibuat Pada</th>
+                  <th className="py-2.5 px-3 text-right">Aksi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#222435] text-xs font-medium">
+                {files.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" className="py-8 text-center text-slate-500 italic text-[10px] uppercase tracking-wider">
+                      Tidak ada file penyimpanan yang terdeteksi
+                    </td>
+                  </tr>
+                ) : (
+                  files.map((f, idx) => {
+                    const isVideo = f.name.toLowerCase().endsWith('.mp4');
+                    const isMerged = f.name.toLowerCase().startsWith('merged_');
+                    const fileTypeBadge = isMerged 
+                      ? 'bg-purple-950/20 text-purple-300 border border-purple-500/20'
+                      : isVideo 
+                      ? 'bg-[#cfae80]/15 text-[#cfae80] border border-[#cfae80]/20'
+                      : 'bg-blue-950/20 text-blue-300 border border-blue-500/20';
+
+                    return (
+                      <tr key={idx} className="hover:bg-white/[0.01] transition-colors">
+                        <td className="py-2.5 px-3">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-white text-xs font-semibold break-all">{f.name}</span>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className={`px-1.5 py-0.5 rounded text-[7px] font-bold tracking-wider uppercase ${fileTypeBadge}`}>
+                                {isMerged ? 'Merged Video' : isVideo ? 'Video Clip' : 'Image/Asset'}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-3 font-mono text-[10px] text-slate-400 break-all select-all">
+                          {f.path}
+                        </td>
+                        <td className="py-2.5 px-3 font-mono text-white text-[11px] font-bold whitespace-nowrap">
+                          {f.sizeMb}
+                        </td>
+                        <td className="py-2.5 px-3">
+                          {f.isDownloaded ? (
+                            <span className="inline-flex items-center gap-1 bg-green-950/20 text-green-300 border border-green-500/20 px-2 py-0.5 rounded text-[8px] font-bold tracking-wider uppercase">
+                              <Check className="w-2.5 h-2.5" /> Terunduh ({f.downloadCount}x)
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 bg-slate-900/40 text-slate-500 border border-slate-800 px-2 py-0.5 rounded text-[8px] font-bold tracking-wider uppercase">
+                              Belum Diunduh
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3 font-mono text-[10px] text-slate-400 whitespace-nowrap">
+                          {new Date(f.createdAt).toLocaleString('id-ID', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </td>
+                        <td className="py-2.5 px-3 text-right">
+                          <button
+                            onClick={() => handleDeleteFile(f.path)}
+                            className="bg-red-950/15 border border-red-500/20 hover:bg-red-650 hover:text-white text-red-400 py-1 px-2.5 rounded-md text-[9px] font-bold uppercase tracking-wider transition-all cursor-pointer inline-flex items-center gap-1"
+                          >
+                            <Trash2 className="w-2.5 h-2.5" /> Hapus
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

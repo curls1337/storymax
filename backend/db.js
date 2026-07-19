@@ -125,6 +125,16 @@ async function initDb() {
     // Column already exists, safe to ignore
   }
 
+  // Create Downloaded Files Table
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS downloaded_files (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      file_path TEXT UNIQUE NOT NULL,
+      download_count INTEGER DEFAULT 1,
+      last_downloaded_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   // Create Generated Videos Table
   await db.exec(`
     CREATE TABLE IF NOT EXISTS generated_videos (
