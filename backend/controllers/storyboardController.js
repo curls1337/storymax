@@ -1460,24 +1460,65 @@ async function regenerateStoryboardPage(req, res) {
         const pageConcept = (subPrompts && subPrompts[pageIdx]) ? subPrompts[pageIdx] : storyboard.prompt;
         
         const startScene = pageIdx * Number(gridCount) + 1;
-        let pagePrompt = getEnhancedPrompt(style, pageConcept, Number(gridCount) || 6, showFace, startScene, genParams.duration || (pageCount * secondsPerPage), secondsPerPage, false, genParams.containerShape);
+        
+        // Resolve reference image path from active_task_data
+        let finalRefImagePath = '';
+        try {
+          if (storyboard.active_task_data) {
+            const taskData = JSON.parse(storyboard.active_task_data);
+            finalRefImagePath = taskData.finalRefImagePath || '';
+          }
+        } catch (e) {}
+
+        let pagePrompt = getEnhancedPrompt(style, pageConcept, Number(gridCount) || 6, showFace, startScene, genParams.duration || (pageCount * secondsPerPage), secondsPerPage, !!finalRefImagePath, genParams.containerShape);
         pagePrompt = pagePrompt.replace(/"/g, "'");
 
         activeTasks[taskId].logs += `[2/3] Mengirimkan perintah generate ke Freebeat...\n` +
                                      `Prompt Halaman: ${pagePrompt}\n\n`;
+
+        // Resolve resolution arguments
+        let sizeArgs = [];
+        const reqAspectRatio = aspectRatio ? String(aspectRatio) : '1:1';
+        if (model === '108') {
+          if (reqAspectRatio === '16:9') {
+            sizeArgs = ['--resolution', '1920x1088'];
+          } else if (reqAspectRatio === '9:16') {
+            sizeArgs = ['--resolution', '1024x1536'];
+          } else {
+            sizeArgs = ['--resolution', '1024x1024'];
+          }
+        } else {
+          sizeArgs = ['--size', reqAspectRatio];
+        }
 
         // Spawn Freebeat CLI
         const spawnCmd = 'node';
         const cliPath = path.join(__dirname, '..', 'node_modules', 'freebeat-cli', 'dist', 'index.js');
         const spawnArgs = [
           cliPath,
-          '--api-key', keyRecord.key_value,
-          'image', 'generate',
-          '--model', model,
-          '--prompt', pagePrompt,
-          '--size', '1024x1024',
-          '--json'
+          '--api-key', keyRecord.key_value
         ];
+
+        if (finalRefImagePath) {
+          spawnArgs.push(
+            'image', 'edit',
+            '--model', model,
+            '--image', finalRefImagePath,
+            '--prompt', pagePrompt,
+            '--count', '1',
+            '--json',
+            ...sizeArgs
+          );
+        } else {
+          spawnArgs.push(
+            'image', 'generate',
+            '--model', model,
+            '--prompt', pagePrompt,
+            '--count', '1',
+            '--json',
+            ...sizeArgs
+          );
+        }
 
         const child = spawn(spawnCmd, spawnArgs);
         let stdoutData = '';
