@@ -1145,10 +1145,38 @@ async function mergeStoryboardVideos(req, res) {
       return res.status(404).json({ message: 'Storyboard tidak ditemukan.' });
     }
 
-    const videos = await db.all(
-      'SELECT * FROM generated_videos WHERE storyboard_id = ? AND status = "success" ORDER BY scene_idx ASC',
-      [storyboardId]
-    );
+    const { videoIds } = req.body || {};
+    let videos = [];
+
+    if (Array.isArray(videoIds) && videoIds.length > 0) {
+      // Query specific video IDs selected by the user
+      const placeholders = videoIds.map(() => '?').join(',');
+      videos = await db.all(
+        `SELECT * FROM generated_videos 
+         WHERE id IN (${placeholders}) AND storyboard_id = ? AND status = "success" 
+         ORDER BY scene_idx ASC`,
+        [...videoIds, storyboardId]
+      );
+    } else {
+      // Fallback: Pick only the latest successful video for each scene_idx (to prevent duplicates)
+      const allVideos = await db.all(
+        `SELECT * FROM generated_videos 
+         WHERE storyboard_id = ? AND status = "success" 
+         ORDER BY id DESC`,
+        [storyboardId]
+      );
+      
+      const seenScenes = new Set();
+      const latestVideos = [];
+      for (const v of allVideos) {
+        if (!seenScenes.has(v.scene_idx)) {
+          seenScenes.add(v.scene_idx);
+          latestVideos.push(v);
+        }
+      }
+      // Sort chronologically by scene index
+      videos = latestVideos.sort((a, b) => a.scene_idx - b.scene_idx);
+    }
 
     if (!videos || videos.length === 0) {
       return res.status(400).json({ message: 'Tidak ada video sukses yang ditemukan untuk digabungkan.' });

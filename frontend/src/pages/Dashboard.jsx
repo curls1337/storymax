@@ -157,12 +157,76 @@ export default function Dashboard({ setTab }) {
   const [regenLogs, setRegenLogs] = useState({});
   const [downloadingId, setDownloadingId] = useState(null);
   const [mergingVideos, setMergingVideos] = useState(false);
+  const [selectedVideoIds, setSelectedVideoIds] = useState({});
+
+  useEffect(() => {
+    if (!selectedStoryboard || !videos) return;
+    
+    let pagesList = [];
+    try {
+      const parsed = JSON.parse(selectedStoryboard.image_path);
+      pagesList = Array.isArray(parsed) ? parsed : [selectedStoryboard.image_path];
+    } catch (e) {
+      if (selectedStoryboard.image_path && selectedStoryboard.image_path.includes(',')) {
+        pagesList = selectedStoryboard.image_path.split(',').map(s => s.trim());
+      } else if (selectedStoryboard.image_path) {
+        pagesList = [selectedStoryboard.image_path];
+      }
+    }
+
+    if (pagesList.length === 0) return;
+
+    const initialSelections = { ...selectedVideoIds };
+    let changed = false;
+
+    for (let i = 0; i < pagesList.length; i++) {
+      const sceneVids = videos.filter(v => v.scene_idx === i && v.status === 'success');
+      if (sceneVids.length > 0) {
+        const latest = sceneVids.sort((a, b) => b.id - a.id)[0];
+        if (!initialSelections[i] || !sceneVids.some(v => v.id === initialSelections[i])) {
+          initialSelections[i] = latest.id;
+          changed = true;
+        }
+      }
+    }
+
+    if (changed) {
+      setSelectedVideoIds(initialSelections);
+    }
+  }, [selectedStoryboard, videos]);
 
   const handleMergeVideos = async () => {
     if (!selectedStoryboard) return;
+
+    // Parse pages list to know how many panels there are
+    let pagesList = [];
+    try {
+      const parsed = JSON.parse(selectedStoryboard.image_path);
+      pagesList = Array.isArray(parsed) ? parsed : [selectedStoryboard.image_path];
+    } catch (e) {
+      if (selectedStoryboard.image_path && selectedStoryboard.image_path.includes(',')) {
+        pagesList = selectedStoryboard.image_path.split(',').map(s => s.trim());
+      } else if (selectedStoryboard.image_path) {
+        pagesList = [selectedStoryboard.image_path];
+      }
+    }
+
+    const videoIds = [];
+    for (let i = 0; i < pagesList.length; i++) {
+      const id = selectedVideoIds[i];
+      if (id) {
+        videoIds.push(id);
+      }
+    }
+
+    if (videoIds.length < 2) {
+      alert('Minimal harus ada 2 video sukses untuk dapat digabungkan.');
+      return;
+    }
+
     setMergingVideos(true);
     try {
-      const res = await api.post(`/videos/storyboard/${selectedStoryboard.id}/merge`);
+      const res = await api.post(`/videos/storyboard/${selectedStoryboard.id}/merge`, { videoIds });
       
       // Update selectedStoryboard merged_video_url in state
       setSelectedStoryboard(prev => ({
@@ -178,7 +242,7 @@ export default function Dashboard({ setTab }) {
         return sb;
       }));
       
-      alert('Semua video berhasil digabungkan menjadi satu!');
+      alert('Semua video pilihan berhasil digabungkan menjadi satu!');
     } catch (err) {
       console.error('Error merging videos:', err);
       alert(err.response?.data?.message || 'Gagal menggabungkan video.');
@@ -1536,14 +1600,22 @@ export default function Dashboard({ setTab }) {
                               <div className="flex gap-1">
                                 <button
                                   disabled={activeIdx === sceneVideos.length - 1}
-                                  onClick={() => setActiveVideoIdx(prev => prev + 1)}
+                                  onClick={() => {
+                                    const newIdx = activeIdx + 1;
+                                    setActiveVideoIdx(newIdx);
+                                    setSelectedVideoIds(prev => ({ ...prev, [modalCarouselIdx]: sceneVideos[newIdx].id }));
+                                  }}
                                   className="px-1.5 py-0.5 bg-[#131211] text-slate-300 disabled:opacity-30 rounded border border-[#2a2725] hover:bg-[#1a1918] text-[8px] font-bold"
                                 >
                                   ◀ LAMA
                                 </button>
                                 <button
                                   disabled={activeIdx === 0}
-                                  onClick={() => setActiveVideoIdx(prev => prev - 1)}
+                                  onClick={() => {
+                                    const newIdx = activeIdx - 1;
+                                    setActiveVideoIdx(newIdx);
+                                    setSelectedVideoIds(prev => ({ ...prev, [modalCarouselIdx]: sceneVideos[newIdx].id }));
+                                  }}
                                   className="px-1.5 py-0.5 bg-[#131211] text-slate-300 disabled:opacity-30 rounded border border-[#2a2725] hover:bg-[#1a1918] text-[8px] font-bold"
                                 >
                                   BARU ▶
@@ -1553,8 +1625,13 @@ export default function Dashboard({ setTab }) {
                           )}
 
                           <div className="flex justify-between items-center pb-1">
-                            <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest">
+                            <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-1">
                               ✓ Berhasil ({activeVid.model})
+                              {selectedVideoIds[modalCarouselIdx] === activeVid.id && (
+                                <span className="ml-1 bg-amber-500/20 text-amber-405 text-[7px] font-extrabold px-1.5 py-0.5 rounded border border-amber-500/35 uppercase tracking-wide">
+                                  ✓ Pilihan Gabung
+                                </span>
+                              )}
                             </span>
                             <button
                               onClick={async () => {
