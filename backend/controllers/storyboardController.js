@@ -329,7 +329,7 @@ Contoh output untuk 2 halaman:
         path: urlParsed.pathname + urlParsed.search,
         method: 'POST',
         headers: headers,
-        timeout: 20000
+        timeout: 45000 // 45 seconds for cloud environments like Railway
       };
 
       const req = client.request(options, (res) => {
@@ -746,10 +746,47 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
       if (pageIdx === 0) {
         pageRefPath = task.finalRefImagePath;
       } else {
-        pageRefPath = task.imagePaths[pageIdx - 1];
-        if (pageRefPath) {
-          task.logs += `[Halaman ${pageNum}] Menggunakan hasil Halaman ${pageIdx} langsung dari URL sebagai referensi...\n`;
-          await saveTaskState(db, storyboardId, task);
+        const prevPagePath = task.imagePaths[pageIdx - 1];
+        if (task.finalRefImagePath && prevPagePath) {
+          // Combine original user reference image + previous page result for 100% visual consistency across all pages
+          try {
+            task.logs += `[Halaman ${pageNum}] Menggabungkan gambar referensi asli produk/model + hasil Halaman ${pageIdx} untuk konsistensi visual 100%...\n`;
+            await saveTaskState(db, storyboardId, task);
+
+            const combinedPageRefFilename = `pageref_${Date.now()}_p${pageNum}.png`;
+            const combinedPageRefPath = path.join(publicDir, combinedPageRefFilename);
+
+            const { Jimp } = require('jimp');
+            const origImg = await Jimp.read(task.finalRefImagePath);
+            let prevImg;
+            if (prevPagePath.startsWith('http://') || prevPagePath.startsWith('https://')) {
+              const tempPrevPath = path.join(publicDir, `temp_prev_${Date.now()}_p${pageNum}.png`);
+              await downloadFile(prevPagePath, tempPrevPath);
+              prevImg = await Jimp.read(tempPrevPath);
+              if (fs.existsSync(tempPrevPath)) fs.unlinkSync(tempPrevPath);
+            } else {
+              prevImg = await Jimp.read(prevPagePath);
+            }
+
+            const targetHeight = 600;
+            origImg.resize({ h: targetHeight });
+            prevImg.resize({ h: targetHeight });
+
+            const totalWidth = origImg.width + prevImg.width;
+            const canvas = new Jimp({ width: totalWidth, height: targetHeight, color: 0xFFFFFFFF });
+            canvas.composite(origImg, 0, 0);
+            canvas.composite(prevImg, origImg.width, 0);
+
+            await canvas.write(combinedPageRefPath);
+            pageRefPath = combinedPageRefPath.replace(/\\/g, '/');
+          } catch (stitchPageErr) {
+            console.warn(`[pageRef] Failed to combine page ref: ${stitchPageErr.message}. Fallback to prevPagePath or finalRefImagePath.`);
+            pageRefPath = prevPagePath || task.finalRefImagePath;
+          }
+        } else if (prevPagePath) {
+          pageRefPath = prevPagePath;
+        } else {
+          pageRefPath = task.finalRefImagePath;
         }
       }
 
