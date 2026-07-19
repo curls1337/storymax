@@ -355,6 +355,12 @@ Pastikan:
 - Halaman terakhir: Hasil akhir yang memuaskan, penyajian, atau call to action visual.
 Berikan deskripsi detail visual yang singkat dan padat untuk masing-masing halaman (1 paragraf ringkas per halaman).
 
+PENTING UNTUK GAYA CUBE MORPH TRANSITION (cube_morph_product):
+Jika konsep cerita menggunakan transisi kubus (cube morph/cube transformation):
+1. Anda HARUS menjelaskan detail fisik kubus mekanis di Halaman 1 (misal: "futuristic mechanical cube, dark matte metallic finish, angular panel lines, glowing circular button core") dan meminta peletakan di atas meja putih.
+2. Anda HARUS menjelaskan proses perubahan mekanis di Halaman tengah.
+3. Anda HARUS mendeskripsikan secara spesifik produk akhir yang muncul di Halaman terakhir dengan warna, merek, dan bentuk yang persis seperti yang diinginkan pengguna di atas meja putih yang sama.
+
 PENTING UNTUK KONSISTENSI VISUAL (CHARACTER/PRODUCT CONSISTENCY):
 1. Identifikasi karakter utama (jika ada) dan produk utama dari konsep cerita pengguna.
 2. Buat deskripsi fisik yang sangat spesifik untuk karakter tersebut (misal: "pria Asia 25 tahun, rambut hitam pendek acak, memakai hoodie abu-abu polos") dan produk tersebut (misal: "botol tumbler stainless steel warna hijau toska").
