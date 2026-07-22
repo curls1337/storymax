@@ -1,3 +1,4 @@
+const { AI_API_HOST, AI_API_TOKEN } = require('../config/secrets');
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
@@ -363,8 +364,8 @@ async function generateMarketingCopyInternal(storyboardId, sceneIdx) {
 
     // Get AI settings
     const settings = await db.get('SELECT * FROM ai_settings LIMIT 1');
-    let apiHost = 'http://localhost:8045/v1';
-    let apiToken = 'ag_api_55bd6bfe5c3b771a';
+    let apiHost = AI_API_HOST;
+    let apiToken = AI_API_TOKEN;
     let modelName = 'gemini-3-flash';
 
     if (settings) {

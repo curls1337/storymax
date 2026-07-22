@@ -1,3 +1,4 @@
+const { SEED_DEFAULT_ADMIN, DEFAULT_ADMIN_USERNAME, DEFAULT_ADMIN_PASSWORD, AI_API_HOST, AI_API_TOKEN, AI_MODEL } = require('./config/secrets');
 const sqlite3 = require('sqlite3');
 const { open } = require('sqlite');
 const bcrypt = require('bcryptjs');
@@ -217,17 +218,17 @@ async function initDb() {
 
   // Seed default admin if no users exist
   const adminExists = await db.get('SELECT * FROM users WHERE role = "admin"');
-  if (!adminExists) {
-    const defaultPassword = 'adminpassword';
-    const hashedPassword = await bcrypt.hash(defaultPassword, 10);
+  if (!adminExists && SEED_DEFAULT_ADMIN) {
+    const hashedPassword = await bcrypt.hash(DEFAULT_ADMIN_PASSWORD, 10);
     await db.run(
       'INSERT INTO users (username, password, role) VALUES (?, ?, ?)',
-      ['admin', hashedPassword, 'admin']
+      [DEFAULT_ADMIN_USERNAME, hashedPassword, 'admin']
     );
-    console.log('--- Default Admin User Seeded ---');
-    console.log('Username: admin');
-    console.log('Password: adminpassword');
-    console.log('--------------------------------');
+    // C4: never print credentials to logs. Warn only if the insecure default is in use.
+    console.log(`--- Default admin '${DEFAULT_ADMIN_USERNAME}' seeded ---`);
+    if (DEFAULT_ADMIN_PASSWORD === 'adminpassword') {
+      console.warn('[SECURITY] Default admin uses the built-in password. Set DEFAULT_ADMIN_PASSWORD and change it after first login.');
+    }
   }
 
   // Seed default AI settings if none exist
@@ -235,7 +236,7 @@ async function initDb() {
   if (!aiSettingsExists) {
     await db.run(
       'INSERT INTO ai_settings (endpoint, api_key, model) VALUES (?, ?, ?)',
-      ['http://localhost:8045/v1', 'ag_api_55bd6bfe5c3b771a', 'gemini-3-flash']
+      [AI_API_HOST, AI_API_TOKEN, AI_MODEL]
     );
     console.log('--- Default AI Settings Seeded ---');
   }

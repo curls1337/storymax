@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
-
-const JWT_SECRET = process.env.JWT_SECRET || 'storymax_secret_token_key';
+// C2: JWT secret comes from centralised config (env-backed; required in prod).
+const { JWT_SECRET } = require('../config/secrets');
 
 function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
@@ -29,5 +29,5 @@ function requireAdmin(req, res, next) {
 module.exports = {
   authenticateToken,
   requireAdmin,
-  JWT_SECRET
+  JWT_SECRET,
 };

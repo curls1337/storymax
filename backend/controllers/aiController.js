@@ -1,3 +1,4 @@
+const { AI_API_HOST, AI_API_TOKEN } = require('../config/secrets');
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
@@ -5,24 +6,7 @@ const https = require('https');
 const { getDb } = require('../db');
 const { uploadsDir } = require('../config');
 
-const LAYOUT_STYLES = [
-  { value: 'premium_vertical_row', label: 'Premium Vertical Row Storyboard (Dark & Yellow)' },
-  { value: 'infographic_step_guide', label: 'Infografis Step-by-Step Guide (Nomor & Tutorial)' },
-  { value: 'tiktok_script_table', label: 'TikTok Commercial Script Table (5 Kolom: Scene, Durasi, Visual, VO/Dialog, Text on Screen)' },
-  { value: 'cinematic_matrix_grid', label: 'Cinematic B-Roll Matrix Grid (15 Shot Grid & Technical Summary)' },
-  { value: 'ugc_overlay_card_grid', label: 'UGC Overlay #5a: Clean Card & Bubble Overlay (Skincare/Beauty Style)' },
-  { value: 'ugc_overlay_dark_table', label: 'UGC Overlay #5b: Dark Tech & Sticker Table (Tech Review Style)' },
-  { value: 'ugc_overlay_minimal_clean', label: 'UGC Overlay #5c: Minimal Aesthetic Talking Head (Fashion/Lifestyle Style)' },
-  { value: 'unboxing_cinematic_grid', label: 'Product Unboxing Cinematic Grid (9 Shot Dark & Technical Summary)' },
-  { value: 'ugc_product_showcase_grid', label: 'UGC Product Showcase Grid (9 Shot Light & Pastel Spec Footer)' },
-  { value: 'comic_grunge_storyboard', label: 'Short Story Comic Grunge Storyboard (9 Panel Satirical Cartoon Style)' },
-  { value: 'character_design_turnaround', label: 'Character / Mecha Design & Henshin Sheet (Detailed Turnaround & Henshin Grid)' },
-  { value: 'recipe_cooking_table', label: 'Recipe / Cooking Tutorial ASMR Table (8 Kolom: Time, Scene, Visual, Camera, Continuity, ASMR Audio, Transition, Notes)' },
-  { value: 'clean_step_card_grid', label: 'Clean E-Commerce Step Card Grid (10 Panel Rounded Cards & Purple Badge)' },
-  { value: 'diy_build_process', label: 'DIY Build Process & Miniature Storyboard (6 Row Stack & Right Technical Info Column)' },
-  { value: 'tiny_workers_miniature', label: 'Tiny Workers & Pixar-Style Storyboard (6 Panel 3D Pixar Animation Style)' },
-  { value: 'cube_morph_product', label: '3D Cube Morph Product Transition (CGI Before-After)' }
-];
+const LAYOUT_STYLES = require('../constants/layoutStyles');
 
 
 function httpRequest(url, headers, body) {
@@ -104,8 +88,8 @@ async function writePrompt(req, res) {
     const settings = await db.get('SELECT * FROM ai_settings LIMIT 1');
     
     // Default fallbacks if settings table is empty
-    let apiHost = 'http://localhost:8045/v1';
-    let apiToken = 'ag_api_55bd6bfe5c3b771a';
+    let apiHost = AI_API_HOST;
+    let apiToken = AI_API_TOKEN;
 
     if (settings) {
       apiHost = settings.endpoint;
@@ -146,7 +130,7 @@ Anda harus mengembalikan respon hanya dalam format JSON mentah dengan key 'title
 {
   "title": "Judul Elegan",
   "description": "Deskripsi visual rinci...",
-  "layout": "baking_timeline"
+  "layout": "premium_vertical_row"
 }`;
     }
 
@@ -306,8 +290,8 @@ async function generateVideoPromptsInternal({ storyboardId, promptType, regenera
 
   const settings = await db.get('SELECT * FROM ai_settings LIMIT 1');
   
-  let apiHost = 'http://localhost:8045/v1';
-  let apiToken = 'ag_api_55bd6bfe5c3b771a';
+  let apiHost = AI_API_HOST;
+  let apiToken = AI_API_TOKEN;
 
   if (settings) {
     apiHost = settings.endpoint;

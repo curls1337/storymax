@@ -1,3 +1,4 @@
+const { AI_API_HOST, AI_API_TOKEN } = require('../config/secrets');
 const bcrypt = require('bcryptjs');
 const fs = require('fs');
 const path = require('path');
@@ -126,7 +127,7 @@ async function getAllKeys(req, res) {
       const masked = val.length > 8 ? `${val.substring(0, 4)}...${val.substring(val.length - 4)}` : '****';
       return {
         id: k.id,
-        key_value: val, // Keep full value for admin UI management, or mask if preferred. We'll send full so admin can view/copy.
+        key_value: masked, // C5: expose only the masked value to the client; never the full key.
         masked_value: masked,
         label: k.label,
         is_active: k.is_active,
@@ -296,7 +297,7 @@ async function getAiSettings(req, res) {
     if (!settings) {
       await db.run(
         'INSERT INTO ai_settings (endpoint, api_key, model) VALUES (?, ?, ?)',
-        ['http://localhost:8045/v1', 'ag_api_55bd6bfe5c3b771a', 'gemini-3-flash']
+        [AI_API_HOST, AI_API_TOKEN, 'gemini-3-flash']
       );
       settings = await db.get('SELECT * FROM ai_settings LIMIT 1');
     }
