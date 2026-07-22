@@ -694,7 +694,7 @@ async function getStoryboardVideos(req, res) {
   const { storyboardId } = req.params;
   try {
     const db = getDb();
-    const videos = await db.all('SELECT * FROM generated_videos WHERE storyboard_id = ? ORDER BY created_at DESC', [storyboardId]);
+    const videos = await db.all('SELECT v.*, k.label AS api_key_label FROM generated_videos v LEFT JOIN api_keys k ON k.id = v.api_key_id WHERE v.storyboard_id = ? ORDER BY v.created_at DESC', [storyboardId]);
     res.json(videos);
   } catch (err) {
     res.status(500).json({ message: 'Gagal mengambil daftar video.', error: err.message });

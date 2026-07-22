@@ -913,6 +913,7 @@ export default function Dashboard({ setTab }) {
                     <div className="flex items-center justify-between text-[8px] md:text-[9px] text-slate-500 mt-1 md:mt-2 pt-1 md:pt-2 border-t border-[#2a2725]/60 font-medium">
                       <span className="truncate">
                         {new Date(sb.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                        {sb.api_key_label ? ` · API: ${sb.api_key_label}` : ''}
                       </span>
                       {isProcessing ? (
                         <span className="text-[#cfae80] font-bold uppercase tracking-wider text-[7px] animate-pulse">Proses</span>

@@ -95,6 +95,13 @@ async function initDb() {
     // Column already exists, safe to ignore
   }
 
+  // Ensure last_status column exists on api_keys (item 2: show last status/log per key)
+  try {
+    await db.exec('ALTER TABLE api_keys ADD COLUMN last_status TEXT');
+  } catch (e) {
+    // Column already exists, safe to ignore
+  }
+
   // Ensure generation_params column exists if table was already created (migration support)
   try {
     await db.exec('ALTER TABLE storyboards ADD COLUMN generation_params TEXT');

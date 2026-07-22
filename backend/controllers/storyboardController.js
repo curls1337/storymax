@@ -23,7 +23,7 @@ async function getUserStoryboards(req, res) {
   try {
     const db = getDb();
     const storyboards = await db.all(
-      'SELECT * FROM storyboards WHERE user_id = ? ORDER BY created_at DESC',
+      'SELECT s.*, k.label AS api_key_label FROM storyboards s LEFT JOIN api_keys k ON k.id = s.api_key_id WHERE s.user_id = ? ORDER BY s.created_at DESC',
       [req.user.id]
     );
     // Strip the heavy 'active_task_data' (accumulating logs + base64 reference

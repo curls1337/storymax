@@ -115,7 +115,7 @@ async function getAllKeys(req, res) {
   try {
     const db = getDb();
     const keys = await db.all(`
-      SELECT k.id, k.key_value, k.label, k.is_active,
+      SELECT k.id, k.key_value, k.label, k.is_active, k.last_status,
              (COALESCE((SELECT SUM(s.used_credits) FROM storyboards s WHERE s.api_key_id = k.id), 0) +
               COALESCE((SELECT SUM(v.used_credits) FROM generated_videos v WHERE v.api_key_id = k.id), 0)) AS total_credits
       FROM api_keys k
@@ -131,6 +131,7 @@ async function getAllKeys(req, res) {
         masked_value: masked,
         label: k.label,
         is_active: k.is_active,
+        last_status: k.last_status || null,
         total_credits: k.total_credits
       };
     });

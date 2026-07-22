@@ -508,7 +508,10 @@ export default function AdminPanel() {
                         className="w-3.5 h-3.5 rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 cursor-pointer accent-[#cfae80]"
                       />
                     </td>
-                    <td className="py-2.5 px-3 font-editorial italic text-white text-sm">{k.label}</td>
+                    <td className="py-2.5 px-3 font-editorial italic text-white text-sm">
+                      {k.label}
+                      {k.last_status ? <span className="block not-italic font-sans text-[9px] text-slate-500 font-normal mt-0.5">📋 {k.last_status}</span> : null}
+                    </td>
                     <td className="py-2.5 px-3 font-mono text-slate-550 text-[11px]">{k.key_value.substring(0, 16)}••••••••</td>
                     <td className="py-2.5 px-3 font-mono text-[#cfae80] font-bold text-[11px]">
                       ⚡ {k.total_credits || 0}

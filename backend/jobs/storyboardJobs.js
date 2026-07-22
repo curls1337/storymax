@@ -311,10 +311,11 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
                   
                   if (isCreditErr) {
                     task.logs += `\n[Auto-Disable] API Key ID ${currentKeyRecord.id} (${currentKeyRecord.label}) kehabisan kredit. Menonaktifkan key.\n`;
-                    await db.run('UPDATE api_keys SET is_active = 0 WHERE id = ?', [currentKeyRecord.id]);
+                    await db.run('UPDATE api_keys SET is_active = 0, last_status = ? WHERE id = ?', ['Kredit habis (nonaktif otomatis) - ' + new Date().toLocaleString('id-ID'), currentKeyRecord.id]);
                     reject({ type: 'credit', message: errMsg || 'Credits are not enough' });
                   } else {
                     task.logs += `\n[Freebeat CLI Error - Halaman ${pageNum}]\nSTDOUT:\n${stdout}\nSTDERR:\n${stderr}\n`;
+                    db.run('UPDATE api_keys SET last_status = ? WHERE id = ?', ['Error: ' + (errMsg || 'gagal').slice(0, 120), currentKeyRecord.id]).catch(() => {});
                     reject(new Error(`CLI Halaman ${pageNum} gagal: ${errMsg || code}`));
                   }
                   return;

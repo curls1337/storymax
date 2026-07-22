@@ -7,7 +7,7 @@ async function checkAndDisableKeyIfOutofCredits(db, apiKeyId, errorText, taskObj
   if (lowerErr.includes('credit') || lowerErr.includes('balance') || lowerErr.includes('insufficient') || lowerErr.includes('limit') || lowerErr.includes('depleted') || lowerErr.includes('payment') || lowerErr.includes('out of')) {
     console.log(`[Auto-Disable API Key] Key ID ${apiKeyId} is out of credits. Disabling key.`);
     try {
-      await db.run('UPDATE api_keys SET is_active = 0 WHERE id = ?', [apiKeyId]);
+      await db.run('UPDATE api_keys SET is_active = 0, last_status = ? WHERE id = ?', ['Kredit habis (nonaktif otomatis) - ' + new Date().toLocaleString('id-ID'), apiKeyId]);
       if (taskObj && taskObj.logs !== undefined) {
         taskObj.logs += `\n[SYSTEM] API Key ID ${apiKeyId} telah dinonaktifkan secara otomatis karena kehabisan/kurang kredit.\n`;
       }
@@ -32,4 +32,12 @@ async function getAvailableApiKey(db) {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-module.exports = { checkAndDisableKeyIfOutofCredits, getAvailableApiKey };
+// Record the latest status/log for an API key (item 2).
+async function setKeyStatus(db, keyId, status) {
+  if (!keyId) return;
+  try {
+    await db.run('UPDATE api_keys SET last_status = ? WHERE id = ?', [String(status).slice(0, 200), keyId]);
+  } catch (e) { /* best effort */ }
+}
+
+module.exports = { checkAndDisableKeyIfOutofCredits, getAvailableApiKey, setKeyStatus };
