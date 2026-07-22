@@ -39,6 +39,9 @@ npm install
 npx cap add ios
 npx cap add android
 
+# 3b. Generate IKON aplikasi (iOS & Android) dari logo StoryMax (public/logo.png)
+npm run assets      # = siapkan assets/ dari logo + capacitor-assets generate
+
 # 4. Build web + sinkronkan ke native (script sudah disiapkan)
 npm run mobile      # = vite build && cap sync
 
@@ -53,6 +56,26 @@ npm run open:android
 - **iOS**: di Xcode pilih perangkat/Signing Team → Product → Archive (atau Run ke device). Untuk sideload tanpa akun berbayar, pakai AltStore/Sideloadly dengan `.ipa` hasil archive.
 
 Setelah langkah ini sekali, update berikutnya cukup lewat deploy Railway — **tidak install ulang**.
+
+---
+
+## 🎨 Ikon Aplikasi (iOS & Android)
+
+Ikon launcher diambil dari **`frontend/public/logo.png`** (logo StoryMax, 1024×1024).
+
+Untuk menerapkannya ke aplikasi:
+```bash
+cd frontend
+npm install                 # sekali, untuk mengambil @capacitor/assets
+npx cap add ios / android   # kalau folder native belum ada
+npm run assets              # generate semua ukuran ikon iOS & Android dari logo
+npm run mobile              # sync ke native
+# lalu rebuild di Xcode / Android Studio
+```
+
+`npm run assets` menyalin `public/logo.png` ke `frontend/assets/` lalu menjalankan `capacitor-assets` yang membuat semua ukuran ikon (iOS AppIcon set + Android mipmap & adaptive icon).
+
+**Ganti ikon di masa depan:** cukup timpa `frontend/public/logo.png` dengan gambar 1024×1024 baru, jalankan `npm run assets` + rebuild. Ikon adalah bagian native, jadi perubahannya **perlu rebuild sekali** (tidak ikut auto-update live).
 
 ---
 

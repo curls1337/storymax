@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Capacitor: generated native projects & icon asset sources
+# (assets/ is regenerated locally from public/logo.png via `npm run assets`)
+/ios
+/android
+/assets
