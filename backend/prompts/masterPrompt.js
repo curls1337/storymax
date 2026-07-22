@@ -72,7 +72,9 @@ function buildMasterPrompt(spec, ctx = {}) {
   const refNote = hasRefImage ? ' The attached reference image defines the exact subject appearance — keep it identical.' : '';
   const conceptText = concept ? String(concept).slice(0, 200) : '';
   const pageScope = pageCount > 1
-    ? `IMPORTANT: this is PAGE ${pageNum} OF ${pageCount} (scenes ${startScene}-${endScene} of the overall story) — show ONLY this part of the sequence, do NOT repeat the other pages. `
+    ? (pageNum === 1
+        ? `IMPORTANT: PAGE 1/${pageCount} (scenes ${startScene}-${endScene}) — show only the BEGINNING; it continues on later pages. `
+        : `IMPORTANT: PAGE ${pageNum}/${pageCount} (scenes ${startScene}-${endScene}) — CONTINUE from the previous page; the opening/transformation ALREADY happened, do NOT restart it (no cube, no re-opening) — show only later stages / the finished result in new angles & actions. `)
     : '';
   const assemble = (ct) => {
     const cl = ct

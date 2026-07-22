@@ -396,7 +396,7 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
           const maxPolls = 5760; // ~24 jam @ 15s — tunggu sampai Freebeat memberi status (item 4)
           const pollInterval = setInterval(() => {
             pollCount++;
-            if (pollCount === 1) task.logs += `[Halaman ${pageNum}] Menunggu hasil render dari Freebeat (bisa memakan waktu, mohon tunggu)...\n`;
+            if (pollCount % 2 === 1) task.logs += `[Halaman ${pageNum}] Masih memproses di Freebeat... (${pollCount * 15} detik berlalu)\n`;
             saveTaskState(db, storyboardId, task).catch(() => {});
 
             let statusCmd;

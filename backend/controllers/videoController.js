@@ -509,7 +509,7 @@ async function regenerateStoryboardMarketingCopy(req, res) {
 // Helper to poll task status and update records in real-time
 function pollVideoStatus(videoRecordId, storyboardId, apiKey, batchId, serialNo, taskId) {
   let attempt = 0;
-  const maxAttempts = 120; // 10 minutes at 5s interval
+  const maxAttempts = 5760; // ~8 jam @ 5s — tunggu sampai Freebeat memberi status
 
   const interval = setInterval(async () => {
     attempt++;
@@ -619,8 +619,8 @@ function pollVideoStatus(videoRecordId, storyboardId, apiKey, batchId, serialNo,
                 ['failed', errMsg, activeTasks[taskId].logs, videoRecordId]
               );
             } else {
-              // Status is PENDING or RUNNING
-              activeTasks[taskId].logs += `Checking status (${attempt}/120)... [${status}]\n`;
+              // Status is PENDING or RUNNING — heartbeat every ~30s (6 polls @ 5s)
+              if (attempt % 6 === 1) activeTasks[taskId].logs += `Masih memproses video di Freebeat... (${attempt * 5} detik berlalu) [${status}]\n`;
             }
           }
         } catch (e) {
@@ -658,7 +658,8 @@ async function resumeProcessingVideos() {
         keyRecord = await db.get('SELECT * FROM api_keys WHERE id = ? AND is_active = 1', [storyboard.api_key_id]);
       }
       if (!keyRecord) {
-        keyRecord = await db.get('SELECT * FROM api_keys WHERE is_active = 1 LIMIT 1');
+        const _act = await db.all('SELECT * FROM api_keys WHERE is_active = 1');
+        keyRecord = _act.length ? _act[Math.floor(Math.random() * _act.length)] : null;
       }
 
       if (!keyRecord) {
@@ -877,7 +878,8 @@ async function runSingleVideoSpawn(vRecId, tId, kRec, pText, scImg, model, gener
     } catch (err) {
       if (err && err.type === 'credit') {
         const db = getDb();
-        const nextKey = await db.get('SELECT * FROM api_keys WHERE is_active = 1 LIMIT 1');
+        const _alt = await db.all('SELECT * FROM api_keys WHERE is_active = 1 AND id != ?', [attemptKeyRecord.id]);
+        const nextKey = _alt.length ? _alt[Math.floor(Math.random() * _alt.length)] : null;
         if (nextKey) {
           if (activeTasks[tId]) {
             activeTasks[tId].logs += `[SYSTEM] Beralih secara otomatis ke API Key alternatif: ${nextKey.label}...\n`;
