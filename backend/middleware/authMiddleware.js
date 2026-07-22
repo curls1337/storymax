@@ -19,6 +19,26 @@ function authenticateToken(req, res, next) {
   }
 }
 
+// Variant for endpoints opened via plain browser navigation / window.open (e.g.
+// file downloads on mobile), which cannot send an Authorization header. Accepts
+// the JWT from the header OR a ?token= query param. The token must still be a
+// valid, unexpired, correctly-signed JWT — so this is NOT an open proxy.
+function authenticateTokenAllowQuery(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = (authHeader && authHeader.split(' ')[1]) || req.query.token;
+
+  if (!token) {
+    return res.status(401).json({ message: 'Access denied. No token provided.' });
+  }
+
+  try {
+    req.user = jwt.verify(token, JWT_SECRET);
+    next();
+  } catch (error) {
+    res.status(403).json({ message: 'Invalid or expired token.' });
+  }
+}
+
 function requireAdmin(req, res, next) {
   if (!req.user || req.user.role !== 'admin') {
     return res.status(403).json({ message: 'Forbidden. Admin role required.' });
@@ -28,6 +48,7 @@ function requireAdmin(req, res, next) {
 
 module.exports = {
   authenticateToken,
+  authenticateTokenAllowQuery,
   requireAdmin,
   JWT_SECRET,
 };

@@ -718,7 +718,10 @@ export default function Dashboard({ setTab }) {
       cleanUrl = `${origin}${slashPath}`;
     }
     
-    return `${cleanBase}/storyboards/download?url=${encodeURIComponent(cleanUrl)}`;
+    // Append the JWT so browser-navigation downloads (window.open on mobile, or a
+    // plain <a download> on web) are authenticated — they cannot send headers.
+    const token = localStorage.getItem('token');
+    return `${cleanBase}/storyboards/download?url=${encodeURIComponent(cleanUrl)}${token ? `&token=${encodeURIComponent(token)}` : ''}`;
   };
 
   const downloadFileNative = async (url, filename, elementId) => {
