@@ -26,6 +26,11 @@ async function getUserStoryboards(req, res) {
       'SELECT * FROM storyboards WHERE user_id = ? ORDER BY created_at DESC',
       [req.user.id]
     );
+    // Strip the heavy 'active_task_data' (accumulating logs + base64 reference
+    // images) from the gallery payload — the list view never uses it and it was
+    // bloating the response, making "Memuat galeri..." slow. Live task status is
+    // polled separately via /storyboards/tasks/:taskId.
+    for (const s of storyboards) { delete s.active_task_data; }
     res.json(storyboards);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching storyboards.', error: error.message });
