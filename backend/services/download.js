@@ -3,6 +3,13 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const https = require('https');
+const { uploadsDir } = require('../config');
+
+// Browser-like User-Agent. Required so remote hosts (e.g. Tokopedia's image CDN)
+// serve the file instead of blocking a header-less bot request. Previously this
+// constant was missing, so downloadFile() threw "UA is not defined" on every
+// remote URL — silently dropping reference images and breaking local caching.
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
 
 function downloadFile(url, destPath) {
   return new Promise((resolve, reject) => {
@@ -28,11 +35,15 @@ function downloadFile(url, destPath) {
       return;
     }
 
+    const isTokopedia = /tokopedia/i.test(urlParsed.hostname);
     const options = {
       hostname: urlParsed.hostname,
       path: urlParsed.pathname + urlParsed.search,
       headers: {
-        'User-Agent': UA
+        'User-Agent': UA,
+        'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+        // Some CDNs (e.g. Tokopedia) block hotlinking without a matching Referer.
+        ...(isTokopedia ? { 'Referer': 'https://www.tokopedia.com/' } : {}),
       },
       timeout: 15000 // 15s timeout
     };
