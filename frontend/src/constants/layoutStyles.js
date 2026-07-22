@@ -1,20 +1,34 @@
-// Canonical frontend list of storyboard layout styles (value, label, desc).
-// Extracted from Generator.jsx so it is defined once and importable elsewhere.
+// Canonical frontend storyboard styles. Selector shows icon + name + desc
+// (no preview images). faceMode = default face handling per style.
 export default [
-  { value: 'premium_vertical_row', label: 'Premium Vertical Row Storyboard', desc: 'Gaya tata letak vertikal baris bertumpuk premium dengan aksen kuning dan kolom info di kiri.' },
-  { value: 'infographic_step_guide', label: 'Infografis Step-by-Step Guide', desc: 'Gaya poster infografis bernomor urut (1, 2, 3...) dengan panah transisi, checklist keunggulan & footer icon.' },
-  { value: 'tiktok_script_table', label: 'TikTok Commercial Script Table', desc: 'Gaya tabel naskah iklan TikTok/Reels 5 kolom (Scene, Durasi, Visual, VO/Dialog, Text on Screen) dengan header hero produk.' },
-  { value: 'cinematic_matrix_grid', label: 'Cinematic B-Roll Matrix Grid (15 Shot)', desc: 'Gaya matriks film TVC 5x3 (15 shot) dengan rincian Kamera, Fokus, Aksi, Catatan, serta footer matriks audio & visual style.' },
-  { value: 'ugc_overlay_card_grid', label: 'UGC Overlay #5a: Clean Card & Bubble Overlay', desc: 'Gaya UGC Beauty/Skincare dengan bubble text overlay di atas gambar visual, kartu meta adegan, dan footer 3 callout box.' },
-  { value: 'ugc_overlay_dark_table', label: 'UGC Overlay #5b: Dark Tech & Sticker Table', desc: 'Gaya UGC Review Gadget/Tech dengan tabel 4 kolom berlatar gelap, badge stiker tebal, dan footer hero produk.' },
-  { value: 'ugc_overlay_minimal_clean', label: 'UGC Overlay #5c: Minimal Aesthetic Talking Head', desc: 'Gaya UGC Fashion/Lifestyle dengan layout bersih 6 kolom, badge scene melingkar, soft pastel overlay, dan kotak tips bawah.' },
-  { value: 'unboxing_cinematic_grid', label: 'Product Unboxing Cinematic Grid (9 Shot)', desc: 'Gaya unboxing produk 3x3 (9 adegan) berlatar gelap dengan durasi detik per scene, info Kamera/Aksi, dan footer parameter teknis lengkap.' },
-  { value: 'ugc_product_showcase_grid', label: 'UGC Product Showcase Grid (9 Shot Light)', desc: 'Gaya presentasi produk UGC 3x3 (9 adegan) berlatar terang/pastel dengan info Kamera/Aksi, pencahayaan alami lembut, dan footer parameter lengkap.' },
-  { value: 'comic_grunge_storyboard', label: 'Short Story Comic Grunge Storyboard (9 Panel)', desc: 'Gaya komik bercerita komedi/satir 3x3 (9 panel) bertekstur kotor (grunge), stiker robek, sketsa anime kasar, serta palet warna kusam.' },
-  { value: 'character_design_turnaround', label: 'Character / Mecha Design & Henshin Sheet', desc: 'Tata letak komprehensif untuk giliran visual karakter (Front/Back/Side View), lembar transformasi Henshin/Assembly 16 panel, dan detail spesifikasi teknis.' },
-  { value: 'recipe_cooking_table', label: 'Recipe / Cooking Tutorial ASMR Table (8 Kolom)', desc: 'Gaya tabel detail resep & tutorial masak 8 kolom (Time, Scene, Visual, Camera, Continuity, ASMR Audio, Transition, Notes) dengan baris horizontal kontras tinggi.' },
-  { value: 'clean_step_card_grid', label: 'Clean E-Commerce Step Card Grid (10 Panel)', desc: 'Gaya kisi kartu bersih 5x2 (10 panel) dengan sudut melengkung, badge durasi ungu, deskripsi teks di bawah kartu, dan footer banner pesan utama.' },
-  { value: 'diy_build_process', label: 'DIY Build Process & Miniature Storyboard (6 Row)', desc: 'Gaya lembar panduan DIY & rakit miniatur vertikal 6 baris dengan kolom info teknis di kanan (Visual, Kamera, Aksi, ASMR), diagram pie chart, dan sub-footer Shot Highlights.' },
-  { value: 'tiny_workers_miniature', label: 'Tiny Workers & Pixar-Style Storyboard (6 Panel Grid)', desc: 'Gaya penceritaan miniatur Pixar 3D 2x3 (6 panel) dengan gambar food truck di header kanan, ikon deskripsi di tiap panel, palet warna, dan parameter suasana di footer.' },
-  { value: 'cube_morph_product', label: '3D Cube Morph Product Transition (CGI)', desc: 'Gaya transisi sebelum-sesudah (Before-After) yang mengubah kubus mekanik taktis menjadi produk asli pilihan Anda di atas meja yang sama dengan trigger tekan tombol.' }
+  // Transformasi & Reveal
+  { value: 'cube_box_transform', label: 'Cube Box Transformation', desc: 'Kubus mekanik berubah jadi produk (CGI before–after).', category: 'Transformasi & Reveal', faceMode: 'faceless', icon: 'Box' },
+  { value: 'unboxing', label: 'Unboxing', desc: 'Buka kemasan dramatis, reveal produk, close-up detail.', category: 'Transformasi & Reveal', faceMode: 'faceless', icon: 'PackageOpen' },
+  { value: 'before_after', label: 'Before–After', desc: 'Perbandingan sebelum vs sesudah memakai produk.', category: 'Transformasi & Reveal', faceMode: 'chin_max', icon: 'GitCompareArrows' },
+  { value: 'product_assembly', label: 'Product Assembly', desc: 'Bagian-bagian beterbangan menyatu jadi produk.', category: 'Transformasi & Reveal', faceMode: 'faceless', icon: 'Combine' },
+  { value: 'liquid_splash', label: 'Liquid / Splash Reveal', desc: 'Produk muncul dari cipratan cairan / asap.', category: 'Transformasi & Reveal', faceMode: 'faceless', icon: 'Droplets' },
+  // UGC & Social
+  { value: 'ugc_review', label: 'UGC Review', desc: 'Influencer autentik: hook → demo → ajakan beli.', category: 'UGC & Social', faceMode: 'chin_max', icon: 'Megaphone' },
+  { value: 'pov', label: 'POV', desc: 'Sudut pandang orang pertama memakai produk.', category: 'UGC & Social', faceMode: 'chin_max', icon: 'Eye' },
+  { value: 'talking_head', label: 'Talking-Head', desc: 'Bicara ke kamera memperkenalkan produk.', category: 'UGC & Social', faceMode: 'chin_max', icon: 'Mic' },
+  { value: 'grwm', label: 'GRWM (Get Ready With Me)', desc: 'Rutinitas persiapan sambil pakai produk.', category: 'UGC & Social', faceMode: 'chin_max', icon: 'Sparkles' },
+  { value: 'skit_meme', label: 'Skit / Meme', desc: 'Komedi singkat relatable seputar produk.', category: 'UGC & Social', faceMode: 'chin_max', icon: 'Laugh' },
+  { value: 'reaction', label: 'Reaction / Duet', desc: 'Reaksi terhadap produk atau hasil.', category: 'UGC & Social', faceMode: 'chin_max', icon: 'MessageCircle' },
+  // Proses & Edukasi
+  { value: 'timelapse_process', label: 'Timelapse Proses', desc: 'Proses dipercepat dari awal sampai hasil.', category: 'Proses & Edukasi', faceMode: 'faceless', icon: 'FastForward' },
+  { value: 'tutorial_steps', label: 'Tutorial Langkah', desc: 'Panduan how-to langkah demi langkah bernomor.', category: 'Proses & Edukasi', faceMode: 'chin_max', icon: 'ListChecks' },
+  { value: 'recipe_cooking', label: 'Resep & Masakan', desc: 'Langkah memasak + ASMR, cocok kuliner/F&B.', category: 'Proses & Edukasi', faceMode: 'faceless', icon: 'ChefHat' },
+  { value: 'education_explainer', label: 'Edukasi Explainer', desc: 'Menjelaskan konsep/fitur dengan ikon & diagram.', category: 'Proses & Edukasi', faceMode: 'faceless', icon: 'GraduationCap' },
+  { value: 'diy_build', label: 'DIY / Build', desc: 'Rakit atau kerajinan miniatur langkah demi langkah.', category: 'Proses & Edukasi', faceMode: 'faceless', icon: 'Hammer' },
+  // Sinematik & Branding
+  { value: 'short_story', label: 'Cerita Pendek Sinematik', desc: 'Iklan bernarasi dengan alur cerita sinematik.', category: 'Sinematik & Branding', faceMode: 'full', icon: 'Clapperboard' },
+  { value: 'cinematic_broll', label: 'Cinematic B-Roll', desc: 'Potongan sinematik estetik untuk iklan/TVC.', category: 'Sinematik & Branding', faceMode: 'faceless', icon: 'Film' },
+  { value: 'product_hero', label: 'Product Hero Showcase', desc: 'Hero shot produk premium yang bersih.', category: 'Sinematik & Branding', faceMode: 'faceless', icon: 'Star' },
+  { value: 'luxury_mood', label: 'Luxury / Premium Mood', desc: 'Mewah, gelap, dramatis, eksklusif.', category: 'Sinematik & Branding', faceMode: 'faceless', icon: 'Gem' },
+  { value: 'fashion_lookbook', label: 'Fashion Lookbook', desc: 'Busana / OOTD bergaya editorial.', category: 'Sinematik & Branding', faceMode: 'full', icon: 'Shirt' },
+  // Artistik / Niche
+  { value: 'asmr_satisfying', label: 'ASMR / Satisfying', desc: 'Fokus tekstur & suara, visual memuaskan.', category: 'Artistik / Niche', faceMode: 'faceless', icon: 'AudioWaveform' },
+  { value: 'stop_motion', label: 'Stop-Motion', desc: 'Animasi frame-by-frame yang playful.', category: 'Artistik / Niche', faceMode: 'faceless', icon: 'Frame' },
+  { value: 'tiny_world', label: 'Miniature / Tiny World', desc: 'Gaya Pixar 3D dengan objek mini.', category: 'Artistik / Niche', faceMode: 'faceless', icon: 'Blocks' },
+  { value: 'anime_comic', label: 'Anime / Komik', desc: 'Gaya manga/komik bercerita (ilustrasi).', category: 'Artistik / Niche', faceMode: 'full', icon: 'BookOpen' },
 ];
