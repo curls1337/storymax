@@ -1,3 +1,5 @@
+const { localCliPath } = require('../services/freebeat/cli');
+const { AI_API_HOST, AI_API_TOKEN } = require('../config/secrets');
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
@@ -186,7 +188,7 @@ async function generateVideo(req, res) {
         }
 
         const spawnCmd = 'node';
-        const cliPath = path.join(__dirname, '..', 'node_modules', 'freebeat-cli', 'dist', 'index.js');
+        const cliPath = localCliPath; // B3: shared resolution (services/freebeat/cli.js)
         const spawnArgs = [
           cliPath,
           '--api-key', keyRecord.key_value,
@@ -363,8 +365,8 @@ async function generateMarketingCopyInternal(storyboardId, sceneIdx) {
 
     // Get AI settings
     const settings = await db.get('SELECT * FROM ai_settings LIMIT 1');
-    let apiHost = 'http://localhost:8045/v1';
-    let apiToken = 'ag_api_55bd6bfe5c3b771a';
+    let apiHost = AI_API_HOST;
+    let apiToken = AI_API_TOKEN;
     let modelName = 'gemini-3-flash';
 
     if (settings) {
@@ -527,7 +529,7 @@ function pollVideoStatus(videoRecordId, storyboardId, apiKey, batchId, serialNo,
     try {
       const db = getDb();
       const spawnCmd = 'node';
-      const cliPath = path.join(__dirname, '..', 'node_modules', 'freebeat-cli', 'dist', 'index.js');
+      const cliPath = localCliPath; // B3: shared resolution (services/freebeat/cli.js)
       const spawnArgs = [
         cliPath,
         '--api-key', apiKey,
@@ -746,7 +748,7 @@ async function runSingleVideoSpawn(vRecId, tId, kRec, pText, scImg, model, gener
     try {
       const db = getDb();
       const spawnCmd = 'node';
-      const cliPath = path.join(__dirname, '..', 'node_modules', 'freebeat-cli', 'dist', 'index.js');
+      const cliPath = localCliPath; // B3: shared resolution (services/freebeat/cli.js)
       const spawnArgs = [
         cliPath,
         '--api-key', attemptKeyRecord.key_value,
