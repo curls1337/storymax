@@ -51,7 +51,19 @@ function buildMasterPrompt(spec, ctx = {}) {
   const endScene = startScene + gc - 1;
   const ratio = fmtRatio(aspectRatio || spec.format, model);
   const dur = fmtDuration(totalDuration);
-  const arc = (spec.arc && spec.arc.length) ? spec.arc.join(' → ') : 'introduce → develop → reveal → call to action';
+  // Distribute the style arc across ALL pages so each page shows a DIFFERENT
+  // part of the sequence (fixes multi-page repeating the same beats every page).
+  const totalScenes = (Number(pageCount) || 1) * gc;
+  let pageArc = (spec.arc && spec.arc.length) ? spec.arc.slice() : [];
+  if (pageArc.length && (Number(pageCount) || 1) > 1) {
+    const M = pageArc.length;
+    let bStart = Math.floor(((startScene - 1) / totalScenes) * M);
+    let bEnd = Math.ceil((endScene / totalScenes) * M);
+    bStart = Math.max(0, Math.min(bStart, M - 1));
+    bEnd = Math.max(bStart + 1, Math.min(bEnd, M));
+    pageArc = spec.arc.slice(bStart, bEnd);
+  }
+  const arc = pageArc.length ? pageArc.join(' → ') : 'introduce → develop → reveal → call to action';
   const face = faceClause(faceMode);
   const fneg = faceNegative(faceMode);
   const negatives = [].concat(spec.negatives || [], fneg ? [fneg] : []).join(', ');
@@ -59,9 +71,12 @@ function buildMasterPrompt(spec, ctx = {}) {
   const partLabel = pageCount > 1 ? ` PART ${pageNum}/${pageCount}` : '';
   const refNote = hasRefImage ? ' The attached reference image defines the exact subject appearance — keep it identical.' : '';
   const conceptText = concept ? String(concept).slice(0, 400) : '';
+  const pageScope = pageCount > 1
+    ? `IMPORTANT: this is PAGE ${pageNum} OF ${pageCount} (scenes ${startScene}-${endScene} of the overall story) — show ONLY this part of the sequence, do NOT repeat the other pages. `
+    : '';
   const conceptLine = conceptText
-    ? `SCENES: based on this concept — "${conceptText}" — progressing across the panels as: ${arc}.`
-    : `SCENES progress across the panels as: ${arc}.`;
+    ? `${pageScope}SCENES on this page — based on: "${conceptText}" — progressing across the panels as: ${arc}.`
+    : `${pageScope}SCENES progress across the panels as: ${arc}.`;
 
   return (
 `A professional ${spec.name} storyboard sheet, ${ratio} layout, ${bgClause(spec.bg)}.
