@@ -15,11 +15,24 @@ const crypto = require('crypto');
 
 const isProd = process.env.NODE_ENV === 'production';
 
+// Persist the auto-generated secret on the persistent volume when available
+// (same place as the SQLite DB / uploads), so it survives redeploys on
+// ephemeral-filesystem hosts like Railway — still without requiring any env var.
+function jwtSecretPath() {
+  if (process.env.SQLITE_DB_PATH) {
+    return path.join(path.dirname(path.resolve(process.env.SQLITE_DB_PATH)), '.jwt_secret');
+  }
+  if (process.env.UPLOADS_DIR) {
+    return path.join(path.resolve(process.env.UPLOADS_DIR), '.jwt_secret');
+  }
+  return path.join(__dirname, '..', '.jwt_secret');
+}
+
 // C2: resolve a JWT signing secret WITHOUT requiring any env var.
 function resolveJwtSecret() {
   if (process.env.JWT_SECRET) return process.env.JWT_SECRET;
 
-  const secretFile = path.join(__dirname, '..', '.jwt_secret');
+  const secretFile = jwtSecretPath();
   try {
     if (fs.existsSync(secretFile)) {
       const existing = fs.readFileSync(secretFile, 'utf8').trim();
@@ -27,7 +40,7 @@ function resolveJwtSecret() {
     }
     const generated = crypto.randomBytes(32).toString('hex');
     fs.writeFileSync(secretFile, generated, { mode: 0o600 });
-    console.warn('[config] JWT_SECRET not set — generated a persistent local secret (backend/.jwt_secret). For multi-instance/ephemeral deployments, set the JWT_SECRET env var instead.');
+    console.warn(`[config] JWT_SECRET not set — generated and persisted a secret at ${secretFile}. Set the JWT_SECRET env var instead if you prefer to manage it yourself.`);
     return generated;
   } catch (e) {
     console.warn('[config] JWT_SECRET not set and a persistent secret could not be written (' + e.message + '); using an ephemeral secret (users must re-login after each restart). Set JWT_SECRET to avoid this.');
