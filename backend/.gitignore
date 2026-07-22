@@ -1,0 +1,5 @@
+# Auto-generated JWT signing secret (created at first boot when JWT_SECRET env is unset)
+.jwt_secret
+
+# Local env file
+.env

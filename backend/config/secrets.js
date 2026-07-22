@@ -1,27 +1,44 @@
 // Centralised secrets & environment configuration.
-// Fixes C2 (JWT secret), C3 (AI token no longer hardcoded in source), and
-// C4 (default admin seed is opt-out and never printed).
 //
-// In production (NODE_ENV=production) required secrets MUST be provided via env
-// or the process refuses to boot. In development a loud warning + insecure
-// fallback keeps local runs working.
+// Design goal: the app runs with ZERO environment variables.
+// - JWT secret: uses the JWT_SECRET env var if provided; otherwise auto-generates
+//   and persists a per-deployment secret (backend/.jwt_secret). Never crashes, and
+//   never falls back to the old public hardcoded value.
+// - AI endpoint/token/model + Freebeat API keys: configured IN-APP via the Admin
+//   Panel (ai_settings / api_keys tables). The AI_* values below are only fallback
+//   DEFAULTS used to seed an empty ai_settings row — env is NOT required for AI.
+// - Admin seed: opt-out via SEED_DEFAULT_ADMIN; credentials are never logged.
+
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
 
 const isProd = process.env.NODE_ENV === 'production';
 
-function requiredSecret(name, devFallback) {
-  const value = process.env[name];
-  if (value) return value;
-  if (isProd) {
-    throw new Error(`[config] Missing required environment variable ${name} in production.`);
+// C2: resolve a JWT signing secret WITHOUT requiring any env var.
+function resolveJwtSecret() {
+  if (process.env.JWT_SECRET) return process.env.JWT_SECRET;
+
+  const secretFile = path.join(__dirname, '..', '.jwt_secret');
+  try {
+    if (fs.existsSync(secretFile)) {
+      const existing = fs.readFileSync(secretFile, 'utf8').trim();
+      if (existing) return existing;
+    }
+    const generated = crypto.randomBytes(32).toString('hex');
+    fs.writeFileSync(secretFile, generated, { mode: 0o600 });
+    console.warn('[config] JWT_SECRET not set — generated a persistent local secret (backend/.jwt_secret). For multi-instance/ephemeral deployments, set the JWT_SECRET env var instead.');
+    return generated;
+  } catch (e) {
+    console.warn('[config] JWT_SECRET not set and a persistent secret could not be written (' + e.message + '); using an ephemeral secret (users must re-login after each restart). Set JWT_SECRET to avoid this.');
+    return crypto.randomBytes(32).toString('hex');
   }
-  console.warn(`[config] WARNING: ${name} is not set — using an INSECURE development fallback. Set ${name} before deploying.`);
-  return devFallback;
 }
 
-// C2: signing secret for JWTs.
-const JWT_SECRET = requiredSecret('JWT_SECRET', 'dev_only_insecure_secret_change_me');
+const JWT_SECRET = resolveJwtSecret();
 
-// C3: AI (OpenAI-compatible) endpoint config. Token comes from env only.
+// AI (OpenAI-compatible) endpoint defaults. Configured in-app via Admin Panel;
+// these env values only seed an empty ai_settings row (env NOT required).
 const AI_API_HOST = process.env.AI_API_HOST || 'http://localhost:8045/v1';
 const AI_API_TOKEN = process.env.AI_API_TOKEN || '';
 const AI_MODEL = process.env.AI_MODEL || 'gemini-3-flash';
