@@ -41,11 +41,11 @@ Pastikan:
 - Halaman terakhir: Hasil akhir yang memuaskan, penyajian, atau call to action visual.
 Berikan deskripsi detail visual yang singkat dan padat untuk masing-masing halaman (1 paragraf ringkas per halaman).
 
-PENTING UNTUK GAYA CUBE BOX / TOY MORPH:
-Jika konsep memakai transisi kubus (cube morph):
-1. Halaman 1: sebuah kubus KECIL bermotif warna & branding produk di atas meja bersih, sebuah tangan menyentuhnya. JANGAN sebut mekanis, panel terbuka, robot, gir, atau cahaya/energi.
-2. Halaman tengah: kubus BER-MORPH MULUS sebagai SATU bagian utuh (melipat & membulat halus secara satisfying), TANPA ada bagian yang terlepas, terangkat, atau bercahaya — seperti mainan yang berubah bentuk.
-3. Halaman terakhir: hasil akhir berupa MAINAN MINIATUR (diecast collectible) dari produk, mengkilap & detail, di meja yang sama. Hindari kesan seukuran asli atau robot Transformer.
+PENTING UNTUK GAYA CUBE BOX / TOY MORPH (FOTOREALISTIS, ala video viral):
+Jika konsep memakai transisi kubus:
+1. Awal: sebuah TANGAN memegang kubus KECIL yang sangat detail & premium (sudut braket logam, rivet, emblem tengah, bermotif warna/branding produk); jempol menekan tombolnya. Gaya FOTOREALISTIS (bukan CGI kartun), depth of field dangkal, latar meja nyata.
+2. Tengah: kubus DILEMPAR/DIJATUHKAN ke meja, lalu BER-MORPH MULUS sebagai SATU bagian (melipat & membulat halus) — TANPA bagian terbang/terlepas/terangkat, TANPA cahaya/energi, BUKAN robot Transformer.
+3. Akhir: hasil akhir MAINAN MINIATUR koleksi dari produk, mengkilap & sangat detail, di meja yang sama (close-up hero).
 
 PENTING UNTUK KONSISTENSI VISUAL (CHARACTER/PRODUCT CONSISTENCY):
 1. Identifikasi karakter utama (jika ada) dan produk utama dari konsep cerita pengguna.
