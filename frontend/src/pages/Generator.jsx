@@ -571,52 +571,11 @@ export default function Generator({ setTab }) {
                   ))}
                 </div>
 
-                {/* Floating Preview Card - Desktop (PC) Only */}
-                {hoveredStyle && (
-                  <div className="hidden lg:block absolute left-full ml-3 top-0 w-80 bg-[#1a1918]/98 border border-[#2a2725] rounded-2xl p-4 shadow-2xl z-[100] pointer-events-none animate-fadeIn backdrop-blur-xl">
-                    <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#cfae80]/25 to-transparent"></div>
-                    <h4 className="text-[10px] font-bold text-white uppercase tracking-widest mb-3 flex items-center gap-1.5 pb-2 border-b border-[#2a2725]">
-                      <Eye className="w-3.5 h-3.5 text-[#cfae80]" />
-                      Pratinjau Layout
-                    </h4>
-                    <div className="aspect-video w-full overflow-hidden rounded-xl border border-[#2a2725] bg-black/45 flex items-center justify-center mb-3">
-                      <img 
-                        src={getPreviewUrl(hoveredStyle)} 
-                        alt={`Preview ${hoveredStyle}`} 
-                        onError={(e) => { e.target.style.display = 'none'; }}
-                        className="max-w-full max-h-full object-contain rounded-lg" 
-                      />
-                    </div>
-                    <p className="text-[9px] text-slate-400 leading-relaxed">
-                      {LAYOUT_STYLES.find(opt => opt.value === hoveredStyle)?.desc} - Gaya tata letak komik/kolase yang akan digunakan untuk menghasilkan halaman storyboard Anda.
-                    </p>
-                  </div>
-                )}
+
               </div>
             )}
             
-            {style && (
-              <div 
-                onClick={() => setShowLightbox(style)}
-                className="w-full h-12 rounded-xl border border-[#2a2725]/60 bg-[#131211]/30 hover:bg-[#1a1918]/50 overflow-hidden relative group cursor-pointer mt-2 flex items-center justify-between px-3 transition-all"
-              >
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded overflow-hidden bg-black/60 shrink-0 border border-[#2a2725]">
-                    <img 
-                      src={getPreviewUrl(style)} 
-                      alt="Style Preview" 
-                      onError={(e) => { e.target.style.display = 'none'; }}
-                      className="w-full h-full object-cover object-top" 
-                    />
-                  </div>
-                  <div className="text-left">
-                    <span className="text-[8.5px] font-bold text-slate-300 block uppercase tracking-wider">Pratinjau Layout</span>
-                    <span className="text-[7.5px] text-slate-500 block">Ketuk untuk memperbesar contoh</span>
-                  </div>
-                </div>
-                <Eye className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#cfae80] transition-colors" />
-              </div>
-            )}
+
 
             {(style === 'capsule_transform' || style === 'capsule_toss_transform') && (
               <div className="mt-3 space-y-1.5 animate-fadeIn">
@@ -1064,41 +1023,7 @@ export default function Generator({ setTab }) {
         </button>
       )}
 
-      {/* Lightbox Layout Preview Modal */}
-      {showLightbox && (
-        <div className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-4 md:p-8 animate-fadeIn">
-          <div className="relative max-w-lg w-full bg-[#1a1918]/95 border border-[#2a2725] rounded-3xl p-4 flex flex-col items-center justify-between gap-4 max-h-[85vh] shadow-2xl">
-            <button 
-              type="button" 
-              onClick={() => setShowLightbox(null)} 
-              className="absolute top-3.5 right-3.5 p-1.5 bg-black/60 hover:bg-red-500/20 hover:text-red-400 text-slate-400 rounded-full transition-all border border-white/5 cursor-pointer"
-            >
-              <X className="w-4 h-4" />
-            </button>
-            <h3 className="text-[10px] font-bold text-white uppercase tracking-widest text-center mt-2.5">
-              Pratinjau: {LAYOUT_STYLES.find(opt => opt.value === showLightbox)?.label}
-            </h3>
-            <div className="flex-grow w-full overflow-hidden rounded-xl border border-[#2a2725] bg-black/45 flex items-center justify-center">
-              <img 
-                src={getPreviewUrl(showLightbox)} 
-                alt={`Preview ${showLightbox}`} 
-                onError={(e) => { e.target.style.display = 'none'; }}
-                className="max-w-full max-h-[50vh] object-contain rounded-lg" 
-              />
-            </div>
-            <p className="text-[9px] text-slate-400 text-center px-4 leading-relaxed">
-              {LAYOUT_STYLES.find(opt => opt.value === showLightbox)?.desc} - Gaya tata letak komik/kolase yang akan digunakan untuk menghasilkan halaman storyboard Anda.
-            </p>
-            <button 
-              type="button" 
-              onClick={() => setShowLightbox(null)} 
-              className="w-full bg-[#cfae80] hover:bg-[#c5a880] text-black font-extrabold py-2 rounded-xl text-[10px] uppercase tracking-widest transition-all cursor-pointer"
-            >
-              Tutup Pratinjau
-            </button>
-          </div>
-        </div>
-      )}
+
 
     </div>
   );
