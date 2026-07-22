@@ -70,24 +70,35 @@ function buildMasterPrompt(spec, ctx = {}) {
   const layout = (spec.layoutHint || 'a grid of {N} numbered panels on one sheet').replace('{N}', String(gc));
   const partLabel = pageCount > 1 ? ` PART ${pageNum}/${pageCount}` : '';
   const refNote = hasRefImage ? ' The attached reference image defines the exact subject appearance — keep it identical.' : '';
-  const conceptText = concept ? String(concept).slice(0, 400) : '';
+  const conceptText = concept ? String(concept).slice(0, 200) : '';
   const pageScope = pageCount > 1
     ? `IMPORTANT: this is PAGE ${pageNum} OF ${pageCount} (scenes ${startScene}-${endScene} of the overall story) — show ONLY this part of the sequence, do NOT repeat the other pages. `
     : '';
-  const conceptLine = conceptText
-    ? `${pageScope}SCENES on this page — based on: "${conceptText}" — progressing across the panels as: ${arc}.`
-    : `${pageScope}SCENES progress across the panels as: ${arc}.`;
-
-  return (
+  const assemble = (ct) => {
+    const cl = ct
+      ? `${pageScope}SCENES on this page — based on: "${ct}" — progressing across the panels as: ${arc}.`
+      : `${pageScope}SCENES progress across the panels as: ${arc}.`;
+    return (
 `A professional ${spec.name} storyboard sheet, ${ratio} layout, ${bgClause(spec.bg)}.
 HEADER: a banner reading '${spec.header}${partLabel}' with the product title and badges 'STYLE: ${spec.name}', 'ASPECT RATIO: ${ratio}', 'DURATION: ${dur}'.
-SUBJECT (keep IDENTICAL in every panel): ${subject}.${refNote}
-LAYOUT: ${layout}; number them SCENE ${startScene} to SCENE ${endScene}, each panel with a scene-number badge (top-left) and a timecode chip (top-right).
-${conceptLine}
-CAMERA (identical in EVERY panel): ${spec.camera}. ${spec.lighting}. Keep the background, framing and the subject's appearance, color and branding identical across all panels.
+SUBJECT (keep IDENTICAL in every panel): ${String(subject || 'the product').slice(0, 160)}.${refNote}
+LAYOUT: ${layout}; number panels SCENE ${startScene}–${endScene}, each with a number badge (top-left) + timecode (top-right).
+${cl}
+CAMERA (identical every panel): ${spec.camera}. ${spec.lighting}. Keep background, framing, subject look, color & branding identical across panels.
 ${face}
 NEGATIVE: ${negatives}.`
-  );
+    );
+  };
+
+  // Keep within Freebeat's limit by trimming the (least-critical) concept text
+  // first, so the style / consistency / NEGATIVE clauses always survive.
+  const LIMIT = 1900;
+  let out = assemble(conceptText);
+  if (out.length > LIMIT && conceptText) {
+    const over = out.length - LIMIT;
+    out = assemble(conceptText.slice(0, Math.max(0, conceptText.length - over - 1)));
+  }
+  return out;
 }
 
 module.exports = { buildMasterPrompt, fmtRatio, fmtDuration };

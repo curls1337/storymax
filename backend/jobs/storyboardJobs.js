@@ -343,7 +343,8 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
             submitSuccess = true;
           } catch (err) {
             if (err && err.type === 'credit') {
-              const nextKey = await db.get('SELECT * FROM api_keys WHERE is_active = 1 LIMIT 1');
+              const altKeys = await db.all('SELECT * FROM api_keys WHERE is_active = 1 AND id != ?', [currentKeyRecord.id]);
+              const nextKey = altKeys.length ? altKeys[Math.floor(Math.random() * altKeys.length)] : null;
               if (nextKey) {
                 task.logs += `[SYSTEM] Beralih secara otomatis ke API Key alternatif: ${nextKey.label}...\n`;
                 await saveTaskState(db, storyboardId, task);
@@ -392,10 +393,10 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
       try {
         const creditsUsed = await new Promise((resolve, reject) => {
           let pollCount = 0;
-          const maxPolls = 120;
+          const maxPolls = 5760; // ~24 jam @ 15s — tunggu sampai Freebeat memberi status (item 4)
           const pollInterval = setInterval(() => {
             pollCount++;
-            task.logs += `[Halaman ${pageNum}] Memeriksa status render (${pollCount}/${maxPolls})...\n`;
+            if (pollCount === 1) task.logs += `[Halaman ${pageNum}] Menunggu hasil render dari Freebeat (bisa memakan waktu, mohon tunggu)...\n`;
             saveTaskState(db, storyboardId, task).catch(() => {});
 
             let statusCmd;

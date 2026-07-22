@@ -182,9 +182,15 @@ async function addKeysBulk(req, res) {
       let labelVal = `Bulk Key ${Date.now()}-${i}`;
 
       if (line.includes(',')) {
-        const parts = line.split(',');
-        keyVal = parts[0].trim();
-        labelVal = parts[1].trim();
+        const parts = line.split(',').map((x) => x.trim()).filter(Boolean);
+        // Pick the ACTUAL Freebeat key (starts with 'fbk_', else the longest
+        // non-email token). The other token (e.g. an email) becomes the label.
+        // Fixes the bug where an email was saved as the API key.
+        const keyPart = parts.find((x) => /^fbk_/i.test(x))
+          || parts.filter((x) => !x.includes('@')).sort((a, b) => b.length - a.length)[0]
+          || parts[0];
+        keyVal = keyPart;
+        labelVal = parts.find((x) => x !== keyPart) || labelVal;
       }
 
       try {

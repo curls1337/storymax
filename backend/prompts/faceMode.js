@@ -14,7 +14,7 @@ function faceClause(mode) {
     case 'full':
       return 'Natural human faces and expressions are allowed, close-up lifestyle angles, high-end commercial style.';
     case 'chin_max':
-      return "Show people ONLY from the nose down — lips, chin, jawline, neck, shoulders and hands are visible; frame every shot so the top edge crops the head just below the eye line (lower-face / mouth-level framing); no recognizable face and no eye contact.";
+      return "Show people ONLY from the nose down (lips, chin, jaw, neck, shoulders, hands); crop the head just below the eye line; no full face, no eyes, no eye contact.";
     case 'faceless':
     default:
       return 'No human faces or portraits; focus only on hands, the product and close-up details; no person visible from the neck up.';

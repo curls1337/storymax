@@ -27,10 +27,9 @@ async function getAvailableApiKey(db) {
     .map(task => parseInt(task.apiKeyId));
 
   const freeKeys = activeKeys.filter(k => !busyKeyIds.includes(parseInt(k.id)));
-  if (freeKeys.length > 0) {
-    return freeKeys[0];
-  }
-  return activeKeys[0];
+  const pool = freeKeys.length > 0 ? freeKeys : activeKeys;
+  // Pick RANDOMLY (not sequentially) so auto key selection rotates/acak.
+  return pool[Math.floor(Math.random() * pool.length)];
 }
 
 module.exports = { checkAndDisableKeyIfOutofCredits, getAvailableApiKey };

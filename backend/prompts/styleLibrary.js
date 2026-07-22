@@ -14,8 +14,8 @@ const STYLES = {
     category: 'Transformasi & Reveal', format: '9:16', faceMode: 'faceless', bg: 'dark',
     camera: 'a completely static, locked tripod shot from a fixed three-quarter angle, no camera movement, pan or zoom',
     lighting: 'soft clean product-photography lighting on a smooth neutral tabletop with gentle contact shadows', header: 'STORYBOARD — CUBE TOY MORPH',
-    arc: ['a small solid cube printed with the exact colors, livery and branding of the product sits on a clean tabletop; a hand gently taps it', 'the cube begins a smooth seamless morph, its surfaces folding and rounding inward fluidly as ONE compact piece (nothing detaches, nothing lifts, no glow)', 'the compact shape smoothly reshapes into the rounded silhouette of a cute miniature toy version of the product', 'surface details resolve smoothly — glossy paint, wheels, body — like a collectible diecast toy', 'the finished detailed miniature toy version of the product rests on the same tabletop, hero three-quarter view'],
-    negatives: NEG.concat(['glowing seams, light beams or energy', 'parts flying, detaching, floating or lifting up', 'transformer robot or mecha assembly look', 'explosions or dramatic sparks', 'mechanical panels opening outward', 'life-size object (must look like a small toy)', 'camera motion', 'inconsistent product color or shape']),
+    arc: ['a small cube printed with the product colors & branding on a clean tabletop; a hand gently taps it', 'the cube morphs SMOOTHLY as ONE solid piece — surfaces folding & rounding, nothing detaching, lifting or glowing', 'the shape reshapes into a cute miniature toy silhouette of the product', 'glossy paint, wheels & details resolve into a collectible diecast toy', 'the finished diecast toy of the product sits on the tabletop, hero three-quarter view'],
+    negatives: NEG.concat(['glow, energy or light beams', 'flying/detaching/lifting parts', 'transformer, mecha or robot assembly', 'explosions or sparks', 'panels opening outward', 'life-size (must be a small toy)', 'camera motion']),
   },
   unboxing: {
     name: 'Unboxing', desc: 'Buka kemasan dramatis, reveal produk, close-up detail.',
