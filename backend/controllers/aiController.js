@@ -417,7 +417,7 @@ async function generateVideoPromptsInternal({ storyboardId, promptType, regenera
     capsuleStyleClause = `
 CRITICAL CUBE TRANSFORMATION VIDEO RULES (photorealistic viral cube-reveal — NOT a glowing humanoid Transformer robot):
 1. PHOTOREALISTIC and cinematic. A real hand holds a small hyper-detailed cube (armored panels, fine seams, subtle glowing accents or the product's brand emblem), then tosses or sets it down; it lands in a fitting real setting. Hand-held feel then a smooth move, shallow depth of field. NOT a CGI cartoon.
-2. The cube's panels UNFOLD and EXPAND outward SMOOTHLY and satisfyingly (like a premium transforming toy) and build/reshape into the subject at its natural scale — the product itself, a scaled collectible of it, or a full-scale structure/scene for a place/vehicle/building. NO chaotic exploding/flying parts, NO glow-energy magic, and it does NOT become a humanoid robot/mecha.
+2. The cube's panels UNFOLD, slide and telescope outward SMOOTHLY and satisfyingly (like a premium precision transforming toy) — mechanically CONNECTED, no loose or detached parts — and build/reshape into the subject at its natural scale — the product itself, a scaled collectible of it, or a full-scale structure/scene for a place/vehicle/building. NO exploding/flying/detached parts, NO energy beams, NO glow-energy magic, and it does NOT become a humanoid robot/mecha/Transformer.
 3. Keep the subject's EXACT identity, branding and colors. Hands ARE allowed (holding, tossing). End on the finished photorealistic result in a cinematic hero shot.`;
   }
 

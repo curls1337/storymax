@@ -10,12 +10,12 @@ const NEG = ['garbled or misspelled text', 'panels bleeding into the background'
 const STYLES = {
   // ── A. Transformasi & Reveal ──
   cube_box_transform: {
-    name: 'Cube Box Transformation', desc: 'Kubus detail di tangan (armored, aksen LED menyala/emblem) → dilempar/ditekan → panel terbuka & mengembang MULUS → berubah jadi subjek (produk itu sendiri atau model/struktur skala penuh) di lokasi nyata. Fotorealistis sinematik, ala video viral.',
+    name: 'Cube Box Transformation', desc: 'Kubus mekanis presisi di tangan (panel logam, sambungan mikro & engsel; logo produk di sisi atas) → dilempar/diletakkan → panel terbuka, geser & memanjang MULUS (mekanis, tersambung, tanpa bagian lepas) → membentuk jadi subjek (produk sendiri / model / struktur skala penuh) → hero shot. Fotorealistis sinematik, ala video viral.',
     category: 'Transformasi & Reveal', format: '9:16', faceMode: 'faceless', bg: 'light',
     camera: 'cinematic photorealistic reveal; hand-held then a smooth move as the cube expands; shallow DOF (NOT CGI, NOT a glowing robot)',
     lighting: 'natural cinematic light matched to the setting, realistic reflections, subtle bokeh', header: 'STORYBOARD — CUBE TRANSFORM',
-    arc: ['a hand holds a small hyper-detailed cube (armored panels, fine seams, glowing accents or the product emblem)', 'the hand tosses or sets it down; it lands in a fitting real setting', 'the cube panels UNFOLD and expand outward SMOOTHLY like a premium transforming toy', 'the unfolding parts build & reshape into the subject — the product itself or a scaled model/structure of it', 'the finished photorealistic result in a cinematic hero shot'],
-    negatives: NEG.concat(['glowing humanoid robot or mecha (it becomes the product, not a robot)', 'chaotic exploding or flying parts', 'CGI cartoon look (be photorealistic)']),
+    arc: ['a hand holds a small hyper-detailed mechanical cube (metal panels, micro seams & hinges; product logo on the top face)', 'the hand places or tosses the cube; it lands with real weight in a fitting setting', 'the cube panels UNFOLD, slide & telescope outward SMOOTHLY — mechanically connected, no loose parts', 'the mechanism seamlessly forms the subject itself (the product, or a scaled model/structure of it)', 'the finished subject in a premium hero shot'],
+    negatives: NEG.concat(['humanoid robot / mecha / Transformer (it becomes the product, not a robot)', 'exploding, flying or detached parts', 'energy beams, glow or magic FX', 'CGI cartoon or anime look', 'redesigned or renamed product']),
   },
   unboxing: {
     name: 'Unboxing', desc: 'Buka kemasan dramatis, reveal produk, close-up detail.',
