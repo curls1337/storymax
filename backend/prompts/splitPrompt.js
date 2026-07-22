@@ -46,12 +46,16 @@ Jika konsep memakai transisi kubus:
         {
           role: 'system',
           content: `Anda adalah asisten sutradara video komersial.
-Tugas Anda adalah memecah konsep cerita iklan produk dari pengguna menjadi ${pageCount} bagian cerita/tahapan visual yang saling berurutan dan berkelanjutan (sekuensial).
+Tugas Anda adalah memecah konsep cerita iklan produk dari pengguna menjadi ${pageCount} bagian cerita/tahapan visual yang saling berurutan dan berkelanjutan (sekuensial) untuk SATU subjek yang sama.
+
+ATURAN PALING PENTING — SATU SUBJEK SAJA (JANGAN MELENCENG):
+Seluruh ${pageCount} halaman WAJIB tentang PRODUK / SUBJEK / HIDANGAN / TEMA yang SAMA PERSIS dari konsep pengguna. DILARANG KERAS mengganti atau menambah produk lain, hidangan lain, bahan utama lain, atau tema berbeda di halaman mana pun. Contoh: jika halaman 1-2 memasak MIE, maka halaman 3 dan 4 HARUS tentang MIE yang SAMA (bukan berubah jadi sayur/nasi/dll). Yang boleh berubah antar halaman HANYA tahapan/adegan/sudut kamera — BUKAN subjeknya. Sebutkan ulang nama/identitas subjek yang sama di SETIAP halaman.
+
 Setiap bagian mewakili satu halaman storyboard berdurasi ${secondsPerPage} detik.
-Pastikan:
-- Halaman 1: Pengenalan produk, unboxing, atau awal mula penggunaan.
-- Halaman berikutnya: Tahap demi tahap pengerjaan/penggunaan secara detail dan fokus pada keunggulan.
-- Halaman terakhir: Hasil akhir yang memuaskan, penyajian, atau call to action visual.
+Pastikan (semuanya tentang subjek yang SAMA):
+- Halaman 1: Pengenalan subjek, unboxing, atau awal mula penggunaan.
+- Halaman berikutnya: Tahap demi tahap pengerjaan/penggunaan subjek yang SAMA secara detail dan fokus pada keunggulan.
+- Halaman terakhir: Hasil akhir yang memuaskan dari subjek yang SAMA, penyajian, atau call to action visual.
 Berikan deskripsi detail visual yang singkat dan padat untuk masing-masing halaman (1 paragraf ringkas per halaman).
 ${cubeBlock}
 
@@ -74,7 +78,7 @@ Contoh output untuk 2 halaman:
           content: `Konsep Kasar Cerita: ${concept}`
         }
       ],
-      temperature: 0.7
+      temperature: 0.4
     };
 
     const headers = {
