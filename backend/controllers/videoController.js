@@ -276,10 +276,13 @@ async function generateVideo(req, res) {
               activeTasks[taskId].logs += `[2/3] Sukses mengirim task! Batch ID: ${batchId}, Serial No: ${serialNo}\n` +
                                           `[3/3] Menjalankan Freebeat task wait di background...\n\n`;
 
-              // Update DB with Freebeat Batch ID and Serial No
+              // Update DB with Freebeat Batch ID, Serial No AND the key that
+              // submitted this batch — so status polling (incl. after a server
+              // restart) queries the SAME account that owns the batch. Without
+              // this, resume/poll could use a different key -> "Batch not found".
               await db.run(
-                'UPDATE generated_videos SET task_id = ?, serial_no = ? WHERE id = ?',
-                [batchId, serialNo, videoRecordId]
+                'UPDATE generated_videos SET task_id = ?, serial_no = ?, api_key_id = ? WHERE id = ?',
+                [batchId, serialNo, keyRecord.id, videoRecordId]
               );
 
               // Link the real Freebeat Batch ID to the logs in activeTasks
@@ -548,6 +551,20 @@ function pollVideoStatus(videoRecordId, storyboardId, apiKey, batchId, serialNo,
       child.on('close', async (code) => {
         if (code !== 0) {
           activeTasks[taskId].logs += `\n[Freebeat Video Status Check Error]\nSTDOUT:\n${stdoutData}\n`;
+          // A batch can only be queried by the key/account that created it. If Freebeat
+          // keeps saying the batch doesn't exist (after allowing a few seconds for it to
+          // register), retrying for hours won't help — fail fast so the user can regenerate.
+          if (/batch not found/i.test(stdoutData) && attempt > 3) {
+            clearInterval(interval);
+            activeTasks[taskId].status = 'failed';
+            activeTasks[taskId].error = 'Batch tidak ditemukan di Freebeat. Silakan generate ulang video ini.';
+            activeTasks[taskId].logs += `[ERROR] Batch tidak ditemukan di akun API key ini — menghentikan pemantauan. Silakan generate ulang video.\n`;
+            await db.run(
+              'UPDATE generated_videos SET status = ?, error_message = ?, logs = ? WHERE id = ?',
+              ['failed', activeTasks[taskId].error, activeTasks[taskId].logs, videoRecordId]
+            );
+            return;
+          }
           await checkAndDisableKeyIfOutofCredits(db, activeTasks[taskId].apiKeyId, stdoutData, activeTasks[taskId]);
           return;
         }
@@ -651,11 +668,17 @@ async function resumeProcessingVideos() {
         continue;
       }
 
-      // Fetch active API key
+      // Resolve the key to poll with. A batch can ONLY be queried by the account
+      // that submitted it, so use the video's OWN submit key first (even if it is
+      // now inactive — a status query consumes no credits). Fall back to the
+      // storyboard key, then any active key, only if the submit key is missing.
       const storyboard = await db.get('SELECT * FROM storyboards WHERE id = ?', [video.storyboard_id]);
       let keyRecord = null;
-      if (storyboard?.api_key_id) {
-        keyRecord = await db.get('SELECT * FROM api_keys WHERE id = ? AND is_active = 1', [storyboard.api_key_id]);
+      if (video.api_key_id) {
+        keyRecord = await db.get('SELECT * FROM api_keys WHERE id = ?', [video.api_key_id]);
+      }
+      if (!keyRecord && storyboard?.api_key_id) {
+        keyRecord = await db.get('SELECT * FROM api_keys WHERE id = ?', [storyboard.api_key_id]);
       }
       if (!keyRecord) {
         const _act = await db.all('SELECT * FROM api_keys WHERE is_active = 1');
