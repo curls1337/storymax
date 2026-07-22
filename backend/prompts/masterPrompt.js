@@ -83,6 +83,13 @@ function buildMasterPrompt(spec, ctx = {}) {
         : `IMPORTANT: PAGE ${pageNum}/${pageCount} (scenes ${startScene}-${endScene}) — CONTINUE from the previous page; the opening ALREADY happened, do NOT restart it (no cube) — show only later stages / the finished result in new angles. `)
     : '';
   const negLine = `NEGATIVE: ${negatives}, garbled text.`;
+  // Protected tail: the FOOTER (production notes), the face-mode clause, and the
+  // NEGATIVE line must ALWAYS survive — they carry the shooting instructions,
+  // enforce faceless / chin-crop, and block glow/robot/garbled text. They are held
+  // out of the clampable body and re-appended last.
+  const tail = `FOOTER: a 'PRODUCTION NOTES' bar with recommended camera, FPS, lighting & shooting style.
+${face}
+${negLine}`;
   const assembleBody = (ct) => {
     const cl = ct
       ? `${pageScope}SCENES on this page — based on: "${ct}" — progressing across the panels as: ${arc}.`
@@ -93,30 +100,27 @@ HEADER: banner '${spec.header}${partLabel}' + product name + badges 'DURATION ${
 SUBJECT (identical in every card): ${String(subject || 'the product').slice(0, 140)}.${refNote}
 Lay out ${layout}, numbered SCENE ${startScene}–${endScene}. EACH card shows: the panel image, a short SCENE TITLE, a one-line action, and tiny production tags 'CAM: <angle>', 'LIGHT: <lighting>', 'AUDIO: <music/sfx>' + a duration chip; vary the camera per scene; keep card layout & background consistent.
 ${cl}
-Base camera: ${spec.camera}; light: ${spec.lighting}.
-FOOTER: a 'PRODUCTION NOTES' bar with recommended camera, FPS, lighting & shooting style.
-${face}`
+Base camera: ${spec.camera}; light: ${spec.lighting}.`
     );
   };
 
-  // Keep within Freebeat's 2000-char limit. Reserve room for the NEGATIVE line so
-  // it (the guard against glow/robot/garbled text) ALWAYS survives: trim the
-  // least-critical concept text first, then hard-clamp only the BODY — never the
-  // NEGATIVE line, which is re-appended last.
-  const NEG_RESERVE = negLine.length + 1; // +1 for the joining newline
+  // Keep within Freebeat's 2000-char limit. Reserve room for the protected tail
+  // (face clause + NEGATIVE) so it ALWAYS survives: trim the least-critical concept
+  // text first, then hard-clamp only the BODY — never the tail, re-appended last.
+  const TAIL_RESERVE = tail.length + 1; // +1 for the joining newline
   const LIMIT = 1900;
   let body = assembleBody(conceptText);
-  if (body.length + NEG_RESERVE > LIMIT && conceptText) {
-    const over = (body.length + NEG_RESERVE) - LIMIT;
+  if (body.length + TAIL_RESERVE > LIMIT && conceptText) {
+    const over = (body.length + TAIL_RESERVE) - LIMIT;
     body = assembleBody(conceptText.slice(0, Math.max(0, conceptText.length - over - 1)));
   }
-  const HARD = 1990 - NEG_RESERVE;
+  const HARD = 1990 - TAIL_RESERVE;
   if (body.length > HARD) {
     body = body.slice(0, HARD);
     const sp = body.lastIndexOf(' ');
     if (sp > HARD - 120) body = body.slice(0, sp);
   }
-  return body + '\n' + negLine;
+  return body + '\n' + tail;
 }
 
 module.exports = { buildMasterPrompt, fmtRatio, fmtDuration };

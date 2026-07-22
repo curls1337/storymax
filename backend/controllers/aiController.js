@@ -413,12 +413,12 @@ async function generateVideoPromptsInternal({ storyboardId, promptType, regenera
   const resolvedStyle = resolveStyleId(storyboard.style);
   let capsuleStyleClause = '';
   if (resolvedStyle === 'cube_box_transform') {
-    // Cube -> die-cast collectible ("Transition Edition" transforming-toy style).
+    // Cube transformation reveal (photorealistic viral cube -> subject).
     capsuleStyleClause = `
-CRITICAL CUBE -> DIE-CAST COLLECTIBLE TRANSITION VIDEO RULES (photorealistic viral "Transition Edition" transforming-toy style — NOT a glowing humanoid Transformer):
-1. PHOTOREALISTIC hand-held product-video feel on a plain WHITE desk, soft studio light, shallow depth of field, near-static camera with only a slow subtle orbit. A real hand holds a small armored puzzle-cube (product brand emblem embossed on the TOP face, color-matched), presses it and sets it down. NOT a CGI cartoon.
-2. The cube's segmented panels UNFOLD and EXTEND outward SMOOTHLY and satisfyingly (like a premium transforming toy, staying low) and reshape into a HIGHLY DETAILED miniature die-cast collectible of the product, the emblem still on top. NO glowing energy/FX, NO chaotic exploding/flying parts, and it does NOT stand up as a humanoid robot/mecha.
-3. Keep the SAME white desk & background and the product's EXACT identity, branding and colors throughout. Hands ARE allowed (holding, pressing). End on the finished glossy, richly detailed mini die-cast model in a hero close-up on the desk.`;
+CRITICAL CUBE TRANSFORMATION VIDEO RULES (photorealistic viral cube-reveal — NOT a glowing humanoid Transformer robot):
+1. PHOTOREALISTIC and cinematic. A real hand holds a small hyper-detailed cube (armored panels, fine seams, subtle glowing accents or the product's brand emblem), then tosses or sets it down; it lands in a fitting real setting. Hand-held feel then a smooth move, shallow depth of field. NOT a CGI cartoon.
+2. The cube's panels UNFOLD and EXPAND outward SMOOTHLY and satisfyingly (like a premium transforming toy) and build/reshape into the subject at its natural scale — the product itself, a scaled collectible of it, or a full-scale structure/scene for a place/vehicle/building. NO chaotic exploding/flying parts, NO glow-energy magic, and it does NOT become a humanoid robot/mecha.
+3. Keep the subject's EXACT identity, branding and colors. Hands ARE allowed (holding, tossing). End on the finished photorealistic result in a cinematic hero shot.`;
   }
 
   // Make the generated video FOLLOW the directions printed inside the storyboard

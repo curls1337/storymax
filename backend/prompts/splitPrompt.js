@@ -41,11 +41,11 @@ Pastikan:
 - Halaman terakhir: Hasil akhir yang memuaskan, penyajian, atau call to action visual.
 Berikan deskripsi detail visual yang singkat dan padat untuk masing-masing halaman (1 paragraf ringkas per halaman).
 
-PENTING UNTUK GAYA CUBE BOX / TRANSITION EDITION (FOTOREALISTIS, ala video viral):
+PENTING UNTUK GAYA CUBE TRANSFORMATION (FOTOREALISTIS SINEMATIK, ala video viral):
 Jika konsep memakai transisi kubus:
-1. Awal: sebuah TANGAN memegang kubus KECIL bergaya "armored puzzle-cube" (panel logam bersegmen, rivet, dan EMBLEM/logo produk timbul di sisi ATAS, warna disesuaikan produk) di atas MEJA PUTIH polos; jempol menekannya lalu meletakkannya. Gaya FOTOREALISTIS (bukan CGI kartun), depth of field dangkal, kamera nyaris diam dengan orbit pelan.
-2. Tengah: panel-panel kubus TERBUKA & MEMANJANG keluar dengan MULUS layaknya mainan transformasi premium (lipatan mekanis yang memuaskan, tetap rendah — BUKAN robot berdiri) lalu membentuk ulang jadi miniatur die-cast super detail dari produk, emblem tetap di atas. TANPA cahaya/energi, TANPA bagian meledak/terbang acak, BUKAN robot humanoid/Transformer.
-3. Akhir: hasil akhir MINIATUR die-cast koleksi dari produk, mengkilap & sangat detail, di MEJA PUTIH yang sama (close-up hero).
+1. Awal: sebuah TANGAN memegang kubus KECIL super detail (panel armored, garis-sambungan halus, aksen LED menyala atau emblem/logo produk). Gaya FOTOREALISTIS (bukan CGI kartun), depth of field dangkal.
+2. Tengah: kubus DILEMPAR/DILETAKKAN, mendarat di lokasi yang sesuai, lalu panel-panelnya TERBUKA & MENGEMBANG keluar dengan MULUS layaknya mainan transformasi premium, lalu MEMBANGUN/membentuk ulang jadi SUBJEK-nya — produk itu sendiri, atau model/struktur berskala dari produk, di lokasi nyata. TANPA bagian meledak/terbang acak, TANPA sihir cahaya, dan BUKAN robot humanoid/Transformer.
+3. Akhir: hasil akhir FOTOREALISTIS dari subjek, tampil utuh dalam hero shot sinematik.
 
 PENTING UNTUK KONSISTENSI VISUAL (CHARACTER/PRODUCT CONSISTENCY):
 1. Identifikasi karakter utama (jika ada) dan produk utama dari konsep cerita pengguna.
