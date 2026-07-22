@@ -7,6 +7,7 @@ const { getDb } = require('../db');
 const { uploadsDir } = require('../config');
 
 const LAYOUT_STYLES = require('../constants/layoutStyles');
+const { resolveStyleId } = require('../prompts/styleLibrary');
 
 
 function httpRequest(url, headers, body) {
@@ -407,50 +408,29 @@ async function generateVideoPromptsInternal({ storyboardId, promptType, regenera
     toneClause = `Crucial: The tone and writing style of the voiceover script MUST strictly follow this style (in the narration language): "${toneDesc}". You must rewrite the narration using vocabulary, slang, emotional triggers, or structural patterns that perfectly match this style. For example, if it is casual or comedy, use slang and conversational Indonesian.`;
   }
 
+  // Resolve legacy/aliased ids to the canonical style so old storyboards
+  // (cube_morph_product, capsule_toss_transform) get the CURRENT rules.
+  const resolvedStyle = resolveStyleId(storyboard.style);
   let capsuleStyleClause = '';
-  if (storyboard.style === 'capsule_transform' || storyboard.style === 'capsule_toss_transform') {
-    const promptLower = ((storyboard.prompt || '') + ' ' + (storyboard.title || '')).toLowerCase();
-    let containerShape = "a high-tech metallic capsule toy pod";
-    let finalAssemble = "robot";
-    if (/\b(motor|bike|motorcycle|beat|vespa|xmax|nmax|scoopy|aerox|ninja|harley|ducati)\b/i.test(promptLower)) {
-      containerShape = "a compact, sleek high-tech metallic container block (rectangular-shaped with rounded corners)";
-      finalAssemble = "motorcycle";
-    } else if (/\b(gedung|rumah|building|house|villa|office|apartment|hotel|arsitektur|architecture|room)\b/i.test(promptLower)) {
-      containerShape = "a solid geometric metallic cube pod";
-      finalAssemble = "building";
-    } else if (/\b(mobil|car|sedan|suv|civic|bmw|porsche|tesla|toyota|honda|ferrari|lamborghini)\b/i.test(promptLower)) {
-      containerShape = "an aerodynamic, low-profile rectangular metallic capsule box";
-      finalAssemble = "car";
-    }
-
+  if (resolvedStyle === 'cube_box_transform') {
+    // Cube Toy Morph — photorealistic viral hand-held style (NOT mechanical/Transformer).
     capsuleStyleClause = `
-CRITICAL VIDEO ANNIHILATION OF CAMERA MOVEMENT & CINEMATIC PANS:
-Because the storyboard layout style is "${storyboard.style}", you MUST NOT use any generic cinematic camera moves, camera rotations, orbits, pans, or sweeps in your video prompts. The camera MUST remain completely static, stationary, and locked on a tripod for the entire transformation sequence.
-
-CRITICAL TRANSFORMATION ORDER & MOTION:
-The video must animate the mechanical transformation step-by-step:
-1. The container (starting as ${containerShape}) lies on the white table.
-2. First phase: Mechanical legs/feet unfold and extend from the bottom of the container, raising the object up.
-3. Second phase: The body/torso/chassis expands and stretches upwards, revealing moving gears and internal joints.
-4. Third phase: The arms/exterior panels/wheels unfold and snap into their final places.
-5. Final phase: Only in the final 2 seconds of the video does the camera cut/zoom to a detailed close-up shot of the finished assembled ${finalAssemble} (matching the final product details).
-The tabletop and background must remain completely still and unchanged throughout. The narration must describe the satisfying tactile ASMR clicks, gears turning, and mechanical parts locking into place.`;
+CRITICAL CUBE TOY MORPH VIDEO RULES (photorealistic viral hand-held style — NOT mechanical, NOT a Transformer):
+1. PHOTOREALISTIC hand-held product-video feel: a real hand holds the small hyper-detailed collectible cube, a thumb presses its button, then tosses/drops it onto a real desk. Shallow depth of field, natural soft indoor light, subtle bokeh. NOT a CGI cartoon.
+2. On landing the cube MORPHS SMOOTHLY as ONE solid piece — surfaces gently folding, rounding and reshaping — into a miniature collectible version of the product. ABSOLUTELY NO parts detaching, flying, lifting or unfolding; NO pistons/gears/panels; NO glow or energy; it is NOT a robot/mecha.
+3. Keep the SAME desk and background and the product's EXACT appearance throughout. Hands ARE allowed (holding, pressing, tossing). End on a glossy diecast mini-toy hero close-up resting on the desk.`;
   }
 
-  if (storyboard.style === 'cube_morph_product') {
-    capsuleStyleClause = `
-CRITICAL 3D CUBE MORPH & PRODUCT TRANSITION VIDEO RULES:
-1. STATIC CAMERA REQUIREMENT: The camera MUST be completely static, stationary on a tripod, maintaining a low-profile straight-on horizontal perspective. DO NOT add camera pans, tilts, rotations, sweeps, or zooms during the transition.
-2. GROUND PLANE & BACKGROUND CONTINUITY: The video MUST maintain the exact same worn dirty white tabletop surface and studio environment background. The ground plane must remain completely locked in place.
-3. TRANSFORM DYNAMICS: The video starts with the dark metallic mechanical cube sitting flat on the white tabletop. Internal mechanical segments, pistons, gears, hinges, and plates must split, slide open, rotate, and unfold outwards. The mechanical parts must dynamically grow and reassemble themselves into the target product (matching the second image prompt details) sitting on the exact same tabletop.
-4. ABSOLUTELY NO HANDS or human limbs must appear in the video during the morph sequence. Keep the scene clean, mechanical, and focused on the tactile metal-folding CGI animation.`;
-  }
+  // Make the generated video FOLLOW the directions printed inside the storyboard
+  // (applies to EVERY style — the storyboard is the director's sheet).
+  const followBoardClause = `FOLLOW THE STORYBOARD'S OWN DIRECTIONS: every panel/card prints production tags — 'CAM:' (camera angle/movement), 'LIGHT:' (lighting) and 'AUDIO:' (music/SFX) — plus a scene title and a one-line action. READ those printed tags in EACH panel and make your "imageToVideoPrompt" (camera + motion + atmosphere) FOLLOW them precisely: e.g. a panel tagged 'CAM: low-angle tracking' -> a low-angle tracking move; 'CAM: static'/'locked' -> a locked tripod shot; 'CAM: push-in' -> a slow push-in; match the mood to the 'LIGHT:' tag and let the motion match the panel's written action. NEVER contradict a panel's printed camera/lighting/action — the storyboard directs the video.`;
 
   let systemInstruction = '';
   if (enableVo) {
     systemInstruction = `You are an expert AI Video Director and master video prompting engineer specializing in high-fidelity commercial video generation.
 ${durationClause}
 ${capsuleStyleClause}
+${followBoardClause}
 
 You are provided with ${panelImages.length} page images of a storyboard. Each page image contains ${gridDescText}. This means there are exactly ${totalScenes} pages (scenes) in total.
 
@@ -503,6 +483,7 @@ Ensure there are exactly ${totalScenes} items in the "scenes" array correspondin
     systemInstruction = `You are an expert AI Video Director and master video prompting engineer specializing in high-fidelity commercial video generation.
 ${durationClause}
 ${capsuleStyleClause}
+${followBoardClause}
 
 You are provided with ${panelImages.length} page images of a storyboard. Each page image contains ${gridDescText}. This means there are exactly ${totalScenes} pages (scenes) in total.
 
