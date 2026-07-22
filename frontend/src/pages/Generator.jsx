@@ -895,9 +895,9 @@ export default function Generator({ setTab }) {
                 return (
                   <div className="flex-grow flex flex-col items-center justify-center space-y-5 w-full">
                     {images.length > 1 ? (
-                      <div className="grid grid-cols-2 gap-3 w-full">
+                      <div className="flex overflow-x-auto snap-x snap-mandatory gap-3 w-full pb-2 scrollbar-thin">
                         {images.map((img, idx) => (
-                          <div key={idx} className="flex flex-col space-y-1.5 border border-[#2a2725] rounded-xl overflow-hidden bg-black/80 p-2 group relative">
+                          <div key={idx} className="snap-center shrink-0 w-[82%] sm:w-[47%] flex flex-col space-y-1.5 border border-[#2a2725] rounded-xl overflow-hidden bg-black/80 p-2 group relative">
                             <div className="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-black/40 flex items-center justify-center">
                               <img src={getFullImageUrl(img)} alt={`Halaman ${idx+1}`} className="max-w-full max-h-full object-contain" />
                               <div className="absolute top-1.5 left-1.5 bg-black/80 text-[#cfae80] font-bold text-[7px] px-1.5 py-0.5 rounded-md border border-[#cfae80]/20">

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import api from '../utils/api';
 import { Filesystem, Directory } from '@capacitor/filesystem';
@@ -201,6 +201,27 @@ export default function Dashboard({ setTab }) {
   const [mergeTransitionType, setMergeTransitionType] = useState('fade');
   const [mergeAudioBlend, setMergeAudioBlend] = useState(true);
   const [mergeSequence, setMergeSequence] = useState([]);
+
+  // Swipe gesture helper: lets users slide left/right to move between storyboard
+  // pages and between videos (no need to tap Next/Prev). Returns touch handlers to
+  // spread onto a container; onLeft fires on a left swipe, onRight on a right swipe.
+  const swipeStart = useRef({ x: 0, y: 0 });
+  const onSwipe = (onLeft, onRight) => ({
+    onTouchStart: (e) => {
+      const t = e.changedTouches[0];
+      swipeStart.current = { x: t.screenX, y: t.screenY };
+    },
+    onTouchEnd: (e) => {
+      const t = e.changedTouches[0];
+      const dx = t.screenX - swipeStart.current.x;
+      const dy = t.screenY - swipeStart.current.y;
+      // Only trigger on a clearly horizontal swipe (ignore taps & vertical scrolls).
+      if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.3) {
+        if (dx < 0) { if (onLeft) onLeft(); }
+        else { if (onRight) onRight(); }
+      }
+    },
+  });
 
   useEffect(() => {
     if (showMergeModal && selectedStoryboard) {
@@ -1025,8 +1046,14 @@ export default function Dashboard({ setTab }) {
                 {/* Left Side: Large Image Carousel & Action Buttons */}
                 <div className={`w-full md:w-2/5 bg-black/80 flex flex-col justify-between relative flex-grow md:flex-grow-0 md:min-h-0 border-b md:border-b-0 md:border-r border-[#2a2725] p-4 md:p-6 pb-24 md:pb-6 ${activeMobileTab === 'image' ? 'flex' : 'hidden md:flex'}`}>
                 
-                {/* Image display wrapper */}
-                <div className="flex-grow flex items-center justify-center relative min-h-[35vh]">
+                {/* Image display wrapper — swipe left/right to change page */}
+                <div
+                  className="flex-grow flex items-center justify-center relative min-h-[35vh]"
+                  {...onSwipe(
+                    () => { setModalCarouselIdx(prev => (prev < images.length - 1 ? prev + 1 : 0)); setActiveVideoIdx(0); },
+                    () => { setModalCarouselIdx(prev => (prev > 0 ? prev - 1 : images.length - 1)); setActiveVideoIdx(0); }
+                  )}
+                >
                   {regeneratingPages[modalCarouselIdx] ? (
                     <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center p-6 space-y-3 z-10 animate-fadeIn">
                       <Loader className="animate-spin text-[#cfae80] w-8 h-8" />
@@ -1735,7 +1762,13 @@ export default function Dashboard({ setTab }) {
                       const activeVid = sceneVideos[activeIdx];
 
                       return (
-                        <div className="space-y-3 bg-[#131211]/50 border border-emerald-500/20 rounded-2xl p-4 animate-fadeIn">
+                        <div
+                          className="space-y-3 bg-[#131211]/50 border border-emerald-500/20 rounded-2xl p-4 animate-fadeIn"
+                          {...onSwipe(
+                            () => { if (activeIdx < sceneVideos.length - 1) { const n = activeIdx + 1; setActiveVideoIdx(n); setSelectedVideoIds(prev => ({ ...prev, [modalCarouselIdx]: sceneVideos[n].id })); } },
+                            () => { if (activeIdx > 0) { const n = activeIdx - 1; setActiveVideoIdx(n); setSelectedVideoIds(prev => ({ ...prev, [modalCarouselIdx]: sceneVideos[n].id })); } }
+                          )}
+                        >
                           {/* Navigation header for multiple videos */}
                           {sceneVideos.length > 1 && (
                             <div className="flex justify-between items-center bg-black/40 border border-[#2a2725] px-2.5 py-1.5 rounded-xl text-[9px] mb-1">
@@ -1796,12 +1829,14 @@ export default function Dashboard({ setTab }) {
                             </button>
                           </div>
                           
-                          <video 
+                          <video
                             key={activeVid.id} // re-mount player when switching videos
-                            src={getFullImageUrl(activeVid.video_url)} 
-                            controls 
+                            src={getFullImageUrl(activeVid.video_url)}
+                            controls
                             playsInline
                             preload="auto"
+                            onTouchStart={(e) => e.stopPropagation()}
+                            onTouchEnd={(e) => e.stopPropagation()}
                             className="w-full rounded-xl border border-[#2a2725] bg-black max-h-48"
                           />
 
