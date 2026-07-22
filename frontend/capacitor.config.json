@@ -3,6 +3,8 @@
   "appName": "Storymax",
   "webDir": "dist",
   "server": {
-    "androidScheme": "https"
+    "androidScheme": "https",
+    "url": "https://story.devcurl.me",
+    "cleartext": false
   }
 }

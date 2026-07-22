@@ -47,6 +47,7 @@ export default function Dashboard({ setTab }) {
     let interval;
     if (hasProcessing) {
       interval = setInterval(() => {
+        if (document.hidden) return; // hemat baterai & data: jangan polling saat app di background
         api.get('/storyboards')
           .then(res => {
             setStoryboards(res.data);
@@ -456,6 +457,7 @@ export default function Dashboard({ setTab }) {
     let interval;
     if (videoTaskId) {
       interval = setInterval(async () => {
+        if (document.hidden) return; // hemat baterai & data: jangan polling saat app di background
         try {
           const res = await api.get(`/storyboards/tasks/${videoTaskId}`);
           setActiveVideoTask(res.data);
