@@ -56,6 +56,22 @@ async function getAvailableApiKey(db) {
   return activeKeys[0];
 }
 
+// When voiceover/audio is NOT enabled for a video, the model must not speak — even
+// if the stored scene prompt (baked at storyboard time or by prompt-regeneration
+// with VO on) contains "narrator speaks…" cues. Strip obvious VO cues and append a
+// hard no-speech directive so the ?generateAudio toggle is the single source of truth.
+function enforceNoVoiceover(text) {
+  let t = String(text || '');
+  // Drop any appended "Voiceover (Lang): ..." block (usually to end of prompt).
+  t = t.replace(/\n*\s*Voiceover\s*\([^)]*\)\s*:[\s\S]*$/i, '');
+  // Drop inline VO timing cues like "At 0s, narrator speaks: '...'."
+  t = t.replace(/\bAt\s*\d+\s*s?,?\s*(the\s+)?narrator\s+speaks[^.]*\.?/gi, '');
+  t = t.replace(/\b(the\s+)?narrator\s+speaks[^.]*\.?/gi, '');
+  t = t.replace(/\bvoice[-\s]?over\b[^.]*\.?/gi, '');
+  t = t.trim();
+  return `${t}\n\nIMPORTANT AUDIO RULE: NO voiceover, NO narration, NO spoken words and NO dialogue of any kind. Ignore any "narrator speaks"/voiceover cues above. The audio may contain only ambient/natural sound or subtle background music.`;
+}
+
 async function generateVideo(req, res) {
   const {
     storyboardId,
@@ -185,6 +201,11 @@ async function generateVideo(req, res) {
           } catch (e) {
             console.error("Failed to append voiceover narration to video prompt:", e);
           }
+        }
+
+        // VO toggle is authoritative: if audio/VO is off, ensure the model does not speak.
+        if (!generateAudio) {
+          finalPrompt = enforceNoVoiceover(finalPrompt);
         }
 
         const spawnCmd = 'node';
@@ -1069,6 +1090,11 @@ async function generateAllVideos(req, res) {
         
         if (!promptText) {
           promptText = storyboard.prompt || storyboard.title;
+        }
+
+        // VO toggle is authoritative: if audio/VO is off, ensure the model does not speak.
+        if (!generateAudio) {
+          promptText = enforceNoVoiceover(promptText);
         }
 
         // Resolve scene image
