@@ -12,10 +12,10 @@ const STYLES = {
   cube_box_transform: {
     name: 'Cube Box Transformation', desc: 'Kubus koleksi detail di tangan, ditekan lalu dijatuhkan, morph mulus jadi mainan miniatur (fotorealistis, ala video viral).',
     category: 'Transformasi & Reveal', format: '9:16', faceMode: 'faceless', bg: 'light',
-    camera: 'photorealistic product-video look; a hand holds the small collectible, shallow depth of field, real desk background (NOT CGI cartoon)',
+    camera: 'photorealistic hand-held product-video look, shallow depth of field, real desk (NOT CGI cartoon)',
     lighting: 'natural soft indoor light, realistic metal reflections, subtle bokeh', header: 'STORYBOARD — CUBE TOY MORPH',
-    arc: ['a hand holds a small hyper-detailed premium collectible cube (metal corners, rivets, emblem, product colors & branding); thumb presses its button', 'the hand tosses the cube; it drops and lands on a real desk', 'on landing it morphs SMOOTHLY as ONE piece — folding & rounding, nothing detaching, lifting or glowing', 'it reshapes into a cute miniature collectible of the product', 'the finished glossy detailed mini toy rests on the desk, hero close-up'],
-    negatives: NEG.concat(['glow/energy/light beams', 'flying/detaching/lifting parts', 'transformer/mecha/robot assembly', 'CGI cartoon (must be photorealistic)', 'life-size (must be a small hand-held collectible)']),
+    arc: ['a hand holds a small hyper-detailed collectible cube (metal corners, rivets, emblem, product branding); thumb presses its button', 'the hand tosses it; the cube drops onto a real desk', 'on landing it morphs SMOOTHLY as ONE piece (nothing detaching, lifting or glowing)', 'it reshapes into a mini collectible of the product', 'the finished glossy diecast mini toy rests on the desk, hero close-up'],
+    negatives: NEG.concat(['glow or energy', 'flying/detaching/lifting parts', 'transformer/mecha/robot', 'CGI cartoon (be photorealistic)', 'life-size (must be small)']),
   },
   unboxing: {
     name: 'Unboxing', desc: 'Buka kemasan dramatis, reveal produk, close-up detail.',

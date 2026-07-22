@@ -82,13 +82,14 @@ function buildMasterPrompt(spec, ctx = {}) {
       : `${pageScope}SCENES progress across the panels as: ${arc}.`;
     return (
 `A professional ${spec.name} storyboard sheet, ${ratio} layout, ${bgClause(spec.bg)}.
-HEADER: a banner reading '${spec.header}${partLabel}' with the product title and badges 'STYLE: ${spec.name}', 'ASPECT RATIO: ${ratio}', 'DURATION: ${dur}'.
-SUBJECT (keep IDENTICAL in every panel): ${String(subject || 'the product').slice(0, 140)}.${refNote}
-LAYOUT: ${layout}; number panels SCENE ${startScene}–${endScene}, each with a number badge (top-left) + timecode (top-right).
+HEADER: banner '${spec.header}${partLabel}' + product name + badges 'DURATION ${dur}', 'SCENES ${gc}', 'RATIO ${ratio}'.
+SUBJECT (identical in every card): ${String(subject || 'the product').slice(0, 140)}.${refNote}
+Lay out ${layout}, numbered SCENE ${startScene}–${endScene}. EACH card shows: the panel image, a short SCENE TITLE, a one-line action, and tiny production tags 'CAM: <angle>', 'LIGHT: <lighting>', 'AUDIO: <music/sfx>' + a duration chip; vary the camera per scene; keep card layout & background consistent.
 ${cl}
-CAMERA (identical every panel): ${spec.camera}. ${spec.lighting}. Keep background, framing & layout identical across panels.
+Base camera: ${spec.camera}; light: ${spec.lighting}.
+FOOTER: a 'PRODUCTION NOTES' bar with recommended camera, FPS, lighting & shooting style.
 ${face}
-NEGATIVE: ${negatives}.`
+NEGATIVE: ${negatives}, garbled text.`
     );
   };
 
@@ -99,6 +100,13 @@ NEGATIVE: ${negatives}.`
   if (out.length > LIMIT && conceptText) {
     const over = out.length - LIMIT;
     out = assemble(conceptText.slice(0, Math.max(0, conceptText.length - over - 1)));
+  }
+  // Hard safety: never exceed Freebeat's 2000-char limit (cut at a word boundary,
+  // keeping the leading style/consistency clauses which matter most).
+  if (out.length > 1990) {
+    out = out.slice(0, 1990);
+    const sp = out.lastIndexOf(' ');
+    if (sp > 1900) out = out.slice(0, sp);
   }
   return out;
 }
