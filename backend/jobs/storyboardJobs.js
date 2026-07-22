@@ -225,23 +225,17 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
       if (!taskInfo) {
         const pageConcept = (task.subPrompts && task.subPrompts[pageIdx]) ? task.subPrompts[pageIdx] : task.prompt;
 
-        // Consistency anchor: describe the subject once (vision if a ref image exists).
-        if (task.subjectDescriptor === undefined) {
-          task.subjectDescriptor = await analyzeSubject({ imagePath: task.finalRefImagePath, ideaText: task.prompt }, db);
-          await saveTaskState(db, storyboardId, task);
-        }
-
         const faceMode = normalizeFaceMode(task.faceMode, task.showFace);
         const spec = getStyleSpec(task.style);
         const genCtx = {
-          subject: task.subjectDescriptor, concept: pageConcept, faceMode,
+          subject: task.prompt, concept: pageConcept, faceMode,
           gridCount: Number(task.gridCount) || 6, startScene,
           totalDuration: task.totalDuration, aspectRatio: task.aspectRatio, model: task.selectedModel,
           pageNum, pageCount: task.pageCount, hasRefImage: !!pageRefPath,
         };
-        // Prefer the LLM-crafted master prompt; fall back to the deterministic builder.
-        let pagePrompt = await generateMasterPromptWithAI(spec, genCtx, db);
-        if (!pagePrompt) pagePrompt = buildMasterPrompt(spec, genCtx);
+        // Deterministic, pure builder — NO network/file I/O in the generation loop
+        // (keeps 25 styles + faceMode; removes the heaviness/blocking).
+        let pagePrompt = buildMasterPrompt(spec, genCtx);
         pagePrompt = pagePrompt.replace(/"/g, "'");
         pagePrompt = safeClampPrompt(pagePrompt, 1995);
 
@@ -714,15 +708,13 @@ async function regenerateStoryboardPage(req, res) {
 
         const faceMode = normalizeFaceMode(genParams.faceMode, showFace);
         const spec = getStyleSpec(style);
-        const subject = await analyzeSubject({ imagePath: finalRefImagePath, ideaText: storyboard.prompt }, db);
         const genCtx = {
-          subject, concept: pageConcept, faceMode,
+          subject: storyboard.prompt, concept: pageConcept, faceMode,
           gridCount: Number(gridCount) || 6, startScene,
           totalDuration: genParams.duration || (pageCount * secondsPerPage),
           aspectRatio, model, pageNum: pageIdx + 1, pageCount, hasRefImage: !!finalRefImagePath,
         };
-        let pagePrompt = await generateMasterPromptWithAI(spec, genCtx, db);
-        if (!pagePrompt) pagePrompt = buildMasterPrompt(spec, genCtx);
+        let pagePrompt = buildMasterPrompt(spec, genCtx);
         pagePrompt = pagePrompt.replace(/"/g, "'");
 
         activeTasks[taskId].logs += `[2/3] Mengirimkan perintah generate ke Freebeat...\n` +
