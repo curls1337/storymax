@@ -46,6 +46,7 @@ export default function Generator({ setTab }) {
   const [containerShape, setContainerShape] = useState('auto');
   const [duration, setDuration] = useState(30);
   const [showFace, setShowFace] = useState(false);
+  const [faceMode, setFaceMode] = useState('faceless');
   const [currentCarouselIdx, setCurrentCarouselIdx] = useState(0);
   const [showLightbox, setShowLightbox] = useState(null);
   
@@ -357,6 +358,7 @@ export default function Generator({ setTab }) {
         model, 
         duration,
         showFace,
+        faceMode,
         aspectRatio,
         enableVo,
         voLanguage: enableVo ? voLanguage : undefined,
@@ -402,7 +404,7 @@ export default function Generator({ setTab }) {
 
   const getPreviewUrl = (styleName) => {
     if (!styleName) return '';
-    return getFullImageUrl(`uploads/previews/${styleName}.png?v=3`);
+    return '';
   };
 
   const renderRefImagesSection = () => (
@@ -581,7 +583,7 @@ export default function Generator({ setTab }) {
                       <img 
                         src={getPreviewUrl(hoveredStyle)} 
                         alt={`Preview ${hoveredStyle}`} 
-                        onError={(e) => { e.target.src = getPreviewUrl('premium_vertical_row'); }}
+                        onError={(e) => { e.target.style.display = 'none'; }}
                         className="max-w-full max-h-full object-contain rounded-lg" 
                       />
                     </div>
@@ -603,7 +605,7 @@ export default function Generator({ setTab }) {
                     <img 
                       src={getPreviewUrl(style)} 
                       alt="Style Preview" 
-                      onError={(e) => { e.target.src = getPreviewUrl('premium_vertical_row'); }}
+                      onError={(e) => { e.target.style.display = 'none'; }}
                       className="w-full h-full object-cover object-top" 
                     />
                   </div>
@@ -822,19 +824,22 @@ export default function Generator({ setTab }) {
             </div>
           )}
 
-          <div className="flex items-center gap-3 bg-black/20 border border-[#2a2725] rounded-xl p-3 transition-all hover:border-[#cfae80]/30">
-            <input 
-              type="checkbox" 
-              id="showFace" 
-              checked={showFace} 
-              onChange={(e) => setShowFace(e.target.checked)} 
-              className="w-4 h-4 rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 focus:ring-offset-0 cursor-pointer accent-[#cfae80]"
-              disabled={generating}
-            />
-            <label htmlFor="showFace" className="text-[10px] font-bold text-slate-300 cursor-pointer select-none">
-              Tampilkan Wajah Manusia
-              <span className="block text-[8.5px] text-slate-500 font-normal mt-0.5">Aktifkan jika ingin menyertakan wajah manusia (Aksi wajah rentan ditolak filter AI).</span>
+          <div className="bg-black/20 border border-[#2a2725] rounded-xl p-3 transition-all hover:border-[#cfae80]/30">
+            <label htmlFor="faceMode" className="text-[10px] font-bold text-slate-300 select-none block mb-1.5">
+              Mode Wajah
+              <span className="block text-[8.5px] text-slate-500 font-normal mt-0.5">"Sampai Dagu" aman untuk video Seedance (tanpa wajah utuh).</span>
             </label>
+            <select
+              id="faceMode"
+              value={faceMode}
+              onChange={(e) => setFaceMode(e.target.value)}
+              disabled={generating}
+              className="w-full bg-black border border-[#2a2725] rounded-lg px-2 py-2 text-xs text-slate-200 focus:outline-none focus:border-[#cfae80]/50 cursor-pointer"
+            >
+              <option value="faceless">Tanpa Wajah (fokus produk/tangan)</option>
+              <option value="chin_max">Sampai Dagu (aman Seedance)</option>
+              <option value="full">Wajah Penuh (Seedance mungkin tolak)</option>
+            </select>
           </div>
 
           {/* Voice Over settings */}
@@ -1077,7 +1082,7 @@ export default function Generator({ setTab }) {
               <img 
                 src={getPreviewUrl(showLightbox)} 
                 alt={`Preview ${showLightbox}`} 
-                onError={(e) => { e.target.src = getPreviewUrl('premium_vertical_row'); }}
+                onError={(e) => { e.target.style.display = 'none'; }}
                 className="max-w-full max-h-[50vh] object-contain rounded-lg" 
               />
             </div>
