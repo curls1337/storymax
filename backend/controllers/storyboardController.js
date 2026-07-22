@@ -33,7 +33,7 @@ async function getUserStoryboards(req, res) {
 }
 
 async function generateStoryboard(req, res) {
-  const { title, prompt, style, apiKeyId, refImageBase64, refImageUrl, refImages, gridCount, model, duration, showFace, aspectRatio, enableVo, voLanguage, voTone, videoEngine, containerShape } = req.body;
+  const { title, prompt, style, apiKeyId, refImageBase64, refImageUrl, refImages, gridCount, model, duration, showFace, faceMode, aspectRatio, enableVo, voLanguage, voTone, videoEngine, containerShape } = req.body;
 
   if (!title || !prompt || !style || !apiKeyId) {
     return res.status(400).json({ message: 'Title, prompt, style, and API Key ID are required.' });
@@ -80,6 +80,7 @@ async function generateStoryboard(req, res) {
     model: selectedModel,
     aspectRatio: aspectRatio || '1:1',
     showFace: !!showFace,
+    faceMode: faceMode || (showFace ? 'full' : 'faceless'),
     duration: totalDuration,
     enableVo: !!enableVo,
     voLanguage: voLanguage || 'Bahasa Indonesia',
@@ -117,6 +118,7 @@ async function generateStoryboard(req, res) {
     style,
     gridCount: gridCount || 6,
     showFace: !!showFace,
+    faceMode: faceMode || (showFace ? 'full' : 'faceless'),
     containerShape: containerShape || 'auto',
     prompt,
     title,
