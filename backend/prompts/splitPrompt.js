@@ -1,6 +1,7 @@
 // AI splitter: turns one concept into N sequential per-page prompts.
 const http = require('http');
 const https = require('https');
+const { resolveStyleId } = require('./styleLibrary');
 
 // A11: when the AI splitter is unavailable, do NOT fill every page with the
 // identical concept (which makes all pages render the same). Annotate each page
@@ -15,7 +16,7 @@ function fallbackSplit(concept, pageCount) {
   });
 }
 
-async function splitStoryboardPromptWithAI(concept, pageCount, db, secondsPerPage = 15) {
+async function splitStoryboardPromptWithAI(concept, pageCount, db, secondsPerPage = 15, styleId = null) {
   try {
     const settings = await db.get('SELECT * FROM ai_settings LIMIT 1');
     if (!settings || !settings.api_key) {
@@ -26,6 +27,18 @@ async function splitStoryboardPromptWithAI(concept, pageCount, db, secondsPerPag
     const apiHost = settings.endpoint || 'http://localhost:8045/v1';
     const apiToken = settings.api_key;
     const model = settings.model || 'gemini-3-flash';
+
+    // Style-aware: ONLY inject the cube-transformation guidance when the cube
+    // style is actually selected. Previously this block was sent for EVERY style,
+    // which leaked cube scenes into Before-After / UGC / etc. page concepts.
+    const isCube = resolveStyleId(styleId) === 'cube_box_transform';
+    const cubeBlock = isCube ? `
+
+PENTING UNTUK GAYA CUBE TRANSFORMATION (FOTOREALISTIS SINEMATIK, ala video viral):
+Jika konsep memakai transisi kubus:
+1. Awal: sebuah TANGAN memegang kubus KECIL super detail (panel armored, garis-sambungan halus, aksen LED menyala atau emblem/logo produk). Gaya FOTOREALISTIS (bukan CGI kartun), depth of field dangkal.
+2. Tengah: kubus DILEMPAR/DILETAKKAN, mendarat di lokasi yang sesuai, lalu panel-panelnya TERBUKA & MENGEMBANG keluar dengan MULUS layaknya mainan transformasi premium, lalu MEMBANGUN/membentuk ulang jadi SUBJEK-nya — produk itu sendiri, atau model/struktur berskala dari produk, di lokasi nyata. TANPA bagian meledak/terbang acak, TANPA sihir cahaya, dan BUKAN robot humanoid/Transformer.
+3. Akhir: hasil akhir FOTOREALISTIS dari subjek, tampil utuh dalam hero shot sinematik.` : '';
 
     const payload = {
       model: model,
@@ -40,12 +53,7 @@ Pastikan:
 - Halaman berikutnya: Tahap demi tahap pengerjaan/penggunaan secara detail dan fokus pada keunggulan.
 - Halaman terakhir: Hasil akhir yang memuaskan, penyajian, atau call to action visual.
 Berikan deskripsi detail visual yang singkat dan padat untuk masing-masing halaman (1 paragraf ringkas per halaman).
-
-PENTING UNTUK GAYA CUBE TRANSFORMATION (FOTOREALISTIS SINEMATIK, ala video viral):
-Jika konsep memakai transisi kubus:
-1. Awal: sebuah TANGAN memegang kubus KECIL super detail (panel armored, garis-sambungan halus, aksen LED menyala atau emblem/logo produk). Gaya FOTOREALISTIS (bukan CGI kartun), depth of field dangkal.
-2. Tengah: kubus DILEMPAR/DILETAKKAN, mendarat di lokasi yang sesuai, lalu panel-panelnya TERBUKA & MENGEMBANG keluar dengan MULUS layaknya mainan transformasi premium, lalu MEMBANGUN/membentuk ulang jadi SUBJEK-nya — produk itu sendiri, atau model/struktur berskala dari produk, di lokasi nyata. TANPA bagian meledak/terbang acak, TANPA sihir cahaya, dan BUKAN robot humanoid/Transformer.
-3. Akhir: hasil akhir FOTOREALISTIS dari subjek, tampil utuh dalam hero shot sinematik.
+${cubeBlock}
 
 PENTING UNTUK KONSISTENSI VISUAL (CHARACTER/PRODUCT CONSISTENCY):
 1. Identifikasi karakter utama (jika ada) dan produk utama dari konsep cerita pengguna.

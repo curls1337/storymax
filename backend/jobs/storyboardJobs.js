@@ -47,7 +47,7 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
       task.logs += `[1.2/4] Menganalisis konsep cerita dan memecah menjadi ${task.pageCount} segmen visual kronologis menggunakan AI...\n`;
       await saveTaskState(db, storyboardId, task);
       
-      const subPrompts = await splitStoryboardPromptWithAI(task.prompt, task.pageCount, db, task.secondsPerPage);
+      const subPrompts = await splitStoryboardPromptWithAI(task.prompt, task.pageCount, db, task.secondsPerPage, task.style);
       task.subPrompts = subPrompts;
       
       const isFallback = subPrompts.every(p => p === task.prompt);
@@ -699,7 +699,7 @@ async function regenerateStoryboardPage(req, res) {
           error: null
         };
 
-        const subPrompts = await splitStoryboardPromptWithAI(storyboard.prompt, pageCount, db, secondsPerPage);
+        const subPrompts = await splitStoryboardPromptWithAI(storyboard.prompt, pageCount, db, secondsPerPage, storyboard.style);
         const pageConcept = (subPrompts && subPrompts[pageIdx]) ? subPrompts[pageIdx] : storyboard.prompt;
         
         const startScene = pageIdx * Number(gridCount) + 1;
