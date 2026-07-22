@@ -14,7 +14,7 @@ const STYLES = {
     category: 'Transformasi & Reveal', format: '9:16', faceMode: 'faceless', bg: 'light',
     camera: 'photorealistic product-video look; a hand holds the small collectible, shallow depth of field, real desk background (NOT CGI cartoon)',
     lighting: 'natural soft indoor light, realistic metal reflections, subtle bokeh', header: 'STORYBOARD — CUBE TOY MORPH',
-    arc: ['a hand holds a small hyper-detailed premium collectible cube (metal-bracket corners, rivets, central emblem, product colors & branding); a thumb presses its button', 'the hand tosses the cube; it drops and lands on a real desk', 'on landing it morphs SMOOTHLY as ONE piece — folding & rounding, nothing detaching, lifting or glowing', 'it reshapes into a cute miniature collectible of the product', 'the finished glossy detailed mini toy rests on the desk, hero close-up'],
+    arc: ['a hand holds a small hyper-detailed premium collectible cube (metal corners, rivets, emblem, product colors & branding); thumb presses its button', 'the hand tosses the cube; it drops and lands on a real desk', 'on landing it morphs SMOOTHLY as ONE piece — folding & rounding, nothing detaching, lifting or glowing', 'it reshapes into a cute miniature collectible of the product', 'the finished glossy detailed mini toy rests on the desk, hero close-up'],
     negatives: NEG.concat(['glow/energy/light beams', 'flying/detaching/lifting parts', 'transformer/mecha/robot assembly', 'CGI cartoon (must be photorealistic)', 'life-size (must be a small hand-held collectible)']),
   },
   unboxing: {

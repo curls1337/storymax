@@ -225,16 +225,21 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
       if (!taskInfo) {
         const pageConcept = (task.subPrompts && task.subPrompts[pageIdx]) ? task.subPrompts[pageIdx] : task.prompt;
 
+        // Describe the reference product ONCE (bounded: async read, ~15s timeout)
+        // so the prompt can lock the exact product identity across panels. Falls
+        // back to the idea text on any failure — never blocks/hangs.
+        if (task.subjectDescriptor === undefined) {
+          task.subjectDescriptor = await analyzeSubject({ imagePath: task.finalRefImagePath, ideaText: task.prompt }, db);
+          await saveTaskState(db, storyboardId, task);
+        }
         const faceMode = normalizeFaceMode(task.faceMode, task.showFace);
         const spec = getStyleSpec(task.style);
         const genCtx = {
-          subject: task.prompt, concept: pageConcept, faceMode,
+          subject: task.subjectDescriptor || task.prompt, concept: pageConcept, faceMode,
           gridCount: Number(task.gridCount) || 6, startScene,
           totalDuration: task.totalDuration, aspectRatio: task.aspectRatio, model: task.selectedModel,
           pageNum, pageCount: task.pageCount, hasRefImage: !!pageRefPath,
         };
-        // Deterministic, pure builder — NO network/file I/O in the generation loop
-        // (keeps 25 styles + faceMode; removes the heaviness/blocking).
         let pagePrompt = buildMasterPrompt(spec, genCtx);
         pagePrompt = pagePrompt.replace(/"/g, "'");
         pagePrompt = safeClampPrompt(pagePrompt, 1995);
@@ -710,8 +715,9 @@ async function regenerateStoryboardPage(req, res) {
 
         const faceMode = normalizeFaceMode(genParams.faceMode, showFace);
         const spec = getStyleSpec(style);
+        const subjectDesc = await analyzeSubject({ imagePath: finalRefImagePath, ideaText: storyboard.prompt }, db);
         const genCtx = {
-          subject: storyboard.prompt, concept: pageConcept, faceMode,
+          subject: subjectDesc || storyboard.prompt, concept: pageConcept, faceMode,
           gridCount: Number(gridCount) || 6, startScene,
           totalDuration: genParams.duration || (pageCount * secondsPerPage),
           aspectRatio, model, pageNum: pageIdx + 1, pageCount, hasRefImage: !!finalRefImagePath,

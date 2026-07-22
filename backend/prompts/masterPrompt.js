@@ -69,12 +69,12 @@ function buildMasterPrompt(spec, ctx = {}) {
   const negatives = [].concat(spec.negatives || [], fneg ? [fneg] : []).join(', ');
   const layout = (spec.layoutHint || 'a grid of {N} numbered panels on one sheet').replace('{N}', String(gc));
   const partLabel = pageCount > 1 ? ` PART ${pageNum}/${pageCount}` : '';
-  const refNote = hasRefImage ? ' The attached reference image defines the exact subject appearance — keep it identical.' : '';
+  const refNote = hasRefImage ? ' CRITICAL: in every panel copy the product EXACTLY from the reference — same shape, size, colors, logo & text; do NOT redesign or rename it.' : '';
   const conceptText = concept ? String(concept).slice(0, 200) : '';
   const pageScope = pageCount > 1
     ? (pageNum === 1
         ? `IMPORTANT: PAGE 1/${pageCount} (scenes ${startScene}-${endScene}) — show only the BEGINNING; it continues on later pages. `
-        : `IMPORTANT: PAGE ${pageNum}/${pageCount} (scenes ${startScene}-${endScene}) — CONTINUE from the previous page; the opening/transformation ALREADY happened, do NOT restart it (no cube, no re-opening) — show only later stages / the finished result in new angles & actions. `)
+        : `IMPORTANT: PAGE ${pageNum}/${pageCount} (scenes ${startScene}-${endScene}) — CONTINUE from the previous page; the opening ALREADY happened, do NOT restart it (no cube) — show only later stages / the finished result in new angles. `)
     : '';
   const assemble = (ct) => {
     const cl = ct
@@ -83,10 +83,10 @@ function buildMasterPrompt(spec, ctx = {}) {
     return (
 `A professional ${spec.name} storyboard sheet, ${ratio} layout, ${bgClause(spec.bg)}.
 HEADER: a banner reading '${spec.header}${partLabel}' with the product title and badges 'STYLE: ${spec.name}', 'ASPECT RATIO: ${ratio}', 'DURATION: ${dur}'.
-SUBJECT (keep IDENTICAL in every panel): ${String(subject || 'the product').slice(0, 160)}.${refNote}
+SUBJECT (keep IDENTICAL in every panel): ${String(subject || 'the product').slice(0, 140)}.${refNote}
 LAYOUT: ${layout}; number panels SCENE ${startScene}–${endScene}, each with a number badge (top-left) + timecode (top-right).
 ${cl}
-CAMERA (identical every panel): ${spec.camera}. ${spec.lighting}. Keep background, framing, subject look, color & branding identical across panels.
+CAMERA (identical every panel): ${spec.camera}. ${spec.lighting}. Keep background, framing & layout identical across panels.
 ${face}
 NEGATIVE: ${negatives}.`
     );
