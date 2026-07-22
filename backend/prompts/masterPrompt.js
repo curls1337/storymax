@@ -1,0 +1,78 @@
+// Deterministic master-prompt assembler.
+// Composes ONE Freebeat prompt from a Style Spec + context (subject, faceMode,
+// params). This is the safe, fully-tested core and also the fallback whenever
+// the LLM generator (masterPromptLLM.js) is unavailable.
+//
+// Design goals: param-driven (duration/aspect from input, never hardcoded),
+// explicit consistency (subject repeated + locked camera), faceMode-aware,
+// and comfortably under Freebeat's 2000-character limit.
+
+const { faceClause, faceNegative } = require('./faceMode');
+
+function fmtDuration(totalDuration) {
+  const d = Number(totalDuration);
+  return `${Number.isFinite(d) && d > 0 ? d : 15}s`;
+}
+
+// For model 108 the real output size comes from a --resolution mapping, so the
+// label mirrors that; other models use the raw ratio.
+function fmtRatio(aspectRatio, model) {
+  const ar = String(aspectRatio || '1:1');
+  if (String(model) === '108') {
+    if (ar === '16:9') return '16:9';
+    if (ar === '9:16') return '9:16';
+    return '1:1';
+  }
+  return ar;
+}
+
+function bgClause(bg) {
+  if (bg === 'dark') return 'clean solid flat dark-charcoal background';
+  if (bg === 'textured') return 'stylized textured art background';
+  return 'clean solid flat bright white background';
+}
+
+function buildMasterPrompt(spec, ctx = {}) {
+  const {
+    subject = 'the product',
+    concept = '',
+    faceMode = spec.faceMode || 'faceless',
+    gridCount = 6,
+    startScene = 1,
+    totalDuration = 15,
+    aspectRatio,
+    model,
+    pageNum = 1,
+    pageCount = 1,
+    hasRefImage = false,
+  } = ctx;
+
+  const gc = Number(gridCount) || 6;
+  const endScene = startScene + gc - 1;
+  const ratio = fmtRatio(aspectRatio || spec.format, model);
+  const dur = fmtDuration(totalDuration);
+  const arc = (spec.arc && spec.arc.length) ? spec.arc.join(' → ') : 'introduce → develop → reveal → call to action';
+  const face = faceClause(faceMode);
+  const fneg = faceNegative(faceMode);
+  const negatives = [].concat(spec.negatives || [], fneg ? [fneg] : []).join(', ');
+  const layout = (spec.layoutHint || 'a grid of {N} numbered panels on one sheet').replace('{N}', String(gc));
+  const partLabel = pageCount > 1 ? ` PART ${pageNum}/${pageCount}` : '';
+  const refNote = hasRefImage ? ' The attached reference image defines the exact subject appearance — keep it identical.' : '';
+  const conceptText = concept ? String(concept).slice(0, 400) : '';
+  const conceptLine = conceptText
+    ? `SCENES: based on this concept — "${conceptText}" — progressing across the panels as: ${arc}.`
+    : `SCENES progress across the panels as: ${arc}.`;
+
+  return (
+`A professional ${spec.name} storyboard sheet, ${ratio} layout, ${bgClause(spec.bg)}.
+HEADER: a banner reading '${spec.header}${partLabel}' with the product title and badges 'STYLE: ${spec.name}', 'ASPECT RATIO: ${ratio}', 'DURATION: ${dur}'.
+SUBJECT (keep IDENTICAL in every panel): ${subject}.${refNote}
+LAYOUT: ${layout}; number them SCENE ${startScene} to SCENE ${endScene}, each panel with a scene-number badge (top-left) and a timecode chip (top-right).
+${conceptLine}
+CAMERA (identical in EVERY panel): ${spec.camera}. ${spec.lighting}. Keep the background, framing and the subject's appearance, color and branding identical across all panels.
+${face}
+NEGATIVE: ${negatives}.`
+  );
+}
+
+module.exports = { buildMasterPrompt, fmtRatio, fmtDuration };

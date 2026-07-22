@@ -1,0 +1,71 @@
+// LLM master-prompt generator. Turns {subject + style spec + params} into ONE
+// Freebeat prompt. Returns null on ANY failure so the caller falls back to the
+// deterministic builder (masterPrompt.js) — the app never breaks.
+const { chatCompletion } = require('./aiClient');
+const { faceClause, faceNegative } = require('./faceMode');
+const { fmtRatio, fmtDuration } = require('./masterPrompt');
+
+const SYSTEM = `You are an expert commercial storyboard prompt engineer for the Freebeat GPT-Image model.
+Produce ONE image-generation prompt that renders a SINGLE professional storyboard SHEET (a poster with numbered scene panels).
+RULES:
+1. Repeat the SUBJECT_DESCRIPTOR identically in every panel description (consistency anchor).
+2. State ONE camera grammar (from STYLE_SPEC.camera) as a global rule; keep background & lighting identical across panels.
+3. Number every scene and give each a timecode derived from PARAMS.duration / PARAMS.panelCount.
+4. Use PARAMS.duration and PARAMS.aspectRatio verbatim; never invent other durations.
+5. Include a header banner + badges (STYLE_SPEC.header) and end with a "NEGATIVE:" line built from STYLE_SPEC.negatives + FACE_NEGATIVE.
+6. Apply FACE_RULE exactly.
+7. Keep the ENTIRE prompt under 1900 characters.
+8. Output ONLY the final prompt text — no explanation, no markdown fences.`;
+
+async function generateMasterPromptWithAI(spec, ctx, db) {
+  try {
+    const {
+      subject = 'the product', concept = '', faceMode = spec.faceMode || 'faceless',
+      gridCount = 6, startScene = 1, totalDuration = 15, aspectRatio, model,
+      pageNum = 1, pageCount = 1, hasRefImage = false,
+    } = ctx;
+
+    const payload = {
+      SUBJECT_DESCRIPTOR: subject,
+      CONCEPT: String(concept || '').slice(0, 500),
+      STYLE_SPEC: {
+        name: spec.name,
+        header: spec.header,
+        background: spec.bg,
+        layout: (spec.layoutHint || 'a grid of {N} numbered panels on one sheet').replace('{N}', String(gridCount)),
+        camera: spec.camera,
+        lighting: spec.lighting,
+        arc: spec.arc,
+        negatives: spec.negatives,
+      },
+      FACE_RULE: faceClause(faceMode),
+      FACE_NEGATIVE: faceNegative(faceMode),
+      PARAMS: {
+        aspectRatio: fmtRatio(aspectRatio || spec.format, model),
+        duration: fmtDuration(totalDuration),
+        panelCount: gridCount,
+        sceneStart: startScene,
+        page: pageNum,
+        totalPages: pageCount,
+        hasReferenceImage: !!hasRefImage,
+      },
+    };
+
+    const messages = [
+      { role: 'system', content: SYSTEM },
+      { role: 'user', content: 'Build the storyboard prompt from this JSON:\n' + JSON.stringify(payload) },
+    ];
+
+    const out = await chatCompletion(messages, { db, temperature: 0.7 });
+    if (out && out.length > 80) {
+      // strip accidental markdown fences, clamp to Freebeat limit
+      const cleaned = out.replace(/^```[a-zA-Z]*\n?/, '').replace(/\n?```$/, '').trim();
+      return cleaned.slice(0, 1980);
+    }
+    return null;
+  } catch (e) {
+    return null;
+  }
+}
+
+module.exports = { generateMasterPromptWithAI };

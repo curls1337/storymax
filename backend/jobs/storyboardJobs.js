@@ -10,10 +10,15 @@ const { activeTasks, saveTaskState } = require('../state/taskStore');
 const { checkAndDisableKeyIfOutofCredits } = require('../services/keyPool');
 const { downloadFile } = require('../services/download');
 const { splitStoryboardPromptWithAI } = require('../prompts/splitPrompt');
-const { buildEnhancedPrompt } = require('../prompts/buildEnhancedPrompt');
+const { buildEnhancedPrompt } = require('../prompts/buildEnhancedPrompt'); // legacy (kept)
 const { formatTime } = require('../prompts/grid');
 const { safeClampPrompt } = require('../prompts/clamp');
 const { freebeatSizeArgs } = require('../services/freebeat/cli');
+const { getStyleSpec } = require('../prompts/styleLibrary');
+const { buildMasterPrompt } = require('../prompts/masterPrompt');
+const { generateMasterPromptWithAI } = require('../prompts/masterPromptLLM');
+const { analyzeSubject } = require('../prompts/subjectAnalyzer');
+const { normalizeFaceMode } = require('../prompts/faceMode');
 
 async function runStoryboardGeneratorBackground(taskId, storyboardId) {
   const db = getDb();
@@ -219,11 +224,25 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
       let taskInfo = task.currentTaskInfo;
       if (!taskInfo) {
         const pageConcept = (task.subPrompts && task.subPrompts[pageIdx]) ? task.subPrompts[pageIdx] : task.prompt;
-        let pagePrompt = buildEnhancedPrompt({ style: task.style, userPrompt: pageConcept, gridCount: Number(task.gridCount) || 6, showFace: task.showFace, startScene, totalDuration: task.totalDuration, secondsPerPage: task.secondsPerPage, hasRefImage: !!pageRefPath, containerShape: task.containerShape, aspectRatio: task.aspectRatio, model: task.selectedModel });
-        pagePrompt = pagePrompt.replace(/"/g, "'");
-        if (task.style !== 'single_premium_showcase') {
-          pagePrompt = `Page ${pageNum} of ${task.pageCount}, Scenes ${startScene}-${endScene} (time segment ${formatTime(startSec)} to ${formatTime(endSec)}). ` + pagePrompt;
+
+        // Consistency anchor: describe the subject once (vision if a ref image exists).
+        if (task.subjectDescriptor === undefined) {
+          task.subjectDescriptor = await analyzeSubject({ imagePath: task.finalRefImagePath, ideaText: task.prompt }, db);
+          await saveTaskState(db, storyboardId, task);
         }
+
+        const faceMode = normalizeFaceMode(task.faceMode, task.showFace);
+        const spec = getStyleSpec(task.style);
+        const genCtx = {
+          subject: task.subjectDescriptor, concept: pageConcept, faceMode,
+          gridCount: Number(task.gridCount) || 6, startScene,
+          totalDuration: task.totalDuration, aspectRatio: task.aspectRatio, model: task.selectedModel,
+          pageNum, pageCount: task.pageCount, hasRefImage: !!pageRefPath,
+        };
+        // Prefer the LLM-crafted master prompt; fall back to the deterministic builder.
+        let pagePrompt = await generateMasterPromptWithAI(spec, genCtx, db);
+        if (!pagePrompt) pagePrompt = buildMasterPrompt(spec, genCtx);
+        pagePrompt = pagePrompt.replace(/"/g, "'");
         pagePrompt = safeClampPrompt(pagePrompt, 1995);
 
         task.logs += `[Halaman ${pageNum}] Prompt: ${pagePrompt.substring(0, 120)}...\n`;
@@ -693,7 +712,17 @@ async function regenerateStoryboardPage(req, res) {
           }
         } catch (e) {}
 
-        let pagePrompt = buildEnhancedPrompt({ style, userPrompt: pageConcept, gridCount: Number(gridCount) || 6, showFace, startScene, totalDuration: genParams.duration || (pageCount * secondsPerPage), secondsPerPage, hasRefImage: !!finalRefImagePath, containerShape: genParams.containerShape, aspectRatio, model });
+        const faceMode = normalizeFaceMode(genParams.faceMode, showFace);
+        const spec = getStyleSpec(style);
+        const subject = await analyzeSubject({ imagePath: finalRefImagePath, ideaText: storyboard.prompt }, db);
+        const genCtx = {
+          subject, concept: pageConcept, faceMode,
+          gridCount: Number(gridCount) || 6, startScene,
+          totalDuration: genParams.duration || (pageCount * secondsPerPage),
+          aspectRatio, model, pageNum: pageIdx + 1, pageCount, hasRefImage: !!finalRefImagePath,
+        };
+        let pagePrompt = await generateMasterPromptWithAI(spec, genCtx, db);
+        if (!pagePrompt) pagePrompt = buildMasterPrompt(spec, genCtx);
         pagePrompt = pagePrompt.replace(/"/g, "'");
 
         activeTasks[taskId].logs += `[2/3] Mengirimkan perintah generate ke Freebeat...\n` +
