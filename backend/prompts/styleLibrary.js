@@ -10,12 +10,12 @@ const NEG = ['garbled or misspelled text', 'panels bleeding into the background'
 const STYLES = {
   // ── A. Transformasi & Reveal ──
   cube_box_transform: {
-    name: 'Cube Box Transformation', desc: 'Kubus koleksi detail di tangan, ditekan lalu dijatuhkan, morph mulus jadi mainan miniatur (fotorealistis, ala video viral).',
+    name: 'Cube Box Transformation', desc: 'Kubus armored (emblem produk di sisi atas) di tangan → ditekan → panel terbuka & memanjang mulus jadi miniatur die-cast super detail di meja putih (fotorealistis, ala "Transition Edition" viral).',
     category: 'Transformasi & Reveal', format: '9:16', faceMode: 'faceless', bg: 'light',
-    camera: 'photorealistic hand-held product-video look, shallow depth of field, real desk (NOT CGI cartoon)',
-    lighting: 'natural soft indoor light, realistic metal reflections, subtle bokeh', header: 'STORYBOARD — CUBE TOY MORPH',
-    arc: ['a hand holds a small hyper-detailed collectible cube (metal corners, rivets, emblem, product branding); thumb presses its button', 'the hand tosses it; the cube drops onto a real desk', 'on landing it morphs SMOOTHLY as ONE piece (nothing detaching, lifting or glowing)', 'it reshapes into a mini collectible of the product', 'the finished glossy diecast mini toy rests on the desk, hero close-up'],
-    negatives: NEG.concat(['glow or energy', 'flying/detaching/lifting parts', 'transformer/mecha/robot', 'CGI cartoon (be photorealistic)', 'life-size (must be small)']),
+    camera: 'photorealistic hand-held product-video look, white desk, near-static with a slow orbit, shallow depth of field (NOT CGI, NOT a glowing robot)',
+    lighting: 'soft studio light on a white sweep, realistic metal/glossy reflections, subtle bokeh', header: 'STORYBOARD — CUBE TOY MORPH',
+    arc: ['a hand holds a small armored puzzle-cube on a white desk; metal panels, rivets, brand emblem embossed on the TOP face (color-matched); thumb presses it', 'the cube is set down on the desk', 'its panels UNFOLD and extend outward SMOOTHLY like a premium transforming toy (staying low, NOT a standing robot)', 'they reshape into a detailed miniature die-cast collectible of the product, emblem on top', 'the finished glossy mini die-cast model rests on the desk, hero close-up'],
+    negatives: NEG.concat(['glowing energy/FX', 'exploding or flying parts', 'humanoid robot standing up', 'CGI cartoon look', 'life-size (must be small)']),
   },
   unboxing: {
     name: 'Unboxing', desc: 'Buka kemasan dramatis, reveal produk, close-up detail.',

@@ -413,12 +413,12 @@ async function generateVideoPromptsInternal({ storyboardId, promptType, regenera
   const resolvedStyle = resolveStyleId(storyboard.style);
   let capsuleStyleClause = '';
   if (resolvedStyle === 'cube_box_transform') {
-    // Cube Toy Morph — photorealistic viral hand-held style (NOT mechanical/Transformer).
+    // Cube -> die-cast collectible ("Transition Edition" transforming-toy style).
     capsuleStyleClause = `
-CRITICAL CUBE TOY MORPH VIDEO RULES (photorealistic viral hand-held style — NOT mechanical, NOT a Transformer):
-1. PHOTOREALISTIC hand-held product-video feel: a real hand holds the small hyper-detailed collectible cube, a thumb presses its button, then tosses/drops it onto a real desk. Shallow depth of field, natural soft indoor light, subtle bokeh. NOT a CGI cartoon.
-2. On landing the cube MORPHS SMOOTHLY as ONE solid piece — surfaces gently folding, rounding and reshaping — into a miniature collectible version of the product. ABSOLUTELY NO parts detaching, flying, lifting or unfolding; NO pistons/gears/panels; NO glow or energy; it is NOT a robot/mecha.
-3. Keep the SAME desk and background and the product's EXACT appearance throughout. Hands ARE allowed (holding, pressing, tossing). End on a glossy diecast mini-toy hero close-up resting on the desk.`;
+CRITICAL CUBE -> DIE-CAST COLLECTIBLE TRANSITION VIDEO RULES (photorealistic viral "Transition Edition" transforming-toy style — NOT a glowing humanoid Transformer):
+1. PHOTOREALISTIC hand-held product-video feel on a plain WHITE desk, soft studio light, shallow depth of field, near-static camera with only a slow subtle orbit. A real hand holds a small armored puzzle-cube (product brand emblem embossed on the TOP face, color-matched), presses it and sets it down. NOT a CGI cartoon.
+2. The cube's segmented panels UNFOLD and EXTEND outward SMOOTHLY and satisfyingly (like a premium transforming toy, staying low) and reshape into a HIGHLY DETAILED miniature die-cast collectible of the product, the emblem still on top. NO glowing energy/FX, NO chaotic exploding/flying parts, and it does NOT stand up as a humanoid robot/mecha.
+3. Keep the SAME white desk & background and the product's EXACT identity, branding and colors throughout. Hands ARE allowed (holding, pressing). End on the finished glossy, richly detailed mini die-cast model in a hero close-up on the desk.`;
   }
 
   // Make the generated video FOLLOW the directions printed inside the storyboard

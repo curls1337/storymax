@@ -41,11 +41,11 @@ Pastikan:
 - Halaman terakhir: Hasil akhir yang memuaskan, penyajian, atau call to action visual.
 Berikan deskripsi detail visual yang singkat dan padat untuk masing-masing halaman (1 paragraf ringkas per halaman).
 
-PENTING UNTUK GAYA CUBE BOX / TOY MORPH (FOTOREALISTIS, ala video viral):
+PENTING UNTUK GAYA CUBE BOX / TRANSITION EDITION (FOTOREALISTIS, ala video viral):
 Jika konsep memakai transisi kubus:
-1. Awal: sebuah TANGAN memegang kubus KECIL yang sangat detail & premium (sudut braket logam, rivet, emblem tengah, bermotif warna/branding produk); jempol menekan tombolnya. Gaya FOTOREALISTIS (bukan CGI kartun), depth of field dangkal, latar meja nyata.
-2. Tengah: kubus DILEMPAR/DIJATUHKAN ke meja, lalu BER-MORPH MULUS sebagai SATU bagian (melipat & membulat halus) — TANPA bagian terbang/terlepas/terangkat, TANPA cahaya/energi, BUKAN robot Transformer.
-3. Akhir: hasil akhir MAINAN MINIATUR koleksi dari produk, mengkilap & sangat detail, di meja yang sama (close-up hero).
+1. Awal: sebuah TANGAN memegang kubus KECIL bergaya "armored puzzle-cube" (panel logam bersegmen, rivet, dan EMBLEM/logo produk timbul di sisi ATAS, warna disesuaikan produk) di atas MEJA PUTIH polos; jempol menekannya lalu meletakkannya. Gaya FOTOREALISTIS (bukan CGI kartun), depth of field dangkal, kamera nyaris diam dengan orbit pelan.
+2. Tengah: panel-panel kubus TERBUKA & MEMANJANG keluar dengan MULUS layaknya mainan transformasi premium (lipatan mekanis yang memuaskan, tetap rendah — BUKAN robot berdiri) lalu membentuk ulang jadi miniatur die-cast super detail dari produk, emblem tetap di atas. TANPA cahaya/energi, TANPA bagian meledak/terbang acak, BUKAN robot humanoid/Transformer.
+3. Akhir: hasil akhir MINIATUR die-cast koleksi dari produk, mengkilap & sangat detail, di MEJA PUTIH yang sama (close-up hero).
 
 PENTING UNTUK KONSISTENSI VISUAL (CHARACTER/PRODUCT CONSISTENCY):
 1. Identifikasi karakter utama (jika ada) dan produk utama dari konsep cerita pengguna.

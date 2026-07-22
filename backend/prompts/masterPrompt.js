@@ -63,7 +63,13 @@ function buildMasterPrompt(spec, ctx = {}) {
     bEnd = Math.max(bStart + 1, Math.min(bEnd, M));
     pageArc = spec.arc.slice(bStart, bEnd);
   }
-  const arc = pageArc.length ? pageArc.join(' → ') : 'introduce → develop → reveal → call to action';
+  let arc = pageArc.length ? pageArc.join(' → ') : 'introduce → develop → reveal → call to action';
+  // Cap arc length so a very long narrative can never crowd out the footer / face
+  // / NEGATIVE clauses (cut at a word boundary).
+  if (arc.length > 520) {
+    const cut = arc.lastIndexOf(' ', 520);
+    arc = arc.slice(0, cut > 400 ? cut : 520);
+  }
   const face = faceClause(faceMode);
   const fneg = faceNegative(faceMode);
   const negatives = [].concat(spec.negatives || [], fneg ? [fneg] : []).join(', ');
@@ -76,7 +82,8 @@ function buildMasterPrompt(spec, ctx = {}) {
         ? `IMPORTANT: PAGE 1/${pageCount} (scenes ${startScene}-${endScene}) — show only the BEGINNING; it continues on later pages. `
         : `IMPORTANT: PAGE ${pageNum}/${pageCount} (scenes ${startScene}-${endScene}) — CONTINUE from the previous page; the opening ALREADY happened, do NOT restart it (no cube) — show only later stages / the finished result in new angles. `)
     : '';
-  const assemble = (ct) => {
+  const negLine = `NEGATIVE: ${negatives}, garbled text.`;
+  const assembleBody = (ct) => {
     const cl = ct
       ? `${pageScope}SCENES on this page — based on: "${ct}" — progressing across the panels as: ${arc}.`
       : `${pageScope}SCENES progress across the panels as: ${arc}.`;
@@ -88,27 +95,28 @@ Lay out ${layout}, numbered SCENE ${startScene}–${endScene}. EACH card shows: 
 ${cl}
 Base camera: ${spec.camera}; light: ${spec.lighting}.
 FOOTER: a 'PRODUCTION NOTES' bar with recommended camera, FPS, lighting & shooting style.
-${face}
-NEGATIVE: ${negatives}, garbled text.`
+${face}`
     );
   };
 
-  // Keep within Freebeat's limit by trimming the (least-critical) concept text
-  // first, so the style / consistency / NEGATIVE clauses always survive.
+  // Keep within Freebeat's 2000-char limit. Reserve room for the NEGATIVE line so
+  // it (the guard against glow/robot/garbled text) ALWAYS survives: trim the
+  // least-critical concept text first, then hard-clamp only the BODY — never the
+  // NEGATIVE line, which is re-appended last.
+  const NEG_RESERVE = negLine.length + 1; // +1 for the joining newline
   const LIMIT = 1900;
-  let out = assemble(conceptText);
-  if (out.length > LIMIT && conceptText) {
-    const over = out.length - LIMIT;
-    out = assemble(conceptText.slice(0, Math.max(0, conceptText.length - over - 1)));
+  let body = assembleBody(conceptText);
+  if (body.length + NEG_RESERVE > LIMIT && conceptText) {
+    const over = (body.length + NEG_RESERVE) - LIMIT;
+    body = assembleBody(conceptText.slice(0, Math.max(0, conceptText.length - over - 1)));
   }
-  // Hard safety: never exceed Freebeat's 2000-char limit (cut at a word boundary,
-  // keeping the leading style/consistency clauses which matter most).
-  if (out.length > 1990) {
-    out = out.slice(0, 1990);
-    const sp = out.lastIndexOf(' ');
-    if (sp > 1900) out = out.slice(0, sp);
+  const HARD = 1990 - NEG_RESERVE;
+  if (body.length > HARD) {
+    body = body.slice(0, HARD);
+    const sp = body.lastIndexOf(' ');
+    if (sp > HARD - 120) body = body.slice(0, sp);
   }
-  return out;
+  return body + '\n' + negLine;
 }
 
 module.exports = { buildMasterPrompt, fmtRatio, fmtDuration };
