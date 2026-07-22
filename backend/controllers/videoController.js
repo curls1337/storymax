@@ -1,3 +1,4 @@
+const { localCliPath } = require('../services/freebeat/cli');
 const { AI_API_HOST, AI_API_TOKEN } = require('../config/secrets');
 const { spawn } = require('child_process');
 const path = require('path');
@@ -187,7 +188,7 @@ async function generateVideo(req, res) {
         }
 
         const spawnCmd = 'node';
-        const cliPath = path.join(__dirname, '..', 'node_modules', 'freebeat-cli', 'dist', 'index.js');
+        const cliPath = localCliPath; // B3: shared resolution (services/freebeat/cli.js)
         const spawnArgs = [
           cliPath,
           '--api-key', keyRecord.key_value,
@@ -528,7 +529,7 @@ function pollVideoStatus(videoRecordId, storyboardId, apiKey, batchId, serialNo,
     try {
       const db = getDb();
       const spawnCmd = 'node';
-      const cliPath = path.join(__dirname, '..', 'node_modules', 'freebeat-cli', 'dist', 'index.js');
+      const cliPath = localCliPath; // B3: shared resolution (services/freebeat/cli.js)
       const spawnArgs = [
         cliPath,
         '--api-key', apiKey,
@@ -747,7 +748,7 @@ async function runSingleVideoSpawn(vRecId, tId, kRec, pText, scImg, model, gener
     try {
       const db = getDb();
       const spawnCmd = 'node';
-      const cliPath = path.join(__dirname, '..', 'node_modules', 'freebeat-cli', 'dist', 'index.js');
+      const cliPath = localCliPath; // B3: shared resolution (services/freebeat/cli.js)
       const spawnArgs = [
         cliPath,
         '--api-key', attemptKeyRecord.key_value,
