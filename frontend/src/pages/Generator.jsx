@@ -1085,9 +1085,10 @@ export default function Generator({ setTab }) {
         </div>
       </div>
 
-      {/* Floating log bubble - always visible, fixed bottom-right */}
-      {showLogModal && (
-        <div className="fixed bottom-4 sm:bottom-8 right-4 sm:right-8 z-50 bg-[#1a1918]/95 border border-[#2a2725] w-[calc(100vw-2rem)] sm:w-96 h-80 rounded-3xl p-4 shadow-2xl flex flex-col backdrop-blur-md">
+      {/* Floating log bubble — only while generating or when there are logs. Lifted
+          above the mobile bottom-nav (lg: desktop has a sidebar, no bottom nav). */}
+      {showLogModal && (generating || taskLogs) && (
+        <div className="fixed bottom-24 lg:bottom-6 right-4 lg:right-8 z-50 bg-[#1a1918]/95 border border-[#2a2725] w-[calc(100vw-2rem)] sm:w-96 h-72 sm:h-80 max-h-[52vh] rounded-3xl p-4 shadow-2xl flex flex-col backdrop-blur-md">
           <div className="flex justify-between items-center mb-3 border-b border-[#2a2725]/80 pb-2.5">
             <h3 className="text-[10px] font-bold text-white flex items-center gap-1.5 uppercase tracking-widest">
               <Terminal className="w-4 h-4 text-[#cfae80]" />
@@ -1110,12 +1111,12 @@ export default function Generator({ setTab }) {
         </div>
       )}
 
-      {/* Re-open button when bubble is closed */}
-      {!showLogModal && (
+      {/* Re-open button when bubble is closed (only when there's something to show) */}
+      {!showLogModal && (generating || taskLogs) && (
         <button
           type="button"
           onClick={() => setShowLogModal(true)}
-          className="fixed bottom-4 sm:bottom-8 right-4 sm:right-8 z-50 bg-[#1a1918]/95 border border-[#cfae80]/40 text-[#cfae80] text-[9px] font-bold tracking-widest uppercase py-3 px-4 rounded-2xl flex items-center gap-2 shadow-2xl backdrop-blur-md hover:bg-[#cfae80] hover:text-black transition-all"
+          className="fixed bottom-24 lg:bottom-6 right-4 lg:right-8 z-50 bg-[#1a1918]/95 border border-[#cfae80]/40 text-[#cfae80] text-[9px] font-bold tracking-widest uppercase py-3 px-4 rounded-2xl flex items-center gap-2 shadow-2xl backdrop-blur-md hover:bg-[#cfae80] hover:text-black transition-all"
         >
           <Terminal className="w-3.5 h-3.5" />
           Live Logs
