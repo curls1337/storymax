@@ -36,8 +36,8 @@ async function splitStoryboardPromptWithAI(concept, pageCount, db, secondsPerPag
 
 PENTING UNTUK GAYA CUBE TRANSFORMATION (FOTOREALISTIS SINEMATIK, ala video viral):
 Jika konsep memakai transisi kubus:
-1. Awal: sebuah TANGAN memegang kubus KECIL super detail (panel armored, garis-sambungan halus, aksen LED menyala atau emblem/logo produk). Gaya FOTOREALISTIS (bukan CGI kartun), depth of field dangkal.
-2. Tengah: kubus DILEMPAR/DILETAKKAN, mendarat di lokasi yang sesuai, lalu panel-panelnya TERBUKA & MENGEMBANG keluar dengan MULUS layaknya mainan transformasi premium, lalu MEMBANGUN/membentuk ulang jadi SUBJEK-nya — produk itu sendiri, atau model/struktur berskala dari produk, di lokasi nyata. TANPA bagian meledak/terbang acak, TANPA sihir cahaya, dan BUKAN robot humanoid/Transformer.
+1. Awal: sebuah kubus KECIL super detail diletakkan/berdiri di atas permukaan (panel armored, garis-sambungan halus, aksen LED menyala atau emblem/logo produk). TANPA tangan manusia, kubus berdiri sendiri dan siap bertransformasi secara otomatis. Gaya FOTOREALISTIS (bukan CGI kartun), depth of field dangkal.
+2. Tengah: kubus mulai aktif secara otomatis, panel-panelnya TERBUKA & MENGEMBANG keluar dengan MULUS layaknya mainan transformasi premium, lalu MEMBANGUN/membentuk ulang jadi SUBJEK-nya — produk itu sendiri, atau model/struktur berskala dari produk, di lokasi nyata. TANPA tangan manusia, TANPA bagian meledak/terbang acak, TANPA sihir cahaya, dan BUKAN robot humanoid/Transformer.
 3. Akhir: hasil akhir FOTOREALISTIS dari subjek, tampil utuh dalam hero shot sinematik.` : '';
 
     const payload = {

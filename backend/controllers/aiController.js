@@ -456,9 +456,9 @@ async function generateVideoPromptsInternal({ storyboardId, promptType, regenera
     // Cube transformation reveal (photorealistic viral cube -> subject).
     capsuleStyleClause = `
 CRITICAL CUBE TRANSFORMATION VIDEO RULES (photorealistic viral cube-reveal — NOT a glowing humanoid Transformer robot):
-1. PHOTOREALISTIC and cinematic. A real hand holds a small hyper-detailed cube (armored panels, fine seams, subtle glowing accents or the product's brand emblem), then tosses or sets it down; it lands in a fitting real setting. Hand-held feel then a smooth move, shallow depth of field. NOT a CGI cartoon.
-2. The cube's panels UNFOLD, slide and telescope outward SMOOTHLY and satisfyingly (like a premium precision transforming toy) — mechanically CONNECTED, no loose or detached parts — and build/reshape into the subject at its natural scale — the product itself, a scaled collectible of it, or a full-scale structure/scene for a place/vehicle/building. NO exploding/flying/detached parts, NO energy beams, NO glow-energy magic, and it does NOT become a humanoid robot/mecha/Transformer.
-3. Keep the subject's EXACT identity, branding and colors. Hands ARE allowed (holding, tossing). End on the finished photorealistic result in a cinematic hero shot.`;
+1. PHOTOREALISTIC and cinematic. A small hyper-detailed mechanical cube (armored panels, fine seams, subtle glowing accents or the product's brand emblem) rests statically on a fitting real surface/table. Smooth motion move as the cube expands, shallow depth of field. NOT a CGI cartoon.
+2. The cube's panels UNFOLD, slide and telescope outward SMOOTHLY and satisfyingly (like a premium precision transforming toy) — mechanically CONNECTED, no loose or detached parts — and build/reshape into the subject at its natural scale — the product itself, a scaled collectible of it, or a full-scale structure/scene for a place/vehicle/building. NO hands visible in frame. NO exploding/flying/detached parts, NO energy beams, NO glow-energy magic, and it does NOT become a humanoid robot/mecha/Transformer.
+3. Keep the subject's EXACT identity, branding and colors. NO human hands in frame (automatic mechanical unfolding). End on the finished photorealistic result in a cinematic hero shot.`;
   }
 
   if (resolvedStyle === 'asmr_toy_transform') {
@@ -466,7 +466,7 @@ CRITICAL CUBE TRANSFORMATION VIDEO RULES (photorealistic viral cube-reveal — N
     capsuleStyleClause = `
 CRITICAL ASMR TOY TRANSFORM VIDEO RULES (LOCKED camera, tabletop, ASMR — no camera effects):
 1. The CAMERA IS COMPLETELY LOCKED/STATIC on a tripod, fixed close over a real worn white table. ABSOLUTELY NO camera movement — no pan, tilt, zoom, orbit, dolly, push-in or shake. ONLY the toy moves. Ignore any 'CAM:' tag that implies movement; keep the shot perfectly still.
-2. A small armored cube rests on the table and SMOOTHLY, mechanically UNFOLDS by itself — panels slide, hinge and telescope out step by step — into a highly detailed miniature die-cast collectible of the product on the SAME table. Photorealistic; mechanically connected; NO flying/detaching parts; NO glow/energy; NOT a humanoid robot/mecha.
+2. A small armored cube rests statically on the table and SMOOTHLY, mechanically UNFOLDS by itself — panels slide, hinge and telescope out step by step — into a highly detailed miniature die-cast collectible of the product on the SAME table. Photorealistic; mechanically connected; NO human hands visible in frame; NO flying/detaching parts; NO glow/energy; NOT a humanoid robot/mecha.
 3. AUDIO = satisfying ASMR mechanical transformation sounds ONLY (soft clicks, servo whirs, panels locking into place). No music-over.
 4. Keep the exact same worn white table and the product's exact identity throughout; end on the finished mini die-cast toy resting still on the table.`;
   }
