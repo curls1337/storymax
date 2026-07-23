@@ -478,6 +478,8 @@ CRITICAL ASMR TOY TRANSFORM VIDEO RULES (LOCKED camera, tabletop, ASMR — no ca
 2. A small armored cube rests statically on the table and SMOOTHLY, mechanically UNFOLDS by itself — panels slide, hinge and telescope out step by step — into a highly detailed miniature die-cast collectible of the product on the SAME table. Photorealistic; mechanically connected; NO human hands visible in frame; NO flying/detaching parts; NO glow/energy; NOT a humanoid robot/mecha.
 3. AUDIO = satisfying ASMR mechanical transformation sounds ONLY (soft clicks, servo whirs, panels locking into place). No music-over.
 4. Keep the exact same worn white table and the product's exact identity throughout; end on the finished mini die-cast toy resting still on the table.`;
+  }
+
   if (resolvedStyle === 'shape_morph_transform') {
     // Adaptive Shape transformation reveal.
     capsuleStyleClause = `
