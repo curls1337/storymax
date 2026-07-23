@@ -196,6 +196,21 @@ export default function Generator({ setTab }) {
       setTaskLogs('Menyambungkan kembali ke proses latar belakang...\n');
       startPolling(savedTaskId);
     }
+    // Preloaded reference image from clicking a "[Ref]" item in the gallery — add it
+    // as a reference so the user can turn it into a storyboard here.
+    try {
+      const pre = localStorage.getItem('preloadRefImage');
+      if (pre) {
+        localStorage.removeItem('preloadRefImage');
+        const obj = JSON.parse(pre);
+        if (obj && obj.value) {
+          setMode('manual');
+          setSelectedRefImages(prev => (prev.some(p => p.value === obj.value) ? prev : [...prev, {
+            id: `galref-${Date.now()}`, type: 'url', source: 'ai', value: obj.value, preview: getFullImageUrl(obj.value),
+          }]));
+        }
+      }
+    } catch (e) {}
     return () => { if (pollIntervalRef.current) clearInterval(pollIntervalRef.current); };
   }, []);
 

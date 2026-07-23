@@ -882,6 +882,10 @@ export default function Dashboard({ setTab }) {
             {storyboards.map((sb) => {
               const isProcessing = sb.status === 'processing';
               const isFailed = sb.status === 'failed';
+              const isRefImage = (() => {
+                try { return JSON.parse(sb.generation_params || '{}').style === 'ref_image'; }
+                catch (e) { return (sb.title || '').startsWith('[Ref]'); }
+              })();
 
               return (
                 <div
@@ -893,6 +897,15 @@ export default function Dashboard({ setTab }) {
                     }
                     if (isFailed) {
                       alert('Proses pembuatan storyboard ini gagal. Silakan klik tombol "Hapus" pada kartu untuk membersihkannya.');
+                      return;
+                    }
+                    if (isRefImage) {
+                      // Still just a reference image (not a storyboard yet) -> open the AI
+                      // Generator with it preloaded as a reference, to build a storyboard.
+                      const imgs = getResultImages(sb);
+                      const refUrl = imgs && imgs[0];
+                      if (refUrl) { try { localStorage.setItem('preloadRefImage', JSON.stringify({ value: refUrl, title: sb.title })); } catch (e) {} }
+                      if (setTab) setTab('generator');
                       return;
                     }
                     setSelectedStoryboard(sb);
