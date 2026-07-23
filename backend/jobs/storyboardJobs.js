@@ -232,7 +232,7 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
           task.subjectDescriptor = await analyzeSubject({ imagePath: task.finalRefImagePath, ideaText: task.prompt }, db);
           await saveTaskState(db, storyboardId, task);
         }
-        const faceMode = normalizeFaceMode(task.faceMode, task.showFace);
+        const faceMode = normalizeFaceMode(task.faceMode, task.showFace, task.style);
         const spec = getStyleSpec(task.style);
         const genCtx = {
           subject: task.subjectDescriptor || task.prompt, concept: pageConcept, faceMode,
@@ -713,7 +713,7 @@ async function regenerateStoryboardPage(req, res) {
           }
         } catch (e) {}
 
-        const faceMode = normalizeFaceMode(genParams.faceMode, showFace);
+        const faceMode = normalizeFaceMode(genParams.faceMode, showFace, style);
         const spec = getStyleSpec(style);
         const subjectDesc = await analyzeSubject({ imagePath: finalRefImagePath, ideaText: storyboard.prompt }, db);
         const genCtx = {

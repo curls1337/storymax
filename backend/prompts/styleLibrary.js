@@ -11,27 +11,27 @@ const STYLES = {
   // ── A. Transformasi & Reveal ──
   cube_box_transform: {
     name: 'Cube Box Transformation', desc: 'Kubus mekanis presisi diletakkan di permukaan (panel logam, sambungan mikro & engsel; logo produk di sisi atas) → otomatis mengembang & morph mulus jadi produk/model (mekanis, tersambung, tanpa bagian lepas) → hero shot. Fotorealistis sinematik, ala video viral.',
-    category: 'Transformasi & Reveal', format: '9:16', faceMode: 'faceless', bg: 'light',
+    category: 'Transformasi & Reveal', format: '9:16', faceMode: 'no_people', bg: 'light',
     camera: 'cinematic photorealistic reveal; static surface shot then a smooth move as the cube expands; shallow DOF (NOT CGI, NOT a glowing robot)',
     lighting: 'natural cinematic light matched to the setting, realistic reflections, subtle bokeh', header: 'STORYBOARD — CUBE TRANSFORM',
     arc: ['a small hyper-detailed mechanical cube rests statically on a surface (metal panels, micro seams & hinges; product logo on top)', 'the mechanical cube activates as its armored panels begin to automatically slide and unfold smoothly', 'the cube panels UNFOLD, slide & telescope outward SMOOTHLY — mechanically connected, no loose parts', 'the mechanism seamlessly forms the subject itself (the product, or a scaled model/structure of it)', 'the finished subject in a premium hero shot'],
-    negatives: NEG.concat(['humanoid robot / mecha / Transformer (it becomes the product, not a robot)', 'exploding, flying or detached parts', 'energy beams, glow or magic FX', 'CGI cartoon or anime look', 'redesigned or renamed product', 'hands, human hands, fingers, holding hand']),
+    negatives: NEG.concat(['humanoid robot / mecha / Transformer (it becomes the product, not a robot)', 'exploding, flying or detached parts', 'energy beams, glow or magic FX', 'CGI cartoon or anime look', 'redesigned or renamed product', 'hands, human hands, fingers, holding hand, person, human']),
   },
   shape_morph_transform: {
     name: 'Adaptive Shape Transformation', desc: 'Wadah mekanis presisi (bentuk otomatis menyesuaikan subjek: bola, kubus, silinder, prisma segitiga, atau balok) diletakkan di permukaan → mekar & morph mulus otomatis jadi produk/model (mekanis, tersambung, tanpa bagian lepas) → hero shot. Fotorealistis sinematik.',
-    category: 'Transformasi & Reveal', format: '9:16', faceMode: 'faceless', bg: 'light',
+    category: 'Transformasi & Reveal', format: '9:16', faceMode: 'no_people', bg: 'light',
     camera: 'cinematic photorealistic reveal; static surface shot then a smooth move as the container expands; shallow DOF (NOT CGI)',
     lighting: 'natural cinematic light matched to the setting, realistic reflections, subtle bokeh', header: 'STORYBOARD — ADAPTIVE SHAPE TRANSFORM',
     arc: ['a high-tech mechanical pod/container (spherical orb, cube, cylinder, triangular prism, or block matching the subject) rests statically on a surface', 'the pod activates as its armored panels begin to automatically slide and unfold smoothly', 'the panels UNFOLD, slide & telescope outward SMOOTHLY — mechanically connected, no loose parts', 'the mechanism seamlessly forms the subject itself (the product, or a scaled model/structure of it)', 'the finished subject in a premium hero shot'],
-    negatives: NEG.concat(['exploding, flying or detached parts', 'energy beams, glow or magic FX', 'CGI cartoon or anime look', 'redesigned or renamed product', 'hands, human hands, fingers, holding hand']),
+    negatives: NEG.concat(['exploding, flying or detached parts', 'energy beams, glow or magic FX', 'CGI cartoon or anime look', 'redesigned or renamed product', 'hands, human hands, fingers, holding hand, person, human']),
   },
   asmr_toy_transform: {
     name: 'ASMR Toy Transform (Static)', desc: 'Kubus diletakkan di meja lalu membuka sendiri jadi mainan die-cast mini — kamera DIAM total, suara ASMR mekanis, gerak smooth.',
-    category: 'Transformasi & Reveal', format: '9:16', faceMode: 'faceless', bg: 'light',
+    category: 'Transformasi & Reveal', format: '9:16', faceMode: 'no_people', bg: 'light',
     camera: 'LOCKED static tripod, fixed close top-down over a real worn white table — no pan, zoom, orbit or shake; ONLY the toy moves',
     lighting: 'plain natural indoor light on a worn white table, realistic soft shadows', header: 'STORYBOARD — ASMR TOY TRANSFORM',
     arc: ['a small armored cube (product emblem/button on top) rests statically on a worn white table', 'the cube rests still, then its panels begin to UNFOLD by themselves — smooth, satisfying mechanical motion', 'panels slide, hinge and telescope out step by step, building the shape (ASMR clicks & servo whirs)', 'it forms a highly detailed miniature die-cast collectible of the product on the same table', 'the finished glossy mini die-cast toy rests on the table, held static'],
-    negatives: NEG.concat(['any camera movement, pan, zoom, orbit or shake', 'exploding or flying parts', 'glow or energy', 'life-size (must be a small tabletop toy)', 'hands, human hands, fingers, holding hand']),
+    negatives: NEG.concat(['any camera movement, pan, zoom, orbit or shake', 'exploding or flying parts', 'glow or energy', 'life-size (must be a small tabletop toy)', 'hands, human hands, fingers, holding hand, person, human']),
   },
   unboxing: {
     name: 'Unboxing', desc: 'Buka kemasan dramatis, reveal produk, close-up detail.',
