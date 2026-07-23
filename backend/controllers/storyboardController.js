@@ -6,11 +6,14 @@ const fs = require('fs');
 const http = require('http');
 const https = require('https');
 const crypto = require('crypto');
+const { spawn } = require('child_process');
 const { getDb } = require('../db');
 const { scrapeTokopedia } = require('../lib/scrapers/tokopedia');
 const { uploadsDir } = require('../config');
 const { activeTasks, saveTaskState } = require('../state/taskStore');
 const { getAvailableApiKey } = require('../services/keyPool');
+const { resolveFreebeatBase, freebeatSizeArgs } = require('../services/freebeat/cli');
+const { downloadFile } = require('../services/download');
 const {
   runStoryboardGeneratorBackground,
   regenerateStoryboardPage,
@@ -344,9 +347,123 @@ async function downloadProxy(req, res) {
   }
 }
 
+// --- Text-to-Image: generate a REFERENCE image from a prompt (optional) ---
+function _spawnCollect(cmd, args) {
+  return new Promise((resolve) => {
+    const child = spawn(cmd, args);
+    let out = '', err = '';
+    child.stdout.on('data', (d) => { out += d.toString(); });
+    child.stderr.on('data', (d) => { err += d.toString(); });
+    child.on('close', (code) => resolve({ code, out, err }));
+    child.on('error', (e) => resolve({ code: -1, out, err: String(e && e.message || e) }));
+  });
+}
+
+function _extractImageUrl(json) {
+  if (!json) return null;
+  const dataObj = json.data || json;
+  const item = (dataObj && dataObj.items && dataObj.items[0]) || (dataObj && dataObj.results && dataObj.results[0]) || dataObj || {};
+  const pick = (o) => o && (o.imageUrl || o.image_url || o.url || o.image_path || o.imagePath);
+  let url = pick(item) || pick(dataObj);
+  if (!url) {
+    const arrs = [item.editImages, item.edit_images, item.images, item.generateImages, dataObj.images, dataObj.editImages];
+    for (const a of arrs) {
+      if (Array.isArray(a) && a.length) { url = a[0]; break; }
+      if (typeof a === 'string' && a) { url = a; break; }
+    }
+  }
+  return url || null;
+}
+
+// POST /storyboards/generate-ref-image  { prompt, aspectRatio? }
+// Runs Freebeat `image generate` (model 108, quality high) and returns a locally
+// stored image URL to use as a storyboard reference. Optional feature.
+async function generateRefImage(req, res) {
+  const { prompt, aspectRatio } = req.body || {};
+  if (!prompt || !String(prompt).trim()) {
+    return res.status(400).json({ message: 'Prompt wajib diisi.' });
+  }
+  const db = getDb();
+  const keyRecord = await getAvailableApiKey(db);
+  if (!keyRecord) {
+    return res.status(400).json({ message: 'Tidak ada API Key Freebeat yang aktif. Tambahkan key di Admin dulu.' });
+  }
+
+  const base = resolveFreebeatBase(keyRecord.key_value);
+  const sizeArgs = freebeatSizeArgs('108', aspectRatio || '1:1');
+  const genArgs = [
+    ...base.args,
+    'image', 'generate',
+    '--model', '108',
+    '--prompt', String(prompt).slice(0, 1990),
+    ...sizeArgs,
+    '--quality', 'high',
+    '--count', '1',
+    '--json',
+  ];
+
+  try {
+    const sub = await _spawnCollect(base.cmd, genArgs);
+    const lowAll = ((sub.out || '') + ' ' + (sub.err || '')).toLowerCase();
+    if (sub.code !== 0) {
+      if (/credit|balance|insufficient|out of|depleted|payment|limit/.test(lowAll)) {
+        await db.run('UPDATE api_keys SET is_active = 0, last_status = ? WHERE id = ?', ['Kredit habis (nonaktif otomatis) - ' + new Date().toLocaleString('id-ID'), keyRecord.id]).catch(() => {});
+        return res.status(402).json({ message: 'API Key kehabisan kredit. Coba lagi (akan otomatis pakai key lain).' });
+      }
+      return res.status(500).json({ message: 'Gagal generate gambar dari Freebeat.', detail: (sub.err || sub.out || '').slice(0, 300) });
+    }
+
+    let json = null;
+    try { json = JSON.parse(sub.out.trim()); }
+    catch (e) { const m = sub.out.match(/\{[\s\S]*\}/); if (m) { try { json = JSON.parse(m[0]); } catch (e2) {} } }
+
+    let url = _extractImageUrl(json);
+    // If the CLI returned only a batch id (async), poll task status until done.
+    const dataObj = (json && (json.data || json)) || {};
+    const batchId = dataObj.batchId || (json && json.batchId);
+    const serialNo = dataObj.items && dataObj.items[0] && dataObj.items[0].serialNo;
+    if (!url && batchId) {
+      for (let i = 0; i < 30 && !url; i++) {
+        await new Promise((r) => setTimeout(r, 3000));
+        const statusArgs = [...base.args, 'task', 'status', batchId, ...(serialNo ? ['--serial-no', serialNo] : []), '--json'];
+        const st = await _spawnCollect(base.cmd, statusArgs);
+        if (st.code !== 0) continue;
+        let sj = null;
+        try { sj = JSON.parse(st.out.trim()); } catch (e) { continue; }
+        const so = sj.data || sj;
+        const it = (so.items && so.items[0]) || (so.results && so.results[0]) || so;
+        const status = String((it && it.status) || so.status || '').toUpperCase();
+        if (status === 'SUCCESS' || status === 'COMPLETED') { url = _extractImageUrl(sj); break; }
+        if (status === 'FAILED' || status === 'ERROR' || status === 'REJECTED') {
+          return res.status(500).json({ message: 'Render gambar gagal di Freebeat.' });
+        }
+      }
+    }
+
+    if (!url) {
+      return res.status(504).json({ message: 'Timeout menunggu gambar dari Freebeat. Coba lagi.' });
+    }
+
+    // Persist locally so it survives CDN expiry and can be re-fed as a reference.
+    let stored = url;
+    try {
+      const ext = ((url.split('?')[0].match(/\.(png|jpe?g|webp)$/i) || [])[1] || 'png').toLowerCase();
+      const fname = `refgen_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${ext}`;
+      await downloadFile(url, path.join(uploadsDir, fname));
+      stored = `/uploads/${fname}`;
+    } catch (dlErr) { /* fall back to remote url */ }
+
+    db.run('UPDATE api_keys SET last_status = ? WHERE id = ?', ['OK (ref image) - ' + new Date().toLocaleString('id-ID'), keyRecord.id]).catch(() => {});
+    return res.json({ url: stored, remoteUrl: url });
+  } catch (err) {
+    return res.status(500).json({ message: 'Gagal generate ref image.', error: err.message });
+  }
+}
+
 module.exports = {
   getUserStoryboards,
   generateStoryboard,
+  generateRefImage,
   deleteStoryboard,
   getActiveKeys,
   getTaskStatus,

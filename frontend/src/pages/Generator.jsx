@@ -55,7 +55,9 @@ export default function Generator({ setTab }) {
   const dropdownRef = useRef(null);
   
   const [selectedRefImages, setSelectedRefImages] = useState([]);
-  
+  const [refGenPrompt, setRefGenPrompt] = useState('');
+  const [refGenLoading, setRefGenLoading] = useState(false);
+
   const [tokopediaUrl, setTokopediaUrl] = useState('');
   const [scraping, setScraping] = useState(false);
   const [scrapedImages, setScrapedImages] = useState([]);
@@ -416,6 +418,32 @@ export default function Generator({ setTab }) {
     return '';
   };
 
+  // Text-to-Image: generate a reference image from a prompt (optional feature).
+  const handleGenerateRefImage = async () => {
+    if (!refGenPrompt.trim() || refGenLoading) return;
+    setRefGenLoading(true);
+    try {
+      const res = await api.post('/storyboards/generate-ref-image', { prompt: refGenPrompt, aspectRatio });
+      const url = res.data?.url;
+      if (url) {
+        setSelectedRefImages(prev => [...prev, {
+          id: `aigen-${Date.now()}`,
+          type: 'url',
+          source: 'ai',
+          value: url,
+          preview: getFullImageUrl(url),
+        }]);
+        setRefGenPrompt('');
+      } else {
+        alert('Gagal membuat gambar referensi. Coba lagi.');
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || 'Gagal membuat gambar referensi.');
+    } finally {
+      setRefGenLoading(false);
+    }
+  };
+
   const renderRefImagesSection = () => (
     <div className="bg-[#131211]/50 border border-[#2a2725] rounded-xl p-3 space-y-2.5">
       <div className="flex justify-between items-center">
@@ -451,7 +479,12 @@ export default function Generator({ setTab }) {
               >
                 <X className="w-2.5 h-2.5" />
               </button>
-              {img.type === 'url' && (
+              {img.type === 'url' && img.source === 'ai' && (
+                <span className="absolute bottom-1 left-1 px-1 py-0.5 bg-black/80 text-[7px] text-emerald-400 rounded font-bold uppercase">
+                  AI
+                </span>
+              )}
+              {img.type === 'url' && img.source !== 'ai' && (
                 <span className="absolute bottom-1 left-1 px-1 py-0.5 bg-black/80 text-[7px] text-[#cfae80] rounded font-bold uppercase">
                   Tokopedia
                 </span>
@@ -467,10 +500,37 @@ export default function Generator({ setTab }) {
       ) : (
         <div className="text-[9px] text-slate-500 text-center py-2 border border-dashed border-[#2a2725] rounded-lg">
           {mode === 'tokopedia' 
-            ? 'Tidak ada referensi gambar terpilih. Klik gambar Tokopedia di atas atau unggah gambar lokal.' 
+            ? 'Tidak ada referensi gambar terpilih. Klik gambar Tokopedia di atas atau unggah gambar lokal.'
             : 'Tidak ada referensi gambar terpilih. Unggah gambar produk Anda di atas.'}
         </div>
       )}
+
+      {/* Text-to-Image: buat ref image dari prompt (OPSIONAL) */}
+      <div className="pt-2.5 border-t border-[#2a2725]/60 space-y-1.5">
+        <label className="text-slate-350 text-[9px] font-bold uppercase tracking-widest flex items-center gap-1">
+          <Sparkles className="w-3 h-3 text-[#cfae80]" /> Buat Ref dari Teks (AI) — opsional
+        </label>
+        <div className="flex gap-1.5">
+          <input
+            type="text"
+            value={refGenPrompt}
+            onChange={(e) => setRefGenPrompt(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleGenerateRefImage(); } }}
+            placeholder="Contoh: sepatu lari futuristik hitam-emas, studio"
+            className="flex-grow bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-xs text-white placeholder-slate-700 focus:outline-none focus:border-[#cfae80] transition-all"
+            disabled={refGenLoading || generating}
+          />
+          <button
+            type="button"
+            onClick={handleGenerateRefImage}
+            disabled={refGenLoading || generating || !refGenPrompt.trim()}
+            className="bg-[#cfae80]/10 border border-[#cfae80]/25 hover:bg-[#cfae80] hover:text-black text-[#cfae80] font-bold text-[9px] px-3 py-2 rounded-xl transition-all disabled:opacity-40 flex items-center justify-center shrink-0 gap-1"
+          >
+            {refGenLoading ? <Loader className="animate-spin w-3.5 h-3.5" /> : <><Sparkles className="w-3 h-3" /> Buat</>}
+          </button>
+        </div>
+        <p className="text-[8px] text-slate-500 leading-relaxed">Gambar hasil AI otomatis jadi referensi (model 108, kualitas tinggi). Bisa dipakai atau dilewati.</p>
+      </div>
     </div>
   );
 
