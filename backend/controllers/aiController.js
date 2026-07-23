@@ -442,7 +442,16 @@ async function generateVideoPromptsInternal({ storyboardId, promptType, regenera
       'formal': 'Gaya bahasa RESMI, SERIUS, EDUKATIF, profesional, menggunakan tata bahasa yang baik dan benar (EYD/PUEBI), informatif dan berwibawa.',
       'emotional': 'Gaya bahasa MENYENTUH HATI, EMOSIONAL, EMPATIS, HANGAT, puitis, dan penuh perasaan agar menyentuh sisi kemanusiaan atau perasaan terdalam audiens.',
       'storytelling': 'Gaya bahasa BERCERITA (Storytelling), naratif, mengalir seperti mendongeng, membuat penasaran dengan alur cerita yang memikat.',
-      'dramatic': 'Gaya bahasa DRAMATIS, TEGANG, MISTERIUS, penuh penekanan (suspenseful), seolah ada rahasia besar atau sesuatu yang luar biasa akan terjadi.'
+      'dramatic': 'Gaya bahasa DRAMATIS, TEGANG, MISTERIUS, penuh penekanan (suspenseful), seolah ada rahasia besar atau sesuatu yang luar biasa akan terjadi.',
+      'soft_spoken': 'Gaya bahasa LEMBUT, TENANG, BISIKAN ASMR, santai, menenangkan jiwa, ritme perlahan dan sangat rileks.',
+      'luxury_premium': 'Gaya bahasa ELEGAN, MEWAH, EKSLUSIF, mahal, sinematik, menggunakan diksi kelas tinggi yang menggambarkan prestise dan kemewahan.',
+      'poetic_aesthetic': 'Gaya bahasa PUITIS, ESTETIK, ARTISTIK, penuh estetika visual, kata-kata indah yang puitis dan memanjakan imajinasi.',
+      'news_anchor': 'Gaya bahasa REPORTER BERITA, Breaking News, lugas, cepat, berdasarkan fakta menarik, berwibawa seperti pembawa acara berita internasional.',
+      'motivator_inspirational': 'Gaya bahasa MOTIVASI, INSPIRATIF, MEMBAKAR SEMANGAT, membangkitkan percaya diri dan dorongan positif yang kuat.',
+      'review_honest': 'Gaya bahasa REVIEWER JUJUR, objektif, tanpa basa-basi, langsung pada poin plus-minus produk, seperti ulasan influencer tepercaya.',
+      'cinematic_trailer': 'Gaya bahasa MOVIE TRAILER HOLLYWOOD, epik, megah, bernada dalam dan berwibawa seperti narasi trailer film box-office.',
+      'sarcastic_witty': 'Gaya bahasa WITTY & SINDRAN HALUS, cerdas, sinis relatable, sarkasme lucu yang menyindir masalah sehari-hari dengan jenaka.',
+      'kids_playful': 'Gaya bahasa CERIA & DUNIA ANAK, gembira, energik, komunikatif, penuh kegembiraan dunia mainan dan petualangan seru.'
     };
     const toneDesc = toneRules[voTone] || voTone;
     toneClause = `Crucial: The tone and writing style of the voiceover script MUST strictly follow this style (in the narration language): "${toneDesc}". You must rewrite the narration using vocabulary, slang, emotional triggers, or structural patterns that perfectly match this style. For example, if it is casual or comedy, use slang and conversational Indonesian.`;
