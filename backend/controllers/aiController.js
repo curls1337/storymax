@@ -9,6 +9,14 @@ const { uploadsDir } = require('../config');
 const LAYOUT_STYLES = require('../constants/layoutStyles');
 const { resolveStyleId } = require('../prompts/styleLibrary');
 
+// Styles whose VIDEO should get the full cinematic atmosphere (haze + subtle lens
+// flare + shallow DOF). Every other style stays clean & crisp (DOF only, no
+// haze/flare) so products/UGC/tutorials/comparisons read clearly and honestly.
+const CINEMATIC_VIDEO_STYLES = new Set([
+  'cube_box_transform', 'short_story', 'cinematic_broll', 'luxury_mood',
+  'product_assembly', 'liquid_splash', 'fashion_lookbook',
+]);
+
 
 function httpRequest(url, headers, body) {
   return new Promise((resolve, reject) => {
@@ -426,6 +434,12 @@ CRITICAL CUBE TRANSFORMATION VIDEO RULES (photorealistic viral cube-reveal — N
   const followBoardClause = `FOLLOW THE STORYBOARD'S OWN DIRECTIONS: every panel/card prints production tags — 'CAM:' (camera angle/movement), 'LIGHT:' (lighting) and 'AUDIO:' (music/SFX) — plus a scene title and a one-line action. READ those printed tags in EACH panel and make your "imageToVideoPrompt" (camera + motion + atmosphere) FOLLOW them precisely: e.g. a panel tagged 'CAM: low-angle tracking' -> a low-angle tracking move; 'CAM: static'/'locked' -> a locked tripod shot; 'CAM: push-in' -> a slow push-in; match the mood to the 'LIGHT:' tag and let the motion match the panel's written action. NEVER contradict a panel's printed camera/lighting/action — the storyboard directs the video.
 SUBJECT CONSISTENCY (CRITICAL): every page/scene depicts the SAME product/subject/dish shown across the panels. Keep that exact subject identical in EVERY scene's prompt — never switch to a different product, dish, ingredient, or theme partway through (e.g. if early scenes cook noodles, later scenes are the SAME noodles, not vegetables). Only the stage/action/camera changes, not the subject.`;
 
+  // Style-aware atmosphere: cinematic styles get haze + subtle lens flare + DOF;
+  // clean styles stay crisp (DOF only, no haze/flare) so the product/scene is clear.
+  const atmo = CINEMATIC_VIDEO_STYLES.has(resolvedStyle)
+    ? 'cinematic haze, subtle anamorphic lens flare, shallow depth of field with creamy bokeh, volumetric lighting, gentle motion blur'
+    : 'clean, crisp, true-to-life lighting, sharp focus on the subject, shallow depth of field for subtle separation (NO cinematic haze, NO lens flare — keep the product/scene clear and honest)';
+
   let systemInstruction = '';
   if (enableVo) {
     systemInstruction = `You are an expert AI Video Director and master video prompting engineer specializing in high-fidelity commercial video generation.
@@ -440,11 +454,11 @@ Your task is to analyze all the pages sequentially and write a distinct visual p
 For each page (scene):
 1. "imageToVideoPrompt": A dynamic, pure MOTION and CAMERA DIRECTION prompt in English (60-120 words) tailored for Image-to-Video models that ALREADY have the visual image.
    - STRICT RULE: DO NOT describe or repeat product details, product colors, or physical packaging appearance, because the image model already sees the image!
-   - FOCUS ONLY ON: Camera movement (e.g. "slow tracking shot", "cinematic pan down", "subtle handheld camera movement"), object/character action motion (e.g. "hands gently opening the box", "fluid water splashes"), and atmospheric lighting effects ("cinematic haze, subtle anamorphic lens flare, shallow depth of field with creamy bokeh, volumetric lighting, motion blur").
+   - FOCUS ONLY ON: Camera movement (e.g. "slow tracking shot", "cinematic pan down", "subtle handheld camera movement"), object/character action motion (e.g. "hands gently opening the box", "fluid water splashes"), and atmospheric lighting effects ("${atmo}").
    - VO TIMING (Mandatory since Voiceover is ENABLED): Explicitly specify the Voiceover narration speech timing in the motion prompt (e.g., "At 0s, narrator speaks: '[VO text]'. Simultaneously, camera pans down...").
 
 2. "textToVideoPrompt": A full, self-contained Text-to-Video prompt in English (100-160 words) that describes everything from scratch for video models WITHOUT image input.
-   - Include complete physical product descriptions, scene environment, material textures, lighting, cinematic haze, subtle lens flare, shallow depth of field with soft bokeh, camera angles, and chronological action sequence across all panels on that page.
+   - Include complete physical product descriptions, scene environment, material textures, lighting, ${atmo}, camera angles, and chronological action sequence across all panels on that page.
    - VO TIMING (Mandatory since Voiceover is ENABLED): Explicitly specify the Voiceover narration speech timing and calm pace in the motion prompt (e.g., "At 0s, narrator speaks at a calm, relaxed, unhurried pace: '[VO text]'. Simultaneously, camera pans down...").
 
 3. "narration": A voiceover narration script paragraph in the language: "${voLanguage || 'Bahasa Indonesia'}". ${toneClause} The narration must fit the page duration and align with the chronological visual action of that page.
@@ -494,10 +508,10 @@ For each page (scene):
 1. "imageToVideoPrompt": A dynamic, pure MOTION and CAMERA DIRECTION prompt in English (50-100 words) tailored for Image-to-Video models that ALREADY have the visual image.
    - STRICT RULE: DO NOT describe or repeat product details, product colors, or physical packaging appearance, because the image model already sees the image!
    - STRICT RULE: Voiceover is DISABLED for this project. DO NOT include any voiceover timing or narration text in this prompt!
-   - FOCUS ONLY ON: Camera movement (e.g. "slow tracking shot", "cinematic pan down", "subtle handheld camera movement"), object/character action motion (e.g. "hands gently opening the box", "fluid water splashes"), and atmospheric lighting effects ("cinematic haze, subtle anamorphic lens flare, shallow depth of field with creamy bokeh, volumetric lighting, motion blur").
+   - FOCUS ONLY ON: Camera movement (e.g. "slow tracking shot", "cinematic pan down", "subtle handheld camera movement"), object/character action motion (e.g. "hands gently opening the box", "fluid water splashes"), and atmospheric lighting effects ("${atmo}").
 
 2. "textToVideoPrompt": A full, self-contained Text-to-Video prompt in English (100-160 words) that describes everything from scratch for video models WITHOUT image input.
-   - Include complete physical product descriptions, scene environment, material textures, lighting, cinematic haze, subtle lens flare, shallow depth of field with soft bokeh, camera angles, and chronological action sequence across all panels on that page.
+   - Include complete physical product descriptions, scene environment, material textures, lighting, ${atmo}, camera angles, and chronological action sequence across all panels on that page.
 
 You MUST return the output strictly in this JSON format (do not wrap in markdown \`\`\`json blocks):
 {
