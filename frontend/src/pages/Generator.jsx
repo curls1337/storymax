@@ -57,6 +57,7 @@ export default function Generator({ setTab }) {
   const [selectedRefImages, setSelectedRefImages] = useState([]);
   const [refGenPrompt, setRefGenPrompt] = useState('');
   const [refGenLoading, setRefGenLoading] = useState(false);
+  const refGenPollRef = useRef(null);
 
   const [tokopediaUrl, setTokopediaUrl] = useState('');
   const [scraping, setScraping] = useState(false);
@@ -424,23 +425,34 @@ export default function Generator({ setTab }) {
     setRefGenLoading(true);
     try {
       const res = await api.post('/storyboards/generate-ref-image', { prompt: refGenPrompt, aspectRatio });
-      const url = res.data?.url;
-      if (url) {
-        setSelectedRefImages(prev => [...prev, {
-          id: `aigen-${Date.now()}`,
-          type: 'url',
-          source: 'ai',
-          value: url,
-          preview: getFullImageUrl(url),
-        }]);
-        setRefGenPrompt('');
-      } else {
-        alert('Gagal membuat gambar referensi. Coba lagi.');
-      }
+      const taskId = res.data?.taskId;
+      if (!taskId) { setRefGenLoading(false); alert('Gagal memulai. Coba lagi.'); return; }
+      // Poll patiently — background task like a storyboard, NO timeout. To cancel,
+      // the user just starts a new project.
+      if (refGenPollRef.current) clearInterval(refGenPollRef.current);
+      refGenPollRef.current = setInterval(async () => {
+        try {
+          const s = await api.get(`/storyboards/tasks/${taskId}`);
+          const t = s.data;
+          if (t.status === 'success') {
+            clearInterval(refGenPollRef.current); refGenPollRef.current = null;
+            const url = t.result?.url;
+            if (url) {
+              setSelectedRefImages(prev => [...prev, { id: `aigen-${Date.now()}`, type: 'url', source: 'ai', value: url, preview: getFullImageUrl(url) }]);
+              setRefGenPrompt('');
+            }
+            setRefGenLoading(false);
+          } else if (t.status === 'failed') {
+            clearInterval(refGenPollRef.current); refGenPollRef.current = null;
+            setRefGenLoading(false);
+            alert(t.error || 'Gagal membuat gambar referensi.');
+          }
+          // else: still processing — keep waiting patiently.
+        } catch (e) { /* task may not be ready yet; keep polling */ }
+      }, 4000);
     } catch (err) {
-      alert(err.response?.data?.message || 'Gagal membuat gambar referensi.');
-    } finally {
       setRefGenLoading(false);
+      alert(err.response?.data?.message || 'Gagal memulai pembuatan gambar.');
     }
   };
 
@@ -526,10 +538,14 @@ export default function Generator({ setTab }) {
             disabled={refGenLoading || generating || !refGenPrompt.trim()}
             className="bg-[#cfae80]/10 border border-[#cfae80]/25 hover:bg-[#cfae80] hover:text-black text-[#cfae80] font-bold text-[9px] px-3 py-2 rounded-xl transition-all disabled:opacity-40 flex items-center justify-center shrink-0 gap-1"
           >
-            {refGenLoading ? <Loader className="animate-spin w-3.5 h-3.5" /> : <><Sparkles className="w-3 h-3" /> Buat</>}
+            {refGenLoading ? <><Loader className="animate-spin w-3.5 h-3.5" /> Proses</> : <><Sparkles className="w-3 h-3" /> Buat</>}
           </button>
         </div>
-        <p className="text-[8px] text-slate-500 leading-relaxed">Gambar hasil AI otomatis jadi referensi (model 108, kualitas tinggi). Bisa dipakai atau dilewati.</p>
+        {refGenLoading ? (
+          <p className="text-[8px] text-[#cfae80] leading-relaxed animate-pulse">Sedang membuat gambar referensi di latar belakang… tunggu ya (bisa agak lama). Untuk batal, cukup buat project baru.</p>
+        ) : (
+          <p className="text-[8px] text-slate-500 leading-relaxed">Gambar hasil AI otomatis jadi referensi (model 108, kualitas tinggi). Proses di latar belakang, tanpa batas waktu.</p>
+        )}
       </div>
     </div>
   );
