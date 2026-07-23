@@ -429,6 +429,16 @@ CRITICAL CUBE TRANSFORMATION VIDEO RULES (photorealistic viral cube-reveal — N
 3. Keep the subject's EXACT identity, branding and colors. Hands ARE allowed (holding, tossing). End on the finished photorealistic result in a cinematic hero shot.`;
   }
 
+  if (resolvedStyle === 'asmr_toy_transform') {
+    // Static-camera ASMR toy transform on a tabletop.
+    capsuleStyleClause = `
+CRITICAL ASMR TOY TRANSFORM VIDEO RULES (LOCKED camera, tabletop, ASMR — no camera effects):
+1. The CAMERA IS COMPLETELY LOCKED/STATIC on a tripod, fixed close over a real worn white table. ABSOLUTELY NO camera movement — no pan, tilt, zoom, orbit, dolly, push-in or shake. ONLY the toy moves. Ignore any 'CAM:' tag that implies movement; keep the shot perfectly still.
+2. A small armored cube rests on the table and SMOOTHLY, mechanically UNFOLDS by itself — panels slide, hinge and telescope out step by step — into a highly detailed miniature die-cast collectible of the product on the SAME table. Photorealistic; mechanically connected; NO flying/detaching parts; NO glow/energy; NOT a humanoid robot/mecha.
+3. AUDIO = satisfying ASMR mechanical transformation sounds ONLY (soft clicks, servo whirs, panels locking into place). No music-over.
+4. Keep the exact same worn white table and the product's exact identity throughout; end on the finished mini die-cast toy resting still on the table.`;
+  }
+
   // Make the generated video FOLLOW the directions printed inside the storyboard
   // (applies to EVERY style — the storyboard is the director's sheet).
   const followBoardClause = `FOLLOW THE STORYBOARD'S OWN DIRECTIONS: every panel/card prints production tags — 'CAM:' (camera angle/movement), 'LIGHT:' (lighting) and 'AUDIO:' (music/SFX) — plus a scene title and a one-line action. READ those printed tags in EACH panel and make your "imageToVideoPrompt" (camera + motion + atmosphere) FOLLOW them precisely: e.g. a panel tagged 'CAM: low-angle tracking' -> a low-angle tracking move; 'CAM: static'/'locked' -> a locked tripod shot; 'CAM: push-in' -> a slow push-in; match the mood to the 'LIGHT:' tag and let the motion match the panel's written action. NEVER contradict a panel's printed camera/lighting/action — the storyboard directs the video.

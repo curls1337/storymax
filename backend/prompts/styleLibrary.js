@@ -17,6 +17,14 @@ const STYLES = {
     arc: ['a hand holds a small hyper-detailed mechanical cube (metal panels, micro seams & hinges; product logo on the top face)', 'the hand places or tosses the cube; it lands with real weight in a fitting setting', 'the cube panels UNFOLD, slide & telescope outward SMOOTHLY — mechanically connected, no loose parts', 'the mechanism seamlessly forms the subject itself (the product, or a scaled model/structure of it)', 'the finished subject in a premium hero shot'],
     negatives: NEG.concat(['humanoid robot / mecha / Transformer (it becomes the product, not a robot)', 'exploding, flying or detached parts', 'energy beams, glow or magic FX', 'CGI cartoon or anime look', 'redesigned or renamed product']),
   },
+  asmr_toy_transform: {
+    name: 'ASMR Toy Transform (Static)', desc: 'Kubus diletakkan di meja lalu membuka sendiri jadi mainan die-cast mini — kamera DIAM total, suara ASMR mekanis, gerak smooth.',
+    category: 'Transformasi & Reveal', format: '9:16', faceMode: 'faceless', bg: 'light',
+    camera: 'LOCKED static tripod, fixed close top-down over a real worn white table — no pan, zoom, orbit or shake; ONLY the toy moves',
+    lighting: 'plain natural indoor light on a worn white table, realistic soft shadows', header: 'STORYBOARD — ASMR TOY TRANSFORM',
+    arc: ['a hand sets a small armored cube (product emblem/button on top) onto a worn white table, then lets go', 'the cube rests still, then its panels begin to UNFOLD by themselves — smooth, satisfying mechanical motion', 'panels slide, hinge and telescope out step by step, building the shape (ASMR clicks & servo whirs)', 'it forms a highly detailed miniature die-cast collectible of the product on the same table', 'the finished glossy mini die-cast toy rests on the table, held static'],
+    negatives: NEG.concat(['any camera movement, pan, zoom, orbit or shake', 'humanoid robot or mecha', 'exploding or flying parts', 'glow or energy', 'life-size (must be a small tabletop toy)']),
+  },
   unboxing: {
     name: 'Unboxing', desc: 'Buka kemasan dramatis, reveal produk, close-up detail.',
     category: 'Transformasi & Reveal', format: '9:16', faceMode: 'faceless', bg: 'dark',

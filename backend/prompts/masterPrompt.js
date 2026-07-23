@@ -81,7 +81,7 @@ function buildMasterPrompt(spec, ctx = {}) {
   // Photo styles: force photorealism (defeat the "storyboard = sketch" bias).
   const photoreal = spec.id ? !ILLUSTRATION_STYLES.has(spec.id) : true;
   const realNote = photoreal
-    ? ' EVERY panel is a PHOTOREALISTIC photographic film still (lifelike materials, real lighting, sharp focus) — NOT a sketch, drawing, concept art, cartoon or clay render.'
+    ? ' Render EVERY panel as a PHOTOREALISTIC photo (real lighting, sharp focus) — NOT a sketch, drawing or concept art.'
     : '';
   const antiSketch = photoreal ? ['sketch', 'line art', 'concept art', 'cartoon/anime drawing', 'flat clay or low-detail CGI render'] : [];
   const negatives = [].concat(spec.negatives || [], antiSketch, fneg ? [fneg] : []).join(', ');
@@ -111,8 +111,8 @@ ${negLine}`;
 HEADER: banner '${spec.header}${partLabel}' + product name + badges 'DURATION ${dur}', 'SCENES ${gc}', 'RATIO ${ratio}'.
 SUBJECT (identical in every card): ${String(subject || 'the product').slice(0, 140)}.${refNote}
 Lay out ${layout}, numbered SCENE ${startScene}–${endScene}. EACH card shows: the panel image, a short SCENE TITLE, a one-line action, and tiny production tags 'CAM: <angle>', 'LIGHT: <lighting>', 'AUDIO: <music/sfx>' + a duration chip; vary the camera per scene; keep card layout & background consistent.
-${cl}
-Base camera: ${spec.camera}; light: ${spec.lighting}.`
+Base camera: ${spec.camera}; light: ${spec.lighting}.
+${cl}`
     );
   };
 
