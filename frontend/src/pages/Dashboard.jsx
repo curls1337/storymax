@@ -1344,8 +1344,18 @@ export default function Dashboard({ setTab }) {
                     {imageToVideoPrompt ? (
                       <div className="space-y-2">
                         <div className="bg-[#131211]/50 border border-[#2a2725] rounded-xl p-3.5 text-slate-350 text-[11px] leading-relaxed relative max-h-48 overflow-y-auto scrollbar-thin font-mono whitespace-pre-line">
+                          <span className="text-[8px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Visual Motion Prompt (English)</span>
                           {imageToVideoPrompt}
                         </div>
+                        
+                        {narration && (
+                          <div className="bg-[#cfae80]/10 border border-[#cfae80]/30 rounded-xl p-3 text-[11px] leading-relaxed text-[#cfae80] font-sans animate-fadeIn">
+                            <span className="text-[8.5px] font-bold uppercase tracking-widest text-[#cfae80] flex items-center gap-1 mb-1">
+                              🎙️ Naskah Voice Over (VO)
+                            </span>
+                            "{narration}"
+                          </div>
+                        )}
                         
                         {/* Options block for rewriting */}
                         <div className="flex flex-col gap-2.5 bg-[#131211]/30 border border-[#2a2725] rounded-xl p-3 mt-1.5">
@@ -1440,8 +1450,11 @@ export default function Dashboard({ setTab }) {
                         <button
                           onClick={() => {
                             try {
-                              navigator.clipboard.writeText(imageToVideoPrompt);
-                              alert('Prompt Image-to-Video berhasil disalin!');
+                              const copyText = narration 
+                                ? `${imageToVideoPrompt}\n\n[Voiceover Narration]:\n"${narration}"`
+                                : imageToVideoPrompt;
+                              navigator.clipboard.writeText(copyText);
+                              alert('Prompt Image-to-Video & Voiceover berhasil disalin!');
                             } catch (e) {
                               alert('Gagal menyalin.');
                             }
@@ -1567,8 +1580,18 @@ export default function Dashboard({ setTab }) {
                     {textToVideoPrompt ? (
                       <div className="space-y-2">
                         <div className="bg-[#131211]/50 border border-[#2a2725] rounded-xl p-3.5 text-slate-350 text-[11px] leading-relaxed relative max-h-48 overflow-y-auto scrollbar-thin font-mono whitespace-pre-line">
+                          <span className="text-[8px] font-bold uppercase tracking-widest text-slate-400 block mb-1">Visual Prompt Text-to-Video (English)</span>
                           {textToVideoPrompt}
                         </div>
+                        
+                        {narration && (
+                          <div className="bg-[#cfae80]/10 border border-[#cfae80]/30 rounded-xl p-3 text-[11px] leading-relaxed text-[#cfae80] font-sans animate-fadeIn">
+                            <span className="text-[8.5px] font-bold uppercase tracking-widest text-[#cfae80] flex items-center gap-1 mb-1">
+                              🎙️ Naskah Voice Over (VO)
+                            </span>
+                            "{narration}"
+                          </div>
+                        )}
                         
                         {/* Options block for rewriting */}
                         <div className="flex flex-col gap-2.5 bg-[#131211]/30 border border-[#2a2725] rounded-xl p-3 mt-1.5">
@@ -1660,8 +1683,11 @@ export default function Dashboard({ setTab }) {
                         <button
                           onClick={() => {
                             try {
-                              navigator.clipboard.writeText(textToVideoPrompt);
-                              alert('Prompt Text-to-Video berhasil disalin!');
+                              const copyText = narration 
+                                ? `${textToVideoPrompt}\n\n[Voiceover Narration]:\n"${narration}"`
+                                : textToVideoPrompt;
+                              navigator.clipboard.writeText(copyText);
+                              alert('Prompt Text-to-Video & Voiceover berhasil disalin!');
                             } catch (e) {
                               alert('Gagal menyalin.');
                             }
