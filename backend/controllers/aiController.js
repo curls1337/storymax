@@ -519,11 +519,13 @@ Your task is to analyze all the pages sequentially and write a distinct visual p
 For each page (scene):
 1. "imageToVideoPrompt": A dynamic, pure MOTION and CAMERA DIRECTION prompt in English (60-120 words) tailored for Image-to-Video models that ALREADY have the visual image.
    - STRICT RULE: DO NOT describe or repeat product details, product colors, or physical packaging appearance, because the image model already sees the image!
-   - FOCUS ONLY ON: Camera movement (e.g. "slow tracking shot", "cinematic pan down", "subtle handheld camera movement"), object/character action motion (e.g. "hands gently opening the box", "fluid water splashes"), and atmospheric lighting effects ("${atmo}").
+   - FOCUS ONLY ON: Camera movement (e.g. "slow tracking shot", "cinematic pan down", "smooth camera orbit"), mechanical/object action motion (e.g. "panels sliding and unfolding smoothly", "fluid water splashes"), and atmospheric lighting effects ("${atmo}").
+   - STRICT RULE FOR TRANSFORMATIONS (Cube/ASMR/Shape): ABSOLUTELY NO human hands, NO fingers, NO human interaction in the prompt. The object/cube unfolds completely automatically by itself on the surface!
    - STRICT RULE: DO NOT include any narration script text or "narrator speaks:" tags inside this visual prompt field. Keep it purely visual!
 
 2. "textToVideoPrompt": A full, self-contained Text-to-Video prompt in English (110-180 words). The text-to-video model has NO image — recreate THIS storyboard panel from words alone.
    - Describe EXACTLY what the panel shows: the main subject/product faithfully (type, shape, exact colors, materials, logo/branding & any visible text), the setting/background, props, composition & framing, the lighting/mood and ${atmo} — THEN the chronological action and camera movement across the panel's scenes. Be concrete and visual so the generated video matches the storyboard panel.
+   - STRICT RULE FOR TRANSFORMATIONS (Cube/ASMR/Shape): ABSOLUTELY NO human hands, NO fingers, NO human interaction in the prompt. The object/cube unfolds completely automatically by itself on the surface!
    - STRICT RULE: DO NOT include any narration script text or "narrator speaks:" tags inside this visual prompt field. Keep it purely visual!
 
 3. "narration": A voiceover narration script paragraph in the language: "${voLanguage || 'Bahasa Indonesia'}". ${toneClause} The narration must fit the page duration and align with the chronological visual action of that page.
@@ -648,6 +650,24 @@ Please analyze the provided image sheet(s) carefully. Generate the requested JSO
   try {
     const parsed = JSON.parse(cleanText);
     if (parsed && Array.isArray(parsed.scenes)) {
+      if (['cube_box_transform', 'asmr_toy_transform', 'shape_morph_transform', 'cube_morph_product', 'capsule_toss_transform'].includes(resolvedStyle)) {
+        parsed.scenes = parsed.scenes.map(s => {
+          let i2v = s.imageToVideoPrompt || '';
+          let t2v = s.textToVideoPrompt || '';
+
+          i2v = i2v.replace(/(?:A|a)\s+hand\s+gently\s+interacts\s+with/gi, 'The object automatically unfolds on');
+          i2v = i2v.replace(/(?:A|a)\s+hand\s+gently\s+opens/gi, 'The object automatically opens');
+          i2v = i2v.replace(/(?:A|a)\s+hand\s+(?:gently\s+)?(?:touches|holds|presses|interacts\s+with|interacts)/gi, 'The mechanical mechanism');
+          i2v = i2v.replace(/\b(?:hands?|fingers?|human\s+hands?)\b/gi, 'mechanical panels');
+
+          t2v = t2v.replace(/(?:A|a)\s+hand\s+gently\s+interacts\s+with/gi, 'The object automatically unfolds on');
+          t2v = t2v.replace(/(?:A|a)\s+hand\s+gently\s+opens/gi, 'The object automatically opens');
+          t2v = t2v.replace(/(?:A|a)\s+hand\s+(?:gently\s+)?(?:touches|holds|presses|interacts\s+with|interacts)/gi, 'The mechanical mechanism');
+          t2v = t2v.replace(/\b(?:hands?|fingers?|human\s+hands?)\b/gi, 'mechanical panels');
+
+          return { ...s, imageToVideoPrompt: i2v, textToVideoPrompt: t2v };
+        });
+      }
       finalJsonStr = JSON.stringify(parsed);
     } else {
       throw new Error("Invalid structure from AI");
