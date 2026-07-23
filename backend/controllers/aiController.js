@@ -520,21 +520,22 @@ For each page (scene):
 1. "imageToVideoPrompt": A dynamic, pure MOTION and CAMERA DIRECTION prompt in English (60-120 words) tailored for Image-to-Video models that ALREADY have the visual image.
    - STRICT RULE: DO NOT describe or repeat product details, product colors, or physical packaging appearance, because the image model already sees the image!
    - FOCUS ONLY ON: Camera movement (e.g. "slow tracking shot", "cinematic pan down", "subtle handheld camera movement"), object/character action motion (e.g. "hands gently opening the box", "fluid water splashes"), and atmospheric lighting effects ("${atmo}").
-   - VO TIMING & SPEAKER CONSISTENCY (Mandatory since Voiceover is ENABLED): Explicitly specify the Voiceover narration speech timing and consistent speaker voice tag (e.g., "At 0s, narrator (same adult Indonesian narrator voice as Scene 1) speaks: '[VO text]'. Simultaneously, camera pans down...").
+   - STRICT RULE: DO NOT include any narration script text or "narrator speaks:" tags inside this visual prompt field. Keep it purely visual!
 
 2. "textToVideoPrompt": A full, self-contained Text-to-Video prompt in English (110-180 words). The text-to-video model has NO image — recreate THIS storyboard panel from words alone.
    - Describe EXACTLY what the panel shows: the main subject/product faithfully (type, shape, exact colors, materials, logo/branding & any visible text), the setting/background, props, composition & framing, the lighting/mood and ${atmo} — THEN the chronological action and camera movement across the panel's scenes. Be concrete and visual so the generated video matches the storyboard panel.
-   - VO TIMING & SPEAKER CONSISTENCY (Mandatory since Voiceover is ENABLED): Explicitly specify the Voiceover narration speech timing and consistent speaker voice tag (e.g., "At 0s, narrator (same adult Indonesian narrator voice as Scene 1) speaks: '[VO text]'. Simultaneously, camera pans down...").
+   - STRICT RULE: DO NOT include any narration script text or "narrator speaks:" tags inside this visual prompt field. Keep it purely visual!
 
 3. "narration": A voiceover narration script paragraph in the language: "${voLanguage || 'Bahasa Indonesia'}". ${toneClause} The narration must fit the page duration and align with the chronological visual action of that page.
 
-CRITICAL SPEECH PACING, TEMPO & WORD COUNT RULES (Strictly prevents fast, rushed, garbled, or rapid voiceover):
-- TEMPO & PACING: Write narration to be spoken at a calm, relaxed, articulate, and natural conversational pace (approx 1.5 to 2.0 words per second). Always insert punctuation (commas ',', periods '.', and ellipses '...') strategically between phrases to enforce clear, natural breathing pauses so the voiceover sounds clear and articulate.
-- STRICT WORD COUNT LIMIT PER SCENE (CALIBRATED BY DURATION):
-  * For ~5-second scene: Strictly MAX 6 to 9 words TOTAL for that scene.
-  * For ~10-second scene: Strictly MAX 12 to 15 words TOTAL for that scene.
-  * For ~15-second scene: Strictly MAX 18 to 22 words TOTAL for that scene.
-- NEVER cram long, dense sentences into a single scene! Keep phrases short, rhythmic, punchy, and well-spaced.
+CRITICAL SPEECH PACING, TEMPO & WORD COUNT RULES (Strictly prevents fast, rushed, garbled, or mismatched voiceover):
+- TEMPO & PACING: Write narration to be spoken at a calm, relaxed, articulate, and natural conversational pace (approx 1.2 to 1.3 words per second). Always insert punctuation (commas ',', periods '.', and ellipses '...') strategically between phrases to enforce clear, natural breathing pauses so the voiceover sounds clear and articulate.
+- STRICT WORD COUNT LIMIT PER SCENE (CALIBRATED TO EXACT DURATION):
+  * For ~5-second scene: Strictly MAX 6 to 8 words TOTAL for that scene.
+  * For ~8-second scene: Strictly MAX 9 to 11 words TOTAL for that scene.
+  * For ~10-second scene: Strictly MAX 12 to 14 words TOTAL for that scene.
+  * For ~15-second scene: Strictly MAX 18 to 20 words TOTAL for that scene.
+- NEVER cram long, dense sentences into a single scene! Keep phrases short, rhythmic, punchy, and well-spaced so speech finishes naturally before the scene ends.
 
 CRITICAL NARRATION FLOW & STRUCTURE:
 The voiceover narrations across all the ${totalScenes} pages must combine to form one single, continuously flowing script from the first page to the last. Do not treat each page as a standalone video!

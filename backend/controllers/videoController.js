@@ -205,8 +205,7 @@ async function generateVideo(req, res) {
                     if (params.voTone) tone = params.voTone;
                   } catch (e) {}
                 }
-                const speakerAnchor = `[STRICT AUDIO RULE: Maintain the EXACT SAME narrator speaker voice, gender, timbre, accent, and audio tone as Scene 1 across all scenes in this project. Single consistent ${tone} narrator voice throughout all scenes]`;
-                finalPrompt += `\n\nVoiceover (${lang}) ${speakerAnchor}:\n${match.narration}`;
+                finalPrompt += `\n\n[Voiceover Narration - ${lang}]:\n"${match.narration}"`;
               }
             }
           } catch (e) {
@@ -1102,8 +1101,7 @@ async function generateAllVideos(req, res) {
                 if (params.voTone) tone = params.voTone;
               } catch (e) {}
             }
-            const speakerAnchor = `[STRICT AUDIO RULE: Maintain the EXACT SAME narrator speaker voice, gender, timbre, accent, and audio tone as Scene 1 across all scenes in this project. Single consistent ${tone} narrator voice throughout all scenes]`;
-            promptText += `\n\nVoiceover (${lang}) ${speakerAnchor}:\n${matchingPrompt.narration}`;
+            promptText += `\n\n[Voiceover Narration - ${lang}]:\n"${matchingPrompt.narration}"`;
           }
         }
         
