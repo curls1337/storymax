@@ -32,6 +32,12 @@ function bgClause(bg) {
   return 'clean solid flat bright white background';
 }
 
+// Styles that are INTENTIONALLY illustrated (not photographic). Every other style
+// should render as photorealistic PHOTO panels — not sketches / concept art. The
+// word "storyboard" biases image models toward rough sketches, so photo styles get
+// an explicit photorealism directive + anti-sketch negatives.
+const ILLUSTRATION_STYLES = new Set(['anime_comic', 'stop_motion', 'tiny_world', 'education_explainer']);
+
 function buildMasterPrompt(spec, ctx = {}) {
   const {
     subject = 'the product',
@@ -72,7 +78,13 @@ function buildMasterPrompt(spec, ctx = {}) {
   }
   const face = faceClause(faceMode);
   const fneg = faceNegative(faceMode);
-  const negatives = [].concat(spec.negatives || [], fneg ? [fneg] : []).join(', ');
+  // Photo styles: force photorealism (defeat the "storyboard = sketch" bias).
+  const photoreal = spec.id ? !ILLUSTRATION_STYLES.has(spec.id) : true;
+  const realNote = photoreal
+    ? ' EVERY panel is a PHOTOREALISTIC photographic film still (lifelike materials, real lighting, sharp focus) — NOT a sketch, drawing, concept art, cartoon or clay render.'
+    : '';
+  const antiSketch = photoreal ? ['sketch', 'line art', 'concept art', 'cartoon/anime drawing', 'flat clay or low-detail CGI render'] : [];
+  const negatives = [].concat(spec.negatives || [], antiSketch, fneg ? [fneg] : []).join(', ');
   const layout = (spec.layoutHint || 'a grid of {N} numbered panels on one sheet').replace('{N}', String(gc));
   const partLabel = pageCount > 1 ? ` PART ${pageNum}/${pageCount}` : '';
   const refNote = hasRefImage ? ' CRITICAL: in every panel copy the product EXACTLY from the reference — same shape, size, colors, logo & text; do NOT redesign or rename it.' : '';
@@ -95,7 +107,7 @@ ${negLine}`;
       ? `${pageScope}SCENES on this page — based on: "${ct}" — progressing across the panels as: ${arc}.`
       : `${pageScope}SCENES progress across the panels as: ${arc}.`;
     return (
-`A professional ${spec.name} storyboard sheet, ${ratio} layout, ${bgClause(spec.bg)}.
+`A professional ${spec.name} storyboard sheet, ${ratio} layout, ${bgClause(spec.bg)}.${realNote}
 HEADER: banner '${spec.header}${partLabel}' + product name + badges 'DURATION ${dur}', 'SCENES ${gc}', 'RATIO ${ratio}'.
 SUBJECT (identical in every card): ${String(subject || 'the product').slice(0, 140)}.${refNote}
 Lay out ${layout}, numbered SCENE ${startScene}–${endScene}. EACH card shows: the panel image, a short SCENE TITLE, a one-line action, and tiny production tags 'CAM: <angle>', 'LIGHT: <lighting>', 'AUDIO: <music/sfx>' + a duration chip; vary the camera per scene; keep card layout & background consistent.
