@@ -3,9 +3,13 @@ function getInitialContainerDescription(finalPromptText, selectedShape = 'auto')
   
   let shapeKey = selectedShape;
   if (shapeKey === 'auto' || !shapeKey) {
-    if (/\b(motor|bike|motorcycle|beat|vespa|xmax|nmax|scoopy|aerox|ninja|harley|ducati)\b/i.test(promptLower)) {
+    if (/\b(bola|ball|sphere|round|orb|head|planet|globe|fruit|apple|orange|donut)\b/i.test(promptLower)) {
+      shapeKey = 'sphere';
+    } else if (/\b(segitiga|triangle|pyramid|prism|dorito|wedge|cone)\b/i.test(promptLower)) {
+      shapeKey = 'triangular_prism';
+    } else if (/\b(motor|bike|motorcycle|beat|vespa|xmax|nmax|scoopy|aerox|ninja|harley|ducati)\b/i.test(promptLower)) {
       shapeKey = 'rectangular_block';
-    } else if (/\b(gedung|rumah|building|house|villa|office|apartment|hotel|arsitektur|architecture|room)\b/i.test(promptLower)) {
+    } else if (/\b(gedung|rumah|building|house|villa|office|apartment|hotel|arsitektur|architecture|room|box|cube)\b/i.test(promptLower)) {
       shapeKey = 'cube';
     } else if (/\b(mobil|car|sedan|suv|civic|bmw|porsche|tesla|toyota|honda|ferrari|lamborghini)\b/i.test(promptLower)) {
       shapeKey = 'low_profile_box';
@@ -37,9 +41,16 @@ function getInitialContainerDescription(finalPromptText, selectedShape = 'auto')
   }
   if (shapeKey === 'sphere') {
     return {
-      shapeEn: "a futuristic high-tech metallic spherical pod",
-      shapeId: "kubah bola bulat metalik futuristik",
+      shapeEn: "a futuristic high-tech metallic spherical orb pod",
+      shapeId: "wadah bola/bulat metalik futuristik",
       unfoldingActionEn: "the spherical pod starts opening its mechanical seams"
+    };
+  }
+  if (shapeKey === 'triangular_prism') {
+    return {
+      shapeEn: "a high-tech metallic triangular prism pod",
+      shapeId: "wadah prisma segitiga metalik futuristik",
+      unfoldingActionEn: "the triangular prism pod starts opening its hinged panels"
     };
   }
   

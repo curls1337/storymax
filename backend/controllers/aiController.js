@@ -13,7 +13,7 @@ const { resolveStyleId } = require('../prompts/styleLibrary');
 // flare + shallow DOF). Every other style stays clean & crisp (DOF only, no
 // haze/flare) so products/UGC/tutorials/comparisons read clearly and honestly.
 const CINEMATIC_VIDEO_STYLES = new Set([
-  'cube_box_transform', 'short_story', 'cinematic_broll', 'luxury_mood',
+  'cube_box_transform', 'shape_morph_transform', 'short_story', 'cinematic_broll', 'luxury_mood',
   'product_assembly', 'liquid_splash', 'fashion_lookbook',
 ]);
 
@@ -469,6 +469,13 @@ CRITICAL ASMR TOY TRANSFORM VIDEO RULES (LOCKED camera, tabletop, ASMR — no ca
 2. A small armored cube rests statically on the table and SMOOTHLY, mechanically UNFOLDS by itself — panels slide, hinge and telescope out step by step — into a highly detailed miniature die-cast collectible of the product on the SAME table. Photorealistic; mechanically connected; NO human hands visible in frame; NO flying/detaching parts; NO glow/energy; NOT a humanoid robot/mecha.
 3. AUDIO = satisfying ASMR mechanical transformation sounds ONLY (soft clicks, servo whirs, panels locking into place). No music-over.
 4. Keep the exact same worn white table and the product's exact identity throughout; end on the finished mini die-cast toy resting still on the table.`;
+  if (resolvedStyle === 'shape_morph_transform') {
+    // Adaptive Shape transformation reveal.
+    capsuleStyleClause = `
+CRITICAL ADAPTIVE SHAPE TRANSFORMATION VIDEO RULES (photorealistic container-reveal — NOT a glowing humanoid Transformer robot):
+1. PHOTOREALISTIC and cinematic. A high-tech mechanical pod/container (sphere, cube, cylinder, triangular prism, or block automatically matching the subject's shape) rests statically on a surface. Smooth motion move as the container expands, shallow depth of field.
+2. The container's panels UNFOLD, slide and telescope outward SMOOTHLY and satisfyingly — mechanically CONNECTED, no loose or detached parts — and build/reshape into the target subject at its natural scale. NO hands visible in frame. NO exploding/flying/detached parts, NO energy beams, NO glow-energy magic.
+3. Keep the subject's EXACT identity, branding and colors. NO human hands in frame (automatic mechanical unfolding). End on the finished photorealistic result in a cinematic hero shot.`;
   }
 
   // Make the generated video FOLLOW the directions printed inside the storyboard

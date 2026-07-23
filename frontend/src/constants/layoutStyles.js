@@ -3,6 +3,7 @@
 export default [
   // Transformasi & Reveal
   { value: 'cube_box_transform', label: 'Cube Box Transformation', desc: 'Kubus detail di atas permukaan → otomatis morph & mekar jadi produk/model, sinematik fotorealistis.', category: 'Transformasi & Reveal', faceMode: 'faceless', icon: 'Box' },
+  { value: 'shape_morph_transform', label: 'Transformasi Shape Adaptif (Auto)', desc: 'Bentuk awal otomatis menyesuaikan objek (kotak, bulat/bola, silinder, segitiga, dsb.) → mekar & morph otomatis di atas permukaan.', category: 'Transformasi & Reveal', faceMode: 'faceless', icon: 'Shapes' },
   { value: 'asmr_toy_transform', label: 'ASMR Toy Transform (Statis)', desc: 'Kubus diletakkan di meja lalu membuka sendiri jadi mainan die-cast — kamera DIAM, suara ASMR mekanis, smooth.', category: 'Transformasi & Reveal', faceMode: 'faceless', icon: 'AudioWaveform' },
   { value: 'unboxing', label: 'Unboxing', desc: 'Buka kemasan dramatis, reveal produk, close-up detail.', category: 'Transformasi & Reveal', faceMode: 'faceless', icon: 'PackageOpen' },
   { value: 'before_after', label: 'Before–After', desc: 'Perbandingan sebelum vs sesudah memakai produk.', category: 'Transformasi & Reveal', faceMode: 'chin_max', icon: 'GitCompareArrows' },
