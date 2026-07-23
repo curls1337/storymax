@@ -137,6 +137,46 @@ export default function Dashboard({ setTab }) {
   const [voToneT2v, setVoToneT2v] = useState('casual');
   const [videoDurationT2v, setVideoDurationT2v] = useState('auto');
 
+  // Google Sheets Export selection states
+  const [exportSelectedIds, setExportSelectedIds] = useState([]);
+  const [exportingGoogle, setExportingGoogle] = useState(false);
+  const [exportSuccessModal, setExportSuccessModal] = useState(null);
+
+  const toggleExportSelect = (id, e) => {
+    if (e) e.stopPropagation();
+    setExportSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const toggleExportSelectAll = () => {
+    if (exportSelectedIds.length === storyboards.length) {
+      setExportSelectedIds([]);
+    } else {
+      setExportSelectedIds(storyboards.map(s => s.id));
+    }
+  };
+
+  const handleExportToGoogleSheets = async () => {
+    if (exportSelectedIds.length === 0) return;
+    setExportingGoogle(true);
+    try {
+      const res = await api.post('/storyboards/export-google-sheets', {
+        storyboardIds: exportSelectedIds
+      });
+      setExportSuccessModal({
+        url: res.data.spreadsheetUrl,
+        message: res.data.message,
+        count: res.data.count
+      });
+    } catch (err) {
+      console.error("Error exporting to Google Sheets:", err);
+      alert(err.response?.data?.message || 'Gagal mengekspor data ke Google Sheets.');
+    } finally {
+      setExportingGoogle(false);
+    }
+  };
+
   // Video Studio states
   const [videos, setVideos] = useState([]);
   const [fetchingVideos, setFetchingVideos] = useState(false);
@@ -880,13 +920,51 @@ export default function Dashboard({ setTab }) {
         </div>
       ) : (
         <div className="space-y-4 md:space-y-6">
-          <h3 className="text-[10px] font-bold uppercase tracking-widest text-[#cfae80]">Semua Riwayat Storyboard</h3>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#131211]/60 border border-[#2a2725] rounded-2xl p-3.5 backdrop-blur-md">
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={storyboards.length > 0 && exportSelectedIds.length === storyboards.length}
+                  onChange={toggleExportSelectAll}
+                  className="w-4 h-4 rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 cursor-pointer accent-[#cfae80]"
+                />
+                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-300">
+                  {exportSelectedIds.length === storyboards.length ? 'Batal Pilih Semua' : 'Pilih Semua'}
+                </span>
+              </label>
+              <span className="text-[9px] text-[#cfae80] font-semibold bg-[#cfae80]/10 border border-[#cfae80]/20 px-2 py-0.5 rounded-full">
+                {exportSelectedIds.length} dari {storyboards.length} terpilih
+              </span>
+            </div>
+
+            {exportSelectedIds.length > 0 && (
+              <button
+                type="button"
+                onClick={handleExportToGoogleSheets}
+                disabled={exportingGoogle}
+                className="bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-2 px-4 rounded-xl text-[10px] uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-lg cursor-pointer disabled:opacity-50"
+              >
+                {exportingGoogle ? (
+                  <>
+                    <Loader className="animate-spin w-3.5 h-3.5" />
+                    Mengespor ke Drive...
+                  </>
+                ) : (
+                  <>
+                    📊 Export {exportSelectedIds.length} ke Google Sheets
+                  </>
+                )}
+              </button>
+            )}
+          </div>
           
           {/* COMPACT CARD GRID */}
           <div className="grid grid-cols-3 min-[480px]:grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-3 md:gap-5">
             {storyboards.map((sb) => {
               const isProcessing = sb.status === 'processing';
               const isFailed = sb.status === 'failed';
+              const isSelectedForExport = exportSelectedIds.includes(sb.id);
               const isRefImage = (() => {
                 try { return JSON.parse(sb.generation_params || '{}').style === 'ref_image'; }
                 catch (e) { return (sb.title || '').startsWith('[Ref]'); }
@@ -919,9 +997,23 @@ export default function Dashboard({ setTab }) {
                     setVideoPromptError('');
                   }}
                   className={`bg-[#1a1918]/60 border rounded-2xl overflow-hidden hover:border-[#cfae80]/40 transition-all duration-300 group flex flex-col relative ${
-                    isProcessing ? 'border-[#cfae80]/20 cursor-wait' : isFailed ? 'border-red-500/20 cursor-default' : 'border-[#2a2725] cursor-pointer'
+                    isSelectedForExport ? 'ring-2 ring-[#cfae80] border-[#cfae80]' : isProcessing ? 'border-[#cfae80]/20 cursor-wait' : isFailed ? 'border-red-500/20 cursor-default' : 'border-[#2a2725] cursor-pointer'
                   }`}
                 >
+                  {/* Selection Checkbox Overlay */}
+                  <div 
+                    onClick={(e) => toggleExportSelect(sb.id, e)}
+                    className="absolute top-1.5 left-1.5 z-30 bg-black/70 p-1 rounded-lg backdrop-blur-sm cursor-pointer hover:scale-110 transition-transform"
+                    title="Pilih untuk Export"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelectedForExport}
+                      onChange={(e) => toggleExportSelect(sb.id, e)}
+                      className="w-3.5 h-3.5 rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 cursor-pointer accent-[#cfae80]"
+                    />
+                  </div>
+
                   {/* Thumbnail Container (4:3 ratio) */}
                   <div className="aspect-[4/3] bg-black/40 relative overflow-hidden flex items-center justify-center border-b border-[#2a2725]">
                     {isProcessing ? (
@@ -2415,6 +2507,47 @@ export default function Dashboard({ setTab }) {
               >
                 🎬 Mulai Gabungkan
               </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Google Sheets Export Success Modal */}
+      {exportSuccessModal && createPortal(
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-[#1a1918] border border-[#2a2725] rounded-3xl p-6 max-w-md w-full text-center space-y-4 shadow-2xl relative">
+            <div className="w-12 h-12 bg-[#cfae80]/15 text-[#cfae80] rounded-full flex items-center justify-center mx-auto border border-[#cfae80]/30">
+              <Sparkles className="w-6 h-6" />
+            </div>
+            
+            <div>
+              <h3 className="text-lg font-editorial italic text-white">Export Google Sheets Berhasil!</h3>
+              <p className="text-slate-400 text-xs mt-1">
+                {exportSuccessModal.message}
+              </p>
+            </div>
+
+            <div className="bg-[#131211] border border-[#2a2725] p-3 rounded-2xl text-[11px] font-mono text-[#cfae80] break-all select-all text-left">
+              {exportSuccessModal.url}
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => setExportSuccessModal(null)}
+                className="flex-1 bg-[#131211] hover:bg-[#1f1d1b] text-slate-300 font-bold py-2.5 px-4 rounded-xl border border-[#2a2725] text-xs uppercase tracking-wider transition-all"
+              >
+                Tutup
+              </button>
+              <a
+                href={exportSuccessModal.url}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => setExportSuccessModal(null)}
+                className="flex-1 bg-[#cfae80] hover:bg-[#c5a880] text-black font-extrabold py-2.5 px-4 rounded-xl text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 shadow-lg"
+              >
+                <ExternalLink className="w-4 h-4" /> Buka Sheet
+              </a>
             </div>
           </div>
         </div>,

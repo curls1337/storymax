@@ -48,6 +48,14 @@ export default function AdminPanel() {
   const [aiTestLoading, setAiTestLoading] = useState(false);
   const [aiSaveLoading, setAiSaveLoading] = useState(false);
 
+  // Google Drive & Sheets settings state
+  const [googleClientId, setGoogleClientId] = useState('');
+  const [googleClientSecret, setGoogleClientSecret] = useState('');
+  const [googleRefreshToken, setGoogleRefreshToken] = useState('');
+  const [googleSpreadsheetId, setGoogleSpreadsheetId] = useState('');
+  const [googleConfigured, setGoogleConfigured] = useState(false);
+  const [googleSaveLoading, setGoogleSaveLoading] = useState(false);
+
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
@@ -77,6 +85,40 @@ export default function AdminPanel() {
       setAiModel(res.data.model || 'gemini-3-flash');
     } catch (err) {
       console.error('Gagal mengambil pengaturan AI:', err);
+    }
+  };
+
+  const fetchGoogleSettings = async () => {
+    try {
+      const res = await api.get('/admin/google-settings');
+      setGoogleClientId(res.data.client_id || '');
+      setGoogleClientSecret(res.data.client_secret || '');
+      setGoogleRefreshToken(res.data.refresh_token || '');
+      setGoogleSpreadsheetId(res.data.spreadsheet_id || '');
+      setGoogleConfigured(res.data.configured || false);
+    } catch (err) {
+      console.error('Gagal mengambil pengaturan Google:', err);
+    }
+  };
+
+  const handleSaveGoogleSettings = async (e) => {
+    e.preventDefault();
+    setGoogleSaveLoading(true);
+    setError('');
+    setMessage('');
+    try {
+      await api.put('/admin/google-settings', {
+        client_id: googleClientId,
+        client_secret: googleClientSecret,
+        refresh_token: googleRefreshToken,
+        spreadsheet_id: googleSpreadsheetId
+      });
+      setMessage('Pengaturan Google Drive & Sheets berhasil disimpan!');
+      fetchGoogleSettings();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Gagal menyimpan pengaturan Google Drive.');
+    } finally {
+      setGoogleSaveLoading(false);
     }
   };
 
@@ -120,7 +162,7 @@ export default function AdminPanel() {
 
   const loadData = async () => {
     setLoading(true);
-    await Promise.all([fetchUsers(), fetchKeys(), fetchAiSettings(), fetchFiles()]);
+    await Promise.all([fetchUsers(), fetchKeys(), fetchAiSettings(), fetchGoogleSettings(), fetchFiles()]);
     setLoading(false);
   };
 
@@ -363,6 +405,17 @@ export default function AdminPanel() {
           Pengaturan AI
         </button>
         <button
+          onClick={() => { setActiveTab('google-drive'); setError(''); setMessage(''); }}
+          className={`py-2.5 px-3.5 flex items-center font-bold text-[9px] uppercase tracking-wider border-b-2 transition-all shrink-0 relative ${
+            activeTab === 'google-drive'
+              ? 'border-[#cfae80] text-white'
+              : 'border-transparent text-slate-400 hover:text-white'
+          }`}
+        >
+          <Database className="w-3.5 h-3.5 mr-1.5 text-[#22c55e]" />
+          Google Drive & Sheets
+        </button>
+        <button
           onClick={() => { setActiveTab('files'); setError(''); setMessage(''); }}
           className={`py-2.5 px-3.5 flex items-center font-bold text-[9px] uppercase tracking-wider border-b-2 transition-all shrink-0 relative ${
             activeTab === 'files'
@@ -376,6 +429,90 @@ export default function AdminPanel() {
       </div>
 
       {/* Content Area */}
+      {activeTab === 'google-drive' && (
+        <div className="bg-[#1a1918]/60 border border-[#2a2725] rounded-2xl p-4 md:p-6 relative backdrop-blur-md">
+          <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#22c55e]/25 to-transparent"></div>
+          
+          <div className="flex justify-between items-center mb-4 pb-2 border-b border-[#2a2725]">
+            <h3 className="text-[10px] font-bold text-white uppercase tracking-widest flex items-center gap-1.5">
+              <Database className="w-4 h-4 text-[#22c55e]" />
+              Pengaturan Kredensial Google Drive & Sheets Export
+            </h3>
+            {googleConfigured ? (
+              <span className="bg-emerald-950/20 text-emerald-400 border border-emerald-500/20 px-2.5 py-0.5 rounded text-[8.5px] font-bold uppercase tracking-wider flex items-center gap-1">
+                <Check className="w-3 h-3" /> Kredensial Terhubung
+              </span>
+            ) : (
+              <span className="bg-amber-950/20 text-amber-400 border border-amber-500/20 px-2.5 py-0.5 rounded text-[8.5px] font-bold uppercase tracking-wider">
+                Belum Konfigurasi
+              </span>
+            )}
+          </div>
+
+          <p className="text-slate-400 text-xs mb-4 leading-relaxed">
+            Konfigurasikan OAuth2 Kredensial Google Cloud Console (Client ID, Client Secret, Refresh Token). Setelah disimpan oleh Admin, seluruh user dapat mengekspor storyboard langsung dari Dashboard ke Google Sheets di Google Drive tanpa perlu OAuth ulang.
+          </p>
+
+          <form onSubmit={handleSaveGoogleSettings} className="space-y-4">
+            <div>
+              <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Google OAuth Client ID</label>
+              <input
+                type="text"
+                value={googleClientId}
+                onChange={(e) => setGoogleClientId(e.target.value)}
+                className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs font-mono"
+                placeholder="xxxxxxxxx-xxxxxxxxx.apps.googleusercontent.com"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Google OAuth Client Secret</label>
+              <input
+                type="password"
+                value={googleClientSecret}
+                onChange={(e) => setGoogleClientSecret(e.target.value)}
+                className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs font-mono"
+                placeholder="GOCSPX-xxxxxxxxxxxxxxxxxxxxxxxx"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Google Refresh Token</label>
+              <input
+                type="password"
+                value={googleRefreshToken}
+                onChange={(e) => setGoogleRefreshToken(e.target.value)}
+                className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs font-mono"
+                placeholder="1//0xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Default Spreadsheet ID / URL (Opsional)</label>
+              <input
+                type="text"
+                value={googleSpreadsheetId}
+                onChange={(e) => setGoogleSpreadsheetId(e.target.value)}
+                className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs font-mono"
+                placeholder="Jika kosong, sistem akan otomatis membuat Spreadsheet baru di Drive"
+              />
+            </div>
+
+            <div className="pt-2">
+              <button
+                type="submit"
+                disabled={googleSaveLoading}
+                className="bg-[#22c55e] hover:bg-[#16a34a] text-black font-bold py-2 px-4 rounded-xl transition-all text-[9.5px] uppercase tracking-wider flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer shadow-lg"
+              >
+                {googleSaveLoading ? <Loader className="animate-spin w-3.5 h-3.5" /> : 'Simpan Pengaturan Google Drive'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
       {activeTab === 'users' && (
         <div className="bg-[#1a1918]/60 border border-[#2a2725] rounded-2xl p-4 md:p-6 relative backdrop-blur-md">
           <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#cfae80]/25 to-transparent"></div>

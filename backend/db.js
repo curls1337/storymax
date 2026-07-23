@@ -140,6 +140,19 @@ async function initDb() {
     // Column already exists, safe to ignore
   }
 
+  // Create Google Settings Table
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS google_settings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_id TEXT,
+      client_secret TEXT,
+      refresh_token TEXT,
+      spreadsheet_id TEXT,
+      spreadsheet_url TEXT,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   // Create Downloaded Files Table
   await db.exec(`
     CREATE TABLE IF NOT EXISTS downloaded_files (
