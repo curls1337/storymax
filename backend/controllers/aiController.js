@@ -528,12 +528,12 @@ For each page (scene):
 
 3. "narration": A voiceover narration script paragraph in the language: "${voLanguage || 'Bahasa Indonesia'}". ${toneClause} The narration must fit the page duration and align with the chronological visual action of that page.
 
-CRITICAL SPEECH PACING, TEMPO & WORD COUNT RULES (Strictly prevents fast, rushed, or rapid voiceover):
-- TEMPO & PACING: Write narration to be spoken at a calm, relaxed, articulate, and natural conversational pace. Insert commas (',') and ellipses ('...') strategically to enforce clear, natural breathing pauses so the narrator never sounds rushed or out of breath.
+CRITICAL SPEECH PACING, TEMPO & WORD COUNT RULES (Strictly prevents fast, rushed, garbled, or rapid voiceover):
+- TEMPO & PACING: Write narration to be spoken at a calm, relaxed, articulate, and natural conversational pace (approx 1.5 to 2.0 words per second). Always insert punctuation (commas ',', periods '.', and ellipses '...') strategically between phrases to enforce clear, natural breathing pauses so the voiceover sounds clear and articulate.
 - STRICT WORD COUNT LIMIT PER SCENE (CALIBRATED BY DURATION):
-  * For ~10-second scene: Strictly MAX 10 to 15 words TOTAL for that scene.
-  * For ~15-second scene: Strictly MAX 18 to 24 words TOTAL for that scene.
-  * For ~20+ second scene: Strictly MAX 25 to 35 words TOTAL for that scene.
+  * For ~5-second scene: Strictly MAX 6 to 9 words TOTAL for that scene.
+  * For ~10-second scene: Strictly MAX 12 to 15 words TOTAL for that scene.
+  * For ~15-second scene: Strictly MAX 18 to 22 words TOTAL for that scene.
 - NEVER cram long, dense sentences into a single scene! Keep phrases short, rhythmic, punchy, and well-spaced.
 
 CRITICAL NARRATION FLOW & STRUCTURE:
