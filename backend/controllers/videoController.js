@@ -69,7 +69,14 @@ function enforceNoVoiceover(text) {
   t = t.replace(/\b(the\s+)?narrator\s+speaks[^.]*\.?/gi, '');
   t = t.replace(/\bvoice[-\s]?over\b[^.]*\.?/gi, '');
   t = t.trim();
-  return `${t}\n\nIMPORTANT AUDIO RULE: NO voiceover, NO narration, NO spoken words and NO dialogue of any kind. Ignore any "narrator speaks"/voiceover cues above. The audio may contain only ambient/natural sound or subtle background music.`;
+  return `${t}\n\nIMPORTANT AUDIO RULE: NO voiceover, NO narration, NO spoken words and NO dialogue of any kind. Ignore any "narrator speaks"/voiceover cues above. The audio may contain only natural/ambient/diegetic sound.`;
+}
+
+// When "backsound" (background music) is OFF, forbid any BGM/soundtrack so the video
+// keeps only natural / ASMR / diegetic sound. Appended last so it dominates any earlier
+// music cue in the prompt.
+function applyNoBacksound(text) {
+  return `${String(text || '')}\n\nBACKGROUND MUSIC: none — do NOT add any background music, soundtrack, score or BGM. Use only natural/diegetic ambient sound (real environment SFX / ASMR).`;
 }
 
 async function generateVideo(req, res) {
@@ -83,6 +90,7 @@ async function generateVideo(req, res) {
     duration,
     resolution,
     generateAudio,
+    backsound,
     apiKeyId
   } = req.body;
 
@@ -206,6 +214,10 @@ async function generateVideo(req, res) {
         // VO toggle is authoritative: if audio/VO is off, ensure the model does not speak.
         if (!generateAudio) {
           finalPrompt = enforceNoVoiceover(finalPrompt);
+        }
+        // Backsound toggle (independent of VO): if off, forbid background music.
+        if (!backsound) {
+          finalPrompt = applyNoBacksound(finalPrompt);
         }
 
         const spawnCmd = 'node';
@@ -985,6 +997,7 @@ async function generateAllVideos(req, res) {
     duration,
     resolution,
     generateAudio,
+    backsound,
     apiKeyId
   } = req.body;
 
@@ -1095,6 +1108,10 @@ async function generateAllVideos(req, res) {
         // VO toggle is authoritative: if audio/VO is off, ensure the model does not speak.
         if (!generateAudio) {
           promptText = enforceNoVoiceover(promptText);
+        }
+        // Backsound toggle (independent of VO): if off, forbid background music.
+        if (!backsound) {
+          promptText = applyNoBacksound(promptText);
         }
 
         // Resolve scene image

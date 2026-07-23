@@ -152,6 +152,7 @@ export default function Dashboard({ setTab }) {
   const [videoResolution, setVideoResolution] = useState('720p');
   const [videoAspectRatio, setVideoAspectRatio] = useState('9:16');
   const [videoGenerateAudio, setVideoGenerateAudio] = useState(false);
+  const [videoBacksound, setVideoBacksound] = useState(false);
   const [apiKeys, setApiKeys] = useState([]);
   const [selectedApiKeyId, setSelectedApiKeyId] = useState('auto');
   
@@ -529,9 +530,10 @@ export default function Dashboard({ setTab }) {
         duration: videoDuration === 'auto' ? undefined : Number(videoDuration),
         resolution: videoResolution,
         generateAudio: videoGenerateAudio,
+        backsound: videoBacksound,
         apiKeyId: selectedApiKeyId || 'auto'
       });
-      
+
       // Refresh the video list to include the new 'processing' record
       const vRes = await api.get(`/videos/storyboard/${selectedStoryboard.id}`);
       setVideos(vRes.data);
@@ -559,9 +561,10 @@ export default function Dashboard({ setTab }) {
         duration: videoDuration === 'auto' ? undefined : Number(videoDuration),
         resolution: videoResolution,
         generateAudio: videoGenerateAudio,
+        backsound: videoBacksound,
         apiKeyId: selectedApiKeyId || 'auto'
       });
-      
+
       // Refresh the video list to include processing statuses
       const vRes = await api.get(`/videos/storyboard/${selectedStoryboard.id}`);
       setVideos(vRes.data);
@@ -2036,6 +2039,21 @@ export default function Dashboard({ setTab }) {
                             Hasilkan Audio / Sound Effect (Voiceover)
                           </span>
                         </label>
+
+                        <label className="flex items-center gap-2 cursor-pointer select-none pb-1">
+                          <input
+                            type="checkbox"
+                            checked={videoBacksound}
+                            onChange={(e) => setVideoBacksound(e.target.checked)}
+                            className="rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5"
+                          />
+                          <span className="text-[9px] font-bold uppercase tracking-wider text-slate-350">
+                            Backsound / Musik Latar
+                          </span>
+                        </label>
+                        {!videoBacksound && (
+                          <p className="text-[8px] text-slate-500 -mt-1 pl-6">Tanpa musik latar — hanya suara natural/ASMR/SFX.</p>
+                        )}
 
                         <div className="flex gap-2 mt-2">
                           <button
