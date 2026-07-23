@@ -481,12 +481,17 @@ CRITICAL ASMR TOY TRANSFORM VIDEO RULES (LOCKED camera, tabletop, ASMR — no ca
   }
 
   if (resolvedStyle === 'shape_morph_transform') {
-    // Adaptive Shape transformation reveal.
+    const { getInitialContainerDescription } = require('../prompts/containerShapes');
+    const containerObj = getInitialContainerDescription(storyboard.prompt || storyboard.title, 'auto');
+    const shapeDesc = containerObj.shapeEn;
+
+    // Adaptive Shape transformation reveal — STRICT SINGLE SHAPE.
     capsuleStyleClause = `
-CRITICAL ADAPTIVE SHAPE TRANSFORMATION VIDEO RULES (photorealistic container-reveal — NOT a glowing humanoid Transformer robot):
-1. PHOTOREALISTIC and cinematic. A high-tech mechanical pod/container (sphere, cube, cylinder, triangular prism, or block automatically matching the subject's shape) rests statically on a surface. Smooth motion move as the container expands, shallow depth of field.
-2. The container's panels UNFOLD, slide and telescope outward SMOOTHLY and satisfyingly — mechanically CONNECTED, no loose or detached parts — and build/reshape into the target subject at its natural scale. NO hands visible in frame. NO exploding/flying/detached parts, NO energy beams, NO glow-energy magic.
-3. Keep the subject's EXACT identity, branding and colors. NO human hands in frame (automatic mechanical unfolding). End on the finished photorealistic result in a cinematic hero shot.`;
+CRITICAL ADAPTIVE SHAPE TRANSFORMATION VIDEO RULES (photorealistic single container reveal — NOT a glowing humanoid Transformer robot):
+1. PHOTOREALISTIC and cinematic. The scene MUST start from a SINGLE precision high-tech mechanical pod (${shapeDesc}) resting statically on a fitting surface. Smooth motion move as the container expands, shallow depth of field.
+2. STRICT SINGLE SHAPE RULE: DO NOT change or cycle through other container shapes (NO spheres, NO cubes, NO cylinders if the container is a box). The SAME single ${shapeDesc} unfolds mechanically into the target subject.
+3. The container's panels UNFOLD, slide and telescope outward SMOOTHLY and satisfyingly — mechanically CONNECTED, no loose or detached parts — and build/reshape into the target subject at its natural scale. NO hands visible in frame. NO exploding/flying/detached parts, NO energy beams, NO glow-energy magic.
+4. Keep the subject's EXACT identity, branding and colors. NO human hands in frame (automatic mechanical unfolding). End on the finished photorealistic result in a cinematic hero shot.`;
   }
 
   // Make the generated video FOLLOW the directions printed inside the storyboard

@@ -28,23 +28,27 @@ async function splitStoryboardPromptWithAI(concept, pageCount, db, secondsPerPag
     const apiToken = settings.api_key;
     const model = settings.model || 'gemini-3-flash';
 
+    const { getInitialContainerDescription } = require('./containerShapes');
+
     // Style-aware: ONLY inject the cube-transformation guidance when the cube
     // style is actually selected. Previously this block was sent for EVERY style,
     // which leaked cube scenes into Before-After / UGC / etc. page concepts.
     const resolvedStyle = resolveStyleId(styleId);
     const isCube = ['cube_box_transform', 'asmr_toy_transform', 'shape_morph_transform'].includes(resolvedStyle);
     const isShapeMorph = resolvedStyle === 'shape_morph_transform';
-    
-    const shapeInstruction = isShapeMorph
-      ? 'sebuah wadah/kemasan mekanis presisi (bentuk awal OTOMATIS menyesuaikan subjek: BOLA/BULAT, KUBUS/KOTAK, SILINDER, PRISMA SEGITIGA, atau BALOK)'
-      : 'sebuah KOTAK / KUBUS KECIL super detail (panel armored, garis-sambungan mekanis, aksen LED/logo subjek)';
+
+    let shapeInstruction = 'sebuah KOTAK / KUBUS KECIL super detail (panel armored, garis-sambungan mekanis, aksen LED/logo subjek)';
+    if (isShapeMorph) {
+      const containerDesc = getInitialContainerDescription(concept, 'auto');
+      shapeInstruction = `SATU WADAH MEKANIS PRESIASI BERBENTUK ${containerDesc.shapeId.toUpperCase()}`;
+    }
 
     const cubeBlock = isCube ? `
 
 PENTING UNTUK GAYA TRANSFORMASI MEKAR / MEKANIS:
 Aturan Alur Pembukaan & Transformasi (SANGAT KETAT):
-1. Halaman/Panel 1 (Wajib Awal): WAJIB dimulai dari ${shapeInstruction} yang diletakkan/berdiri statis di atas permukaan/meja. DILARANG KERAS LANGSUING MENAMPILKAN BENTUK UTUH SUBJEK/MAINAN DI PANEL 1. TANPA tangan manusia, wadah/kubus berdiri sendiri di atas permukaan. Gaya FOTOREALISTIS, depth of field dangkal.
-2. Halaman/Panel Berikutnya (Proses Mekar): Wadah/kubus mulai aktif secara otomatis, panel-panelnya TERBUKA, BERGESER & MENGEMBANG (*self-unfolding/morphing*) secara bertahap dan MULUS, secara mekanis membangun/membentuk ulang dari bentuk wadah awal menjadi bentuk akhir SUBJEK yang diinginkan. TANPA tangan manusia, TANPA bagian meledak/terbang acak, TANPA sihir cahaya, dan BUKAN robot humanoid mecha jika subjeknya berupa produk/benda lain.
+1. Halaman/Panel 1 (Wajib Awal): WAJIB dimulai dari ${shapeInstruction} yang diletakkan/berdiri statis di atas permukaan/meja. DILARANG KERAS LANGSUNG MENAMPILKAN BENTUK UTUH SUBJEK/MAINAN DI PANEL 1. TANPA tangan manusia, wadah berdiri sendiri di atas permukaan. Gaya FOTOREALISTIS, depth of field dangkal.
+2. Halaman/Panel Berikutnya (Proses Mekar): Wadah tersebut mulai aktif secara otomatis, panel-panelnya TERBUKA, BERGESER & MENGEMBANG (*self-unfolding/morphing*) secara bertahap dan MULUS, secara mekanis membangun/membentuk ulang dari bentuk wadah awal menjadi bentuk akhir SUBJEK yang diinginkan (${concept}). TANPA tangan manusia, TANPA bagian meledak/terbang acak, TANPA sihir cahaya, dan DILARANG KERAS BERGANTI-GANTI BENTUK WADAH (JANGAN BERUBAH DARI BOLA KE KUBUS KE SILINDER). Bentuk wadah HARUS KONSISTEN 1 BENTUK TUNGGAL sejak Panel 1 hingga mekar.
 3. Halaman/Panel Akhir (Hasil akhir): Subjek tampil utuh dalam bentuk akhir yang memuaskan di atas permukaan/meja yang sama.` : '';
 
     const payload = {
