@@ -71,6 +71,41 @@ async function saveGoogleSettings(req, res) {
   }
 }
 
+async function getMarketingCopyForStoryboard(db, sb) {
+  let title = sb.title || 'Untitled';
+  let caption = sb.prompt || '';
+
+  // 1. Try to fetch from generated_videos
+  const videoWithCopy = await db.get(
+    'SELECT marketing_title, marketing_description FROM generated_videos WHERE storyboard_id = ? AND marketing_title IS NOT NULL AND marketing_title != "" ORDER BY id DESC LIMIT 1',
+    [sb.id]
+  );
+
+  if (videoWithCopy && videoWithCopy.marketing_title) {
+    title = videoWithCopy.marketing_title;
+    caption = videoWithCopy.marketing_description || '';
+  } else if (sb.video_prompts) {
+    // 2. Try to parse from video_prompts
+    try {
+      const parsed = JSON.parse(sb.video_prompts);
+      if (Array.isArray(parsed)) {
+        for (const s of parsed) {
+          if (s.marketing_title) {
+            title = s.marketing_title;
+            caption = s.marketing_description || '';
+            break;
+          }
+        }
+      } else if (parsed && typeof parsed === 'object') {
+        if (parsed.marketing_title) title = parsed.marketing_title;
+        if (parsed.marketing_description) caption = parsed.marketing_description;
+      }
+    } catch (e) {}
+  }
+
+  return { title, caption };
+}
+
 async function exportToGoogleSheets(req, res) {
   try {
     const { storyboardIds } = req.body;
@@ -180,8 +215,7 @@ async function exportToGoogleSheets(req, res) {
 
     for (const sb of storyboards) {
       const createdDate = new Date(sb.created_at || Date.now()).toLocaleDateString('id-ID');
-      const title = sb.title || 'Untitled';
-      const caption = sb.prompt || '';
+      const { title, caption } = await getMarketingCopyForStoryboard(db, sb);
 
       // Auto-detect video link: merged video URL or single scene video URL
       let videoLink = '';
@@ -269,8 +303,7 @@ async function exportToCSV(req, res) {
 
     for (const sb of storyboards) {
       const createdDate = new Date(sb.created_at || Date.now()).toLocaleDateString('id-ID');
-      const title = sb.title || 'Untitled';
-      const caption = sb.prompt || '';
+      const { title, caption } = await getMarketingCopyForStoryboard(db, sb);
 
       // Auto-detect video link: merged video URL or single scene video URL
       let videoLink = '';
