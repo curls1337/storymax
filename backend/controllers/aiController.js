@@ -499,8 +499,8 @@ For each page (scene):
    - FOCUS ONLY ON: Camera movement (e.g. "slow tracking shot", "cinematic pan down", "subtle handheld camera movement"), object/character action motion (e.g. "hands gently opening the box", "fluid water splashes"), and atmospheric lighting effects ("${atmo}").
    - VO TIMING (Mandatory since Voiceover is ENABLED): Explicitly specify the Voiceover narration speech timing in the motion prompt (e.g., "At 0s, narrator speaks: '[VO text]'. Simultaneously, camera pans down...").
 
-2. "textToVideoPrompt": A full, self-contained Text-to-Video prompt in English (100-160 words) that describes everything from scratch for video models WITHOUT image input.
-   - Include complete physical product descriptions, scene environment, material textures, lighting, ${atmo}, camera angles, and chronological action sequence across all panels on that page.
+2. "textToVideoPrompt": A full, self-contained Text-to-Video prompt in English (110-180 words). The text-to-video model has NO image — recreate THIS storyboard panel from words alone.
+   - Describe EXACTLY what the panel shows: the main subject/product faithfully (type, shape, exact colors, materials, logo/branding & any visible text), the setting/background, props, composition & framing, the lighting/mood and ${atmo} — THEN the chronological action and camera movement across the panel's scenes. Be concrete and visual so the generated video matches the storyboard panel.
    - VO TIMING (Mandatory since Voiceover is ENABLED): Explicitly specify the Voiceover narration speech timing and calm pace in the motion prompt (e.g., "At 0s, narrator speaks at a calm, relaxed, unhurried pace: '[VO text]'. Simultaneously, camera pans down...").
 
 3. "narration": A voiceover narration script paragraph in the language: "${voLanguage || 'Bahasa Indonesia'}". ${toneClause} The narration must fit the page duration and align with the chronological visual action of that page.
@@ -552,8 +552,8 @@ For each page (scene):
    - STRICT RULE: Voiceover is DISABLED for this project. DO NOT include any voiceover timing or narration text in this prompt!
    - FOCUS ONLY ON: Camera movement (e.g. "slow tracking shot", "cinematic pan down", "subtle handheld camera movement"), object/character action motion (e.g. "hands gently opening the box", "fluid water splashes"), and atmospheric lighting effects ("${atmo}").
 
-2. "textToVideoPrompt": A full, self-contained Text-to-Video prompt in English (100-160 words) that describes everything from scratch for video models WITHOUT image input.
-   - Include complete physical product descriptions, scene environment, material textures, lighting, ${atmo}, camera angles, and chronological action sequence across all panels on that page.
+2. "textToVideoPrompt": A full, self-contained Text-to-Video prompt in English (110-180 words). The text-to-video model has NO image — recreate THIS storyboard panel from words alone.
+   - Describe EXACTLY what the panel shows: the main subject/product faithfully (type, shape, exact colors, materials, logo/branding & any visible text), the setting/background, props, composition & framing, the lighting/mood and ${atmo} — THEN the chronological action and camera movement across the panel's scenes. Be concrete and visual so the generated video matches the storyboard panel.
 
 You MUST return the output strictly in this JSON format (do not wrap in markdown \`\`\`json blocks):
 {
