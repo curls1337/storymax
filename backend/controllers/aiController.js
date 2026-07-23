@@ -520,11 +520,11 @@ For each page (scene):
 1. "imageToVideoPrompt": A dynamic, pure MOTION and CAMERA DIRECTION prompt in English (60-120 words) tailored for Image-to-Video models that ALREADY have the visual image.
    - STRICT RULE: DO NOT describe or repeat product details, product colors, or physical packaging appearance, because the image model already sees the image!
    - FOCUS ONLY ON: Camera movement (e.g. "slow tracking shot", "cinematic pan down", "subtle handheld camera movement"), object/character action motion (e.g. "hands gently opening the box", "fluid water splashes"), and atmospheric lighting effects ("${atmo}").
-   - VO TIMING (Mandatory since Voiceover is ENABLED): Explicitly specify the Voiceover narration speech timing in the motion prompt (e.g., "At 0s, narrator speaks: '[VO text]'. Simultaneously, camera pans down...").
+   - VO TIMING & SPEAKER CONSISTENCY (Mandatory since Voiceover is ENABLED): Explicitly specify the Voiceover narration speech timing and consistent speaker voice tag (e.g., "At 0s, narrator (same adult Indonesian narrator voice as Scene 1) speaks: '[VO text]'. Simultaneously, camera pans down...").
 
 2. "textToVideoPrompt": A full, self-contained Text-to-Video prompt in English (110-180 words). The text-to-video model has NO image — recreate THIS storyboard panel from words alone.
    - Describe EXACTLY what the panel shows: the main subject/product faithfully (type, shape, exact colors, materials, logo/branding & any visible text), the setting/background, props, composition & framing, the lighting/mood and ${atmo} — THEN the chronological action and camera movement across the panel's scenes. Be concrete and visual so the generated video matches the storyboard panel.
-   - VO TIMING (Mandatory since Voiceover is ENABLED): Explicitly specify the Voiceover narration speech timing and calm pace in the motion prompt (e.g., "At 0s, narrator speaks at a calm, relaxed, unhurried pace: '[VO text]'. Simultaneously, camera pans down...").
+   - VO TIMING & SPEAKER CONSISTENCY (Mandatory since Voiceover is ENABLED): Explicitly specify the Voiceover narration speech timing and consistent speaker voice tag (e.g., "At 0s, narrator (same adult Indonesian narrator voice as Scene 1) speaks: '[VO text]'. Simultaneously, camera pans down...").
 
 3. "narration": A voiceover narration script paragraph in the language: "${voLanguage || 'Bahasa Indonesia'}". ${toneClause} The narration must fit the page duration and align with the chronological visual action of that page.
 

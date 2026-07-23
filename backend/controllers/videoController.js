@@ -197,13 +197,16 @@ async function generateVideo(req, res) {
               const match = parsed.scenes.find(s => s.scene_idx === sceneIdx);
               if (match && match.narration) {
                 let lang = 'Bahasa Indonesia';
+                let tone = 'casual';
                 if (storyboard.generation_params) {
                   try {
                     const params = JSON.parse(storyboard.generation_params);
                     if (params.voLanguage) lang = params.voLanguage;
+                    if (params.voTone) tone = params.voTone;
                   } catch (e) {}
                 }
-                finalPrompt += `\n\nVoiceover (${lang}):\n${match.narration}`;
+                const speakerAnchor = `[STRICT AUDIO RULE: Maintain the EXACT SAME narrator speaker voice, gender, timbre, accent, and audio tone as Scene 1 across all scenes in this project. Single consistent ${tone} narrator voice throughout all scenes]`;
+                finalPrompt += `\n\nVoiceover (${lang}) ${speakerAnchor}:\n${match.narration}`;
               }
             }
           } catch (e) {
@@ -1091,13 +1094,16 @@ async function generateAllVideos(req, res) {
 
           if (generateAudio && matchingPrompt.narration) {
             let lang = 'Bahasa Indonesia';
+            let tone = 'casual';
             if (storyboard.generation_params) {
               try {
                 const params = JSON.parse(storyboard.generation_params);
                 if (params.voLanguage) lang = params.voLanguage;
+                if (params.voTone) tone = params.voTone;
               } catch (e) {}
             }
-            promptText += `\n\nVoiceover (${lang}):\n${matchingPrompt.narration}`;
+            const speakerAnchor = `[STRICT AUDIO RULE: Maintain the EXACT SAME narrator speaker voice, gender, timbre, accent, and audio tone as Scene 1 across all scenes in this project. Single consistent ${tone} narrator voice throughout all scenes]`;
+            promptText += `\n\nVoiceover (${lang}) ${speakerAnchor}:\n${matchingPrompt.narration}`;
           }
         }
         
