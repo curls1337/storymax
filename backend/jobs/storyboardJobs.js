@@ -939,6 +939,15 @@ async function resumeProcessingStoryboardsOnStartup() {
     console.log(`[Startup Resume] Found ${storyboards.length} storyboards in 'processing' status. Attempting to resume...`);
     
     for (const sb of storyboards) {
+      // Ref-image projects (text-to-image) aren't multi-page storyboards and can't be
+      // resumed by the storyboard generator — mark orphaned ones failed so they don't hang.
+      let _gp = {};
+      try { _gp = JSON.parse(sb.generation_params || '{}'); } catch (e) {}
+      if (_gp.style === 'ref_image') {
+        await db.run('UPDATE storyboards SET status = "failed" WHERE id = ?', [sb.id]);
+        continue;
+      }
+
       if (!sb.active_task_data) {
         console.log(`[Startup Resume] Storyboard ID ${sb.id} has no task data. Marking as failed.`);
         await db.run('UPDATE storyboards SET status = "failed" WHERE id = ?', [sb.id]);

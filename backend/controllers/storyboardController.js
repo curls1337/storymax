@@ -376,10 +376,10 @@ function _extractImageUrl(json) {
 }
 
 // POST /storyboards/generate-ref-image  { prompt, aspectRatio? }
-// Starts a Freebeat `image generate` (model 108, quality high) in the BACKGROUND and
-// returns a taskId immediately. The frontend polls /storyboards/tasks/:taskId (like a
-// storyboard) and waits patiently — NO timeout. To abandon, the user just starts a new
-// project. Optional feature.
+// Creates a PERSISTED project row (style 'ref_image') so the generation shows up in
+// history/gallery and survives a page refresh — exactly like a storyboard. Runs Freebeat
+// `image generate` (model 108, quality high) in the BACKGROUND, no timeout. To abandon,
+// the user just starts a new project. Optional feature.
 async function generateRefImage(req, res) {
   const { prompt, aspectRatio } = req.body || {};
   if (!prompt || !String(prompt).trim()) {
@@ -391,21 +391,46 @@ async function generateRefImage(req, res) {
     return res.status(400).json({ message: 'Tidak ada API Key Freebeat yang aktif. Tambahkan key di Admin dulu.' });
   }
 
-  const taskId = crypto.randomUUID();
-  activeTasks[taskId] = {
+  const taskId = 'task_' + crypto.randomUUID();
+  const title = '[Ref] ' + (String(prompt).slice(0, 40).trim() || 'Gambar Referensi');
+  const generationParams = JSON.stringify({ style: 'ref_image', aspectRatio: aspectRatio || '1:1', model: '108', gridCount: 1, duration: 0 });
+  const initialTaskState = {
     status: 'processing',
+    apiKeyId: keyRecord.id,
+    storyboardId: null,
+    isRefImage: true,
     logs: `=== BUAT REFERENSI GAMBAR (AI) ===\nPrompt: ${String(prompt).slice(0, 200)}\nMengirim ke Freebeat (model 108, kualitas tinggi)...\n`,
     result: null,
     error: null,
-    apiKeyId: keyRecord.id,
   };
 
-  // Respond immediately; generation continues in the background. The frontend polls
-  // patiently (no timeout). Cancel = just start a new project.
-  res.json({ taskId, status: 'processing' });
+  // Persist a project row up-front so it appears in history and survives refresh.
+  let storyboardId = null;
+  try {
+    const ins = await db.run(
+      'INSERT INTO storyboards (user_id, title, prompt, image_path, used_credits, api_key_id, status, generation_params, task_id, active_task_data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [req.user.id, title, prompt, '[]', 0, keyRecord.id, 'processing', generationParams, taskId, JSON.stringify(initialTaskState)]
+    );
+    storyboardId = ins.lastID;
+    initialTaskState.storyboardId = storyboardId;
+    activeTasks[taskId] = initialTaskState;
+  } catch (dbErr) {
+    return res.status(500).json({ message: 'Gagal membuat rekam project ref image.', error: dbErr.message });
+  }
+
+  // Respond immediately; generation continues in the background (no timeout).
+  res.json({ taskId, storyboardId, status: 'processing' });
 
   (async () => {
     const task = activeTasks[taskId];
+    const persist = async () => { try { await saveTaskState(db, storyboardId, task); } catch (e) {} };
+    const fail = async (msg, logLine) => {
+      task.status = 'failed';
+      task.error = msg;
+      task.logs += (logLine || `[ERROR] ${msg}`) + '\n';
+      await db.run('UPDATE storyboards SET status = ? WHERE id = ?', ['failed', storyboardId]).catch(() => {});
+      await persist();
+    };
     try {
       const base = resolveFreebeatBase(keyRecord.key_value);
       const sizeArgs = freebeatSizeArgs('108', aspectRatio || '1:1');
@@ -420,15 +445,9 @@ async function generateRefImage(req, res) {
       if (sub.code !== 0) {
         if (/credit|balance|insufficient|out of|depleted|payment|limit/.test(lowAll)) {
           await db.run('UPDATE api_keys SET is_active = 0, last_status = ? WHERE id = ?', ['Kredit habis (nonaktif otomatis) - ' + new Date().toLocaleString('id-ID'), keyRecord.id]).catch(() => {});
-          task.status = 'failed';
-          task.error = 'API Key kehabisan kredit. Coba lagi (akan pakai key lain).';
-          task.logs += '[ERROR] API Key kehabisan kredit.\n';
-          return;
+          return fail('API Key kehabisan kredit. Coba lagi (akan pakai key lain).', '[ERROR] API Key kehabisan kredit.');
         }
-        task.status = 'failed';
-        task.error = 'Gagal generate gambar dari Freebeat.';
-        task.logs += `[ERROR] ${(sub.err || sub.out || '').slice(0, 300)}\n`;
-        return;
+        return fail('Gagal generate gambar dari Freebeat.', `[ERROR] ${(sub.err || sub.out || '').slice(0, 300)}`);
       }
 
       let json = null;
@@ -441,6 +460,7 @@ async function generateRefImage(req, res) {
       const serialNo = dataObj.items && dataObj.items[0] && dataObj.items[0].serialNo;
       if (!url && batchId) {
         task.logs += `Batch ${batchId} sedang diproses Freebeat... menunggu hasil.\n`;
+        await persist();
         const maxPolls = 900; // ~1 jam @ 4s — tunggu sabar, tanpa timeout ketat
         for (let i = 0; i < maxPolls && !url; i++) {
           await new Promise((r) => setTimeout(r, 4000));
@@ -452,22 +472,16 @@ async function generateRefImage(req, res) {
           const so = sj.data || sj;
           const it = (so.items && so.items[0]) || (so.results && so.results[0]) || so;
           const status = String((it && it.status) || so.status || '').toUpperCase();
-          if (i % 4 === 1) task.logs += `Masih memproses gambar di Freebeat... (${(i + 1) * 4} detik)\n`;
+          if (i % 4 === 1) { task.logs += `Masih memproses gambar di Freebeat... (${(i + 1) * 4} detik)\n`; await persist(); }
           if (status === 'SUCCESS' || status === 'COMPLETED') { url = _extractImageUrl(sj); break; }
           if (status === 'FAILED' || status === 'ERROR' || status === 'REJECTED') {
-            task.status = 'failed';
-            task.error = 'Render gambar gagal di Freebeat.';
-            task.logs += '[ERROR] Render gagal di Freebeat.\n';
-            return;
+            return fail('Render gambar gagal di Freebeat.', '[ERROR] Render gagal di Freebeat.');
           }
         }
       }
 
       if (!url) {
-        task.status = 'failed';
-        task.error = 'Gambar tidak dihasilkan. Coba lagi.';
-        task.logs += '[ERROR] Tidak ada URL hasil.\n';
-        return;
+        return fail('Gambar tidak dihasilkan. Coba lagi.', '[ERROR] Tidak ada URL hasil.');
       }
 
       // Persist locally so it survives CDN expiry and can be re-fed as a reference.
@@ -483,10 +497,10 @@ async function generateRefImage(req, res) {
       task.status = 'success';
       task.result = { url: stored, image_path: stored, remoteUrl: url };
       task.logs += `[SUCCESS] Gambar referensi siap: ${stored}\n`;
+      await db.run('UPDATE storyboards SET image_path = ?, status = ? WHERE id = ?', [JSON.stringify([stored]), 'success', storyboardId]).catch(() => {});
+      await persist();
     } catch (err) {
-      task.status = 'failed';
-      task.error = err.message || 'Gagal generate ref image.';
-      task.logs += `[ERROR] ${err.message}\n`;
+      await fail(err.message || 'Gagal generate ref image.');
     }
   })();
 }
