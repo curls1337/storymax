@@ -413,44 +413,77 @@ async function generateMarketingCopyInternal(storyboardId, sceneIdx) {
       modelName = settings.model || 'gemini-3-flash';
     }
 
-    // Try to extract narration and visual prompt from video prompts JSON for this scene
+    // Extract style and full storyboard scene flow
+    let styleId = storyboard.style || '';
+    let genParams = {};
+    try {
+      if (storyboard.generation_params) {
+        genParams = JSON.parse(storyboard.generation_params);
+        if (genParams.style) styleId = genParams.style;
+      }
+    } catch (e) {}
+
+    // Extract all scenes flow and specific scene info
     let narrationText = '';
     let sceneVisualPrompt = '';
+    let fullStoryFlow = [];
     try {
       if (storyboard.video_prompts) {
         const parsed = JSON.parse(storyboard.video_prompts);
-        if (Array.isArray(parsed) && parsed[sceneIdx]) {
-          narrationText = parsed[sceneIdx].narration || '';
-          sceneVisualPrompt = parsed[sceneIdx].imageToVideoPrompt || parsed[sceneIdx].textToVideoPrompt || '';
-        } else if (parsed && typeof parsed === 'object') {
-          if (Array.isArray(parsed.scenes) && parsed.scenes[sceneIdx]) {
-            narrationText = parsed.scenes[sceneIdx].narration || '';
-            sceneVisualPrompt = parsed.scenes[sceneIdx].imageToVideoPrompt || parsed.scenes[sceneIdx].textToVideoPrompt || '';
-          }
+        const scenesArr = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.scenes) ? parsed.scenes : []);
+        
+        scenesArr.forEach((s, idx) => {
+          const promptDesc = s.imageToVideoPrompt || s.textToVideoPrompt || '';
+          const vo = s.narration || '';
+          fullStoryFlow.push(`Scene ${idx + 1}: ${promptDesc} ${vo ? `(Voiceover: "${vo}")` : ''}`);
+        });
+
+        if (scenesArr[sceneIdx]) {
+          narrationText = scenesArr[sceneIdx].narration || '';
+          sceneVisualPrompt = scenesArr[sceneIdx].imageToVideoPrompt || scenesArr[sceneIdx].textToVideoPrompt || '';
         }
       }
     } catch (e) {}
 
-    const systemPrompt = `You are a social media marketing copywriter expert. Your task is to write viral marketing content for a generated video.
+    const isTransformationStyle = ['cube_box_transform', 'asmr_toy_transform', 'shape_morph_transform', 'cube_morph_product', 'capsule_toss_transform'].includes(styleId);
+
+    let styleRule = '';
+    if (isTransformationStyle) {
+      styleRule = `\nCRITICAL RULE FOR TRANSFORMATION & MORPHING VIDEOS (MUST FOLLOW):
+This video features a viral 3D mechanical transformation / shape morphing reveal where a precision pod or cube mechanically unfolds into the target subject.
+Your title and social media description MUST focus on:
+1. The mesmerizing 3D mechanical transformation, smooth morphing plates, precision engineering, and satisfying visual reveal.
+2. Highlighting the cool visual art and satisfying morphing experience.
+3. DO NOT write generic passenger/travel/commercial ads (e.g. do NOT write "Yuk naik kereta" or generic travel promos). Write engaging viral social media copy for 3D visual art, mechanical unfolding, and cool tech/toys!`;
+    }
+
+    const systemPrompt = `You are a social media marketing copywriter expert specializing in viral video content (TikTok, Reels, Shorts). Your task is to write high-converting, engaging marketing content tailored to the exact visual scene flow and style of the video.
+${styleRule}
+
 You must return the output EXACTLY in JSON format with two keys:
 1. "title": A short catchy title representing the video (MAXIMUM 100 characters).
-2. "description": A descriptive, engaging marketing copy for social media posts (e.g. TikTok, Instagram Reels, Shopee, Tokopedia video description), combining description and related hashtags.
+2. "description": A descriptive, engaging marketing copy for social media posts (e.g. TikTok, Instagram Reels, YouTube Shorts), combining vivid description, call to engagement, and related hashtags.
 
-The language of the response should match the language of the storyboard or voiceover narration (usually Indonesian, unless English/others are explicitly used). Make it look premium, modern, and engaging.
+The language of the response MUST match the language of the storyboard or voiceover narration (default: Indonesian). Make it look premium, modern, and engaging.
 
 Format example:
 {
-  "title": "Unboxing Tas Korea Mini Gemoy Yang Lagi Viral!",
-  "description": "Siapa sih yang gak kepincut sama tas mini ala Korea yang satu ini? 😍 Desainnya simple, gemoy, tapi muat banyak! Pas banget buat nemenin daily outfit kamu biar makin aesthetic. Yuk, kepoin detailnya sekarang juga!\\n\\n#TasMini #KoreaStyle #TasAesthetic #RacunTikTok #OOTDIndo"
+  "title": "Transformasi Mekanis Whoosh Dari Kapsul Futuristik! 🚄✨",
+  "description": "Sensasi visual morphing presisi tinggi saat bodi aerodinamis Kereta Cepat Whoosh mekar sempurna dari kapsul futuristik! 🤩 Detail sambungan mekanisnya beneran bikin gak bisa berpaling.\\n\\nBagian transisi mana yang paling memukau menurut kamu? Tulis di kolom komentar ya! 👇\\n\\n#Whoosh #KCIC #3DMorphing #MechanicalTransform #VisualArt #FutureVibes #TeknologiMasaDepan"
 }`;
 
     const userPrompt = `Video context:
 Storyboard Title: ${storyboard.title}
 Concept/Prompt: ${storyboard.prompt}
-Scene Visual Action: ${sceneVisualPrompt}
-Voiceover Narration (if any): ${narrationText}
+Visual Style: ${styleId || 'Standard'}
+Full Storyboard Progression:
+${fullStoryFlow.join('\n') || 'N/A'}
 
-Write the catchy title (max 100 chars) and description with hashtags based on the above video context. Return ONLY the raw JSON string matching the format.`;
+Current Target Scene (Scene ${Number(sceneIdx) + 1}):
+Scene Visual Action: ${sceneVisualPrompt || storyboard.prompt}
+Voiceover Narration: ${narrationText || 'N/A'}
+
+Write the catchy title (max 100 chars) and description with hashtags based strictly on the above video context and style. Return ONLY raw JSON string matching format.`;
 
     const payload = {
       model: modelName,
