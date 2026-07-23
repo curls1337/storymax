@@ -3,6 +3,15 @@ const { google } = require('googleapis');
 const fs = require('fs');
 const path = require('path');
 
+function getPublicApiBase(req) {
+  if (process.env.PUBLIC_URL && process.env.PUBLIC_URL.trim()) {
+    return process.env.PUBLIC_URL.replace(/\/$/, '');
+  }
+  const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
+  const host = req.headers['x-forwarded-host'] || req.get('host') || 'localhost:5033';
+  return `${protocol}://${host}`;
+}
+
 async function getGoogleSettings(req, res) {
   try {
     const db = getDb();
@@ -209,15 +218,6 @@ async function exportToGoogleSheets(req, res) {
         'Keyword'
       ]);
     }
-
-function getPublicApiBase(req) {
-  if (process.env.PUBLIC_URL && process.env.PUBLIC_URL.trim()) {
-    return process.env.PUBLIC_URL.replace(/\/$/, '');
-  }
-  const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
-  const host = req.headers['x-forwarded-host'] || req.get('host') || 'localhost:5033';
-  return `${protocol}://${host}`;
-}
 
     // Base URL for image/video link resolution (dynamic domain)
     const apiBase = getPublicApiBase(req);
