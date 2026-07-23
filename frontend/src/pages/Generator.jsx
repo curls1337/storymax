@@ -945,7 +945,16 @@ export default function Generator({ setTab }) {
                     <option value="formal">Formal / Serius (Edukasi)</option>
                     <option value="emotional">Emotional / Menyentuh (Hangat)</option>
                     <option value="storytelling">Storytelling / Bercerita</option>
-                    <option value="dramatic">Dramatic / Misterius (Tegang)</option>
+                    <option value="dramatic">Dramatic / Misterius & Teater (Tegang)</option>
+                    <option value="soft_spoken">Soft Spoken / ASMR (Bisikan Lembut & Santai)</option>
+                    <option value="luxury_premium">Luxury / Premium & Eksekutif (Mewah & Elegan)</option>
+                    <option value="poetic_aesthetic">Poetic / Estetik & Artistik (Puitis)</option>
+                    <option value="news_anchor">News Anchor / Breaking News (Reporter Lugas)</option>
+                    <option value="motivator_inspirational">Motivator / Inspiratif (Semangat Positif)</option>
+                    <option value="review_honest">Honest Reviewer / Ulasan Jujur (Tanpa Basa-Basi)</option>
+                    <option value="cinematic_trailer">Cinematic Trailer / Movie Epik (Bintang Film)</option>
+                    <option value="sarcastic_witty">Sarcastic / Witty & Sindiran Halus (Cerdas)</option>
+                    <option value="kids_playful">Kids & Playful / Ceria & Dunia Anak</option>
                   </select>
                 </div>
               </div>
