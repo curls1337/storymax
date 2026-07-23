@@ -16,7 +16,7 @@ router.get('/download', authenticateTokenAllowQuery, downloadProxy);
 // acting as an open download proxy to any unauthenticated caller.
 router.use(authenticateToken);
 
-const { exportToGoogleSheets } = require('../controllers/googleController');
+const { exportToGoogleSheets, exportToCSV } = require('../controllers/googleController');
 
 router.get('/', getUserStoryboards);
 router.get('/keys', getActiveKeys);
@@ -26,6 +26,7 @@ router.post('/generate', generateStoryboard);
 router.post('/generate-ref-image', generateRefImage);
 router.post('/scrape', scrapeProductUrl);
 router.post('/export-google-sheets', exportToGoogleSheets);
+router.post('/export-csv', exportToCSV);
 router.post('/:id/regenerate-page', regenerateStoryboardPage);
 router.post('/:id/scenes/:sceneIdx/marketing-copy', regenerateStoryboardMarketingCopy);
 router.delete('/:id', deleteStoryboard);

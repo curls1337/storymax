@@ -156,7 +156,7 @@ async function exportToGoogleSheets(req, res) {
     try {
       const headerRes = await sheetsAPI.spreadsheets.values.get({
         spreadsheetId,
-        range: `${sheetName}!A1:H1`
+        range: `${sheetName}!A1:F1`
       });
       hasHeaders = headerRes.data.values && headerRes.data.values.length > 0;
     } catch (e) {
@@ -168,66 +168,52 @@ async function exportToGoogleSheets(req, res) {
       rowsToAppend.push([
         'Tanggal',
         'Judul',
-        'Caption / Prompt',
-        'Link Gambar / GDrive',
-        'Style / Gaya',
-        'Jumlah Panel',
-        'Naskah Voiceover (VO)',
-        'Prompt Video (I2V / T2V)'
+        'Caption',
+        'Link GDrive',
+        'channel',
+        'Keyword'
       ]);
     }
 
-    // Base URL for image link resolution
+    // Base URL for image/video link resolution
     const apiBase = process.env.PUBLIC_URL || 'http://localhost:5033';
 
     for (const sb of storyboards) {
       const createdDate = new Date(sb.created_at || Date.now()).toLocaleDateString('id-ID');
       const title = sb.title || 'Untitled';
-      const prompt = sb.prompt || '';
-      const styleName = sb.style || 'Default';
+      const caption = sb.prompt || '';
 
-      let imageLink = sb.image_path || '';
-      if (imageLink.startsWith('/')) {
-        imageLink = `${apiBase}${imageLink}`;
-      } else if (!imageLink.startsWith('http')) {
-        imageLink = `${apiBase}/${imageLink}`;
+      // Auto-detect video link: merged video URL or single scene video URL
+      let videoLink = '';
+      if (sb.merged_video_url) {
+        videoLink = sb.merged_video_url;
+      } else {
+        const latestVid = await db.get(
+          'SELECT video_url FROM generated_videos WHERE storyboard_id = ? AND status = "success" ORDER BY id DESC LIMIT 1',
+          [sb.id]
+        );
+        if (latestVid && latestVid.video_url) {
+          videoLink = latestVid.video_url;
+        } else {
+          videoLink = sb.image_path || '';
+        }
       }
 
-      let gridCount = '6';
-      if (sb.generation_params) {
-        try {
-          const parsedParams = JSON.parse(sb.generation_params);
-          if (parsedParams.gridCount) gridCount = String(parsedParams.gridCount);
-        } catch (e) {}
-      }
-
-      // Parse VO and Video Prompts
-      let voText = '';
-      let videoPromptsText = '';
-      if (sb.video_prompts) {
-        try {
-          const parsed = JSON.parse(sb.video_prompts);
-          if (parsed && Array.isArray(parsed.scenes)) {
-            voText = parsed.map((s, idx) => `[Scene ${idx + 1}] ${s.narration || 'N/A'}`).join('\n');
-            videoPromptsText = parsed.map((s, idx) => `[Scene ${idx + 1} T2V]: ${s.textToVideoPrompt || s.visualPrompt || 'N/A'}`).join('\n\n');
-          } else if (parsed && typeof parsed === 'object') {
-            voText = parsed.narration || '';
-            videoPromptsText = parsed.textToVideoPrompt || parsed.visualPrompt || '';
-          }
-        } catch (e) {
-          videoPromptsText = sb.video_prompts;
+      if (videoLink) {
+        if (videoLink.startsWith('/')) {
+          videoLink = `${apiBase}${videoLink}`;
+        } else if (!videoLink.startsWith('http')) {
+          videoLink = `${apiBase}/${videoLink}`;
         }
       }
 
       rowsToAppend.push([
         createdDate,
         title,
-        prompt,
-        imageLink,
-        styleName,
-        gridCount,
-        voText,
-        videoPromptsText
+        caption,
+        videoLink,
+        '', // channel empty
+        ''  // Keyword empty
       ]);
     }
 
@@ -256,8 +242,90 @@ async function exportToGoogleSheets(req, res) {
   }
 }
 
+async function exportToCSV(req, res) {
+  try {
+    const { storyboardIds } = req.body;
+    if (!Array.isArray(storyboardIds) || storyboardIds.length === 0) {
+      return res.status(400).json({ message: 'Pilih minimal 1 storyboard untuk diekspor.' });
+    }
+
+    const db = getDb();
+    const placeholders = storyboardIds.map(() => '?').join(',');
+    const storyboards = await db.all(
+      `SELECT * FROM storyboards WHERE id IN (${placeholders}) ORDER BY id DESC`,
+      storyboardIds
+    );
+
+    if (storyboards.length === 0) {
+      return res.status(404).json({ message: 'Data storyboard tidak ditemukan.' });
+    }
+
+    const apiBase = process.env.PUBLIC_URL || 'http://localhost:5033';
+
+    // Header matching autoclip reference exactly
+    const rows = [
+      ['Tanggal', 'Judul', 'Caption', 'Link GDrive', 'channel', 'Keyword']
+    ];
+
+    for (const sb of storyboards) {
+      const createdDate = new Date(sb.created_at || Date.now()).toLocaleDateString('id-ID');
+      const title = sb.title || 'Untitled';
+      const caption = sb.prompt || '';
+
+      // Auto-detect video link: merged video URL or single scene video URL
+      let videoLink = '';
+      if (sb.merged_video_url) {
+        videoLink = sb.merged_video_url;
+      } else {
+        const latestVid = await db.get(
+          'SELECT video_url FROM generated_videos WHERE storyboard_id = ? AND status = "success" ORDER BY id DESC LIMIT 1',
+          [sb.id]
+        );
+        if (latestVid && latestVid.video_url) {
+          videoLink = latestVid.video_url;
+        } else {
+          videoLink = sb.image_path || '';
+        }
+      }
+
+      if (videoLink) {
+        if (videoLink.startsWith('/')) {
+          videoLink = `${apiBase}${videoLink}`;
+        } else if (!videoLink.startsWith('http')) {
+          videoLink = `${apiBase}/${videoLink}`;
+        }
+      }
+
+      rows.push([
+        createdDate,
+        title,
+        caption,
+        videoLink,
+        '', // channel empty
+        ''  // Keyword empty
+      ]);
+    }
+
+    // Format into standard CSV string
+    const csvContent = rows.map(row => 
+      row.map(field => {
+        const str = String(field || '').replace(/"/g, '""');
+        return `"${str}"`;
+      }).join(',')
+    ).join('\n');
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="storyboards_export.csv"');
+    return res.send(csvContent);
+  } catch (err) {
+    console.error('Error exporting to CSV:', err);
+    return res.status(500).json({ message: 'Gagal mengekspor data ke CSV.' });
+  }
+}
+
 module.exports = {
   getGoogleSettings,
   saveGoogleSettings,
-  exportToGoogleSheets
+  exportToGoogleSheets,
+  exportToCSV
 };

@@ -140,6 +140,7 @@ export default function Dashboard({ setTab }) {
   // Google Sheets Export selection states
   const [exportSelectedIds, setExportSelectedIds] = useState([]);
   const [exportingGoogle, setExportingGoogle] = useState(false);
+  const [exportingCsv, setExportingCsv] = useState(false);
   const [exportSuccessModal, setExportSuccessModal] = useState(null);
 
   const toggleExportSelect = (id, e) => {
@@ -174,6 +175,33 @@ export default function Dashboard({ setTab }) {
       alert(err.response?.data?.message || 'Gagal mengekspor data ke Google Sheets.');
     } finally {
       setExportingGoogle(false);
+    }
+  };
+
+  const handleExportToCSV = async () => {
+    if (exportSelectedIds.length === 0) return;
+    setExportingCsv(true);
+    try {
+      const response = await api.post(
+        '/storyboards/export-csv',
+        { storyboardIds: exportSelectedIds },
+        { responseType: 'blob' }
+      );
+      
+      const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `storymax_export_${Date.now()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Error exporting to CSV:", err);
+      alert('Gagal mengekspor data ke CSV.');
+    } finally {
+      setExportingCsv(false);
     }
   };
 
@@ -939,23 +967,42 @@ export default function Dashboard({ setTab }) {
             </div>
 
             {exportSelectedIds.length > 0 && (
-              <button
-                type="button"
-                onClick={handleExportToGoogleSheets}
-                disabled={exportingGoogle}
-                className="bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-2 px-4 rounded-xl text-[10px] uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-lg cursor-pointer disabled:opacity-50"
-              >
-                {exportingGoogle ? (
-                  <>
-                    <Loader className="animate-spin w-3.5 h-3.5" />
-                    Mengespor ke Drive...
-                  </>
-                ) : (
-                  <>
-                    📊 Export {exportSelectedIds.length} ke Google Sheets
-                  </>
-                )}
-              </button>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={handleExportToCSV}
+                  disabled={exportingCsv || exportingGoogle}
+                  className="bg-black/60 hover:bg-[#cfae80] hover:text-black text-slate-200 border border-[#2a2725] font-bold py-2 px-3.5 rounded-xl text-[10px] uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer disabled:opacity-50"
+                >
+                  {exportingCsv ? (
+                    <>
+                      <Loader className="animate-spin w-3.5 h-3.5" />
+                      Mengunduh CSV...
+                    </>
+                  ) : (
+                    <>
+                      📥 Export CSV
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExportToGoogleSheets}
+                  disabled={exportingGoogle || exportingCsv}
+                  className="bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-2 px-4 rounded-xl text-[10px] uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-lg cursor-pointer disabled:opacity-50"
+                >
+                  {exportingGoogle ? (
+                    <>
+                      <Loader className="animate-spin w-3.5 h-3.5" />
+                      Mengespor ke Drive...
+                    </>
+                  ) : (
+                    <>
+                      📊 Export Google Sheets
+                    </>
+                  )}
+                </button>
+              </div>
             )}
           </div>
           
