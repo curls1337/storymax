@@ -386,15 +386,19 @@ export default function Dashboard({ setTab }) {
     }
   };
 
+  // genTypes = generation-types Freebeat supports per model (from Freebeat errors).
+  // Only these appear in "Metode Pembuatan" so we never send an unsupported type.
   const VIDEO_MODELS = [
-    { value: 'pixverse-c1', label: 'Pixverse C1 (1-15s, Audio)', durations: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15], resolutions: ['360p', '540p', '720p', '1080p'], supportsAudio: true },
-    { value: 'pixverse-v6', label: 'Pixverse V6 (5-15s, Audio)', durations: [5,6,7,8,9,10,11,12,13,14,15], resolutions: ['720p', '1080p'], supportsAudio: true },
-    { value: 'sora-2-pro', label: 'Sora 2 Pro (4|8|12s, 16:9|9:16)', durations: [4, 8, 12], resolutions: ['720p', '1080p'], supportsAudio: false },
-    { value: 'kling-v3-4k', label: 'Kling V3 4K (3-15s, 4K)', durations: [3,4,5,6,7,8,9,10,11,12,13,14,15], resolutions: ['4k'], supportsAudio: false },
-    { value: 'seedance-2.0', label: 'SeedDance 2.0 (4-15s)', durations: [4,5,6,7,8,9,10,11,12,13,14,15], resolutions: ['720p'], supportsAudio: false },
-    { value: 'seedance-2.0-fast', label: 'SeedDance 2.0 Fast (4-15s)', durations: [4,5,6,7,8,9,10,11,12,13,14,15], resolutions: ['720p'], supportsAudio: false },
-    { value: 'wan-v2.7-video', label: 'Wan V2.7 Video (2-15s)', durations: [2,3,4,5,6,7,8,9,10,11,12,13,14,15], resolutions: ['720p', '1080p'], supportsAudio: false },
-    { value: 'happy-horse', label: 'HappyHorse (3-15s)', durations: [3,4,5,6,7,8,9,10,11,12,13,14,15], resolutions: ['720p', '1080p'], supportsAudio: false }
+    { value: 'pixverse-c1', label: 'Pixverse C1 (1-15s, Audio)', genTypes: ['image','text','transition'], durations: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15], resolutions: ['360p', '540p', '720p', '1080p'], supportsAudio: true },
+    { value: 'pixverse-v6', label: 'Pixverse V6 (5-15s, Audio)', genTypes: ['image','text','transition'], durations: [5,6,7,8,9,10,11,12,13,14,15], resolutions: ['720p', '1080p'], supportsAudio: true },
+    { value: 'veo3-1', label: 'Veo 3.1 (4-8s, Audio)', genTypes: ['image','text'], durations: [4,6,8], resolutions: ['720p', '1080p'], supportsAudio: true },
+    { value: 'veo3-1-fast', label: 'Veo 3.1 Fast (4-8s, Audio)', genTypes: ['image','text'], durations: [4,6,8], resolutions: ['720p', '1080p'], supportsAudio: true },
+    { value: 'sora-2-pro', label: 'Sora 2 Pro (4|8|12s, 16:9|9:16)', genTypes: ['image','text'], durations: [4, 8, 12], resolutions: ['720p', '1080p'], supportsAudio: false },
+    { value: 'kling-v3-4k', label: 'Kling V3 4K (3-15s, 4K)', genTypes: ['image','text','transition'], durations: [3,4,5,6,7,8,9,10,11,12,13,14,15], resolutions: ['4k'], supportsAudio: false },
+    { value: 'seedance-2.0', label: 'SeedDance 2.0 (4-15s)', genTypes: ['image','text','transition','reference'], durations: [4,5,6,7,8,9,10,11,12,13,14,15], resolutions: ['720p'], supportsAudio: false },
+    { value: 'seedance-2.0-fast', label: 'SeedDance 2.0 Fast (4-15s)', genTypes: ['image','text','transition','reference'], durations: [4,5,6,7,8,9,10,11,12,13,14,15], resolutions: ['720p'], supportsAudio: false },
+    { value: 'wan-v2.7-video', label: 'Wan V2.7 Video (2-10s)', genTypes: ['image','text','transition','reference'], durations: [2,3,4,5,6,7,8,9,10], resolutions: ['720p', '1080p'], supportsAudio: false },
+    { value: 'happy-horse', label: 'HappyHorse (3-15s)', genTypes: ['image','text','transition'], durations: [3,4,5,6,7,8,9,10,11,12,13,14,15], resolutions: ['720p', '1080p'], supportsAudio: false }
   ];
 
   useEffect(() => {
@@ -1937,6 +1941,9 @@ export default function Dashboard({ setTab }) {
                               if (m) {
                                 setVideoDuration(String(m.durations[0]));
                                 setVideoResolution(m.resolutions[0]);
+                                if (m.genTypes && !m.genTypes.includes(videoGenType)) {
+                                  setVideoGenType(m.genTypes[0]);
+                                }
                               }
                             }}
                             className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] focus:outline-none focus:border-[#cfae80] transition-all font-semibold"
@@ -1961,10 +1968,17 @@ export default function Dashboard({ setTab }) {
                             }}
                             className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] focus:outline-none focus:border-[#cfae80] transition-all font-semibold"
                           >
-                            <option value="image">Image-to-Video (I2V - Gunakan Gambar Panel)</option>
-                            <option value="text">Text-to-Video (T2V - Hanya Prompt Teks)</option>
-                            <option value="transition">Transition-to-Video (Transisi Gambar)</option>
-                            <option value="reference">Reference-to-Video (Referensi Karakter/Produk)</option>
+                            {(() => {
+                              const m = VIDEO_MODELS.find(x => x.value === videoModel);
+                              const types = (m && m.genTypes) || ['image', 'text'];
+                              const labels = {
+                                image: 'Image-to-Video (I2V - Gunakan Gambar Panel)',
+                                text: 'Text-to-Video (T2V - Hanya Prompt Teks)',
+                                transition: 'Transition-to-Video (Transisi Gambar)',
+                                reference: 'Reference-to-Video (Referensi Karakter/Produk)',
+                              };
+                              return types.map(t => <option key={t} value={t}>{labels[t] || t}</option>);
+                            })()}
                           </select>
                         </div>
 
