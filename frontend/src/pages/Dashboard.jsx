@@ -146,7 +146,7 @@ export default function Dashboard({ setTab }) {
   const [showGenForm, setShowGenForm] = useState(false);
 
   const [videoModel, setVideoModel] = useState('seedance-2.0-fast');
-  const [videoGenType, setVideoGenType] = useState('reference');
+  const [videoGenType, setVideoGenType] = useState('image');
   const [videoStudioPrompt, setVideoStudioPrompt] = useState('');
   const [videoDuration, setVideoDuration] = useState('15');
   const [videoResolution, setVideoResolution] = useState('720p');
@@ -1931,8 +1931,40 @@ export default function Dashboard({ setTab }) {
                           </div>
                         )}
 
+                        {/* Metode Pembuatan FIRST — the model list below auto-filters to models that support it */}
                         <div className="space-y-1">
-                          <label className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80]">Pilih Model Video</label>
+                          <label className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80]">Metode Pembuatan</label>
+                          <select
+                            value={videoGenType}
+                            onChange={(e) => {
+                              const newType = e.target.value;
+                              setVideoGenType(newType);
+                              setVideoStudioPrompt((newType === 'text' ? textToVideoPrompt : imageToVideoPrompt) || '');
+                              // Auto-switch to a model that supports this method if the current one doesn't.
+                              const cur = VIDEO_MODELS.find(x => x.value === videoModel);
+                              if (!cur || !(cur.genTypes || []).includes(newType)) {
+                                const first = VIDEO_MODELS.find(x => (x.genTypes || []).includes(newType));
+                                if (first) {
+                                  setVideoModel(first.value);
+                                  setVideoDuration(String(first.durations[0]));
+                                  setVideoResolution(first.resolutions[0]);
+                                }
+                              }
+                            }}
+                            className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] focus:outline-none focus:border-[#cfae80] transition-all font-semibold"
+                          >
+                            {[
+                              { v: 'image', l: 'Image-to-Video (I2V - Gunakan Gambar Panel)' },
+                              { v: 'text', l: 'Text-to-Video (T2V - Hanya Prompt Teks)' },
+                              { v: 'transition', l: 'Transition-to-Video (Transisi Gambar)' },
+                              { v: 'reference', l: 'Reference-to-Video (Referensi Karakter/Produk)' },
+                            ].map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
+                          </select>
+                        </div>
+
+                        {/* Model — only those supporting the chosen method */}
+                        <div className="space-y-1">
+                          <label className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80]">Pilih Model Video (mendukung metode ini)</label>
                           <select
                             value={videoModel}
                             onChange={(e) => {
@@ -1941,44 +1973,13 @@ export default function Dashboard({ setTab }) {
                               if (m) {
                                 setVideoDuration(String(m.durations[0]));
                                 setVideoResolution(m.resolutions[0]);
-                                if (m.genTypes && !m.genTypes.includes(videoGenType)) {
-                                  setVideoGenType(m.genTypes[0]);
-                                }
                               }
                             }}
                             className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] focus:outline-none focus:border-[#cfae80] transition-all font-semibold"
                           >
-                            {VIDEO_MODELS.map(m => (
+                            {VIDEO_MODELS.filter(m => (m.genTypes || []).includes(videoGenType)).map(m => (
                               <option key={m.value} value={m.value}>{m.label}</option>
                             ))}
-                          </select>
-                        </div>
-
-                        <div className="space-y-1">
-                          <label className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80]">Metode Pembuatan</label>
-                          <select
-                            value={videoGenType}
-                            onChange={(e) => {
-                              setVideoGenType(e.target.value);
-                              if (e.target.value === 'text') {
-                                setVideoStudioPrompt(textToVideoPrompt || '');
-                              } else {
-                                setVideoStudioPrompt(imageToVideoPrompt || '');
-                              }
-                            }}
-                            className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] focus:outline-none focus:border-[#cfae80] transition-all font-semibold"
-                          >
-                            {(() => {
-                              const m = VIDEO_MODELS.find(x => x.value === videoModel);
-                              const types = (m && m.genTypes) || ['image', 'text'];
-                              const labels = {
-                                image: 'Image-to-Video (I2V - Gunakan Gambar Panel)',
-                                text: 'Text-to-Video (T2V - Hanya Prompt Teks)',
-                                transition: 'Transition-to-Video (Transisi Gambar)',
-                                reference: 'Reference-to-Video (Referensi Karakter/Produk)',
-                              };
-                              return types.map(t => <option key={t} value={t}>{labels[t] || t}</option>);
-                            })()}
                           </select>
                         </div>
 
