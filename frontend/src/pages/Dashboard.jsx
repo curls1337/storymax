@@ -146,7 +146,7 @@ export default function Dashboard({ setTab }) {
   const [showGenForm, setShowGenForm] = useState(false);
 
   const [videoModel, setVideoModel] = useState('seedance-2.0-fast');
-  const [videoGenType, setVideoGenType] = useState('image');
+  const [videoGenType, setVideoGenType] = useState('reference');
   const [videoStudioPrompt, setVideoStudioPrompt] = useState('');
   const [videoDuration, setVideoDuration] = useState('15');
   const [videoResolution, setVideoResolution] = useState('720p');
