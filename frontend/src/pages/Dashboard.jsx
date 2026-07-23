@@ -1049,15 +1049,23 @@ export default function Dashboard({ setTab }) {
                 >
                   {/* Selection Checkbox Overlay */}
                   <div 
-                    onClick={(e) => toggleExportSelect(sb.id, e)}
-                    className="absolute top-1.5 left-1.5 z-30 bg-black/70 p-1 rounded-lg backdrop-blur-sm cursor-pointer hover:scale-110 transition-transform"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      toggleExportSelect(sb.id);
+                    }}
+                    className={`absolute top-1.5 left-1.5 z-30 p-1.5 rounded-lg backdrop-blur-md cursor-pointer border transition-all flex items-center justify-center select-none ${
+                      isSelectedForExport 
+                        ? 'bg-[#cfae80] text-black border-[#cfae80] shadow-md scale-105' 
+                        : 'bg-black/80 text-white border-[#2a2725] hover:border-[#cfae80]/50'
+                    }`}
                     title="Pilih untuk Export"
                   >
                     <input
                       type="checkbox"
                       checked={isSelectedForExport}
-                      onChange={(e) => toggleExportSelect(sb.id, e)}
-                      className="w-3.5 h-3.5 rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 cursor-pointer accent-[#cfae80]"
+                      readOnly
+                      className="w-3.5 h-3.5 rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 cursor-pointer accent-[#cfae80] pointer-events-none"
                     />
                   </div>
 
