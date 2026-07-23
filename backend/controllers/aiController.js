@@ -423,14 +423,14 @@ async function generateVideoPromptsInternal({ storyboardId, promptType, regenera
   const durVal = videoDuration || 'auto';
   if (durVal === 'auto') {
     if (targetType === 'image-to-video') {
-      durationClause = `Each individual scene/panel video has a target duration of: Kling/SeedDance/Luma: 15 seconds, Omni: 10 seconds, Gemini: 8 seconds. Adjust the length of each scene's narration to fit these bounds (roughly 2.0 words per second, e.g. ~16 words for 8s, ~20 words for 10s, ~30 words for 15s).`;
+      durationClause = `Each individual scene/panel video has a target duration of: Kling/SeedDance/Luma: 15 seconds, Omni: 10 seconds, Gemini: 8 seconds. Adjust the length of each scene's narration to fit these bounds (relaxed 1.0 word per second pacing: MAX 8 words for 8s, MAX 10 words for 10s, MAX 15 words for 15s).`;
     } else {
-      durationClause = `Each individual scene/panel video has a target duration of: 15 seconds. If Voiceover (VO) is enabled, the narration for each scene should be roughly 30 words.`;
+      durationClause = `Each individual scene/panel video has a target duration of: 15 seconds. If Voiceover (VO) is enabled, the narration for each scene MUST be short (MAXIMUM 14 to 16 words).`;
     }
   } else {
     const seconds = Number(durVal);
-    const targetWords = Math.round(seconds * 2.0);
-    durationClause = `Each individual scene/panel video has a target duration of: ${seconds} seconds. If Voiceover (VO) is enabled, the narration for each scene must contain approximately ${targetWords} words.`;
+    const targetWords = Math.round(seconds * 1.0);
+    durationClause = `Each individual scene/panel video has a target duration of: ${seconds} seconds. If Voiceover (VO) is enabled, the narration for each scene MUST be very short and punchy (MAXIMUM ${targetWords} words).`;
   }
 
   let toneClause = '';
@@ -531,13 +531,13 @@ For each page (scene):
 3. "narration": A voiceover narration script paragraph in the language: "${voLanguage || 'Bahasa Indonesia'}". ${toneClause} The narration must fit the page duration and align with the chronological visual action of that page.
 
 CRITICAL SPEECH PACING, TEMPO & WORD COUNT RULES (Strictly prevents fast, rushed, garbled, or mismatched voiceover):
-- TEMPO & PACING: Write narration to be spoken at a calm, relaxed, articulate, and natural conversational pace (approx 1.2 to 1.3 words per second). Always insert punctuation (commas ',', periods '.', and ellipses '...') strategically between phrases to enforce clear, natural breathing pauses so the voiceover sounds clear and articulate.
+- TEMPO & PACING: Write narration to be spoken at a calm, relaxed, articulate, and natural conversational pace (approx 1.0 word per second). Always insert punctuation (commas ',', periods '.', and ellipses '...') strategically between short phrases to enforce clear, natural breathing pauses so the voiceover sounds clear and articulate.
 - STRICT WORD COUNT LIMIT PER SCENE (CALIBRATED TO EXACT DURATION):
-  * For ~5-second scene: Strictly MAX 6 to 8 words TOTAL for that scene.
-  * For ~8-second scene: Strictly MAX 9 to 11 words TOTAL for that scene.
-  * For ~10-second scene: Strictly MAX 12 to 14 words TOTAL for that scene.
-  * For ~15-second scene: Strictly MAX 18 to 20 words TOTAL for that scene.
-- NEVER cram long, dense sentences into a single scene! Keep phrases short, rhythmic, punchy, and well-spaced so speech finishes naturally before the scene ends.
+  * For ~5-second scene: Strictly MAX 5 to 6 words TOTAL for that scene.
+  * For ~8-second scene: Strictly MAX 7 to 8 words TOTAL for that scene.
+  * For ~10-second scene: Strictly MAX 9 to 11 words TOTAL for that scene.
+  * For ~15-second scene: Strictly MAX 12 to 15 words TOTAL for that scene.
+- NEVER cram long, dense sentences into a single scene! Keep phrases short, rhythmic, punchy, and well-spaced so speech finishes comfortably 3-4 seconds before the scene ends.
 
 CRITICAL NARRATION FLOW & STRUCTURE:
 The voiceover narrations across all the ${totalScenes} pages must combine to form one single, continuously flowing script from the first page to the last. Do not treat each page as a standalone video!
@@ -650,11 +650,23 @@ Please analyze the provided image sheet(s) carefully. Generate the requested JSO
   try {
     const parsed = JSON.parse(cleanText);
     if (parsed && Array.isArray(parsed.scenes)) {
-      if (['cube_box_transform', 'asmr_toy_transform', 'shape_morph_transform', 'cube_morph_product', 'capsule_toss_transform'].includes(resolvedStyle)) {
-        parsed.scenes = parsed.scenes.map(s => {
-          let i2v = s.imageToVideoPrompt || '';
-          let t2v = s.textToVideoPrompt || '';
+      // Calculate max words allowed per scene based on video duration
+      let maxWordsAllowed = 16;
+      if (videoDuration && videoDuration !== 'auto') {
+        const sec = Number(videoDuration);
+        if (sec <= 5) maxWordsAllowed = 6;
+        else if (sec <= 8) maxWordsAllowed = 9;
+        else if (sec <= 10) maxWordsAllowed = 12;
+        else if (sec <= 15) maxWordsAllowed = 16;
+        else maxWordsAllowed = Math.round(sec * 1.0);
+      }
 
+      parsed.scenes = parsed.scenes.map(s => {
+        let i2v = s.imageToVideoPrompt || '';
+        let t2v = s.textToVideoPrompt || '';
+        let narr = s.narration || '';
+
+        if (['cube_box_transform', 'asmr_toy_transform', 'shape_morph_transform', 'cube_morph_product', 'capsule_toss_transform'].includes(resolvedStyle)) {
           i2v = i2v.replace(/(?:A|a)\s+hand\s+gently\s+interacts\s+with/gi, 'The object automatically unfolds on');
           i2v = i2v.replace(/(?:A|a)\s+hand\s+gently\s+opens/gi, 'The object automatically opens');
           i2v = i2v.replace(/(?:A|a)\s+hand\s+(?:gently\s+)?(?:touches|holds|presses|interacts\s+with|interacts)/gi, 'The mechanical mechanism');
@@ -664,10 +676,23 @@ Please analyze the provided image sheet(s) carefully. Generate the requested JSO
           t2v = t2v.replace(/(?:A|a)\s+hand\s+gently\s+opens/gi, 'The object automatically opens');
           t2v = t2v.replace(/(?:A|a)\s+hand\s+(?:gently\s+)?(?:touches|holds|presses|interacts\s+with|interacts)/gi, 'The mechanical mechanism');
           t2v = t2v.replace(/\b(?:hands?|fingers?|human\s+hands?)\b/gi, 'mechanical panels');
+        }
 
-          return { ...s, imageToVideoPrompt: i2v, textToVideoPrompt: t2v };
-        });
-      }
+        // Automatic Narration Truncation: ensure voiceover script never exceeds max words
+        if (narr && typeof narr === 'string') {
+          const words = narr.trim().split(/\s+/);
+          if (words.length > maxWordsAllowed) {
+            let truncated = words.slice(0, maxWordsAllowed).join(' ');
+            // Ensure proper punctuation ending
+            if (!/[.!?]$/.test(truncated)) {
+              truncated += '.';
+            }
+            narr = truncated;
+          }
+        }
+
+        return { ...s, imageToVideoPrompt: i2v, textToVideoPrompt: t2v, narration: narr };
+      });
       finalJsonStr = JSON.stringify(parsed);
     } else {
       throw new Error("Invalid structure from AI");
