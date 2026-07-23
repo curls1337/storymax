@@ -60,6 +60,42 @@ function httpRequest(url, headers, body) {
   });
 }
 
+// Resolve any image reference (data URL, /uploads/ path, http URL, or raw base64)
+// into a proper `data:image/...;base64,...` URL for the vision LLM. Without this, a
+// path like "/uploads/refgen_x.png" gets sent as inline_data.data and the API fails
+// with "Base64 decoding failed".
+async function resolveImageDataUrl(src) {
+  if (!src || typeof src !== 'string') return null;
+  if (src.startsWith('data:image')) return src;
+  // Local upload (relative /uploads/... or absolute URL containing /uploads/)
+  if (src.includes('/uploads/')) {
+    try {
+      const idx = src.indexOf('/uploads/');
+      const rel = src.substring(idx + '/uploads/'.length).split('?')[0];
+      const full = path.join(uploadsDir, rel);
+      if (fs.existsSync(full)) {
+        const ext = (full.split('.').pop() || 'png').toLowerCase();
+        const mime = (ext === 'jpg' || ext === 'jpeg') ? 'image/jpeg' : (ext === 'webp' ? 'image/webp' : 'image/png');
+        return `data:${mime};base64,${fs.readFileSync(full).toString('base64')}`;
+      }
+    } catch (e) {}
+    return null;
+  }
+  // Remote http(s)
+  if (src.startsWith('http')) {
+    try {
+      const r = await fetch(src);
+      if (r.ok) {
+        const buf = Buffer.from(await r.arrayBuffer());
+        return `data:image/png;base64,${buf.toString('base64')}`;
+      }
+    } catch (e) {}
+    return null;
+  }
+  // Otherwise assume it is already raw base64 bytes.
+  return `data:image/png;base64,${src}`;
+}
+
 async function writePrompt(req, res) {
   const { concept, style, videoEngine, gridCount, duration, aspectRatio, hasRefImage, refImage } = req.body;
   if (!concept) {
@@ -176,13 +212,8 @@ Anda harus mengembalikan respon hanya dalam format JSON mentah dengan key 'title
     userMessageContent += contextClause;
 
     let userMessagePayload = [];
-    if (hasRefImage && refImage) {
-      let base64Data = refImage;
-      if (refImage.startsWith('data:image')) {
-        // Base64 already properly formatted
-      } else {
-        base64Data = `data:image/png;base64,${refImage}`;
-      }
+    const refDataUrl = (hasRefImage && refImage) ? await resolveImageDataUrl(refImage) : null;
+    if (refDataUrl) {
       userMessagePayload = [
         {
           type: 'text',
@@ -191,11 +222,12 @@ Anda harus mengembalikan respon hanya dalam format JSON mentah dengan key 'title
         {
           type: 'image_url',
           image_url: {
-            url: base64Data
+            url: refDataUrl
           }
         }
       ];
     } else {
+      // No usable reference image -> text-only (avoids sending an invalid path as base64).
       userMessagePayload = userMessageContent;
     }
 
