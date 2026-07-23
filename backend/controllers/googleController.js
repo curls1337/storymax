@@ -210,8 +210,17 @@ async function exportToGoogleSheets(req, res) {
       ]);
     }
 
-    // Base URL for image/video link resolution
-    const apiBase = process.env.PUBLIC_URL || 'http://localhost:5033';
+function getPublicApiBase(req) {
+  if (process.env.PUBLIC_URL && process.env.PUBLIC_URL.trim()) {
+    return process.env.PUBLIC_URL.replace(/\/$/, '');
+  }
+  const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
+  const host = req.headers['x-forwarded-host'] || req.get('host') || 'localhost:5033';
+  return `${protocol}://${host}`;
+}
+
+    // Base URL for image/video link resolution (dynamic domain)
+    const apiBase = getPublicApiBase(req);
 
     for (const sb of storyboards) {
       const createdDate = new Date(sb.created_at || Date.now()).toLocaleDateString('id-ID');
@@ -294,7 +303,7 @@ async function exportToCSV(req, res) {
       return res.status(404).json({ message: 'Data storyboard tidak ditemukan.' });
     }
 
-    const apiBase = process.env.PUBLIC_URL || 'http://localhost:5033';
+    const apiBase = getPublicApiBase(req);
 
     // Header matching autoclip reference exactly
     const rows = [
