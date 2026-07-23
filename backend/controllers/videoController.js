@@ -232,7 +232,7 @@ async function generateVideo(req, res) {
         if (duration) spawnArgs.push('--duration', String(duration));
         if (resolution) spawnArgs.push('--resolution', resolution);
         if (aspectRatio && aspectRatio !== 'auto') spawnArgs.push('--aspect-ratio', aspectRatio);
-        if (generateAudio && (!model || !model.toLowerCase().includes('seedance'))) spawnArgs.push('--generate-audio');
+        if (generateAudio && /pixverse/i.test(model || '')) spawnArgs.push('--generate-audio'); // Freebeat: only Pixverse C1/V6 accept --generate-audio
 
         const child = spawn(spawnCmd, spawnArgs);
 
@@ -816,7 +816,7 @@ async function runSingleVideoSpawn(vRecId, tId, kRec, pText, scImg, model, gener
       if (duration) spawnArgs.push('--duration', String(duration));
       if (resolution) spawnArgs.push('--resolution', resolution);
       if (aspectRatio && aspectRatio !== 'auto') spawnArgs.push('--aspect-ratio', aspectRatio);
-      if (generateAudio && (!model || !model.toLowerCase().includes('seedance'))) spawnArgs.push('--generate-audio');
+      if (generateAudio && /pixverse/i.test(model || '')) spawnArgs.push('--generate-audio'); // Freebeat: only Pixverse C1/V6 accept --generate-audio
 
       await new Promise((resolve, reject) => {
         const child = spawn(spawnCmd, spawnArgs);

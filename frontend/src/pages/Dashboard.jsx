@@ -388,8 +388,6 @@ export default function Dashboard({ setTab }) {
   const VIDEO_MODELS = [
     { value: 'pixverse-c1', label: 'Pixverse C1 (1-15s, Audio)', durations: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15], resolutions: ['360p', '540p', '720p', '1080p'], supportsAudio: true },
     { value: 'pixverse-v6', label: 'Pixverse V6 (5-15s, Audio)', durations: [5,6,7,8,9,10,11,12,13,14,15], resolutions: ['720p', '1080p'], supportsAudio: true },
-    { value: 'veo3-1', label: 'Veo 3.1 (4-8s, Audio)', durations: [4,6,8], resolutions: ['720p', '1080p'], supportsAudio: true },
-    { value: 'veo3-1-fast', label: 'Veo 3.1 Fast (4-8s, Audio)', durations: [4,6,8], resolutions: ['720p', '1080p'], supportsAudio: true },
     { value: 'sora-2-pro', label: 'Sora 2 Pro (4|8|12s, 16:9|9:16)', durations: [4, 8, 12], resolutions: ['720p', '1080p'], supportsAudio: false },
     { value: 'kling-v3-4k', label: 'Kling V3 4K (3-15s, 4K)', durations: [3,4,5,6,7,8,9,10,11,12,13,14,15], resolutions: ['4k'], supportsAudio: false },
     { value: 'seedance-2.0', label: 'SeedDance 2.0 (4-15s)', durations: [4,5,6,7,8,9,10,11,12,13,14,15], resolutions: ['720p'], supportsAudio: false },
