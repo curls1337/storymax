@@ -48,6 +48,8 @@ async function initDb() {
       prompt TEXT NOT NULL,
       image_path TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'success',
+      marketing_title TEXT,
+      marketing_description TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )
@@ -119,6 +121,20 @@ async function initDb() {
   // Ensure merged_video_history column exists if table was already created (migration support)
   try {
     await db.exec('ALTER TABLE storyboards ADD COLUMN merged_video_history TEXT');
+  } catch (e) {
+    // Column already exists, safe to ignore
+  }
+
+  // Ensure canonical single marketing copy columns exist on storyboards (migration
+  // support). ONE title + ONE caption per storyboard — the source of truth for the
+  // CSV/Google Sheets export, so it always reflects the latest generated copy.
+  try {
+    await db.exec('ALTER TABLE storyboards ADD COLUMN marketing_title TEXT');
+  } catch (e) {
+    // Column already exists, safe to ignore
+  }
+  try {
+    await db.exec('ALTER TABLE storyboards ADD COLUMN marketing_description TEXT');
   } catch (e) {
     // Column already exists, safe to ignore
   }
