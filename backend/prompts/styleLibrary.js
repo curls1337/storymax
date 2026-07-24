@@ -28,7 +28,7 @@ const STYLES = {
   asmr_toy_transform: {
     name: 'ASMR Toy Transform (Static)', desc: 'Kubus diletakkan di meja lalu membuka sendiri jadi mainan die-cast mini — kamera DIAM total, suara ASMR mekanis, gerak smooth.',
     category: 'Transformasi & Reveal', format: '9:16', faceMode: 'no_people', bg: 'light',
-    camera: 'LOCKED static tripod, fixed close top-down over a real worn white table — no pan, zoom, orbit or shake; ONLY the toy moves',
+    camera: 'LOCKED static tripod, roomy WIDER top-down framing over a real worn white table with clear margin so the fully-unfolded finished toy is never cropped — no pan, zoom, orbit or shake; ONLY the toy moves',
     lighting: 'plain natural indoor light on a worn white table, realistic soft shadows', header: 'STORYBOARD — ASMR TOY TRANSFORM',
     arc: ['a small armored cube (product emblem/button on top) rests statically on a worn white table', 'the cube rests still, then its panels begin to UNFOLD by themselves — smooth, satisfying mechanical motion', 'panels slide, hinge and telescope out step by step, building the shape (ASMR clicks & servo whirs)', 'it forms a highly detailed miniature die-cast collectible of the product on the same table', 'the finished glossy mini die-cast toy rests on the table, held static'],
     negatives: NEG.concat(['any camera movement, pan, zoom, orbit or shake', 'exploding or flying parts', 'glow or energy', 'life-size (must be a small tabletop toy)', 'hands, human hands, fingers, holding hand, person, human']),

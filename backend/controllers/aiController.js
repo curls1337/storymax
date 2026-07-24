@@ -17,6 +17,16 @@ const CINEMATIC_VIDEO_STYLES = new Set([
   'product_assembly', 'liquid_splash', 'fashion_lookbook',
 ]);
 
+// Styles where the subject changes SCALE or EXPANDS on screen (a cube/pod unfolds
+// into a full product, parts converge into a product, a splash bursts). These crop
+// easily when the camera sits too close, so the VIDEO prompt must be framed WIDE
+// with margin for the LARGEST/final state of the motion — never tight on the small
+// starting object.
+const TRANSFORM_FRAMING_STYLES = new Set([
+  'cube_box_transform', 'shape_morph_transform', 'asmr_toy_transform',
+  'product_assembly', 'liquid_splash',
+]);
+
 
 function httpRequest(url, headers, body) {
   return new Promise((resolve, reject) => {
@@ -468,17 +478,19 @@ async function generateVideoPromptsInternal({ storyboardId, promptType, regenera
 CRITICAL CUBE TRANSFORMATION VIDEO RULES (photorealistic viral cube-reveal — NOT a glowing humanoid Transformer robot):
 1. PHOTOREALISTIC and cinematic. A small hyper-detailed mechanical cube (armored panels, fine seams, subtle glowing accents or the product's brand emblem) rests statically on a fitting real surface/table. Smooth motion move as the cube expands, shallow depth of field. NOT a CGI cartoon.
 2. The cube's panels UNFOLD, slide and telescope outward SMOOTHLY and satisfyingly (like a premium precision transforming toy) — mechanically CONNECTED, no loose or detached parts — and build/reshape into the subject at its natural scale — the product itself, a scaled collectible of it, or a full-scale structure/scene for a place/vehicle/building. NO hands visible in frame. NO exploding/flying/detached parts, NO energy beams, NO glow-energy magic, and it does NOT become a humanoid robot/mecha/Transformer.
-3. Keep the subject's EXACT identity, branding and colors. NO human hands in frame (automatic mechanical unfolding). End on the finished photorealistic result in a cinematic hero shot.`;
+3. Keep the subject's EXACT identity, branding and colors. NO human hands in frame (automatic mechanical unfolding). End on the finished photorealistic result in a cinematic hero shot.
+I2V FIELD NOTE: in the "imageToVideoPrompt" field, convey all of this ONLY as camera + the unfolding MOTION (framed WIDE so the fully-formed subject is never cropped) — do NOT write "build/create the product" or re-describe the product there; the full build/identity description belongs to the "textToVideoPrompt" field.`;
   }
 
   if (resolvedStyle === 'asmr_toy_transform') {
     // Static-camera ASMR toy transform on a tabletop.
     capsuleStyleClause = `
 CRITICAL ASMR TOY TRANSFORM VIDEO RULES (LOCKED camera, tabletop, ASMR — no camera effects):
-1. The CAMERA IS COMPLETELY LOCKED/STATIC on a tripod, fixed close over a real worn white table. ABSOLUTELY NO camera movement — no pan, tilt, zoom, orbit, dolly, push-in or shake. ONLY the toy moves. Ignore any 'CAM:' tag that implies movement; keep the shot perfectly still.
+1. The CAMERA IS COMPLETELY LOCKED/STATIC on a tripod over a real worn white table, framed at a COMFORTABLE, slightly WIDE top-down distance with clear empty margin around the toy — wide enough that the FULLY-UNFOLDED finished die-cast toy stays entirely in frame and is NEVER cropped. ABSOLUTELY NO camera movement — no pan, tilt, zoom, orbit, dolly, push-in or shake (do NOT move to keep up with the toy; the starting framing must already fit the final result). ONLY the toy moves. Ignore any 'CAM:' tag that implies movement; keep the shot perfectly still.
 2. A small armored cube rests statically on the table and SMOOTHLY, mechanically UNFOLDS by itself — panels slide, hinge and telescope out step by step — into a highly detailed miniature die-cast collectible of the product on the SAME table. Photorealistic; mechanically connected; NO human hands visible in frame; NO flying/detaching parts; NO glow/energy; NOT a humanoid robot/mecha.
 3. AUDIO = satisfying ASMR mechanical transformation sounds ONLY (soft clicks, servo whirs, panels locking into place). No music-over.
-4. Keep the exact same worn white table and the product's exact identity throughout; end on the finished mini die-cast toy resting still on the table.`;
+4. Keep the exact same worn white table and the product's exact identity throughout; end on the finished mini die-cast toy resting still on the table.
+I2V FIELD NOTE: in the "imageToVideoPrompt" field, express this ONLY as the locked WIDE framing + the unfolding MOTION and sounds — do NOT re-describe or "build" the product there; the full identity/build description belongs to the "textToVideoPrompt" field.`;
   }
 
   if (resolvedStyle === 'shape_morph_transform') {
@@ -492,7 +504,8 @@ CRITICAL ADAPTIVE SHAPE TRANSFORMATION VIDEO RULES (photorealistic single contai
 1. PHOTOREALISTIC and cinematic. The scene MUST start from a SINGLE precision high-tech mechanical pod (${shapeDesc}) resting statically on a fitting surface. Smooth motion move as the container expands, shallow depth of field.
 2. STRICT SINGLE SHAPE RULE: DO NOT change or cycle through other container shapes (NO spheres, NO cubes, NO cylinders if the container is a box). The SAME single ${shapeDesc} unfolds mechanically into the target subject.
 3. The container's panels UNFOLD, slide and telescope outward SMOOTHLY and satisfyingly — mechanically CONNECTED, no loose or detached parts — and build/reshape into the target subject at its natural scale. NO hands visible in frame. NO exploding/flying/detached parts, NO energy beams, NO glow-energy magic.
-4. Keep the subject's EXACT identity, branding and colors. NO human hands in frame (automatic mechanical unfolding). End on the finished photorealistic result in a cinematic hero shot.`;
+4. Keep the subject's EXACT identity, branding and colors. NO human hands in frame (automatic mechanical unfolding). End on the finished photorealistic result in a cinematic hero shot.
+I2V FIELD NOTE: in the "imageToVideoPrompt" field, convey all of this ONLY as camera + the unfolding MOTION (framed WIDE so the fully-formed subject is never cropped) — do NOT write "build/create the product" or re-describe the product there; the full build/identity description belongs to the "textToVideoPrompt" field.`;
   }
 
   // Make the generated video FOLLOW the directions printed inside the storyboard
@@ -512,7 +525,15 @@ SUBJECT CONSISTENCY (CRITICAL): every page/scene depicts the SAME product/subjec
   const styleClause = `MATCH THE CHOSEN LAYOUT STYLE: "${styleSpec.name}"${styleSpec.desc ? ` — ${styleSpec.desc}` : ''}. Base camera grammar for this style: ${styleSpec.camera}. Base lighting: ${styleSpec.lighting}. Keep the video's camera language, motion, pacing and mood consistent with THIS style AND with each storyboard panel — never drift into a different look.`;
 
   // Idea 2: camera discipline — consistent framing, no erratic/extreme moves.
-  const cameraDisciplineClause = `CAMERA DISCIPLINE: keep a sensible, CONSISTENT shot scale that matches each panel's framing; use gentle, controlled moves (slow push-in, pan, tilt or orbit). Do NOT cut to extreme close-ups, do NOT use big or abrupt zooms, and avoid disorienting or jittery motion — UNLESS a panel's printed 'CAM:' tag explicitly calls for it. Keep the main subject/product fully in frame and clearly visible throughout.`;
+  const cameraDisciplineClause = `CAMERA DISCIPLINE: keep a sensible, CONSISTENT shot scale that matches each panel's framing; use gentle, controlled moves (slow push-in, pan, tilt or orbit). Do NOT cut to extreme close-ups, do NOT use big or abrupt zooms, and avoid disorienting or jittery motion — UNLESS a panel's printed 'CAM:' tag explicitly calls for it. Keep the main subject/product fully in frame with a little margin and clearly visible throughout — never let it touch or spill past the edges. If the subject changes size or moves, frame for its LARGEST state so it is never cropped.`;
+
+  // Idea 3: anti-crop framing for styles where the subject expands / changes scale
+  // on screen (cube/pod unfolds, parts converge, splash bursts). The camera being
+  // too close is exactly why the transformation gets cut off by the frame edges.
+  const isTransformFraming = TRANSFORM_FRAMING_STYLES.has(resolvedStyle);
+  const framingClause = isTransformFraming
+    ? `FRAMING — DO NOT CROP THE TRANSFORMATION (critical for this style): the subject changes scale on screen (a small object unfolds/expands into the full subject, parts converge, or a splash bursts). Frame for the LARGEST/FINAL state, NOT the small starting object: begin on a MEDIUM-WIDE to WIDE shot and keep the camera pulled back with clear empty margin/headroom on ALL sides, so the ENTIRE object and its complete expansion stay fully inside the frame at every moment and are NEVER cut off by the edges. Do NOT push in, zoom in, or sit tight during the change; if anything, ease slightly WIDER as it grows. Only move closer for the final hero beat once the subject is complete and fully visible.`
+    : '';
 
   let systemInstruction = '';
   if (enableVo) {
@@ -521,6 +542,7 @@ ${durationClause}
 ${capsuleStyleClause}
 ${styleClause}
 ${cameraDisciplineClause}
+${framingClause}
 ${followBoardClause}
 
 You are provided with ${panelImages.length} page images of a storyboard. Each page image contains ${gridDescText}. This means there are exactly ${totalScenes} pages (scenes) in total.
@@ -528,13 +550,15 @@ You are provided with ${panelImages.length} page images of a storyboard. Each pa
 Your task is to analyze all the pages sequentially and write a distinct visual prompt and voiceover script for EACH of the ${totalScenes} pages.
 
 For each page (scene):
-1. "imageToVideoPrompt": A dynamic, pure MOTION and CAMERA DIRECTION prompt in English (60-120 words) tailored for Image-to-Video models that ALREADY have the visual image.
-   - STRICT RULE: DO NOT describe or repeat product details, product colors, or physical packaging appearance, because the image model already sees the image!
-   - FOCUS ONLY ON: Camera movement (e.g. "slow tracking shot", "cinematic pan down", "smooth camera orbit"), mechanical/object action motion (e.g. "panels sliding and unfolding smoothly", "fluid water splashes"), and atmospheric lighting effects ("${atmo}").
-   - STRICT RULE FOR TRANSFORMATIONS (Cube/ASMR/Shape): ABSOLUTELY NO human hands, NO fingers, NO human interaction in the prompt. The object/cube unfolds completely automatically by itself on the surface!
-   - STRICT RULE: DO NOT include any narration script text or "narrator speaks:" tags inside this visual prompt field. Keep it purely visual!
+1. "imageToVideoPrompt": ONLY a camera-direction, lighting and motion prompt in English (60-120 words) for Image-to-Video models that ALREADY SEE this exact storyboard image. Treat it as notes to a camera operator + gaffer for a shot that ALREADY EXISTS — NOT a description of anything to create.
+   - IT MUST CONTAIN ONLY: (a) camera work — shot scale/distance, angle & movement (e.g. "slow push-in", "cinematic pan down", "smooth orbit", "locked tripod"); (b) how the elements ALREADY in the image move (e.g. "panels slide and unfold smoothly", "liquid splashes upward"); (c) lighting behaviour/atmosphere ("${atmo}").
+   - ABSOLUTELY FORBIDDEN: do NOT tell the model to create, build, generate, assemble, add, place or reveal any NEW object/product/scene, and do NOT (re)describe the subject's appearance, colours, materials, logo, packaging or setting — the image already contains ALL of that. No scene-building or product-description words; only direct the camera, the light, and the motion of what is already there.
+   - FOLLOW THE STORYBOARD: derive the camera move, framing and motion from THIS panel's printed 'CAM:'/'LIGHT:' tags and its drawn action — never invent a different shot or drift from what the panel actually shows.
+   - FRAMING: choose a shot scale that keeps the whole subject AND its full motion/transformation inside the frame with margin — never frame so tight that the action gets cut off by the edges.
+   - FOR TRANSFORMATIONS (Cube/ASMR/Shape): NO human hands, NO fingers, NO human interaction — the object unfolds automatically by itself on the surface.
+   - Purely visual: DO NOT include any narration script or "narrator speaks:" tags inside this field.
 
-2. "textToVideoPrompt": A full, self-contained Text-to-Video prompt in English (110-180 words). The text-to-video model has NO image — recreate THIS storyboard panel from words alone.
+2. "textToVideoPrompt": A full, self-contained Text-to-Video prompt in English (110-180 words). OPPOSITE of the I2V field: the model has NO image, so describe EVERYTHING in THIS storyboard panel from words alone — leave nothing out.
    - Describe EXACTLY what the panel shows: the main subject/product faithfully (type, shape, exact colors, materials, logo/branding & any visible text), the setting/background, props, composition & framing, the lighting/mood and ${atmo} — THEN the chronological action and camera movement across the panel's scenes. Be concrete and visual so the generated video matches the storyboard panel.
    - STRICT RULE FOR TRANSFORMATIONS (Cube/ASMR/Shape): ABSOLUTELY NO human hands, NO fingers, NO human interaction in the prompt. The object/cube unfolds completely automatically by itself on the surface!
    - STRICT RULE: DO NOT include any narration script text or "narrator speaks:" tags inside this visual prompt field. Keep it purely visual!
@@ -579,6 +603,7 @@ ${durationClause}
 ${capsuleStyleClause}
 ${styleClause}
 ${cameraDisciplineClause}
+${framingClause}
 ${followBoardClause}
 
 You are provided with ${panelImages.length} page images of a storyboard. Each page image contains ${gridDescText}. This means there are exactly ${totalScenes} pages (scenes) in total.
@@ -586,12 +611,14 @@ You are provided with ${panelImages.length} page images of a storyboard. Each pa
 Your task is to analyze all the pages sequentially and write a distinct visual prompt for EACH of the ${totalScenes} pages.
 
 For each page (scene):
-1. "imageToVideoPrompt": A dynamic, pure MOTION and CAMERA DIRECTION prompt in English (50-100 words) tailored for Image-to-Video models that ALREADY have the visual image.
-   - STRICT RULE: DO NOT describe or repeat product details, product colors, or physical packaging appearance, because the image model already sees the image!
-   - STRICT RULE: Voiceover is DISABLED for this project. DO NOT include any voiceover timing or narration text in this prompt!
-   - FOCUS ONLY ON: Camera movement (e.g. "slow tracking shot", "cinematic pan down", "subtle handheld camera movement"), object/character action motion (e.g. "hands gently opening the box", "fluid water splashes"), and atmospheric lighting effects ("${atmo}").
+1. "imageToVideoPrompt": ONLY a camera-direction, lighting and motion prompt in English (50-100 words) for Image-to-Video models that ALREADY SEE this exact storyboard image. Treat it as notes to a camera operator + gaffer for a shot that ALREADY EXISTS — NOT a description of anything to create.
+   - IT MUST CONTAIN ONLY: (a) camera work — shot scale/distance, angle & movement (e.g. "slow tracking shot", "cinematic pan down", "locked tripod"); (b) how the elements ALREADY in the image move (e.g. "panels unfold smoothly", "fluid water splashes"); (c) lighting behaviour/atmosphere ("${atmo}").
+   - ABSOLUTELY FORBIDDEN: do NOT tell the model to create, build, generate, assemble, add, place or reveal any NEW object/product/scene, and do NOT (re)describe the subject's appearance, colours, materials, logo, packaging or setting — the image already contains ALL of that. Only direct the camera, the light, and the motion of what is already there.
+   - FOLLOW THE STORYBOARD: derive the camera move, framing and motion from THIS panel's printed 'CAM:'/'LIGHT:' tags and its drawn action — never invent a different shot or drift from what the panel actually shows.
+   - FRAMING: choose a shot scale that keeps the whole subject AND its full motion/transformation inside the frame with margin — never frame so tight that the action gets cut off by the edges.
+   - Voiceover is DISABLED for this project. DO NOT include any voiceover timing or narration text in this prompt!
 
-2. "textToVideoPrompt": A full, self-contained Text-to-Video prompt in English (110-180 words). The text-to-video model has NO image — recreate THIS storyboard panel from words alone.
+2. "textToVideoPrompt": A full, self-contained Text-to-Video prompt in English (110-180 words). OPPOSITE of the I2V field: the model has NO image, so describe EVERYTHING in THIS storyboard panel from words alone — leave nothing out.
    - Describe EXACTLY what the panel shows: the main subject/product faithfully (type, shape, exact colors, materials, logo/branding & any visible text), the setting/background, props, composition & framing, the lighting/mood and ${atmo} — THEN the chronological action and camera movement across the panel's scenes. Be concrete and visual so the generated video matches the storyboard panel.
 
 You MUST return the output strictly in this JSON format (do not wrap in markdown \`\`\`json blocks):
