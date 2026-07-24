@@ -511,6 +511,38 @@ CRITICAL ADAPTIVE SHAPE TRANSFORMATION VIDEO RULES (photorealistic single contai
 I2V FIELD NOTE: in the "imageToVideoPrompt" field, convey all of this ONLY as camera + the unfolding MOTION (framed WIDE so the fully-formed subject is never cropped) — do NOT write "build/create the product" or re-describe the product there; the full build/identity description belongs to the "textToVideoPrompt" field.`;
   }
 
+  if (resolvedStyle === 'bts_practical_fx') {
+    // Behind-the-scenes practical miniature FX (documentary "making of").
+    capsuleStyleClause = `
+CRITICAL BEHIND-THE-SCENES PRACTICAL FX VIDEO RULES (real film soundstage "making of" — NOT a finished CGI shot):
+1. Documentary behind-the-scenes look. Show the real stage: a large water tank / studio floor, a detailed MINIATURE scale-model of the location, a blue screen with tracking markers behind it, overhead lighting rigs & camera cranes, and effects crew (dark shirts) at the edges. Raw, true-to-life soundstage — NOT a glossy graded final film shot.
+2. The spectacle is a PRACTICAL effect: real water/foam (hydraulic flood or wave), or blast/smoke/storm, physically surging across the MINIATURE set — in-camera, not clean CGI.
+3. The hero subject/character/vehicle must match the reference EXACTLY (identity, costume, colours, logo), only rendered at the set's miniature scale.
+4. FRAMING: wide establishing then controlled handheld push-ins; keep the WHOLE miniature set in frame during the effect so the action is never cropped.
+I2V FIELD NOTE: in the "imageToVideoPrompt" field express this ONLY as camera + the practical-effect MOTION and crew activity — do NOT re-describe or "build" the subject in words; the full identity/scene description belongs to the "textToVideoPrompt" field.`;
+  }
+
+  if (resolvedStyle === 'mini_restoration_asmr') {
+    // Satisfying miniature restoration / build (macro ASMR, human hands expected).
+    capsuleStyleClause = `
+CRITICAL MINIATURE RESTORATION / BUILD ASMR VIDEO RULES (macro, clean studio, satisfying):
+1. Human HANDS with precision tools (tiny screwdriver, tweezers, brush) assemble / restore / detail a hyper-realistic MINIATURE of the subject on a clean bright studio surface, fingers in frame for scale. This is the ONE style where human hands ARE expected and encouraged.
+2. Macro, oddly-satisfying ASMR pacing: reveal the internal frame, panels, wiring, interior and mechanisms step by step; slow, deliberate, tactile motion. Clean crisp light — NO cinematic haze or lens flare.
+3. The miniature must match the reference subject EXACTLY (shape, colours, logo, proportions) — a faithful small-scale replica, never redesigned or life-size.
+4. AUDIO = satisfying ASMR craft sounds (soft tool clicks, brushing, parts snapping into place). End on the finished, pristine, glossy miniature in a clean hero shot.
+I2V FIELD NOTE: in the "imageToVideoPrompt" field express this ONLY as camera + the hands' assembly/restoration MOTION and macro focus — do NOT re-describe or "build" the product in words; the full identity description belongs to the "textToVideoPrompt" field.`;
+  }
+
+  if (resolvedStyle === 'jelly_character_asmr') {
+    // Cute translucent jelly figurine, palm-held ASMR adventure.
+    capsuleStyleClause = `
+CRITICAL JELLY CHARACTER ASMR VIDEO RULES (cute translucent jelly figurine, palm-held, macro):
+1. The subject is a cute, chubby, glossy TRANSLUCENT jelly/gummy figurine of the character, small enough to sit in an open human PALM. Soft natural daylight with wet specular highlights; blurred natural background; intimate macro with gentle handheld.
+2. Satisfying ASMR "adventure": the jelly character playfully interacts with tiny translucent props (a mini drink/treat); as it "drinks/eats", its see-through body visibly FILLS with liquid and rising bubbles inside the translucent belly; soft jiggle/wobble, tiny droplets or foam.
+3. Keep the reference character's identity & colours recognizable — just rendered as translucent jelly. Cute and toylike, NOT creepy or hyper-real. The whole figurine stays in frame (palm-held), never cropped.
+I2V FIELD NOTE: in the "imageToVideoPrompt" field express this ONLY as camera + the jelly's soft MOTION, wobble, bubbles and light — do NOT re-describe or "build" the character in words; the full identity description belongs to the "textToVideoPrompt" field.`;
+  }
+
   // Make the generated video FOLLOW the directions printed inside the storyboard
   // (applies to EVERY style — the storyboard is the director's sheet).
   const followBoardClause = `FOLLOW THE STORYBOARD'S OWN DIRECTIONS: every panel/card prints production tags — 'CAM:' (camera angle/movement), 'LIGHT:' (lighting) and 'AUDIO:' (music/SFX) — plus a scene title and a one-line action. READ those printed tags in EACH panel and make your "imageToVideoPrompt" (camera + motion + atmosphere) FOLLOW them precisely: e.g. a panel tagged 'CAM: low-angle tracking' -> a low-angle tracking move; 'CAM: static'/'locked' -> a locked tripod shot; 'CAM: push-in' -> a slow push-in; match the mood to the 'LIGHT:' tag and let the motion match the panel's written action. NEVER contradict a panel's printed camera/lighting/action — the storyboard directs the video.
