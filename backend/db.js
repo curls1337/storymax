@@ -182,6 +182,7 @@ async function initDb() {
       serial_no TEXT,
       marketing_title TEXT,
       marketing_description TEXT,
+      marketing_platforms TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (storyboard_id) REFERENCES storyboards(id) ON DELETE CASCADE
     )
@@ -218,6 +219,14 @@ async function initDb() {
   // Ensure marketing_description column exists in generated_videos (migration support)
   try {
     await db.exec('ALTER TABLE generated_videos ADD COLUMN marketing_description TEXT');
+  } catch (e) {
+    // Column already exists, safe to ignore
+  }
+
+  // Ensure marketing_platforms column exists in generated_videos (migration support)
+  // Stores JSON: { tiktok:{title,caption}, instagram:{...}, youtube:{...}, facebook:{...} }
+  try {
+    await db.exec('ALTER TABLE generated_videos ADD COLUMN marketing_platforms TEXT');
   } catch (e) {
     // Column already exists, safe to ignore
   }

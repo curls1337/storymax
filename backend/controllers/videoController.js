@@ -450,9 +450,9 @@ async function generateMarketingCopyInternal(storyboardId, sceneIdx) {
     // etc. no longer inherit the generic "viral ad" persona. getStyleSpec resolves
     // aliases (e.g. cube_morph_product -> cube_box_transform) to the canonical tone.
     const { getStyleSpec } = require('../prompts/styleLibrary');
-    const { buildMarketingSystemPrompt } = require('../prompts/marketingTone');
+    const { buildPlatformCopySystemPrompt } = require('../prompts/marketingTone');
     const styleSpec = getStyleSpec(styleId);
-    const systemPrompt = buildMarketingSystemPrompt(styleSpec, { titleMax: 80, descMax: 450 });
+    const systemPrompt = buildPlatformCopySystemPrompt(styleSpec);
 
     const userPrompt = `Video context:
 Storyboard Title: ${storyboard.title}
@@ -465,7 +465,7 @@ Current Target Scene (Scene ${Number(sceneIdx) + 1}):
 Scene Visual Action: ${sceneVisualPrompt || storyboard.prompt}
 Voiceover Narration: ${narrationText || 'N/A'}
 
-Write the title and caption per the TONE and rules above, based strictly on this video's context & style, in the storyboard's language. Return ONLY raw JSON.`;
+Write per-platform social copy (TikTok, Instagram, YouTube, Facebook) per the TONE and rules above, based strictly on this video's context & style, in the storyboard's language. Return ONLY raw JSON.`;
 
     const payload = {
       model: modelName,
@@ -483,11 +483,14 @@ Write the title and caption per the TONE and rules above, based strictly on this
       const contentStr = parsedRes.choices?.[0]?.message?.content;
       if (contentStr) {
         const data = JSON.parse(contentStr.trim());
-        const { capText } = require('../prompts/marketingTone');
+        const { normalizePlatformCopy, PRIMARY_PLATFORM } = require('../prompts/marketingTone');
+        const platforms = normalizePlatformCopy(data);
+        const primary = platforms[PRIMARY_PLATFORM] || { title: '', caption: '' };
         return {
-          // Hard safeguards above the prompt targets (80 / 450) in case the model overshoots.
-          title: capText(data.title || '', 100),
-          description: capText(data.description || '', 600)
+          // Legacy fields = primary platform (TikTok) for backward-compat + CSV/Sheets export.
+          title: primary.title || '',
+          description: primary.caption || '',
+          platforms,
         };
       }
     }
@@ -545,6 +548,7 @@ async function regenerateStoryboardMarketingCopy(req, res) {
 
     videoPrompts[sIdx].marketing_title = marketingCopy.title;
     videoPrompts[sIdx].marketing_description = marketingCopy.description;
+    videoPrompts[sIdx].marketing_platforms = marketingCopy.platforms || null;
 
     await db.run(
       'UPDATE storyboards SET video_prompts = ? WHERE id = ?',
@@ -553,7 +557,8 @@ async function regenerateStoryboardMarketingCopy(req, res) {
 
     res.json({
       marketing_title: marketingCopy.title,
-      marketing_description: marketingCopy.description
+      marketing_description: marketingCopy.description,
+      marketing_platforms: marketingCopy.platforms || null
     });
   } catch (err) {
     console.error('Failed to regenerate storyboard marketing copy:', err);
@@ -655,8 +660,8 @@ function pollVideoStatus(videoRecordId, storyboardId, apiKey, batchId, serialNo,
                   const marketingCopy = await generateMarketingCopy(videoRecordId);
                   if (marketingCopy) {
                     await db.run(
-                      'UPDATE generated_videos SET marketing_title = ?, marketing_description = ? WHERE id = ?',
-                      [marketingCopy.title, marketingCopy.description, videoRecordId]
+                      'UPDATE generated_videos SET marketing_title = ?, marketing_description = ?, marketing_platforms = ? WHERE id = ?',
+                      [marketingCopy.title, marketingCopy.description, marketingCopy.platforms ? JSON.stringify(marketingCopy.platforms) : null, videoRecordId]
                     );
                     activeTasks[taskId].logs += `[AI Marketing] Judul & Deskripsi berhasil dibuat!\n`;
                   } else {
@@ -802,13 +807,14 @@ async function regenerateVideoMarketingCopy(req, res) {
     }
 
     await db.run(
-      'UPDATE generated_videos SET marketing_title = ?, marketing_description = ? WHERE id = ?',
-      [marketingCopy.title, marketingCopy.description, video.id]
+      'UPDATE generated_videos SET marketing_title = ?, marketing_description = ?, marketing_platforms = ? WHERE id = ?',
+      [marketingCopy.title, marketingCopy.description, marketingCopy.platforms ? JSON.stringify(marketingCopy.platforms) : null, video.id]
     );
 
     res.json({
       marketing_title: marketingCopy.title,
-      marketing_description: marketingCopy.description
+      marketing_description: marketingCopy.description,
+      marketing_platforms: marketingCopy.platforms || null
     });
   } catch (err) {
     console.error('Failed to regenerate video marketing copy:', err);

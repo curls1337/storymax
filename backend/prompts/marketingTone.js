@@ -78,4 +78,57 @@ function capText(s, max) {
   return (sp > max - 140 ? cut.slice(0, sp) : cut).trim();
 }
 
-module.exports = { marketingToneFor, buildMarketingSystemPrompt, capText, TONE_BY_CATEGORY, TONE_BY_STYLE, DEFAULT_TONE };
+// ── Per-platform social copy (point 5) ──────────────────────────────────────
+// One AI call returns tailored {title, caption} for each platform. The per-style
+// TONE above still applies to every platform; each platform adds its own format.
+const PLATFORMS = ['tiktok', 'instagram', 'youtube', 'facebook'];
+const PRIMARY_PLATFORM = 'tiktok'; // powers the legacy marketing_title/description + CSV/Sheets export
+
+const PLATFORM_SPEC = {
+  tiktok: 'TikTok: hook super pendek & nendang di kalimat pertama; bahasa santai/gaul; 1-2 baris; 3-5 hashtag relevan termasuk #fyp.',
+  instagram: 'Instagram Reels/Feed: estetik & relatable; 2-3 baris, boleh 1 ajakan lembut (save/share); 5-10 hashtag relevan di akhir.',
+  youtube: 'YouTube Shorts: judul KUAT & searchable (kata kunci utama di depan, <= 70 karakter); deskripsi 1-3 kalimat informatif + 2-4 hashtag termasuk #Shorts.',
+  facebook: 'Facebook: gaya percakapan yang hangat & mengundang interaksi; boleh sedikit lebih panjang; 1-3 hashtag saja.',
+};
+
+// Hard safeguards (a bit above each platform's natural caption length).
+const PLATFORM_CAP = { tiktok: 220, instagram: 380, youtube: 420, facebook: 380 };
+
+// System prompt asking the LLM for ALL FOUR platforms in one JSON object.
+function buildPlatformCopySystemPrompt(spec = {}) {
+  const tone = marketingToneFor(spec);
+  const name = spec.name || 'Standard';
+  const desc = spec.desc ? ` — ${spec.desc}` : '';
+  const rules = PLATFORMS.map((p) => `- ${p}: ${PLATFORM_SPEC[p]}`).join('\n');
+  return `You are an authentic social-media copywriter. For ONE short-form video, write platform-tailored copy for TikTok, Instagram, YouTube (Shorts) and Facebook. Match the video's real vibe — natural, NOT a hard-sell ad.
+
+VIDEO STYLE: "${name}"${desc}
+TONE (MUST follow on EVERY platform): ${tone}
+
+PER-PLATFORM RULES:
+${rules}
+
+For ALL platforms: the response language MUST match the storyboard/voiceover language (default Indonesian); sound like a real creator; correct spelling; NO invented product claims or prices; hashtags relevant to the ACTUAL subject + style. Each platform has BOTH a short "title" and a "caption" (YouTube "title" = the searchable video title; others = a very short headline).
+
+Return ONLY raw JSON (no markdown fences), EXACTLY this shape:
+{"tiktok":{"title":"...","caption":"..."},"instagram":{"title":"...","caption":"..."},"youtube":{"title":"...","caption":"..."},"facebook":{"title":"...","caption":"..."}}`;
+}
+
+// Normalize + length-cap the model output; ALWAYS returns all 4 platform keys.
+function normalizePlatformCopy(parsed) {
+  const src = (parsed && typeof parsed === 'object') ? parsed : {};
+  const out = {};
+  for (const p of PLATFORMS) {
+    const e = (src[p] && typeof src[p] === 'object') ? src[p] : {};
+    out[p] = {
+      title: capText(String(e.title || '').trim(), 100),
+      caption: capText(String(e.caption || e.description || '').trim(), PLATFORM_CAP[p]),
+    };
+  }
+  return out;
+}
+
+module.exports = {
+  marketingToneFor, buildMarketingSystemPrompt, capText, TONE_BY_CATEGORY, TONE_BY_STYLE, DEFAULT_TONE,
+  PLATFORMS, PRIMARY_PLATFORM, PLATFORM_SPEC, buildPlatformCopySystemPrompt, normalizePlatformCopy,
+};
