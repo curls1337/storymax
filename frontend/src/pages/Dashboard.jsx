@@ -646,7 +646,7 @@ export default function Dashboard({ setTab }) {
 
   const handleGenerateAllVideos = async () => {
     if (!selectedStoryboard) return;
-    const confirmAll = window.confirm("Apakah Anda yakin ingin men-generate video untuk SEMUA scene secara parallel? (Tiap scene akan berjalan dalam proses terpisah dengan API Key kosong otomatis).");
+    const confirmAll = window.confirm("Generate video untuk SEMUA halaman?\n\n• Mode Auto: tiap halaman memakai API key Freebeat aktif yang BERBEDA & sedang bebas (paralel sebanyak key yang tersedia).\n• Mode Manual (pilih 1 key): dikerjakan 1 halaman per waktu — menunggu tiap halaman selesai dulu.");
     if (!confirmAll) return;
 
     try {
@@ -2111,6 +2111,12 @@ export default function Dashboard({ setTab }) {
                             onTouchEnd={(e) => e.stopPropagation()}
                             className="w-full rounded-xl border border-[#2a2725] bg-black max-h-48"
                           />
+
+                          {activeVid.api_key_label && (
+                            <div className="text-[8px] font-mono text-slate-400 pt-1 flex items-center gap-1 break-all">
+                              <span className="text-[#cfae80] font-bold">🔑 Freebeat API:</span> {activeVid.api_key_label}
+                            </div>
+                          )}
 
                           <div className="grid grid-cols-2 gap-2 pt-1">
                             <a
