@@ -50,7 +50,10 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
       const subPrompts = await splitStoryboardPromptWithAI(task.prompt, task.pageCount, db, task.secondsPerPage, task.style);
       task.subPrompts = subPrompts;
       
-      const isFallback = subPrompts.every(p => p === task.prompt);
+      // Fallback pages are the raw concept (page count 1) or the concept with an
+      // appended "(Bagian …)" annotation — both start with the original prompt.
+      // The AI splitter rewrites each page, so its output does NOT start with it.
+      const isFallback = subPrompts.every(p => typeof p === 'string' && p.startsWith(task.prompt));
       if (isFallback && task.pageCount > 1) {
         task.logs += `  [INFO] Layanan AI Split sedang mengalami gangguan (HTTP 503/RTO). Menggunakan konsep cerita asli untuk setiap halaman (fallback).\n`;
       } else {
@@ -238,7 +241,7 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
           subject: task.subjectDescriptor || task.prompt, concept: pageConcept, faceMode,
           gridCount: Number(task.gridCount) || 6, startScene,
           totalDuration: task.totalDuration, aspectRatio: task.aspectRatio, model: task.selectedModel,
-          pageNum, pageCount: task.pageCount, hasRefImage: !!pageRefPath,
+          pageNum, pageCount: task.pageCount, hasRefImage: !!pageRefPath, secondsPerPage: task.secondsPerPage,
         };
         // Try the LLM generator first; it returns null on ANY failure (no AI key,
         // timeout, bad output) so we always fall back to the deterministic builder.
@@ -724,7 +727,7 @@ async function regenerateStoryboardPage(req, res) {
           subject: subjectDesc || storyboard.prompt, concept: pageConcept, faceMode,
           gridCount: Number(gridCount) || 6, startScene,
           totalDuration: genParams.duration || (pageCount * secondsPerPage),
-          aspectRatio, model, pageNum: pageIdx + 1, pageCount, hasRefImage: !!finalRefImagePath,
+          aspectRatio, model, pageNum: pageIdx + 1, pageCount, hasRefImage: !!finalRefImagePath, secondsPerPage,
         };
         // Try the LLM generator first; it falls back to the deterministic builder
         // (returns null on any failure) so generation never breaks.

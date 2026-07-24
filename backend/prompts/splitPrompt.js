@@ -6,13 +6,18 @@ const { resolveStyleId } = require('./styleLibrary');
 // A11: when the AI splitter is unavailable, do NOT fill every page with the
 // identical concept (which makes all pages render the same). Annotate each page
 // so the model still varies them into a continuous sequence.
-function fallbackSplit(concept, pageCount) {
+function fallbackSplit(concept, pageCount, secondsPerPage = 15) {
   if (pageCount <= 1) return [concept];
   return Array.from({ length: pageCount }, (_, i) => {
     const role = i === 0
-      ? 'pengenalan / awal penggunaan'
-      : (i === pageCount - 1 ? 'hasil akhir / call to action' : 'tahap pengembangan secara detail');
-    return `${concept} (Bagian ${i + 1} dari ${pageCount} — adegan berkesinambungan: ${role}).`;
+      ? 'pengenalan / hook & awal penggunaan'
+      : (i === pageCount - 1 ? 'hasil akhir & call to action' : 'tahap pengembangan / demo');
+    const start = i * secondsPerPage;
+    const end = (i + 1) * secondsPerPage;
+    const handoff = i === 0
+      ? 'mulai dari awal cerita'
+      : `lanjut MULUS tepat dari akhir Bagian ${i} (waktu berlanjut, jangan ulang pembukaan)`;
+    return `${concept} (Bagian ${i + 1}/${pageCount}, detik ${start}-${end} — ${role}; ${handoff}; pertahankan subjek, setting, pencahayaan & palet warna yang SAMA).`;
   });
 }
 
@@ -21,7 +26,7 @@ async function splitStoryboardPromptWithAI(concept, pageCount, db, secondsPerPag
     const settings = await db.get('SELECT * FROM ai_settings LIMIT 1');
     if (!settings || !settings.api_key) {
       console.log('[AI Split] No AI key configured. Using raw prompt fallback.');
-      return fallbackSplit(concept, pageCount);
+      return fallbackSplit(concept, pageCount, secondsPerPage);
     }
 
     const apiHost = settings.endpoint || 'http://localhost:8045/v1';
@@ -51,38 +56,39 @@ Aturan Alur Pembukaan & Transformasi (SANGAT KETAT):
 2. Halaman/Panel Berikutnya (Proses Mekar): Wadah tersebut mulai aktif secara otomatis, panel-panelnya TERBUKA, BERGESER & MENGEMBANG (*self-unfolding/morphing*) secara bertahap dan MULUS, secara mekanis membangun/membentuk ulang dari bentuk wadah awal menjadi bentuk akhir SUBJEK yang diinginkan (${concept}). TANPA tangan manusia, TANPA bagian meledak/terbang acak, TANPA sihir cahaya, dan DILARANG KERAS BERGANTI-GANTI BENTUK WADAH (JANGAN BERUBAH DARI BOLA KE KUBUS KE SILINDER). Bentuk wadah HARUS KONSISTEN 1 BENTUK TUNGGAL sejak Panel 1 hingga mekar.
 3. Halaman/Panel Akhir (Hasil akhir): Subjek tampil utuh dalam bentuk akhir yang memuaskan di atas permukaan/meja yang sama.` : '';
 
+    // pageCount-aware timeline: total video length + each page's absolute second window.
+    const totalSec = pageCount * secondsPerPage;
+    const windows = Array.from({ length: pageCount }, (_, i) => `Hal ${i + 1}=detik ${i * secondsPerPage}-${(i + 1) * secondsPerPage}`).join(', ');
+
     const payload = {
       model: model,
       messages: [
         {
           role: 'system',
-          content: `Anda adalah asisten sutradara video komersial.
-Tugas Anda adalah memecah konsep cerita iklan produk dari pengguna menjadi ${pageCount} bagian cerita/tahapan visual yang saling berurutan dan berkelanjutan (sekuensial) untuk SATU subjek yang sama.
+          content: `Anda adalah asisten sutradara video komersial. Pecah konsep iklan produk pengguna menjadi ${pageCount} bagian (halaman) storyboard yang BERURUTAN & BERKESINAMBUNGAN — SATU video utuh ${totalSec} detik, tiap halaman ${secondsPerPage} detik. Jendela waktu: ${windows}.
 
-ATURAN PALING PENTING — SATU SUBJEK SAJA (JANGAN MELENCENG):
-Seluruh ${pageCount} halaman WAJIB tentang PRODUK / SUBJEK / HIDANGAN / TEMA yang SAMA PERSIS dari konsep pengguna. DILARANG KERAS mengganti atau menambah produk lain, hidangan lain, bahan utama lain, atau tema berbeda di halaman mana pun. Contoh: jika halaman 1-2 memasak MIE, maka halaman 3 dan 4 HARUS tentang MIE yang SAMA (bukan berubah jadi sayur/nasi/dll). Yang boleh berubah antar halaman HANYA tahapan/adegan/sudut kamera — BUKAN subjeknya. Sebutkan ulang nama/identitas subjek yang sama di SETIAP halaman.
+ATURAN 1 — SATU SUBJEK SAJA (JANGAN MELENCENG):
+Seluruh ${pageCount} halaman WAJIB tentang PRODUK/SUBJEK/HIDANGAN yang SAMA PERSIS dari konsep. DILARANG mengganti atau menambah produk/bahan utama/tema lain di halaman mana pun. Contoh: jika Halaman 1-2 memasak MIE, Halaman 3-4 HARUS MIE yang SAMA. Yang boleh berubah antar halaman HANYA tahapan/adegan/sudut kamera — BUKAN subjeknya.
 
-Setiap bagian mewakili satu halaman storyboard berdurasi ${secondsPerPage} detik.
-Pastikan (semuanya tentang subjek yang SAMA):
-- Halaman 1: Pengenalan subjek, unboxing, atau awal mula penggunaan.
-- Halaman berikutnya: Tahap demi tahap pengerjaan/penggunaan subjek yang SAMA secara detail dan fokus pada keunggulan.
-- Halaman terakhir: Hasil akhir yang memuaskan dari subjek yang SAMA, penyajian, atau call to action visual.
-Berikan deskripsi detail visual yang singkat dan padat untuk masing-masing halaman (1 paragraf ringkas per halaman).
+ATURAN 2 — KUNCI ANCHOR VISUAL (agar semua halaman tampak SATU pengambilan yang sama):
+Tetapkan di awal lalu TULIS ULANG SAMA PERSIS (verbatim) di SETIAP halaman:
+- Subjek/produk: deskripsi fisik super spesifik (mis. "botol tumbler stainless steel hijau toska, tutup hitam, logo bundar 'AQUA'").
+- Karakter (jika ada): fisik + pakaian spesifik (mis. "pria Asia 25th, rambut hitam pendek, hoodie abu polos").
+- Setting/lokasi, pencahayaan, waktu (siang/malam), dan PALET WARNA — WAJIB sama di semua halaman.
+Jangan menulis "produk itu"/"pria itu" — ulangi deskripsi lengkapnya di tiap halaman.
+
+ATURAN 3 — SAMBUNGAN ANTAR HALAMAN (HANDOFF, INI KUNCI KESINAMBUNGAN):
+- Halaman 1: hook & pengenalan subjek (awal cerita).
+- Halaman 2..${pageCount}: setiap halaman MULAI TEPAT dari kondisi AKHIR halaman sebelumnya (waktu berlanjut) — JANGAN mengulang pembukaan; tunjukkan tahap berikutnya.
+- Halaman ${pageCount}: hasil akhir yang memuaskan + call to action visual.
+Buat peralihan terasa mulus & logis (kelanjutan momen, bukan loncatan).
+
+Deskripsi tiap halaman: 1 paragraf ringkas & padat yang SUDAH memuat semua anchor terkunci di atas.
 ${cubeBlock}
 
-PENTING UNTUK KONSISTENSI VISUAL (CHARACTER/PRODUCT CONSISTENCY):
-1. Identifikasi karakter utama (jika ada) dan produk utama dari konsep cerita pengguna.
-2. Buat deskripsi fisik yang sangat spesifik untuk karakter tersebut (misal: "pria Asia 25 tahun, rambut hitam pendek acak, memakai hoodie abu-abu polos") dan produk tersebut (misal: "botol tumbler stainless steel warna hijau toska").
-3. Anda WAJIB menuliskan deskripsi fisik yang KONSISTEN dan SAMA PERSIS ini di setiap paragraf halaman (Halaman 1, Halaman 2, dst.). Jangan hanya menulis "pria itu" atau "tas itu", tetapi ulangi deskripsi fisiknya secara lengkap agar gambar dari satu halaman ke halaman berikutnya tidak meleset modelnya.
-
-Anda harus mengembalikan respon hanya dalam format JSON mentah dengan key 'pages' berupa array string berukuran ${pageCount}. Jangan pakai pembungkus markdown (jangan pakai \`\`\`json).
-Contoh output untuk 2 halaman:
-{
-  "pages": [
-    "Seorang wanita muda Asia berusia 24 tahun berambut cokelat panjang memakai kemeja putih sedang unboxing tas ransel kulit hitam minimalis dari kotak cokelat di atas meja kayu.",
-    "Wanita muda Asia berusia 24 tahun berambut cokelat panjang memakai kemeja putih berjalan di koridor kampus memakai tas ransel kulit hitam minimalis di pundaknya."
-  ]
-}`
+Balas HANYA JSON mentah: {"pages": [ ... ]} berisi ${pageCount} string. Tanpa markdown (jangan pakai \`\`\`json).
+Contoh (2 halaman — subjek & setting dikunci sama, ADA handoff):
+{"pages":["Wanita Asia 24th rambut cokelat panjang, kemeja putih, cahaya pagi hangat di meja kayu — unboxing tas ransel kulit hitam minimalis (Bagian 1/2, detik 0-${secondsPerPage}).","Wanita Asia 24th rambut cokelat panjang, kemeja putih (SAMA), cahaya pagi hangat yang sama — LANJUT dari adegan unboxing tadi, kini berdiri memakai tas ransel kulit hitam minimalis di pundak sambil tersenyum ke kamera (Bagian 2/2, detik ${secondsPerPage}-${2 * secondsPerPage})."]}`
         },
         {
           role: 'user',
@@ -129,7 +135,7 @@ Contoh output untuk 2 halaman:
 
     if (response.statusCode !== 200) {
       console.warn('[AI Split] API failed with status:', response.statusCode, response.body);
-      return fallbackSplit(concept, pageCount);
+      return fallbackSplit(concept, pageCount, secondsPerPage);
     }
 
     const resJson = JSON.parse(response.body);
@@ -145,10 +151,10 @@ Contoh output untuk 2 halaman:
       return parsed.pages;
     }
 
-    return fallbackSplit(concept, pageCount);
+    return fallbackSplit(concept, pageCount, secondsPerPage);
   } catch (err) {
     console.warn('[AI Split] Error splitting prompt:', err.message);
-    return fallbackSplit(concept, pageCount);
+    return fallbackSplit(concept, pageCount, secondsPerPage);
   }
 }
 
