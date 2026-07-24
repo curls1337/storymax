@@ -7,7 +7,7 @@ const { getDb } = require('../db');
 const { uploadsDir } = require('../config');
 
 const LAYOUT_STYLES = require('../constants/layoutStyles');
-const { resolveStyleId } = require('../prompts/styleLibrary');
+const { resolveStyleId, getStyleSpec } = require('../prompts/styleLibrary');
 
 // Styles whose VIDEO should get the full cinematic atmosphere (haze + subtle lens
 // flare + shallow DOF). Every other style stays clean & crisp (DOF only, no
@@ -503,14 +503,24 @@ SUBJECT CONSISTENCY (CRITICAL): every page/scene depicts the SAME product/subjec
   // Style-aware atmosphere: cinematic styles get haze + subtle lens flare + DOF;
   // clean styles stay crisp (DOF only, no haze/flare) so the product/scene is clear.
   const atmo = CINEMATIC_VIDEO_STYLES.has(resolvedStyle)
-    ? 'cinematic haze, subtle anamorphic lens flare, shallow depth of field with creamy bokeh, volumetric lighting, gentle motion blur'
-    : 'clean, crisp, true-to-life lighting, sharp focus on the subject, shallow depth of field for subtle separation (NO cinematic haze, NO lens flare — keep the product/scene clear and honest)';
+    ? 'cinematic haze, subtle anamorphic lens flare, moderate depth of field (keep the subject sharp — only mild background separation, avoid heavy bokeh), volumetric lighting, gentle motion blur'
+    : 'clean, crisp, true-to-life lighting, sharp focus on the subject, mostly deep focus with only subtle background separation (NO heavy bokeh, NO cinematic haze, NO lens flare — keep the product/scene clear and honest)';
+
+  // Idea 1: anchor the video to the CHOSEN layout style (ALL styles, not just transforms),
+  // so the result doesn't drift away from the storyboard's look.
+  const styleSpec = getStyleSpec(storyboard.style);
+  const styleClause = `MATCH THE CHOSEN LAYOUT STYLE: "${styleSpec.name}"${styleSpec.desc ? ` — ${styleSpec.desc}` : ''}. Base camera grammar for this style: ${styleSpec.camera}. Base lighting: ${styleSpec.lighting}. Keep the video's camera language, motion, pacing and mood consistent with THIS style AND with each storyboard panel — never drift into a different look.`;
+
+  // Idea 2: camera discipline — consistent framing, no erratic/extreme moves.
+  const cameraDisciplineClause = `CAMERA DISCIPLINE: keep a sensible, CONSISTENT shot scale that matches each panel's framing; use gentle, controlled moves (slow push-in, pan, tilt or orbit). Do NOT cut to extreme close-ups, do NOT use big or abrupt zooms, and avoid disorienting or jittery motion — UNLESS a panel's printed 'CAM:' tag explicitly calls for it. Keep the main subject/product fully in frame and clearly visible throughout.`;
 
   let systemInstruction = '';
   if (enableVo) {
     systemInstruction = `You are an expert AI Video Director and master video prompting engineer specializing in high-fidelity commercial video generation.
 ${durationClause}
 ${capsuleStyleClause}
+${styleClause}
+${cameraDisciplineClause}
 ${followBoardClause}
 
 You are provided with ${panelImages.length} page images of a storyboard. Each page image contains ${gridDescText}. This means there are exactly ${totalScenes} pages (scenes) in total.
@@ -567,6 +577,8 @@ Ensure there are exactly ${totalScenes} items in the "scenes" array correspondin
     systemInstruction = `You are an expert AI Video Director and master video prompting engineer specializing in high-fidelity commercial video generation.
 ${durationClause}
 ${capsuleStyleClause}
+${styleClause}
+${cameraDisciplineClause}
 ${followBoardClause}
 
 You are provided with ${panelImages.length} page images of a storyboard. Each page image contains ${gridDescText}. This means there are exactly ${totalScenes} pages (scenes) in total.
