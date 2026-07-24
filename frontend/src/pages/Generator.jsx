@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import api from '../utils/api';
 import { Sparkles, Loader, Download, ExternalLink, AlertTriangle, Terminal, X, ChevronRight, Upload, Image as ImageIcon, Zap, Sliders, Eye } from 'lucide-react';
 import LAYOUT_STYLES from '../constants/layoutStyles';
+import { toast } from '../utils/toast';
+import { confirm } from '../utils/confirm';
 
 
 
@@ -105,7 +107,7 @@ export default function Generator({ setTab }) {
   };
 
   const handleRegeneratePage = async (storyboardId, pageIdx) => {
-    const confirmRegen = window.confirm(`Apakah Anda yakin ingin me-regenerasi Halaman ${pageIdx + 1}? (Proses ini membutuhkan beberapa kredit Freebeat).`);
+    const confirmRegen = await confirm({ title: `Regenerasi Halaman ${pageIdx + 1}?`, message: 'Proses ini akan memakai beberapa kredit Freebeat.', confirmText: 'Regenerasi' });
     if (!confirmRegen) return;
 
     setRegeneratingPages(prev => ({ ...prev, [pageIdx]: true }));
@@ -128,18 +130,18 @@ export default function Generator({ setTab }) {
               ...prev,
               image_path: task.result.image_path
             }));
-            alert(`Halaman ${pageIdx + 1} sukses diregenerasi!`);
+            toast.success(`Halaman ${pageIdx + 1} sukses diregenerasi!`);
           } else if (task.status === 'failed') {
             clearInterval(interval);
             setRegeneratingPages(prev => ({ ...prev, [pageIdx]: false }));
-            alert(`Gagal meregenerasi Halaman ${pageIdx + 1}: ${task.error || 'Unknown error'}`);
+            toast.error(`Gagal meregenerasi Halaman ${pageIdx + 1}: ${task.error || 'Unknown error'}`);
           }
         } catch (e) {}
       }, 4000);
     } catch (err) {
       console.error(err);
       setRegeneratingPages(prev => ({ ...prev, [pageIdx]: false }));
-      alert(err.response?.data?.message || 'Gagal meregenerasi halaman.');
+      toast.error(err.response?.data?.message || 'Gagal meregenerasi halaman.');
     }
   };
 
@@ -441,7 +443,7 @@ export default function Generator({ setTab }) {
     try {
       const res = await api.post('/storyboards/generate-ref-image', { prompt: refGenPrompt, aspectRatio });
       const taskId = res.data?.taskId;
-      if (!taskId) { setRefGenLoading(false); alert('Gagal memulai. Coba lagi.'); return; }
+      if (!taskId) { setRefGenLoading(false); toast.error('Gagal memulai. Coba lagi.'); return; }
       // Poll patiently — background task like a storyboard, NO timeout. To cancel,
       // the user just starts a new project.
       if (refGenPollRef.current) clearInterval(refGenPollRef.current);
@@ -460,14 +462,14 @@ export default function Generator({ setTab }) {
           } else if (t.status === 'failed') {
             clearInterval(refGenPollRef.current); refGenPollRef.current = null;
             setRefGenLoading(false);
-            alert(t.error || 'Gagal membuat gambar referensi.');
+            toast.error(t.error || 'Gagal membuat gambar referensi.');
           }
           // else: still processing — keep waiting patiently.
         } catch (e) { /* task may not be ready yet; keep polling */ }
       }, 4000);
     } catch (err) {
       setRefGenLoading(false);
-      alert(err.response?.data?.message || 'Gagal memulai pembuatan gambar.');
+      toast.error(err.response?.data?.message || 'Gagal memulai pembuatan gambar.');
     }
   };
 
@@ -981,8 +983,8 @@ export default function Generator({ setTab }) {
               </div>
               <button
                 type="button"
-                onClick={() => {
-                  if (window.confirm('Apakah Anda yakin ingin memulai pembuatan storyboard baru? Generasi yang sedang berjalan akan tetap diproses di latar belakang dan dapat dilihat di Dashboard.')) {
+                onClick={async () => {
+                  if (await confirm({ title: 'Buat storyboard baru?', message: 'Generasi yang sedang berjalan akan tetap diproses di latar belakang dan bisa dilihat di Dashboard.', confirmText: 'Buat Baru' })) {
                     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
                     localStorage.removeItem('activeTaskId');
                     setGenerating(false);

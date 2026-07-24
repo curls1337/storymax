@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import api from '../utils/api';
 import { Users, Key, Plus, Trash2, ShieldAlert, Eye, EyeOff, Loader, Check, X, ShieldCheck, Terminal, UserPlus, Database, Sparkles, FolderOpen, HardDrive, DownloadCloud } from 'lucide-react';
+import { confirm } from '../utils/confirm';
 
 export default function AdminPanel() {
   const [activeTab, setActiveTab] = useState('users');
@@ -133,7 +134,7 @@ export default function AdminPanel() {
   };
 
   const handleDeleteFile = async (filePath) => {
-    if (!window.confirm('Yakin ingin menghapus file ini secara permanen dari server penyimpanan?')) return;
+    if (!(await confirm({ title: 'Hapus file ini?', message: 'File akan dihapus permanen dari server penyimpanan.', confirmText: 'Hapus', danger: true }))) return;
     setError('');
     setMessage('');
     try {
@@ -147,7 +148,7 @@ export default function AdminPanel() {
 
   const handleDeleteSelected = async () => {
     if (selectedFiles.length === 0) return;
-    if (!window.confirm(`Yakin ingin menghapus ${selectedFiles.length} file terpilih secara permanen dari server penyimpanan?`)) return;
+    if (!(await confirm({ title: 'Hapus file terpilih?', message: `${selectedFiles.length} file akan dihapus permanen dari server penyimpanan.`, confirmText: `Hapus ${selectedFiles.length}`, danger: true }))) return;
     setError('');
     setMessage('');
     try {
@@ -207,7 +208,7 @@ export default function AdminPanel() {
   };
 
   const handleDeleteUser = async (id) => {
-    if (!window.confirm('Yakin ingin menghapus user ini? Semua riwayat storyboard milik user ini akan ikut terhapus.')) return;
+    if (!(await confirm({ title: 'Hapus user ini?', message: 'Semua riwayat storyboard milik user ini akan ikut terhapus permanen.', confirmText: 'Hapus User', danger: true }))) return;
     try {
       await api.delete(`/admin/users/${id}`);
       setMessage('User berhasil dihapus.');
@@ -261,7 +262,7 @@ export default function AdminPanel() {
   };
 
   const handleDeleteKey = async (id) => {
-    if (!window.confirm('Yakin ingin menghapus API Key ini?')) return;
+    if (!(await confirm({ title: 'Hapus API Key ini?', message: 'API Key akan dihapus dari kolam lisensi Freebeat.', confirmText: 'Hapus', danger: true }))) return;
     setError('');
     setMessage('');
     try {
@@ -290,7 +291,7 @@ export default function AdminPanel() {
 
   const handleDeleteSelectedKeys = async () => {
     if (selectedKeyIds.length === 0) return;
-    if (!window.confirm(`Yakin ingin menghapus ${selectedKeyIds.length} API Key terpilih?`)) return;
+    if (!(await confirm({ title: 'Hapus API Key terpilih?', message: `${selectedKeyIds.length} API Key akan dihapus dari kolam lisensi Freebeat.`, confirmText: `Hapus ${selectedKeyIds.length}`, danger: true }))) return;
     
     setError('');
     setMessage('');

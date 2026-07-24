@@ -5,6 +5,8 @@ import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { CapacitorHttp } from '@capacitor/core';
 import { Plus, Trash2, ExternalLink, Calendar, Loader, FolderOpen, X, ChevronRight, ChevronLeft, Download, Eye, AlertTriangle, Image, FileText, Film, Play, Zap, RefreshCw, Sparkles } from 'lucide-react';
+import { toast } from '../utils/toast';
+import { confirm } from '../utils/confirm';
 
 export default function Dashboard({ setTab }) {
   const [storyboards, setStoryboards] = useState([]);
@@ -59,7 +61,7 @@ export default function Dashboard({ setTab }) {
   }, [storyboards]);
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Apakah Anda yakin ingin menghapus storyboard ini?')) return;
+    if (!(await confirm({ title: 'Hapus storyboard ini?', message: 'Storyboard beserta gambar & video-nya akan dihapus permanen.', confirmText: 'Hapus', danger: true }))) return;
     try {
       await api.delete(`/storyboards/${id}`);
       setStoryboards(storyboards.filter((sb) => sb.id !== id));
@@ -67,7 +69,7 @@ export default function Dashboard({ setTab }) {
         setSelectedStoryboard(null);
       }
     } catch (err) {
-      alert('Gagal menghapus storyboard.');
+      toast.error('Gagal menghapus storyboard.');
     }
   };
 
@@ -86,7 +88,7 @@ export default function Dashboard({ setTab }) {
       setSelectedStoryboard(prev => prev ? { ...prev, marketing_title: res.data.marketing_title, marketing_description: res.data.marketing_description } : prev);
     } catch (err) {
       console.error("Error regenerating marketing copy:", err);
-      alert('Gagal membuat ulang deskripsi promosi.');
+      toast.error('Gagal membuat ulang deskripsi promosi.');
     } finally {
       setRegeneratingCopyId(null);
     }
@@ -124,7 +126,7 @@ export default function Dashboard({ setTab }) {
       });
     } catch (err) {
       console.error("Error regenerating storyboard marketing copy:", err);
-      alert('Gagal membuat naskah promosi.');
+      toast.error('Gagal membuat naskah promosi.');
     } finally {
       setGeneratingStoryboardCopy(false);
     }
@@ -176,7 +178,7 @@ export default function Dashboard({ setTab }) {
       });
     } catch (err) {
       console.error("Error exporting to Google Sheets:", err);
-      alert(err.response?.data?.message || 'Gagal mengekspor data ke Google Sheets.');
+      toast.error(err.response?.data?.message || 'Gagal mengekspor data ke Google Sheets.');
     } finally {
       setExportingGoogle(false);
     }
@@ -203,7 +205,7 @@ export default function Dashboard({ setTab }) {
       window.URL.revokeObjectURL(url);
     } catch (err) {
       console.error("Error exporting to CSV:", err, err.response?.data);
-      alert(err.response?.data?.error ? ('Gagal export CSV: ' + err.response.data.error) : 'Gagal mengekspor data ke CSV.');
+      toast.error(err.response?.data?.error ? ('Gagal export CSV: ' + err.response.data.error) : 'Gagal mengekspor data ke CSV.');
     } finally {
       setExportingCsv(false);
     }
@@ -213,7 +215,7 @@ export default function Dashboard({ setTab }) {
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const handleBulkDelete = async () => {
     if (exportSelectedIds.length === 0) return;
-    if (!window.confirm(`Hapus ${exportSelectedIds.length} storyboard terpilih? Tindakan ini tidak bisa dibatalkan.`)) return;
+    if (!(await confirm({ title: 'Hapus storyboard terpilih?', message: `${exportSelectedIds.length} storyboard akan dihapus permanen. Tindakan ini tidak bisa dibatalkan.`, confirmText: `Hapus ${exportSelectedIds.length}`, danger: true }))) return;
     setBulkDeleting(true);
     try {
       await api.post('/storyboards/bulk-delete', { storyboardIds: exportSelectedIds });
@@ -224,7 +226,7 @@ export default function Dashboard({ setTab }) {
       await fetchStoryboards();
     } catch (err) {
       console.error('Bulk delete failed:', err);
-      alert(err.response?.data?.message || 'Gagal menghapus storyboard terpilih.');
+      toast.error(err.response?.data?.message || 'Gagal menghapus storyboard terpilih.');
     } finally {
       setBulkDeleting(false);
     }
@@ -367,7 +369,7 @@ export default function Dashboard({ setTab }) {
     }
 
     if (videoIds.length < 2) {
-      alert('Minimal harus ada 2 video sukses untuk dapat digabungkan.');
+      toast.error('Minimal harus ada 2 video sukses untuk dapat digabungkan.');
       return;
     }
 
@@ -423,17 +425,17 @@ export default function Dashboard({ setTab }) {
         return sb;
       }));
       
-      alert('Semua video pilihan berhasil digabungkan menjadi satu!');
+      toast.success('Semua video pilihan berhasil digabungkan menjadi satu!');
     } catch (err) {
       console.error('Error merging videos:', err);
-      alert(err.response?.data?.message || 'Gagal menggabungkan video.');
+      toast.error(err.response?.data?.message || 'Gagal menggabungkan video.');
     } finally {
       setMergingVideos(false);
     }
   };
 
   const handleRegeneratePage = async (storyboardId, pageIdx) => {
-    const confirmRegen = window.confirm(`Apakah Anda yakin ingin me-regenerasi Halaman ${pageIdx + 1}? (Proses ini membutuhkan beberapa kredit Freebeat).`);
+    const confirmRegen = await confirm({ title: `Regenerasi Halaman ${pageIdx + 1}?`, message: 'Proses ini akan memakai beberapa kredit Freebeat.', confirmText: 'Regenerasi' });
     if (!confirmRegen) return;
 
     setRegeneratingPages(prev => ({ ...prev, [pageIdx]: true }));
@@ -464,18 +466,18 @@ export default function Dashboard({ setTab }) {
               }
               return sb;
             }));
-            alert(`Halaman ${pageIdx + 1} sukses diregenerasi!`);
+            toast.success(`Halaman ${pageIdx + 1} sukses diregenerasi!`);
           } else if (task.status === 'failed') {
             clearInterval(interval);
             setRegeneratingPages(prev => ({ ...prev, [pageIdx]: false }));
-            alert(`Gagal meregenerasi Halaman ${pageIdx + 1}: ${task.error || 'Unknown error'}`);
+            toast.error(`Gagal meregenerasi Halaman ${pageIdx + 1}: ${task.error || 'Unknown error'}`);
           }
         } catch (e) {}
       }, 4000);
     } catch (err) {
       console.error(err);
       setRegeneratingPages(prev => ({ ...prev, [pageIdx]: false }));
-      alert(err.response?.data?.message || 'Gagal meregenerasi halaman.');
+      toast.error(err.response?.data?.message || 'Gagal meregenerasi halaman.');
     }
   };
 
@@ -640,13 +642,13 @@ export default function Dashboard({ setTab }) {
       setShowGenForm(false);
     } catch (err) {
       console.error("Error creating video:", err);
-      alert(err.response?.data?.message || 'Gagal memulai pembuatan video.');
+      toast.error(err.response?.data?.message || 'Gagal memulai pembuatan video.');
     }
   };
 
   const handleGenerateAllVideos = async () => {
     if (!selectedStoryboard) return;
-    const confirmAll = window.confirm("Generate video untuk SEMUA halaman?\n\n• Mode Auto: tiap halaman memakai API key Freebeat aktif yang BERBEDA & sedang bebas (paralel sebanyak key yang tersedia).\n• Mode Manual (pilih 1 key): dikerjakan 1 halaman per waktu — menunggu tiap halaman selesai dulu.");
+    const confirmAll = await confirm({ title: 'Generate video untuk semua halaman?', message: '• Mode Auto: tiap halaman memakai API key Freebeat aktif yang berbeda & sedang bebas (paralel sebanyak key yang tersedia).\n• Mode Manual (pilih 1 key): dikerjakan 1 halaman per waktu — menunggu tiap halaman selesai dulu.', confirmText: 'Ya, buat semua' });
     if (!confirmAll) return;
 
     try {
@@ -666,11 +668,11 @@ export default function Dashboard({ setTab }) {
       const vRes = await api.get(`/videos/storyboard/${selectedStoryboard.id}`);
       setVideos(vRes.data);
       
-      alert(res.data.message || 'Batch video generation sukses dimulai!');
+      toast.success(res.data.message || 'Batch video generation sukses dimulai!');
       setShowGenForm(false);
     } catch (err) {
       console.error("Error creating all videos:", err);
-      alert(err.response?.data?.message || 'Gagal memulai batch video generation.');
+      toast.error(err.response?.data?.message || 'Gagal memulai batch video generation.');
     }
   };
 
@@ -1064,11 +1066,11 @@ export default function Dashboard({ setTab }) {
                   key={sb.id}
                   onClick={() => {
                     if (isProcessing) {
-                      alert('Storyboard sedang dalam proses pembuatan di latar belakang. Silakan tunggu hingga selesai.');
+                      toast.info('Storyboard sedang dalam proses pembuatan di latar belakang. Silakan tunggu hingga selesai.');
                       return;
                     }
                     if (isFailed) {
-                      alert('Proses pembuatan storyboard ini gagal. Silakan klik tombol "Hapus" pada kartu untuk membersihkannya.');
+                      toast.error('Proses pembuatan storyboard ini gagal. Silakan klik tombol "Hapus" pada kartu untuk membersihkannya.');
                       return;
                     }
                     if (isRefImage) {
@@ -1496,9 +1498,9 @@ export default function Dashboard({ setTab }) {
                                 ? `${imageToVideoPrompt}\n\n[Voiceover Narration]:\n"${narration}"`
                                 : imageToVideoPrompt;
                               navigator.clipboard.writeText(copyText);
-                              alert('Prompt Image-to-Video & Voiceover berhasil disalin!');
+                              toast.success('Prompt Image-to-Video & Voiceover berhasil disalin!');
                             } catch (e) {
-                              alert('Gagal menyalin.');
+                              toast.error('Gagal menyalin.');
                             }
                           }}
                           className="w-full bg-[#131211] hover:bg-[#1a1918] text-slate-300 font-bold py-2 px-3 rounded-lg border border-[#2a2725] text-[9px] uppercase tracking-widest flex items-center justify-center gap-1.5 transition-all"
@@ -1729,9 +1731,9 @@ export default function Dashboard({ setTab }) {
                                 ? `${textToVideoPrompt}\n\n[Voiceover Narration]:\n"${narration}"`
                                 : textToVideoPrompt;
                               navigator.clipboard.writeText(copyText);
-                              alert('Prompt Text-to-Video & Voiceover berhasil disalin!');
+                              toast.success('Prompt Text-to-Video & Voiceover berhasil disalin!');
                             } catch (e) {
-                              alert('Gagal menyalin.');
+                              toast.error('Gagal menyalin.');
                             }
                           }}
                           className="w-full bg-[#131211] hover:bg-[#1a1918] text-slate-300 font-bold py-2 px-3 rounded-lg border border-[#2a2725] text-[9px] uppercase tracking-widest flex items-center justify-center gap-1.5 transition-all"
@@ -2010,7 +2012,7 @@ export default function Dashboard({ setTab }) {
                                   setVideoTaskId(null);
                                   setActiveVideoTask(null);
                                 } catch (e) {
-                                  alert('Gagal membersihkan data.');
+                                  toast.error('Gagal membersihkan data.');
                                 }
                               }}
                               className="text-[9px] text-[#cfae80] hover:text-[#c5a880] font-bold uppercase tracking-widest transition-colors"
@@ -2085,13 +2087,13 @@ export default function Dashboard({ setTab }) {
                             </span>
                             <button
                               onClick={async () => {
-                                if (window.confirm('Apakah Anda yakin ingin menghapus video ini secara permanen?')) {
+                                if (await confirm({ title: 'Hapus video ini?', message: 'Video akan dihapus permanen.', confirmText: 'Hapus', danger: true })) {
                                   try {
                                     await api.delete(`/videos/${activeVid.id}`);
                                     setVideos(prev => prev.filter(v => v.id !== activeVid.id));
                                     setActiveVideoIdx(prev => Math.max(0, Math.min(prev, sceneVideos.length - 2)));
                                   } catch (e) {
-                                    alert('Gagal menghapus video.');
+                                    toast.error('Gagal menghapus video.');
                                   }
                                 }
                               }}
@@ -2385,7 +2387,7 @@ export default function Dashboard({ setTab }) {
                               <button
                                 onClick={() => {
                                   navigator.clipboard.writeText(displayMarketingTitle || '');
-                                  alert('Judul berhasil disalin!');
+                                  toast.success('Judul berhasil disalin!');
                                 }}
                                 className="text-[#cfae80] hover:underline cursor-pointer"
                               >
@@ -2404,7 +2406,7 @@ export default function Dashboard({ setTab }) {
                               <button
                                 onClick={() => {
                                   navigator.clipboard.writeText(displayMarketingDesc || '');
-                                  alert('Caption & Hashtag berhasil disalin!');
+                                  toast.success('Caption & Hashtag berhasil disalin!');
                                 }}
                                 className="text-[#cfae80] hover:underline cursor-pointer"
                               >
