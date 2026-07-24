@@ -5,7 +5,8 @@
 //
 // Design goals: param-driven (duration/aspect from input, never hardcoded),
 // explicit consistency (subject repeated + locked camera), faceMode-aware,
-// and comfortably under Freebeat's 2000-character limit.
+// and comfortably under Freebeat's 2000-character limit — while NEVER destroying
+// the prompt structure (every section always survives, only its content shrinks).
 
 const { faceClause, faceNegative } = require('./faceMode');
 
@@ -32,11 +33,43 @@ function bgClause(bg) {
   return 'clean solid flat bright white background';
 }
 
+// Case-insensitive de-duplication that preserves original casing & order. Used to
+// collapse the negative list (style negatives + anti-sketch + face-negative often
+// repeat "hands, fingers, person…"), which keeps the protected tail small.
+function dedupeList(arr) {
+  const seen = new Set();
+  const out = [];
+  for (const raw of arr) {
+    const s = String(raw).trim();
+    const k = s.toLowerCase();
+    if (!s || seen.has(k)) continue;
+    seen.add(k);
+    out.push(s);
+  }
+  return out;
+}
+
 // Styles that are INTENTIONALLY illustrated (not photographic). Every other style
 // should render as photorealistic PHOTO panels — not sketches / concept art. The
 // word "storyboard" biases image models toward rough sketches, so photo styles get
 // an explicit photorealism directive + anti-sketch negatives.
 const ILLUSTRATION_STYLES = new Set(['anime_comic', 'stop_motion', 'tiny_world', 'education_explainer']);
+
+// Shared helper so the LLM generator applies the SAME photo/illustration decision.
+function isPhotoreal(styleId) {
+  return styleId ? !ILLUSTRATION_STYLES.has(styleId) : true;
+}
+
+// Character budgets. Generous caps; the priority-based fitter shrinks the
+// least-critical parts first so the total always fits Freebeat's limit.
+const SUBJECT_MAX_NOREF = 300; // text is the ONLY identity anchor → keep it rich (was a flat 140)
+const SUBJECT_MAX_REF = 180;   // a reference image carries identity → the text can be leaner
+const SUBJECT_FLOOR = 120;     // never trim the text identity anchor below this (no ref image)
+const SUBJECT_FLOOR_REF = 64;  // with a reference image the picture is the anchor → text can be leaner
+const CONCEPT_MAX = 450;       // was 200 — the 200 cap cut per-page story mid-sentence
+const ARC_MAX = 460;
+const NEG_MAX = 340;           // cap the NEGATIVE list so heavy styles don't starve the body
+const LIMIT = 1950;            // stay under Freebeat's 2000 hard cap (builder guarantees total <= LIMIT)
 
 function buildMasterPrompt(spec, ctx = {}) {
   const {
@@ -57,6 +90,7 @@ function buildMasterPrompt(spec, ctx = {}) {
   const endScene = startScene + gc - 1;
   const ratio = fmtRatio(aspectRatio || spec.format, model);
   const dur = fmtDuration(totalDuration);
+
   // Distribute the style arc across ALL pages so each page shows a DIFFERENT
   // part of the sequence (fixes multi-page repeating the same beats every page).
   const totalScenes = (Number(pageCount) || 1) * gc;
@@ -70,69 +104,111 @@ function buildMasterPrompt(spec, ctx = {}) {
     pageArc = spec.arc.slice(bStart, bEnd);
   }
   let arc = pageArc.length ? pageArc.join(' → ') : 'introduce → develop → reveal → call to action';
-  // Cap arc length so a very long narrative can never crowd out the footer / face
-  // / NEGATIVE clauses (cut at a word boundary).
-  if (arc.length > 520) {
-    const cut = arc.lastIndexOf(' ', 520);
-    arc = arc.slice(0, cut > 400 ? cut : 520);
+  if (arc.length > ARC_MAX) {
+    const cut = arc.lastIndexOf(' ', ARC_MAX);
+    arc = arc.slice(0, cut > ARC_MAX - 120 ? cut : ARC_MAX);
   }
+
   const face = faceClause(faceMode);
   const fneg = faceNegative(faceMode);
+
   // Photo styles: force photorealism (defeat the "storyboard = sketch" bias).
-  const photoreal = spec.id ? !ILLUSTRATION_STYLES.has(spec.id) : true;
+  const photoreal = isPhotoreal(spec.id);
   const realNote = photoreal
-    ? ' Render EVERY panel as a PHOTOREALISTIC photo (real lighting, sharp focus) — NOT a sketch, drawing or concept art.'
+    ? ' Render every panel as a PHOTOREALISTIC PHOTOGRAPH — real camera, real lighting, sharp focus, lifelike materials — never a sketch, drawing, painting or concept art.'
     : '';
-  const antiSketch = photoreal ? ['sketch', 'line art', 'concept art', 'cartoon/anime drawing', 'flat clay or low-detail CGI render'] : [];
-  const negatives = [].concat(spec.negatives || [], antiSketch, fneg ? [fneg] : []).join(', ');
+  const antiSketch = photoreal
+    ? ['sketch', 'line art', 'pencil or ink drawing', 'concept art', 'cartoon or anime drawing', 'flat clay or low-detail CGI render']
+    : [];
+
+  // Merge + de-dupe every negative source so the tail never repeats phrases, then
+  // cap its length. A 500+ char negative list (e.g. cube) would dominate the whole
+  // budget; the most important, style-specific terms come first, and the strongest
+  // no-people / anti-sketch guarantees are ALSO carried by the face clause + realNote.
+  let negatives = dedupeList(
+    []
+      .concat(spec.negatives || [])
+      .concat(antiSketch)
+      .concat(fneg ? String(fneg).split(',') : [])
+      .concat(['text paragraphs inside panels'])
+  ).join(', ');
+  if (negatives.length > NEG_MAX) {
+    const cut = negatives.lastIndexOf(', ', NEG_MAX);
+    negatives = negatives.slice(0, cut > NEG_MAX - 140 ? cut : NEG_MAX);
+  }
+
   const layout = (spec.layoutHint || 'a grid of {N} numbered panels on one sheet').replace('{N}', String(gc));
   const partLabel = pageCount > 1 ? ` PART ${pageNum}/${pageCount}` : '';
-  const refNote = hasRefImage ? ' CRITICAL: in every panel copy the product EXACTLY from the reference — same shape, size, colors, logo & text; do NOT redesign or rename it.' : '';
-  const conceptText = concept ? String(concept).slice(0, 200) : '';
+  const refNote = hasRefImage
+    ? ' Copy the product from the reference EXACTLY — same shape, colors, logo & text; never redesign it.'
+    : '';
   const pageScope = pageCount > 1
     ? (pageNum === 1
-        ? `IMPORTANT: PAGE 1/${pageCount} (scenes ${startScene}-${endScene}) — show only the BEGINNING; it continues on later pages. `
-        : `IMPORTANT: PAGE ${pageNum}/${pageCount} (scenes ${startScene}-${endScene}) — CONTINUE from the previous page; the opening ALREADY happened, do NOT restart it (no cube) — show only later stages / the finished result in new angles. `)
+        ? `IMPORTANT: PAGE 1/${pageCount} (scenes ${startScene}-${endScene}) — show only the BEGINNING; the sequence continues on later pages. `
+        : `IMPORTANT: PAGE ${pageNum}/${pageCount} (scenes ${startScene}-${endScene}) — CONTINUE from page ${pageNum - 1} (do NOT restart the opening); show only later stages & the final result. `)
     : '';
-  const negLine = `NEGATIVE: ${negatives}, garbled text.`;
-  // Protected tail: the FOOTER (production notes), the face-mode clause, and the
-  // NEGATIVE line must ALWAYS survive — they carry the shooting instructions,
-  // enforce faceless / chin-crop, and block glow/robot/garbled text. They are held
-  // out of the clampable body and re-appended last.
-  const tail = `FOOTER: a 'PRODUCTION NOTES' bar with recommended camera, FPS, lighting & shooting style.
+
+  // Protected tail: the FOOTER, the face-mode clause, and the NEGATIVE line must
+  // ALWAYS survive — they carry shooting notes, enforce faceless/chin-crop, and
+  // block glow/robot/garbled text. Held out of the fitter and appended last.
+  const tail = `FOOTER: a slim 'PRODUCTION NOTES' bar (camera, FPS, lighting, audio).
 ${face}
-${negLine}`;
-  const assembleBody = (ct) => {
-    const cl = ct
-      ? `${pageScope}SCENES on this page — based on: "${ct}" — progressing across the panels as: ${arc}.`
-      : `${pageScope}SCENES progress across the panels as: ${arc}.`;
-    return (
-`A professional ${spec.name} storyboard sheet, ${ratio} layout, ${bgClause(spec.bg)}.${realNote}
-HEADER: banner '${spec.header}${partLabel}' + product name + badges 'DURATION ${dur}', 'SCENES ${gc}', 'RATIO ${ratio}'.
-SUBJECT (identical in every card): ${String(subject || 'the product').slice(0, 140)}.${refNote}
-Lay out ${layout}, numbered SCENE ${startScene}–${endScene}. EACH card shows: the panel image, a short SCENE TITLE, a one-line action, and tiny production tags 'CAM: <angle>', 'LIGHT: <lighting>', 'AUDIO: <music/sfx>' + a duration chip; vary the camera per scene; keep card layout & background consistent.
-Base camera: ${spec.camera}; light: ${spec.lighting}.
-${cl}`
-    );
+NEGATIVE: ${negatives}.`;
+
+  // ── Fixed structural lines (content is fixed; always present) ──
+  const L1 = `A professional ${spec.name} storyboard sheet — ONE printed poster, ${ratio} layout, ${bgClause(spec.bg)}.${realNote}`;
+  const L2 = `HEADER: banner '${spec.header}${partLabel}' + product name + badges 'DURATION ${dur}' 'SCENES ${gc}' 'RATIO ${ratio}'.`;
+  const L4 = `Layout: ${layout}, numbered SCENE ${startScene}–${endScene}; each panel: a short SCENE TITLE, one-line action, tiny 'CAM'/'LIGHT' tags + a duration chip. Keep on-sheet text short & correctly spelled; vary the camera per scene; keep card layout, palette & background identical.`;
+  const L5 = `Base camera: ${spec.camera}; light: ${spec.lighting}.`;
+
+  // ── Variable lines (content shrinks to fit) ──
+  const subjLine = (s) => `SUBJECT (identical in every panel): ${s}.${refNote}`;
+  const scenesLine = (ct, ar) => {
+    if (ct) {
+      const prog = ar ? `progressing across the panels as: ${ar}` : 'progressing sequentially across the numbered panels';
+      return `${pageScope}SCENES on this page — based on: "${ct}" — ${prog}.`;
+    }
+    const prog = ar ? `progress across the panels as: ${ar}` : 'progress sequentially across the numbered panels';
+    return `${pageScope}SCENES ${prog}.`;
   };
 
-  // Keep within Freebeat's 2000-char limit. Reserve room for the protected tail
-  // (face clause + NEGATIVE) so it ALWAYS survives: trim the least-critical concept
-  // text first, then hard-clamp only the BODY — never the tail, re-appended last.
-  const TAIL_RESERVE = tail.length + 1; // +1 for the joining newline
-  const LIMIT = 1900;
-  let body = assembleBody(conceptText);
-  if (body.length + TAIL_RESERVE > LIMIT && conceptText) {
-    const over = (body.length + TAIL_RESERVE) - LIMIT;
-    body = assembleBody(conceptText.slice(0, Math.max(0, conceptText.length - over - 1)));
+  const assemble = (s, ct, ar) => [L1, L2, subjLine(s), L4, L5, scenesLine(ct, ar)].join('\n');
+
+  // Priority (kept longest): protected tail > SUBJECT identity anchor > structure
+  // > per-page CONCEPT > style ARC. Under pressure we trim in reverse: concept,
+  // then arc, then the subject toward its floor — every section stays present.
+  const subjCap = hasRefImage ? SUBJECT_MAX_REF : SUBJECT_MAX_NOREF;
+  const subjFloor = hasRefImage ? SUBJECT_FLOOR_REF : SUBJECT_FLOOR;
+  let subj = String(subject || 'the product').slice(0, subjCap);
+  let conceptText = concept ? String(concept).slice(0, CONCEPT_MAX) : '';
+
+  const TAIL_RESERVE = tail.length + 1;
+  const trimTail = (str, over) => {
+    const cut = str.slice(0, Math.max(0, str.length - over - 1));
+    const sp = cut.lastIndexOf(' ');
+    return sp > 0 ? cut.slice(0, sp) : cut;
+  };
+  const overBy = () => (assemble(subj, conceptText, arc).length + TAIL_RESERVE) - LIMIT;
+
+  // Sacrifice order: per-page CONCEPT → style ARC → SUBJECT (only down to its floor).
+  // subjCap already biases identity richness by whether a reference image exists,
+  // so the identity anchor is the last thing to shrink. The arc never re-inflates.
+  if (overBy() > 0 && conceptText) conceptText = trimTail(conceptText, overBy());
+  if (overBy() > 0 && arc) arc = trimTail(arc, overBy());
+  if (overBy() > 0 && subj.length > subjFloor) {
+    subj = subj.slice(0, Math.max(subjFloor, subj.length - overBy() - 1));
   }
-  const HARD = 1990 - TAIL_RESERVE;
-  if (body.length > HARD) {
-    body = body.slice(0, HARD);
+
+  let body = assemble(subj, conceptText, arc);
+  // Absolute safety net: clamp the BODY only — the tail (face clause + NEGATIVE) is
+  // sacred and always appended in full. In practice the trims above already fit.
+  const room = LIMIT - TAIL_RESERVE;
+  if (body.length > room) {
+    body = body.slice(0, Math.max(0, room));
     const sp = body.lastIndexOf(' ');
-    if (sp > HARD - 120) body = body.slice(0, sp);
+    if (sp > room - 160) body = body.slice(0, sp);
   }
   return body + '\n' + tail;
 }
 
-module.exports = { buildMasterPrompt, fmtRatio, fmtDuration };
+module.exports = { buildMasterPrompt, fmtRatio, fmtDuration, ILLUSTRATION_STYLES, isPhotoreal };
