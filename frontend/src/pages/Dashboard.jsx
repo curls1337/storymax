@@ -202,8 +202,8 @@ export default function Dashboard({ setTab }) {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      console.error("Error exporting to CSV:", err);
-      alert('Gagal mengekspor data ke CSV.');
+      console.error("Error exporting to CSV:", err, err.response?.data);
+      alert(err.response?.data?.error ? ('Gagal export CSV: ' + err.response.data.error) : 'Gagal mengekspor data ke CSV.');
     } finally {
       setExportingCsv(false);
     }

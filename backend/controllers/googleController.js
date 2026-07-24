@@ -318,41 +318,52 @@ async function exportToCSV(req, res) {
     ];
 
     for (const sb of storyboards) {
-      const createdDate = new Date(sb.created_at || Date.now()).toLocaleDateString('id-ID');
-      const { title, caption } = await getMarketingCopyForStoryboard(db, sb);
+      try {
+        const createdDate = new Date(sb.created_at || Date.now()).toLocaleDateString('id-ID');
+        const { title, caption } = await getMarketingCopyForStoryboard(db, sb);
 
-      // Auto-detect video link: merged video URL or single scene video URL
-      let videoLink = '';
-      if (sb.merged_video_url) {
-        videoLink = sb.merged_video_url;
-      } else {
-        const latestVid = await db.get(
-          'SELECT video_url FROM generated_videos WHERE storyboard_id = ? AND status = "success" ORDER BY id DESC LIMIT 1',
-          [sb.id]
-        );
-        if (latestVid && latestVid.video_url) {
-          videoLink = latestVid.video_url;
+        // Auto-detect video link: merged video URL or single scene video URL
+        let videoLink = '';
+        if (sb.merged_video_url) {
+          videoLink = sb.merged_video_url;
         } else {
-          videoLink = sb.image_path || '';
+          const latestVid = await db.get(
+            'SELECT video_url FROM generated_videos WHERE storyboard_id = ? AND status = "success" ORDER BY id DESC LIMIT 1',
+            [sb.id]
+          );
+          if (latestVid && latestVid.video_url) {
+            videoLink = latestVid.video_url;
+          } else {
+            videoLink = sb.image_path || '';
+          }
         }
-      }
 
-      if (videoLink) {
-        if (videoLink.startsWith('/')) {
-          videoLink = `${apiBase}${videoLink}`;
-        } else if (!videoLink.startsWith('http')) {
-          videoLink = `${apiBase}/${videoLink}`;
+        if (videoLink) {
+          if (videoLink.startsWith('/')) {
+            videoLink = `${apiBase}${videoLink}`;
+          } else if (!videoLink.startsWith('http')) {
+            videoLink = `${apiBase}/${videoLink}`;
+          }
         }
-      }
 
-      rows.push([
-        createdDate,
-        title,
-        caption,
-        videoLink,
-        '', // channel empty
-        ''  // Keyword empty
-      ]);
+        rows.push([
+          createdDate,
+          title,
+          caption,
+          videoLink,
+          '', // channel empty
+          ''  // Keyword empty
+        ]);
+      } catch (rowErr) {
+        // One bad storyboard must NOT fail the whole export — degrade this row instead.
+        console.error('CSV row failed for storyboard', sb && sb.id, rowErr && rowErr.message);
+        rows.push([
+          new Date((sb && sb.created_at) || Date.now()).toLocaleDateString('id-ID'),
+          (sb && sb.title) || '',
+          (sb && sb.prompt) || '',
+          '', '', ''
+        ]);
+      }
     }
 
     // Format into standard CSV string
@@ -367,8 +378,9 @@ async function exportToCSV(req, res) {
     res.setHeader('Content-Disposition', 'attachment; filename="storyboards_export.csv"');
     return res.send(csvContent);
   } catch (err) {
+    // Surface the real cause so an opaque 500 is diagnosable from the client too.
     console.error('Error exporting to CSV:', err);
-    return res.status(500).json({ message: 'Gagal mengekspor data ke CSV.' });
+    return res.status(500).json({ message: 'Gagal mengekspor data ke CSV.', error: String((err && err.message) || err) });
   }
 }
 
