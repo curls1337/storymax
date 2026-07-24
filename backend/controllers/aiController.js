@@ -423,14 +423,15 @@ async function generateVideoPromptsInternal({ storyboardId, promptType, regenera
   const durVal = videoDuration || 'auto';
   if (durVal === 'auto') {
     if (targetType === 'image-to-video') {
-      durationClause = `Each individual scene/panel video has a target duration of: Kling/SeedDance/Luma: 15 seconds, Omni: 10 seconds, Gemini: 8 seconds. Adjust the length of each scene's narration to fit these bounds (relaxed 1.0 word per second pacing: MAX 8 words for 8s, MAX 10 words for 10s, MAX 15 words for 15s).`;
+      durationClause = `Each individual scene/panel video has a target duration of: Kling/SeedDance/Luma: 15 seconds, Omni: 10 seconds, Gemini: 8 seconds. Size each scene's narration to FILL most of the scene at a natural ~1.5 words/second pace (clear, not rushed, but no long silent gaps): about 9-12 words for 8s, 12-15 for 10s, and 18-23 for 15s (hard max 23).`;
     } else {
-      durationClause = `Each individual scene/panel video has a target duration of: 15 seconds. If Voiceover (VO) is enabled, the narration for each scene MUST be short (MAXIMUM 14 to 16 words).`;
+      durationClause = `Each individual scene/panel video has a target duration of: 15 seconds. If Voiceover (VO) is enabled, size the narration to FILL most of the ~15s scene at a natural pace — about 18-23 words (hard max 23) — not rushed and not sparse.`;
     }
   } else {
     const seconds = Number(durVal);
-    const targetWords = Math.round(seconds * 1.0);
-    durationClause = `Each individual scene/panel video has a target duration of: ${seconds} seconds. If Voiceover (VO) is enabled, the narration for each scene MUST be very short and punchy (MAXIMUM ${targetWords} words).`;
+    const maxWords = Math.min(23, Math.round(seconds * 1.5));
+    const minWords = Math.max(4, Math.round(seconds * 1.1));
+    durationClause = `Each individual scene/panel video has a target duration of: ${seconds} seconds. If Voiceover (VO) is enabled, size the narration to FILL most of the scene at a natural pace — about ${minWords}-${maxWords} words (hard max ${maxWords}) — not rushed and not sparse.`;
   }
 
   let toneClause = '';
@@ -531,13 +532,13 @@ For each page (scene):
 3. "narration": A voiceover narration script paragraph in the language: "${voLanguage || 'Bahasa Indonesia'}". ${toneClause} The narration must fit the page duration and align with the chronological visual action of that page.
 
 CRITICAL SPEECH PACING, TEMPO & WORD COUNT RULES (Strictly prevents fast, rushed, garbled, or mismatched voiceover):
-- TEMPO & PACING: Write narration to be spoken at a calm, relaxed, articulate, and natural conversational pace (approx 1.0 word per second). Always insert punctuation (commas ',', periods '.', and ellipses '...') strategically between short phrases to enforce clear, natural breathing pauses so the voiceover sounds clear and articulate.
-- STRICT WORD COUNT LIMIT PER SCENE (CALIBRATED TO EXACT DURATION):
-  * For ~5-second scene: Strictly MAX 5 to 6 words TOTAL for that scene.
-  * For ~8-second scene: Strictly MAX 7 to 8 words TOTAL for that scene.
-  * For ~10-second scene: Strictly MAX 9 to 11 words TOTAL for that scene.
-  * For ~15-second scene: Strictly MAX 12 to 15 words TOTAL for that scene.
-- NEVER cram long, dense sentences into a single scene! Keep phrases short, rhythmic, punchy, and well-spaced so speech finishes comfortably 3-4 seconds before the scene ends.
+- TEMPO & PACING: Write narration to be spoken at a clear, relaxed, natural conversational pace (about 1.5 words per second) that FILLS most of the scene — continuous enough to avoid long silent gaps, but never rushed or crammed. Insert commas & periods between short phrases for natural breathing pauses.
+- WORD COUNT PER SCENE (fill most of the scene — not too few, not too many):
+  * For ~5-second scene: about 6 to 8 words TOTAL.
+  * For ~8-second scene: about 9 to 12 words TOTAL.
+  * For ~10-second scene: about 12 to 15 words TOTAL.
+  * For ~15-second scene: about 18 to 23 words TOTAL (hard max 23).
+- Fill most of the scene and finish about 1-2 seconds before it ends — do NOT leave long silent gaps, and never cram or rush. Keep phrases short, rhythmic, and well-spaced.
 
 CRITICAL NARRATION FLOW & STRUCTURE:
 The voiceover narrations across all the ${totalScenes} pages must combine to form one single, continuously flowing script from the first page to the last. Do not treat each page as a standalone video!
@@ -651,14 +652,14 @@ Please analyze the provided image sheet(s) carefully. Generate the requested JSO
     const parsed = JSON.parse(cleanText);
     if (parsed && Array.isArray(parsed.scenes)) {
       // Calculate max words allowed per scene based on video duration
-      let maxWordsAllowed = 16;
+      let maxWordsAllowed = 23; // default (auto ≈ 15s scenes): fill the scene, cap at 23
       if (videoDuration && videoDuration !== 'auto') {
         const sec = Number(videoDuration);
-        if (sec <= 5) maxWordsAllowed = 6;
-        else if (sec <= 8) maxWordsAllowed = 9;
-        else if (sec <= 10) maxWordsAllowed = 12;
-        else if (sec <= 15) maxWordsAllowed = 16;
-        else maxWordsAllowed = Math.round(sec * 1.0);
+        if (sec <= 5) maxWordsAllowed = 8;
+        else if (sec <= 8) maxWordsAllowed = 12;
+        else if (sec <= 10) maxWordsAllowed = 15;
+        else if (sec <= 15) maxWordsAllowed = 23;
+        else maxWordsAllowed = Math.round(sec * 1.5);
       }
 
       const { stripSpeechLeak } = require('../prompts/sanitizeVideoPrompt');
