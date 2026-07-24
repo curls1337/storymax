@@ -72,15 +72,17 @@ export default function Dashboard({ setTab }) {
   };
 
   const [regeneratingCopyId, setRegeneratingCopyId] = useState(null);
+  const [copyPlatform, setCopyPlatform] = useState('tiktok'); // selected platform tab for AI Marketing Copy
 
   const handleRegenerateMarketingCopy = async (videoId) => {
     setRegeneratingCopyId(videoId);
     try {
       const res = await api.post(`/videos/${videoId}/marketing-copy`);
-      setVideos(prev => prev.map(v => v.id === videoId ? { 
-        ...v, 
-        marketing_title: res.data.marketing_title, 
-        marketing_description: res.data.marketing_description 
+      setVideos(prev => prev.map(v => v.id === videoId ? {
+        ...v,
+        marketing_title: res.data.marketing_title,
+        marketing_description: res.data.marketing_description,
+        marketing_platforms: res.data.marketing_platforms
       } : v));
     } catch (err) {
       console.error("Error regenerating marketing copy:", err);
@@ -110,7 +112,8 @@ export default function Dashboard({ setTab }) {
         }
         videoPrompts[modalCarouselIdx].marketing_title = res.data.marketing_title;
         videoPrompts[modalCarouselIdx].marketing_description = res.data.marketing_description;
-        
+        videoPrompts[modalCarouselIdx].marketing_platforms = res.data.marketing_platforms;
+
         const updated = {
           ...prev,
           video_prompts: JSON.stringify(videoPrompts)
@@ -2320,6 +2323,26 @@ export default function Dashboard({ setTab }) {
                   const displayMarketingTitle = activeVideo?.marketing_title || activeScenePromptObj?.marketing_title;
                   const displayMarketingDesc = activeVideo?.marketing_description || activeScenePromptObj?.marketing_description;
 
+                  // Per-platform copy (point 5): stored as JSON string on the video row,
+                  // or as an object on the storyboard scene. Falls back to the legacy
+                  // single title/description for storyboards without per-platform copy.
+                  const parsePlatforms = (raw) => {
+                    if (!raw) return null;
+                    if (typeof raw === 'object') return raw;
+                    try { const o = JSON.parse(raw); return (o && typeof o === 'object') ? o : null; } catch (e) { return null; }
+                  };
+                  const platformsObj = parsePlatforms(activeVideo?.marketing_platforms) || parsePlatforms(activeScenePromptObj?.marketing_platforms);
+                  const PLATFORM_TABS = [
+                    { key: 'tiktok', label: 'TikTok' },
+                    { key: 'instagram', label: 'Instagram' },
+                    { key: 'youtube', label: 'YouTube' },
+                    { key: 'facebook', label: 'Facebook' },
+                  ];
+                  const platformLabel = PLATFORM_TABS.find(t => t.key === copyPlatform)?.label || '';
+                  const selCopy = platformsObj ? (platformsObj[copyPlatform] || {}) : null;
+                  const platTitle = selCopy ? (selCopy.title || '') : displayMarketingTitle;
+                  const platDesc = selCopy ? (selCopy.caption || '') : displayMarketingDesc;
+
                   return (
                     <div className="bg-[#181716] border border-[#2a2725]/80 rounded-xl p-3 space-y-3 mt-4 text-left shrink-0">
                       <h4 className="text-[9px] font-bold text-[#cfae80] uppercase tracking-widest flex items-center gap-1.5 border-b border-[#2a2725]/45 pb-1">
@@ -2328,13 +2351,28 @@ export default function Dashboard({ setTab }) {
 
                       {displayMarketingTitle || displayMarketingDesc ? (
                         <div className="space-y-2.5 animate-fadeIn">
+                          {/* Platform selector (shown only when per-platform copy exists) */}
+                          {platformsObj && (
+                            <div className="flex flex-wrap gap-1">
+                              {PLATFORM_TABS.map(t => (
+                                <button
+                                  key={t.key}
+                                  onClick={() => setCopyPlatform(t.key)}
+                                  className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider border transition-all ${copyPlatform === t.key ? 'bg-[#cfae80]/20 text-[#cfae80] border-[#cfae80]/40' : 'bg-black/30 text-slate-400 border-[#2a2725] hover:border-[#cfae80]/30'}`}
+                                >
+                                  {t.label}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+
                           {/* Title display */}
                           <div className="space-y-1">
                             <div className="flex justify-between items-center text-[7px] font-bold text-slate-400 uppercase tracking-widest">
-                              <span>Judul (Max 100 Karakter)</span>
-                              <button 
+                              <span>{platformsObj ? `Judul ${platformLabel}` : 'Judul (Max 100 Karakter)'}</span>
+                              <button
                                 onClick={() => {
-                                  navigator.clipboard.writeText(displayMarketingTitle);
+                                  navigator.clipboard.writeText(platTitle || '');
                                   alert('Judul berhasil disalin!');
                                 }}
                                 className="text-[#cfae80] hover:underline cursor-pointer"
@@ -2343,18 +2381,18 @@ export default function Dashboard({ setTab }) {
                               </button>
                             </div>
                             <div className="bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] font-semibold break-words leading-relaxed font-sans">
-                              {displayMarketingTitle}
+                              {platTitle}
                             </div>
                           </div>
 
-                          {/* Description & Hashtags display */}
+                          {/* Caption & Hashtags display */}
                           <div className="space-y-1">
                             <div className="flex justify-between items-center text-[7px] font-bold text-slate-400 uppercase tracking-widest">
-                              <span>Deskripsi & Hashtag</span>
-                              <button 
+                              <span>{platformsObj ? `Caption ${platformLabel} & Hashtag` : 'Deskripsi & Hashtag'}</span>
+                              <button
                                 onClick={() => {
-                                  navigator.clipboard.writeText(displayMarketingDesc);
-                                  alert('Deskripsi & Hashtag berhasil disalin!');
+                                  navigator.clipboard.writeText(platDesc || '');
+                                  alert('Caption & Hashtag berhasil disalin!');
                                 }}
                                 className="text-[#cfae80] hover:underline cursor-pointer"
                               >
@@ -2362,7 +2400,7 @@ export default function Dashboard({ setTab }) {
                               </button>
                             </div>
                             <div className="bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-slate-300 text-[9.5px] leading-relaxed break-words whitespace-pre-line font-sans max-h-32 overflow-y-auto scrollbar-thin">
-                              {displayMarketingDesc}
+                              {platDesc}
                             </div>
                           </div>
 
