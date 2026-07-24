@@ -233,6 +233,53 @@ const STYLES = {
     arc: ['character intro panel', 'the conflict/challenge', 'the product as a dramatic turning point', 'triumphant resolution panel'],
     negatives: NEG,
   },
+
+  // ── Viral & Kreatif (dari video referensi) ──
+  bts_practical_fx: {
+    name: 'Behind-the-Scenes Efek Praktis', desc: 'Ala "making of" film: miniatur lokasi di soundstage + blue screen + kru efek & rig kamera, lalu efek praktis besar (banjir/gelombang/ledakan/badai) menerjang miniatur. Subjek/karakter ikut referensi.',
+    category: 'Viral & Kreatif', format: '9:16', faceMode: 'faceless', bg: 'dark',
+    camera: 'documentary behind-the-scenes coverage: wide establishing of the whole soundstage, then controlled handheld push-ins on the miniature set; keep the entire miniature in frame during the effect',
+    lighting: 'real soundstage lighting — overhead studio rigs, practical work lights, blue-screen spill; raw and true-to-life, NOT a glossy graded final shot',
+    header: 'STORYBOARD — BEHIND THE SCENES FX',
+    arc: [
+      'wide reveal of the film soundstage: a large water tank / studio floor, a detailed MINIATURE scale-model of the location, a blue screen with tracking markers, camera rigs and effects crew in dark shirts standing by',
+      'crew arm the practical rig; close detail of the miniature landmarks and the hero subject/character/vehicle placed in the set, matching the reference exactly',
+      'the big PRACTICAL effect is triggered — a hydraulic flood / wave / blast / storm surges across the miniature (real water, foam, debris), crew reacting',
+      'the effect sweeps the miniature at full force, camera catching the in-camera spectacle',
+      'aftermath: the drenched miniature and the hero subject, crew stepping in — the making-of hero shot',
+    ],
+    negatives: NEG.concat(['fully CGI / video-game look (this is PRACTICAL — real miniatures & water)', 'redesigned or renamed subject/character (keep the reference exactly)', 'glossy over-graded cinematic look (keep it raw BTS)']),
+  },
+  mini_restoration_asmr: {
+    name: 'Restorasi / Rakit Miniatur (ASMR)', desc: 'Tangan + alat presisi merakit/merestorasi miniatur super-realistis dari subjek (rangka, interior, mesin, panel) di studio putih bersih, macro ASMR, jari sebagai skala, berakhir pada model jadi yang mulus. Miniatur ikut referensi.',
+    category: 'Viral & Kreatif', format: '9:16', faceMode: 'faceless', bg: 'light',
+    camera: 'locked/steady macro close-ups on a clean studio surface; fingers enter frame for scale; occasional slow push-in; the whole miniature fits in frame at the reveal',
+    lighting: 'clean bright soft studio light, gentle reflections, crisp true-to-life detail (no haze, no lens flare)',
+    header: 'STORYBOARD — MINIATURE RESTORATION',
+    arc: [
+      'the bare/worn miniature parts or chassis of the subject rest on a clean white studio surface, fingers for scale',
+      'hands with precision tools (tiny screwdriver, tweezers, brush) begin assembling/restoring — internal frame, panels and wiring revealed in macro',
+      'key mechanisms detailed and fitted (engine/interior/moving parts), satisfying step-by-step progress',
+      'finishing pass — cleaning, polishing, final panels clicked into place',
+      'the finished, pristine, hyper-detailed miniature of the subject in a clean glossy hero shot',
+    ],
+    negatives: NEG.concat(['life-size (must be a small tabletop MINIATURE)', 'redesigned or renamed subject (the miniature matches the reference exactly)', 'messy or unrealistic parts', 'cinematic haze or lens flare (keep it clean & crisp)']),
+  },
+  jelly_character_asmr: {
+    name: 'Jelly Character ASMR', desc: 'Figurin jeli transparan mengilap dari karakter, digenggam telapak tangan; ASMR adventure — tubuh tembus pandang terisi minuman/gelembung, ekspresi lucu, gerak menggemaskan. Macro, cahaya natural lembut. Karakter ikut referensi.',
+    category: 'Viral & Kreatif', format: '9:16', faceMode: 'faceless', bg: 'textured',
+    camera: 'intimate macro; the figurine held in an open palm; gentle handheld; soft shallow focus on the jelly with a blurred natural background; whole figurine stays in frame',
+    lighting: 'soft natural daylight, glossy specular highlights on the translucent jelly surface, warm and gentle',
+    header: 'STORYBOARD — JELLY CHARACTER ASMR',
+    arc: [
+      'a cute, chubby, glossy TRANSLUCENT jelly figurine of the character (matching the reference identity & colours) sits in an open palm, soft daylight catching its wet sheen',
+      'the jelly character reaches for a small translucent prop (a mini drink/treat) — playful anticipation',
+      'the satisfying ASMR beat: it "drinks/eats" and its see-through body visibly fills with liquid and rising bubbles inside the translucent belly',
+      'reaction — a happy/surprised expression, a soft jelly wobble, tiny droplets or foam',
+      'content resolution: the jelly character settles, satisfied, still cradled in the palm',
+    ],
+    negatives: NEG.concat(['opaque or hard plastic (must be TRANSLUCENT wet jelly/gummy)', 'redesigned character (keep the reference identity & colours, just rendered as jelly)', 'creepy or uncanny realism — keep it cute and toylike', 'harsh studio light or heavy grading']),
+  },
 };
 
 // Old (16) style ids → new ids, so existing storyboards keep resolving.

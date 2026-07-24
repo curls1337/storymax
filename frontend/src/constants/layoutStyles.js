@@ -33,4 +33,8 @@ export default [
   { value: 'stop_motion', label: 'Stop-Motion', desc: 'Animasi frame-by-frame yang playful.', category: 'Artistik / Niche', faceMode: 'faceless', icon: 'Frame' },
   { value: 'tiny_world', label: 'Miniature / Tiny World', desc: 'Gaya Pixar 3D dengan objek mini.', category: 'Artistik / Niche', faceMode: 'faceless', icon: 'Blocks' },
   { value: 'anime_comic', label: 'Anime / Komik', desc: 'Gaya manga/komik bercerita (ilustrasi).', category: 'Artistik / Niche', faceMode: 'full', icon: 'BookOpen' },
+  // Viral & Kreatif (dari video referensi)
+  { value: 'bts_practical_fx', label: 'Behind-the-Scenes Efek Praktis', desc: 'Ala "making of" film: miniatur lokasi di soundstage + kru & blue screen, lalu efek praktis (banjir/gelombang/ledakan) menerjang miniatur. Subjek ikut referensi.', category: 'Viral & Kreatif', faceMode: 'faceless', icon: 'Clapperboard' },
+  { value: 'mini_restoration_asmr', label: 'Restorasi / Rakit Miniatur (ASMR)', desc: 'Tangan + alat presisi merakit/merestorasi miniatur super-detail dari objek, studio bersih, macro ASMR, berakhir model mulus. Ikut referensi.', category: 'Viral & Kreatif', faceMode: 'faceless', icon: 'Wrench' },
+  { value: 'jelly_character_asmr', label: 'Jelly Character ASMR', desc: 'Figurin jeli transparan dari karakter digenggam telapak tangan; tubuh tembus pandang terisi gelembung, ASMR menggemaskan. Ikut referensi.', category: 'Viral & Kreatif', faceMode: 'faceless', icon: 'Baby' },
 ];
