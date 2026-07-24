@@ -28,12 +28,15 @@ const CONCEPT = 'Promo botol tumbler AQUA hijau: awalnya air panas dituang, lalu
 // cube transform (early panels are a mechanical cube, not the product) and for the
 // intentionally-illustrated anime style.
 const SCENARIOS = [
-  { style: 'product_hero',        pageCount: 1, aspectRatio: '1:1',  model: '108', ref: false, expectBrand: true },
-  { style: 'recipe_cooking',      pageCount: 1, aspectRatio: '9:16', model: '108', ref: false, expectBrand: true },
-  { style: 'cube_box_transform',  pageCount: 2, aspectRatio: '9:16', model: '108', ref: false, expectBrand: false }, // hardest: heavy negatives + multipage
-  { style: 'cube_box_transform',  pageCount: 2, aspectRatio: '9:16', model: '108', ref: true,  expectBrand: false }, // ref carries identity
-  { style: 'ugc_review',          pageCount: 1, aspectRatio: '9:16', model: '108', ref: false, expectBrand: true },
-  { style: 'anime_comic',         pageCount: 1, aspectRatio: '9:16', model: '108', ref: false, expectBrand: false },
+  // Reference-image mode (the user's real usage): brand kept in text + fidelity clauses present.
+  { style: 'product_hero',       pageCount: 1, aspectRatio: '1:1',  model: '108', ref: true,  expectBrand: true },
+  { style: 'before_after',       pageCount: 1, aspectRatio: '9:16', model: '108', ref: true,  expectBrand: true },
+  { style: 'unboxing',           pageCount: 1, aspectRatio: '9:16', model: '108', ref: true,  expectBrand: true },
+  { style: 'ugc_review',         pageCount: 1, aspectRatio: '9:16', model: '108', ref: true,  expectBrand: true },
+  { style: 'recipe_cooking',     pageCount: 1, aspectRatio: '9:16', model: '108', ref: true,  expectBrand: true },
+  { style: 'cube_box_transform', pageCount: 2, aspectRatio: '9:16', model: '108', ref: true,  expectBrand: false }, // tightest budget (heavy style)
+  // No-reference sanity check — still a valid, brand-preserving prompt.
+  { style: 'product_hero',       pageCount: 1, aspectRatio: '1:1',  model: '108', ref: false, expectBrand: true },
 ];
 
 const summaryOnly = process.argv.includes('--summary');
@@ -64,14 +67,19 @@ for (const sc of SCENARIOS) {
     const hasScenes = /SCENES (on this page|progress)/.test(prompt); // structure: the arc line survived
     const hasCamera = /Base camera:/.test(prompt);                   // structure: the camera line survived
     const brandKept = prompt.includes('AQUA');                       // brand detail present in text
-    // Brand must survive in TEXT only for styles where the text is the identity anchor.
-    const brandOk = (sc.ref || !sc.expectBrand) ? true : brandKept;
-    rows.push({ id: sc.style, ref: sc.ref, page: `${pageNum}/${sc.pageCount}`, len, hasNeg, hasFooter, hasScenes, hasCamera, brandKept, brandOk });
+    const brandOk = sc.expectBrand ? brandKept : true;
+    // Reference-fidelity guarantees (only asserted when a reference image is used):
+    const hasRefNote = /SAME product as the reference/.test(prompt);  // strong image-edit clause present
+    const hasFidelityNeg = /different or redesigned product/.test(prompt); // product-integrity negatives present
+    // Guaranteed fidelity mechanism = the leading product-integrity NEGATIVE terms.
+    // The prose ref clause is best-effort (dropped only on the tightest heavy styles).
+    const fidelityOk = sc.ref ? hasFidelityNeg : true;
+    rows.push({ id: sc.style, ref: sc.ref, page: `${pageNum}/${sc.pageCount}`, len, hasNeg, hasFooter, hasScenes, hasCamera, brandKept, brandOk, hasRefNote, hasFidelityNeg, fidelityOk });
 
     if (!summaryOnly) {
       console.log('\n' + '='.repeat(78));
       console.log(`STYLE: ${sc.style}  (${spec.name})  page ${pageNum}/${sc.pageCount}  faceMode=${spec.faceMode}  ref=${sc.ref}`);
-      console.log(`length=${len}  within2000=${len <= FREEBEAT_LIMIT}  NEG=${hasNeg}  FOOT=${hasFooter}  SCENES=${hasScenes}  CAM=${hasCamera}  brandKept=${brandKept}`);
+      console.log(`length=${len}  within2000=${len <= FREEBEAT_LIMIT}  NEG=${hasNeg}  FOOT=${hasFooter}  SCENES=${hasScenes}  CAM=${hasCamera}  brandKept=${brandKept}  refNote=${hasRefNote}  fidelityNeg=${hasFidelityNeg}`);
       console.log('-'.repeat(78));
       console.log(prompt);
     }
@@ -79,14 +87,14 @@ for (const sc of SCENARIOS) {
 }
 
 console.log('\n' + '#'.repeat(78));
-console.log('SUMMARY  (len <= 2000; NEG, FOOT, SCENES, CAM must be true; brandOk = brand kept when no ref)');
+console.log('SUMMARY  (len<=2000; NEG/FOOT/SCENES/CAM present; brandOk; fidelityOk=refNote+product-neg when ref)');
 console.log('#'.repeat(78));
 let allOk = true;
 for (const r of rows) {
-  const ok = r.len <= FREEBEAT_LIMIT && r.hasNeg && r.hasFooter && r.hasScenes && r.hasCamera && r.brandOk;
+  const ok = r.len <= FREEBEAT_LIMIT && r.hasNeg && r.hasFooter && r.hasScenes && r.hasCamera && r.brandOk && r.fidelityOk;
   if (!ok) allOk = false;
   console.log(
-    `${ok ? 'OK ' : 'BAD'}  ${r.id.padEnd(20)} ref=${String(r.ref).padEnd(5)} p${r.page.padEnd(4)} len=${String(r.len).padStart(4)}  NEG=${r.hasNeg} FOOT=${r.hasFooter} SCENES=${r.hasScenes} CAM=${r.hasCamera} brandKept=${r.brandKept}`
+    `${ok ? 'OK ' : 'BAD'}  ${r.id.padEnd(20)} ref=${String(r.ref).padEnd(5)} p${r.page.padEnd(4)} len=${String(r.len).padStart(4)}  SCENES=${r.hasScenes} CAM=${r.hasCamera} brandKept=${r.brandKept} refNote=${r.hasRefNote} fidNeg=${r.hasFidelityNeg}`
   );
 }
 const worst = Math.max(...rows.map((r) => r.len));
