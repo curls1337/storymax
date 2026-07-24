@@ -85,12 +85,22 @@ function buildMasterPrompt(spec, ctx = {}) {
     pageNum = 1,
     pageCount = 1,
     hasRefImage = false,
+    secondsPerPage,
   } = ctx;
 
   const gc = Number(gridCount) || 6;
   const endScene = startScene + gc - 1;
   const ratio = fmtRatio(aspectRatio || spec.format, model);
-  const dur = fmtDuration(totalDuration);
+  // Per-page segment length + absolute time window, so a multi-page video reads as
+  // one continuous timeline (page 2/4 = 15-30s, etc.). Falls back gracefully when
+  // secondsPerPage isn't provided.
+  const perPage = Number(secondsPerPage) > 0
+    ? Number(secondsPerPage)
+    : (pageCount > 1 ? Math.max(1, Math.round(Number(totalDuration || 15) / pageCount)) : Number(totalDuration || 15));
+  const winStart = (pageNum - 1) * perPage;
+  const winEnd = winStart + perPage;
+  const dur = fmtDuration(pageCount > 1 ? perPage : (totalDuration || perPage));
+  const windowBadge = pageCount > 1 ? ` 'TIME ${winStart}-${winEnd}s'` : '';
 
   // Distribute the style arc across ALL pages so each page shows a DIFFERENT
   // part of the sequence (fixes multi-page repeating the same beats every page).
@@ -150,10 +160,11 @@ function buildMasterPrompt(spec, ctx = {}) {
   const refNote = hasRefImage
     ? ' Every panel shows the SAME product as the reference — identical shape, proportions, colors and logo/text (verbatim); never redesign, rename or replace it.'
     : '';
+  const CONT = 'Keep SAME setting, lighting, wardrobe & palette across all parts.';
   const pageScope = pageCount > 1
     ? (pageNum === 1
-        ? `IMPORTANT: PAGE 1/${pageCount} (scenes ${startScene}-${endScene}) — show only the BEGINNING; the sequence continues on later pages. `
-        : `IMPORTANT: PAGE ${pageNum}/${pageCount} (scenes ${startScene}-${endScene}) — CONTINUE from page ${pageNum - 1} (do NOT restart the opening); show only later stages & the final result. `)
+        ? `IMPORTANT: PAGE 1/${pageCount} (scenes ${startScene}-${endScene}, ${winStart}-${winEnd}s) — show only the BEGINNING; continues on later pages. ${CONT} `
+        : `IMPORTANT: PAGE ${pageNum}/${pageCount} (scenes ${startScene}-${endScene}, ${winStart}-${winEnd}s) — CONTINUE from the end of page ${pageNum - 1} (do NOT restart); show later stages / final result. ${CONT} `)
     : '';
 
   // Protected tail: the FOOTER, the face-mode clause, and the NEGATIVE line must
@@ -165,7 +176,7 @@ NEGATIVE: ${negatives}.`;
 
   // ── Fixed structural lines (content is fixed; always present) ──
   const L1 = `A professional ${spec.name} storyboard sheet — ONE printed poster, ${ratio} layout, ${bgClause(spec.bg)}.${realNote}`;
-  const L2 = `HEADER: banner '${spec.header}${partLabel}' + product name + badges 'DURATION ${dur}' 'SCENES ${gc}' 'RATIO ${ratio}'.`;
+  const L2 = `HEADER: banner '${spec.header}${partLabel}' + product name + badges 'DURATION ${dur}'${windowBadge} 'SCENES ${gc}' 'RATIO ${ratio}'.`;
   const L4 = `Layout: ${layout}, numbered SCENE ${startScene}–${endScene}; each panel: a short SCENE TITLE, one-line action, tiny 'CAM'/'LIGHT' tags + a duration chip. Keep on-sheet text short & correctly spelled; vary the camera per scene; keep card layout, palette & background identical.`;
   const L5 = `Base camera: ${spec.camera}; light: ${spec.lighting}.`;
 

@@ -16,7 +16,9 @@ const { buildMasterPrompt } = require('../prompts/masterPrompt');
 const FREEBEAT_LIMIT = 2000; // hard cap enforced by the Freebeat API
 
 // A realistic, detailed subject descriptor (~the length analyzeSubject returns).
-const SUBJECT = 'a matte forest-green stainless-steel insulated tumbler, 600ml, tall slim body with a subtle brushed finish, black screw-on lid with a flip-up spout, a small embossed circular "AQUA" logo on the front, and a slim silicone grip band near the base';
+// Front-loaded with type + brand, matching the improved analyzeSubject (which now
+// leads with product type + verbatim brand/logo before other detail).
+const SUBJECT = 'an "AQUA" matte forest-green stainless-steel insulated tumbler, 600ml, with a subtle brushed finish, black screw-on lid with a flip-up spout, an embossed circular "AQUA" logo on the front, and a slim silicone grip band near the base';
 
 const CONCEPT = 'Promo botol tumbler AQUA hijau: awalnya air panas dituang, lalu ditutup rapat, dibawa aktivitas seharian, dan di akhir air masih tetap dingin & segar saat dibuka — menonjolkan insulasi tahan 24 jam dan desain anti-bocor yang premium.';
 
@@ -27,16 +29,16 @@ const CONCEPT = 'Promo botol tumbler AQUA hijau: awalnya air panas dituang, lalu
 // with no reference image (text is the sole identity anchor). Informational for the
 // cube transform (early panels are a mechanical cube, not the product) and for the
 // intentionally-illustrated anime style.
+// Cover 1/2/3/4 pages (Seedance = 15s/page → 15s/30s/45s/60s) so the per-page time
+// window + continuity anchor are exercised across page counts.
 const SCENARIOS = [
-  // Reference-image mode (the user's real usage): brand kept in text + fidelity clauses present.
-  { style: 'product_hero',       pageCount: 1, aspectRatio: '1:1',  model: '108', ref: true,  expectBrand: true },
-  { style: 'before_after',       pageCount: 1, aspectRatio: '9:16', model: '108', ref: true,  expectBrand: true },
-  { style: 'unboxing',           pageCount: 1, aspectRatio: '9:16', model: '108', ref: true,  expectBrand: true },
-  { style: 'ugc_review',         pageCount: 1, aspectRatio: '9:16', model: '108', ref: true,  expectBrand: true },
+  { style: 'product_hero',       pageCount: 1, aspectRatio: '1:1',  model: '108', ref: true,  expectBrand: true },  // 15s, 1 page
+  { style: 'before_after',       pageCount: 2, aspectRatio: '9:16', model: '108', ref: true,  expectBrand: true },  // 30s, 2 pages
+  { style: 'ugc_review',         pageCount: 3, aspectRatio: '9:16', model: '108', ref: true,  expectBrand: true },  // 45s, 3 pages
+  { style: 'unboxing',           pageCount: 4, aspectRatio: '9:16', model: '108', ref: true,  expectBrand: true },  // 60s, 4 pages
   { style: 'recipe_cooking',     pageCount: 1, aspectRatio: '9:16', model: '108', ref: true,  expectBrand: true },
-  { style: 'cube_box_transform', pageCount: 2, aspectRatio: '9:16', model: '108', ref: true,  expectBrand: false }, // tightest budget (heavy style)
-  // No-reference sanity check — still a valid, brand-preserving prompt.
-  { style: 'product_hero',       pageCount: 1, aspectRatio: '1:1',  model: '108', ref: false, expectBrand: true },
+  { style: 'cube_box_transform', pageCount: 4, aspectRatio: '9:16', model: '108', ref: true,  expectBrand: false }, // heaviest style, 60s
+  { style: 'product_hero',       pageCount: 1, aspectRatio: '1:1',  model: '108', ref: false, expectBrand: true },  // no-ref sanity
 ];
 
 const summaryOnly = process.argv.includes('--summary');
@@ -59,6 +61,7 @@ for (const sc of SCENARIOS) {
       pageNum,
       pageCount: sc.pageCount,
       hasRefImage: sc.ref,
+      secondsPerPage: 15,
     };
     const prompt = buildMasterPrompt(spec, ctx);
     const len = prompt.length;
@@ -74,7 +77,12 @@ for (const sc of SCENARIOS) {
     // Guaranteed fidelity mechanism = the leading product-integrity NEGATIVE terms.
     // The prose ref clause is best-effort (dropped only on the tightest heavy styles).
     const fidelityOk = sc.ref ? hasFidelityNeg : true;
-    rows.push({ id: sc.style, ref: sc.ref, page: `${pageNum}/${sc.pageCount}`, len, hasNeg, hasFooter, hasScenes, hasCamera, brandKept, brandOk, hasRefNote, hasFidelityNeg, fidelityOk });
+    // Sequencing (multi-page): per-page absolute time window badge + continuity anchor.
+    const expWindow = `'TIME ${(pageNum - 1) * 15}-${pageNum * 15}s'`;
+    const hasWindow = prompt.includes(expWindow);
+    const hasContinuity = /Keep SAME setting, lighting, wardrobe & palette/.test(prompt);
+    const seqOk = sc.pageCount > 1 ? (hasWindow && hasContinuity) : !prompt.includes("'TIME ");
+    rows.push({ id: sc.style, ref: sc.ref, page: `${pageNum}/${sc.pageCount}`, len, hasNeg, hasFooter, hasScenes, hasCamera, brandKept, brandOk, hasRefNote, hasFidelityNeg, fidelityOk, hasWindow, hasContinuity, seqOk });
 
     if (!summaryOnly) {
       console.log('\n' + '='.repeat(78));
@@ -87,14 +95,14 @@ for (const sc of SCENARIOS) {
 }
 
 console.log('\n' + '#'.repeat(78));
-console.log('SUMMARY  (len<=2000; NEG/FOOT/SCENES/CAM present; brandOk; fidelityOk=refNote+product-neg when ref)');
+console.log('SUMMARY  (len<=2000; NEG/FOOT/SCENES/CAM; brandOk; fidelityOk; seqOk=window+continuity when multi-page)');
 console.log('#'.repeat(78));
 let allOk = true;
 for (const r of rows) {
-  const ok = r.len <= FREEBEAT_LIMIT && r.hasNeg && r.hasFooter && r.hasScenes && r.hasCamera && r.brandOk && r.fidelityOk;
+  const ok = r.len <= FREEBEAT_LIMIT && r.hasNeg && r.hasFooter && r.hasScenes && r.hasCamera && r.brandOk && r.fidelityOk && r.seqOk;
   if (!ok) allOk = false;
   console.log(
-    `${ok ? 'OK ' : 'BAD'}  ${r.id.padEnd(20)} ref=${String(r.ref).padEnd(5)} p${r.page.padEnd(4)} len=${String(r.len).padStart(4)}  SCENES=${r.hasScenes} CAM=${r.hasCamera} brandKept=${r.brandKept} refNote=${r.hasRefNote} fidNeg=${r.hasFidelityNeg}`
+    `${ok ? 'OK ' : 'BAD'}  ${r.id.padEnd(20)} ref=${String(r.ref).padEnd(5)} p${r.page.padEnd(4)} len=${String(r.len).padStart(4)}  SCENES=${r.hasScenes} brandKept=${r.brandKept} fidNeg=${r.hasFidelityNeg} window=${r.hasWindow} cont=${r.hasContinuity}`
   );
 }
 const worst = Math.max(...rows.map((r) => r.len));
