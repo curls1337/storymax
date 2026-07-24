@@ -445,32 +445,14 @@ async function generateMarketingCopyInternal(storyboardId, sceneIdx) {
       }
     } catch (e) {}
 
-    const isTransformationStyle = ['cube_box_transform', 'asmr_toy_transform', 'shape_morph_transform', 'cube_morph_product', 'capsule_toss_transform'].includes(styleId);
-
-    let styleRule = '';
-    if (isTransformationStyle) {
-      styleRule = `\nCRITICAL RULE FOR TRANSFORMATION & MORPHING VIDEOS (MUST FOLLOW):
-This video features a viral 3D mechanical transformation / shape morphing reveal where a precision pod or cube mechanically unfolds into the target subject.
-Your title and social media description MUST focus on:
-1. The mesmerizing 3D mechanical transformation, smooth morphing plates, precision engineering, and satisfying visual reveal.
-2. Highlighting the cool visual art and satisfying morphing experience.
-3. DO NOT write generic passenger/travel/commercial ads (e.g. do NOT write "Yuk naik kereta" or generic travel promos). Write engaging viral social media copy for 3D visual art, mechanical unfolding, and cool tech/toys!`;
-    }
-
-    const systemPrompt = `You are a social media marketing copywriter expert specializing in viral video content (TikTok, Reels, Shorts). Your task is to write high-converting, engaging marketing content tailored to the exact visual scene flow and style of the video.
-${styleRule}
-
-You must return the output EXACTLY in JSON format with two keys:
-1. "title": A short catchy title representing the video (MAXIMUM 100 characters).
-2. "description": A descriptive, engaging marketing copy for social media posts (e.g. TikTok, Instagram Reels, YouTube Shorts), combining vivid description, call to engagement, and related hashtags.
-
-The language of the response MUST match the language of the storyboard or voiceover narration (default: Indonesian). Make it look premium, modern, and engaging.
-
-Format example:
-{
-  "title": "Transformasi Mekanis Whoosh Dari Kapsul Futuristik! 🚄✨",
-  "description": "Sensasi visual morphing presisi tinggi saat bodi aerodinamis Kereta Cepat Whoosh mekar sempurna dari kapsul futuristik! 🤩 Detail sambungan mekanisnya beneran bikin gak bisa berpaling.\\n\\nBagian transisi mana yang paling memukau menurut kamu? Tulis di kolom komentar ya! 👇\\n\\n#Whoosh #KCIC #3DMorphing #MechanicalTransform #VisualArt #FutureVibes #TeknologiMasaDepan"
-}`;
+    // Style-aware, length-capped, AUTHENTIC (not hard-sell) social copy. Tone is
+    // resolved per style — see marketingTone.js — so ASMR / timelapse / tutorial /
+    // etc. no longer inherit the generic "viral ad" persona. getStyleSpec resolves
+    // aliases (e.g. cube_morph_product -> cube_box_transform) to the canonical tone.
+    const { getStyleSpec } = require('../prompts/styleLibrary');
+    const { buildMarketingSystemPrompt } = require('../prompts/marketingTone');
+    const styleSpec = getStyleSpec(styleId);
+    const systemPrompt = buildMarketingSystemPrompt(styleSpec, { titleMax: 80, descMax: 450 });
 
     const userPrompt = `Video context:
 Storyboard Title: ${storyboard.title}
@@ -483,7 +465,7 @@ Current Target Scene (Scene ${Number(sceneIdx) + 1}):
 Scene Visual Action: ${sceneVisualPrompt || storyboard.prompt}
 Voiceover Narration: ${narrationText || 'N/A'}
 
-Write the catchy title (max 100 chars) and description with hashtags based strictly on the above video context and style. Return ONLY raw JSON string matching format.`;
+Write the title and caption per the TONE and rules above, based strictly on this video's context & style, in the storyboard's language. Return ONLY raw JSON.`;
 
     const payload = {
       model: modelName,
@@ -501,9 +483,11 @@ Write the catchy title (max 100 chars) and description with hashtags based stric
       const contentStr = parsedRes.choices?.[0]?.message?.content;
       if (contentStr) {
         const data = JSON.parse(contentStr.trim());
+        const { capText } = require('../prompts/marketingTone');
         return {
-          title: data.title || '',
-          description: data.description || ''
+          // Hard safeguards above the prompt targets (80 / 450) in case the model overshoots.
+          title: capText(data.title || '', 100),
+          description: capText(data.description || '', 600)
         };
       }
     }
