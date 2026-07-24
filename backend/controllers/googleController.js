@@ -71,6 +71,19 @@ async function saveGoogleSettings(req, res) {
   }
 }
 
+// Public base URL for building absolute image/video links in exports. Declared at
+// MODULE top-level so BOTH exportToGoogleSheets and exportToCSV can use it — it was
+// previously nested inside exportToGoogleSheets, causing "getPublicApiBase is not
+// defined" (500) in exportToCSV.
+function getPublicApiBase(req) {
+  if (process.env.PUBLIC_URL && process.env.PUBLIC_URL.trim()) {
+    return process.env.PUBLIC_URL.replace(/\/$/, '');
+  }
+  const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
+  const host = req.headers['x-forwarded-host'] || req.get('host') || 'localhost:5033';
+  return `${protocol}://${host}`;
+}
+
 async function getMarketingCopyForStoryboard(db, sb) {
   let title = sb.title || 'Untitled';
   let caption = sb.prompt || '';
@@ -216,15 +229,6 @@ async function exportToGoogleSheets(req, res) {
         'Keyword'
       ]);
     }
-
-function getPublicApiBase(req) {
-  if (process.env.PUBLIC_URL && process.env.PUBLIC_URL.trim()) {
-    return process.env.PUBLIC_URL.replace(/\/$/, '');
-  }
-  const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
-  const host = req.headers['x-forwarded-host'] || req.get('host') || 'localhost:5033';
-  return `${protocol}://${host}`;
-}
 
     // Base URL for image/video link resolution (dynamic domain)
     const apiBase = getPublicApiBase(req);
