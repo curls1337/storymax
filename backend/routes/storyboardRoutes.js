@@ -1,5 +1,5 @@
 const express = require('express');
-const { getUserStoryboards, generateStoryboard, deleteStoryboard, getActiveKeys, getTaskStatus, scrapeProductUrl, getActiveTasksDebug, downloadProxy, regenerateStoryboardPage, generateRefImage } = require('../controllers/storyboardController');
+const { getUserStoryboards, generateStoryboard, deleteStoryboard, bulkDeleteStoryboards, getActiveKeys, getTaskStatus, scrapeProductUrl, getActiveTasksDebug, downloadProxy, regenerateStoryboardPage, generateRefImage } = require('../controllers/storyboardController');
 const { regenerateStoryboardMarketingCopy } = require('../controllers/videoController');
 const { authenticateToken, requireAdmin, authenticateTokenAllowQuery } = require('../middleware/authMiddleware');
 
@@ -27,6 +27,7 @@ router.post('/generate-ref-image', generateRefImage);
 router.post('/scrape', scrapeProductUrl);
 router.post('/export-google-sheets', exportToGoogleSheets);
 router.post('/export-csv', exportToCSV);
+router.post('/bulk-delete', bulkDeleteStoryboards);
 router.post('/:id/regenerate-page', regenerateStoryboardPage);
 router.post('/:id/scenes/:sceneIdx/marketing-copy', regenerateStoryboardMarketingCopy);
 router.delete('/:id', deleteStoryboard);

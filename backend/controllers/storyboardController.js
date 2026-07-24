@@ -185,42 +185,65 @@ async function getTaskStatus(req, res) {
   res.json(task);
 }
 
+// Shared core: delete ONE storyboard's local files + row, scoped to the owner
+// (data isolation). Returns true if a row was deleted, false if not found / not owned.
+async function removeStoryboardById(db, id, userId) {
+  const sb = await db.get('SELECT * FROM storyboards WHERE id = ? AND user_id = ?', [id, userId]);
+  if (!sb) return false;
+
+  // Delete local files (supports JSON array or string)
+  try {
+    if (sb.image_path && sb.image_path.startsWith('[')) {
+      const arr = JSON.parse(sb.image_path);
+      arr.forEach(img => {
+        if (typeof img === 'string' && img.startsWith('/uploads/')) {
+          fs.unlink(path.join(uploadsDir, img.replace(/^\/?uploads\//, '')), () => {});
+        }
+      });
+    } else if (sb.image_path && sb.image_path.startsWith('/uploads/')) {
+      fs.unlink(path.join(uploadsDir, sb.image_path.replace(/^\/?uploads\//, '')), () => {});
+    }
+  } catch (e) {
+    console.error('Error deleting local files:', e.message);
+  }
+
+  await db.run('DELETE FROM storyboards WHERE id = ?', [id]);
+  return true;
+}
+
 async function deleteStoryboard(req, res) {
   const { id } = req.params;
-
   try {
     const db = getDb();
-    
-    // Ensure the storyboard belongs to this user (isolasi data)
-    const sb = await db.get('SELECT * FROM storyboards WHERE id = ? AND user_id = ?', [id, req.user.id]);
-    if (!sb) {
+    const ok = await removeStoryboardById(db, id, req.user.id);
+    if (!ok) {
       return res.status(404).json({ message: 'Storyboard not found or access denied.' });
     }
-
-    // Delete local files (supports JSON array or string)
-    try {
-      if (sb.image_path.startsWith('[')) {
-        const arr = JSON.parse(sb.image_path);
-        arr.forEach(img => {
-          if (img.startsWith('/uploads/')) {
-            const relativeFilename = img.replace(/^\/?uploads\//, '');
-            const filePath = path.join(uploadsDir, relativeFilename);
-            fs.unlink(filePath, () => {});
-          }
-        });
-      } else if (sb.image_path.startsWith('/uploads/')) {
-        const relativeFilename = sb.image_path.replace(/^\/?uploads\//, '');
-        const filePath = path.join(uploadsDir, relativeFilename);
-        fs.unlink(filePath, () => {});
-      }
-    } catch (e) {
-      console.error('Error deleting local files:', e.message);
-    }
-
-    await db.run('DELETE FROM storyboards WHERE id = ?', [id]);
     res.json({ message: 'Storyboard deleted successfully.' });
   } catch (error) {
     res.status(500).json({ message: 'Error deleting storyboard.', error: error.message });
+  }
+}
+
+// POST /storyboards/bulk-delete  { storyboardIds: number[] }
+// Deletes many of the user's OWN storyboards in one request (data isolation enforced
+// per id), so users don't have to delete one by one.
+async function bulkDeleteStoryboards(req, res) {
+  const { storyboardIds } = req.body || {};
+  if (!Array.isArray(storyboardIds) || storyboardIds.length === 0) {
+    return res.status(400).json({ message: 'storyboardIds harus berupa array yang tidak kosong.' });
+  }
+  try {
+    const db = getDb();
+    let deleted = 0;
+    for (const rawId of storyboardIds) {
+      const id = Number(rawId);
+      if (!Number.isFinite(id)) continue;
+      if (await removeStoryboardById(db, id, req.user.id)) deleted++;
+    }
+    res.json({ message: `${deleted} storyboard berhasil dihapus.`, deleted, requested: storyboardIds.length });
+  } catch (error) {
+    res.status(500).json({ message: 'Error deleting storyboards.', error: error.message });
   }
 }
 
@@ -510,6 +533,7 @@ module.exports = {
   generateStoryboard,
   generateRefImage,
   deleteStoryboard,
+  bulkDeleteStoryboards,
   getActiveKeys,
   getTaskStatus,
   scrapeProductUrl,

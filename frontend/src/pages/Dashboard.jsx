@@ -208,6 +208,27 @@ export default function Dashboard({ setTab }) {
     }
   };
 
+  // Bulk delete of the currently selected storyboards (reuses the export selection).
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const handleBulkDelete = async () => {
+    if (exportSelectedIds.length === 0) return;
+    if (!window.confirm(`Hapus ${exportSelectedIds.length} storyboard terpilih? Tindakan ini tidak bisa dibatalkan.`)) return;
+    setBulkDeleting(true);
+    try {
+      await api.post('/storyboards/bulk-delete', { storyboardIds: exportSelectedIds });
+      if (selectedStoryboard && exportSelectedIds.includes(selectedStoryboard.id)) {
+        setSelectedStoryboard(null);
+      }
+      setExportSelectedIds([]);
+      await fetchStoryboards();
+    } catch (err) {
+      console.error('Bulk delete failed:', err);
+      alert(err.response?.data?.message || 'Gagal menghapus storyboard terpilih.');
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
   // Video Studio states
   const [videos, setVideos] = useState([]);
   const [fetchingVideos, setFetchingVideos] = useState(false);
@@ -1002,6 +1023,23 @@ export default function Dashboard({ setTab }) {
                   ) : (
                     <>
                       📊 Export Google Sheets
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleBulkDelete}
+                  disabled={bulkDeleting || exportingCsv || exportingGoogle}
+                  className="bg-red-500/10 hover:bg-red-500 hover:text-white text-red-400 border border-red-500/30 font-bold py-2 px-3.5 rounded-xl text-[10px] uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer disabled:opacity-50"
+                >
+                  {bulkDeleting ? (
+                    <>
+                      <Loader className="animate-spin w-3.5 h-3.5" />
+                      Menghapus...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-3.5 h-3.5" /> Hapus ({exportSelectedIds.length})
                     </>
                   )}
                 </button>
