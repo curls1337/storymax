@@ -37,12 +37,13 @@ export default function Login({ onLoginSuccess }) {
   };
 
   return (
-    <div className="min-h-screen bg-darkBg flex items-center justify-center p-4 relative overflow-hidden font-sans select-none">
-      {/* Background ambient glowing orbs */}
-      <div className="absolute top-1/4 left-1/4 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-[#cfae80] opacity-[0.06] rounded-full blur-[160px] pointer-events-none"></div>
-      <div className="absolute bottom-1/4 right-1/4 translate-x-1/2 translate-y-1/2 w-[500px] h-[500px] bg-[#8c827a] opacity-[0.03] rounded-full blur-[160px] pointer-events-none"></div>
+    <div className="h-full min-h-screen overflow-y-auto overscroll-contain bg-darkBg relative font-sans select-none">
+      {/* Background ambient glowing orbs (pinned so they never add scroll height) */}
+      <div className="fixed top-1/4 left-1/4 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-[#cfae80] opacity-[0.06] rounded-full blur-[160px] pointer-events-none"></div>
+      <div className="fixed bottom-1/4 right-1/4 translate-x-1/2 translate-y-1/2 w-[500px] h-[500px] bg-[#8c827a] opacity-[0.03] rounded-full blur-[160px] pointer-events-none"></div>
 
-      <div className="w-full max-w-[430px] bg-[#1a1918]/80 backdrop-blur-md border border-[#2a2725] rounded-3xl p-8 md:p-10 shadow-2xl relative z-10 animate-fadeIn">
+      <div className="relative z-10 min-h-full flex items-center justify-center px-4 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+        <div className="w-full max-w-[430px] bg-[#1a1918]/80 backdrop-blur-md border border-[#2a2725] rounded-3xl p-8 md:p-10 shadow-2xl relative z-10 animate-fadeIn">
         <div className="absolute top-0 left-10 right-10 h-[1.5px] bg-gradient-to-r from-transparent via-[#cfae80]/25 to-transparent"></div>
 
         <div className="text-center mb-8">
@@ -131,6 +132,7 @@ export default function Login({ onLoginSuccess }) {
           >
             {isRegister ? 'Sudah punya akun? Masuk' : 'Belum punya akun? Daftar'}
           </button>
+        </div>
         </div>
       </div>
     </div>

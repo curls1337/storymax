@@ -117,6 +117,21 @@ export default function App() {
     };
   }, [pullDistance, loading]);
 
+  // Keyboard-aware focus: when an input/textarea/select gains focus (the mobile
+  // keyboard opens), gently scroll it into view so it is never hidden behind the
+  // keyboard. We don't bundle @capacitor/keyboard, so this web-layer nudge covers it.
+  useEffect(() => {
+    const onFocusIn = (e) => {
+      const el = e.target;
+      if (!el || !el.tagName || !/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
+      setTimeout(() => {
+        try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (_) {}
+      }, 300);
+    };
+    window.addEventListener('focusin', onFocusIn);
+    return () => window.removeEventListener('focusin', onFocusIn);
+  }, []);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-darkBg flex items-center justify-center relative overflow-hidden">
@@ -255,7 +270,7 @@ export default function App() {
         </div>
       </aside>
 
-      <main ref={mainRef} className="flex-grow h-full min-h-0 overflow-y-auto bg-darkBg pb-20 lg:pb-0 relative">
+      <main ref={mainRef} className="flex-grow h-full min-h-0 overflow-y-auto overscroll-contain bg-darkBg pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0 relative">
         {/* Pull to refresh indicator */}
         {pullDistance > 0 && (
           <div 

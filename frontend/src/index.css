@@ -18,6 +18,19 @@ html, body, #root {
   font-family: 'Outfit', 'Inter', sans-serif;
   letter-spacing: -0.015em;
   -webkit-font-smoothing: antialiased;
+  /* Stop the whole page from rubber-band bouncing / chaining on mobile WebViews. */
+  overscroll-behavior: none;
+}
+
+/* Smooth momentum scrolling + no scroll-chaining for every inner scroll area
+   (the app shell keeps the document itself non-scrolling, so all real scrolling
+   happens inside these containers on iOS/Android). */
+.overflow-y-auto,
+.overflow-auto,
+.overflow-y-scroll,
+.scrollbar-thin {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 /* Custom premium gold scrollbar */
