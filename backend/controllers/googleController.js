@@ -3,15 +3,6 @@ const { google } = require('googleapis');
 const fs = require('fs');
 const path = require('path');
 
-function getPublicApiBase(req) {
-  if (process.env.PUBLIC_URL && process.env.PUBLIC_URL.trim()) {
-    return process.env.PUBLIC_URL.replace(/\/$/, '');
-  }
-  const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
-  const host = req.headers['x-forwarded-host'] || req.get('host') || 'localhost:5033';
-  return `${protocol}://${host}`;
-}
-
 async function getGoogleSettings(req, res) {
   try {
     const db = getDb();
@@ -83,6 +74,13 @@ async function saveGoogleSettings(req, res) {
 async function getMarketingCopyForStoryboard(db, sb) {
   let title = sb.title || 'Untitled';
   let caption = sb.prompt || '';
+
+  // 0. Canonical single marketing copy stored on the storyboard itself (written by
+  // every generate/regenerate). Source of truth so the export ALWAYS reflects the
+  // latest copy — not an older per-video row.
+  if (sb.marketing_title) {
+    return { title: sb.marketing_title, caption: sb.marketing_description || '' };
+  }
 
   // 1. Try to fetch from generated_videos
   const videoWithCopy = await db.get(
@@ -218,6 +216,15 @@ async function exportToGoogleSheets(req, res) {
         'Keyword'
       ]);
     }
+
+function getPublicApiBase(req) {
+  if (process.env.PUBLIC_URL && process.env.PUBLIC_URL.trim()) {
+    return process.env.PUBLIC_URL.replace(/\/$/, '');
+  }
+  const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
+  const host = req.headers['x-forwarded-host'] || req.get('host') || 'localhost:5033';
+  return `${protocol}://${host}`;
+}
 
     // Base URL for image/video link resolution (dynamic domain)
     const apiBase = getPublicApiBase(req);
