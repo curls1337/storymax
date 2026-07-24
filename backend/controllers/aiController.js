@@ -554,7 +554,7 @@ You MUST return the output strictly in this JSON format (do not wrap in markdown
   "scenes": [
     {
       "scene_idx": 0,
-      "imageToVideoPrompt": "<English motion-only & VO timing prompt for Page 1>",
+      "imageToVideoPrompt": "<English motion-only camera & motion prompt for Page 1 — purely visual, NO narration or timing text>",
       "textToVideoPrompt": "<English full descriptive text prompt for Page 1>",
       "narration": "<Voiceover script for Page 1>"
     },
@@ -661,6 +661,7 @@ Please analyze the provided image sheet(s) carefully. Generate the requested JSO
         else maxWordsAllowed = Math.round(sec * 1.0);
       }
 
+      const { stripSpeechLeak } = require('../prompts/sanitizeVideoPrompt');
       parsed.scenes = parsed.scenes.map(s => {
         let i2v = s.imageToVideoPrompt || '';
         let t2v = s.textToVideoPrompt || '';
@@ -677,6 +678,10 @@ Please analyze the provided image sheet(s) carefully. Generate the requested JSO
           t2v = t2v.replace(/(?:A|a)\s+hand\s+(?:gently\s+)?(?:touches|holds|presses|interacts\s+with|interacts)/gi, 'The mechanical mechanism');
           t2v = t2v.replace(/\b(?:hands?|fingers?|human\s+hands?)\b/gi, 'mechanical panels');
         }
+
+        // Bug C: the image-to-video prompt must be PURELY visual — strip any leaked
+        // narration / VO / timecode text (keep camera + motion + atmosphere only).
+        i2v = stripSpeechLeak(i2v);
 
         // Automatic Narration Truncation: ensure voiceover script never exceeds max words
         if (narr && typeof narr === 'string') {
@@ -705,7 +710,9 @@ Please analyze the provided image sheet(s) carefully. Generate the requested JSO
         scene_idx: idx,
         imageToVideoPrompt: `Camera motion for Scene ${idx + 1}: ${cleanText.substring(0, 200)}...`,
         textToVideoPrompt: `Visual prompt for Scene ${idx + 1}: ${cleanText.substring(0, 200)}...`,
-        narration: enableVo ? `Narasi voiceover untuk Scene ${idx + 1}` : null
+        // Bug B: never fabricate a VO placeholder here — a literal string like
+        // "Narasi voiceover untuk Scene 1" would be read aloud by the TTS. Leave empty.
+        narration: null
       });
     }
     finalJsonStr = JSON.stringify({ scenes: fallbackScenes });
