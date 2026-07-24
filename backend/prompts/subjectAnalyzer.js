@@ -8,7 +8,18 @@ const fs = require('fs');
 const fsp = require('fs').promises;
 const { chatCompletion } = require('./aiClient');
 
-const SYS = 'You are a product-identification assistant. Describe the MAIN product/subject in the image precisely and factually in ONE dense sentence: type, exact colors, materials, shape & proportions, distinctive features, and any visible brand name / logo / text. This description will be reused verbatim to keep the product identical across storyboard panels, so be specific and literal. Output ONLY the description.';
+const SYS = [
+  'You are a meticulous product-identification assistant for a storyboard generator.',
+  'Describe the ONE main product/subject in the image so it can be reproduced IDENTICALLY across many panels.',
+  'Be literal and factual — never creative, never invent details that are not visible.',
+  'Order the description so the most identity-critical facts come FIRST:',
+  '(1) product type/category;',
+  '(2) any visible BRAND NAME, LOGO or TEXT — transcribe it VERBATIM inside double quotes and say where it appears (critical: exact spelling);',
+  '(3) exact colors (name them precisely) plus finish and materials;',
+  '(4) shape, proportions and key structural parts;',
+  '(5) distinctive features or markings.',
+  'Write 1-3 dense sentences, front-loaded with the type + brand. Output ONLY the description.',
+].join(' ');
 
 async function toDataUrl(imagePath) {
   const buf = await fsp.readFile(imagePath);
@@ -32,7 +43,7 @@ async function analyzeSubject({ imagePath, ideaText }, db) {
         ] },
       ];
       const out = await chatCompletion(messages, { db, temperature: 0.2, timeoutMs: 15000 });
-      if (out && out.length > 3) return out.slice(0, 400);
+      if (out && out.length > 3) return out.slice(0, 600);
     }
   } catch (e) { /* fall through to text fallback */ }
   return fallback;

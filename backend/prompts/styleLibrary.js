@@ -5,7 +5,7 @@
 // Fields: id, name, desc, category, format, faceMode (default), bg, camera,
 // lighting, header, arc (narrative beats), negatives.
 
-const NEG = ['garbled or misspelled text', 'panels bleeding into the background', 'layout drifting between panels'];
+const NEG = ['garbled or misspelled text', 'panels bleeding into the background', 'layout drifting between panels', 'the product changing design between panels'];
 
 const STYLES = {
   // ── A. Transformasi & Reveal ──

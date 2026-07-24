@@ -240,11 +240,15 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
           totalDuration: task.totalDuration, aspectRatio: task.aspectRatio, model: task.selectedModel,
           pageNum, pageCount: task.pageCount, hasRefImage: !!pageRefPath,
         };
-        let pagePrompt = buildMasterPrompt(spec, genCtx);
+        // Try the LLM generator first; it returns null on ANY failure (no AI key,
+        // timeout, bad output) so we always fall back to the deterministic builder.
+        let pagePrompt = await generateMasterPromptWithAI(spec, genCtx, db);
+        const promptSource = pagePrompt ? 'LLM' : 'deterministik';
+        if (!pagePrompt) pagePrompt = buildMasterPrompt(spec, genCtx);
         pagePrompt = pagePrompt.replace(/"/g, "'");
         pagePrompt = safeClampPrompt(pagePrompt, 1995);
 
-        task.logs += `[Halaman ${pageNum}] Prompt: ${pagePrompt.substring(0, 120)}...\n`;
+        task.logs += `[Halaman ${pageNum}] Prompt (${promptSource}): ${pagePrompt.substring(0, 120)}...\n`;
         await saveTaskState(db, storyboardId, task);
 
         taskInfo = null;
@@ -722,10 +726,14 @@ async function regenerateStoryboardPage(req, res) {
           totalDuration: genParams.duration || (pageCount * secondsPerPage),
           aspectRatio, model, pageNum: pageIdx + 1, pageCount, hasRefImage: !!finalRefImagePath,
         };
-        let pagePrompt = buildMasterPrompt(spec, genCtx);
+        // Try the LLM generator first; it falls back to the deterministic builder
+        // (returns null on any failure) so generation never breaks.
+        let pagePrompt = await generateMasterPromptWithAI(spec, genCtx, db);
+        const promptSource = pagePrompt ? 'LLM' : 'deterministik';
+        if (!pagePrompt) pagePrompt = buildMasterPrompt(spec, genCtx);
         pagePrompt = pagePrompt.replace(/"/g, "'");
 
-        activeTasks[taskId].logs += `[2/3] Mengirimkan perintah generate ke Freebeat...\n` +
+        activeTasks[taskId].logs += `[2/3] Mengirimkan perintah generate ke Freebeat (${promptSource})...\n` +
                                      `Prompt Halaman: ${pagePrompt}\n\n`;
 
         // Resolve resolution arguments (shared helper)
