@@ -1,3 +1,6 @@
+// Deploy trigger: re-ship PR #18 (video-prompt I2V/camera direction + anti-crop
+// framing for transform & ASMR styles). Railway missed the auto-deploy on merge
+// df0efee, so this no-op marker forces a fresh build of the current master HEAD.
 const { AI_API_HOST, AI_API_TOKEN } = require('../config/secrets');
 const fs = require('fs');
 const path = require('path');
