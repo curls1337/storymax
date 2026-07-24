@@ -39,7 +39,7 @@ async function checkAndDisableKeyIfOutofCredits(db, apiKeyId, errorText, taskObj
 
 const { uploadsDir } = require('../config');
 
-async function getAvailableApiKey(db) {
+async function getAvailableApiKey(db, { allowFallback = true } = {}) {
   const activeKeys = await db.all('SELECT * FROM api_keys WHERE is_active = 1');
   if (activeKeys.length === 0) return null;
 
@@ -52,8 +52,9 @@ async function getAvailableApiKey(db) {
   if (freeKeys.length > 0) {
     return freeKeys[0];
   }
-  // Fallback: return the first active key if all are busy
-  return activeKeys[0];
+  // No FREE key right now. Strict mode (allowFallback:false) returns null so the caller
+  // can WAIT for one to free up — never double-using a busy key. Otherwise fall back.
+  return allowFallback ? activeKeys[0] : null;
 }
 
 // When voiceover/audio is NOT enabled for a video, the model must not speak — even
@@ -1088,12 +1089,11 @@ async function generateAllVideos(req, res) {
 
       const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-      for (let sceneIdx = 0; sceneIdx < totalScenes; sceneIdx++) {
-        // Wait if there are already 2 or more active tasks processing for this storyboard
-        while (activeTasksCountForStoryboard() >= 2) {
-          await sleep(5000); // Check every 5 seconds
-        }
+      // MANUAL (a specific key chosen) runs ONE scene at a time; AUTO runs as many in
+      // parallel as there are FREE active keys — the key acquisition below is the gate.
+      const isManual = !!(apiKeyId && apiKeyId !== 'auto');
 
+      for (let sceneIdx = 0; sceneIdx < totalScenes; sceneIdx++) {
         // Re-read DB connection
         const db = getDb();
 
@@ -1105,11 +1105,6 @@ async function generateAllVideos(req, res) {
 
         if (existingVideo && (existingVideo.status === 'success' || existingVideo.status === 'processing')) {
           continue;
-        }
-
-        // Introduce a delay of 20 seconds before starting the next video (except for the first one)
-        if (sceneIdx > 0) {
-          await sleep(20000);
         }
 
         // Resolve scene-specific prompt
@@ -1151,18 +1146,34 @@ async function generateAllVideos(req, res) {
         const pageIdx = sceneIdx;
         const sceneImage = panelImages[pageIdx];
 
-        // Dynamically select an available API key for each scene!
+        // Acquire an API key — this is ALSO the concurrency gate.
+        //  - MANUAL: run ONE scene at a time — wait until this storyboard has no active
+        //    task, then reuse the chosen key (so you wait for a page to finish first).
+        //  - AUTO: wait until a FREE active key is available, then take it. Parallelism
+        //    therefore equals the number of free active keys and no key is used twice at
+        //    once; each finished/failed video frees its key for the next queued scene.
         let keyRecord = null;
-        if (apiKeyId && apiKeyId !== 'auto') {
+        if (isManual) {
+          while (activeTasksCountForStoryboard() >= 1) {
+            await sleep(4000);
+          }
           keyRecord = await db.get('SELECT * FROM api_keys WHERE id = ? AND is_active = 1', [apiKeyId]);
-        }
-        if (!keyRecord) {
-          keyRecord = await getAvailableApiKey(db);
-        }
-
-        if (!keyRecord) {
-          console.warn(`[Batch] No active key available for scene ${sceneIdx}`);
-          continue;
+          if (!keyRecord) {
+            console.warn(`[Batch] Chosen API key ${apiKeyId} is inactive/missing — stopping batch.`);
+            break;
+          }
+        } else {
+          for (;;) {
+            keyRecord = await getAvailableApiKey(db, { allowFallback: false });
+            if (keyRecord) break;
+            const activeCount = await db.get('SELECT COUNT(*) AS c FROM api_keys WHERE is_active = 1');
+            if (!activeCount || activeCount.c === 0) break; // no active keys at all
+            await sleep(4000); // all active keys busy — wait for one to free up
+          }
+          if (!keyRecord) {
+            console.warn('[Batch] No active API key available — stopping batch.');
+            break;
+          }
         }
 
         // Create unique task ID
@@ -1209,6 +1220,10 @@ async function generateAllVideos(req, res) {
 
         // Spawn execution
         runSingleVideoSpawn(videoRecordId, taskId, keyRecord, promptText, sceneImage, model, generationType, duration, resolution, aspectRatio, generateAudio, storyboardId);
+
+        // Small courtesy stagger so parallel AUTO starts don't hit the API at the exact
+        // same instant. This does NOT serialize — the free-key gate controls parallelism.
+        if (!isManual) await sleep(1500);
       }
     })();
 
