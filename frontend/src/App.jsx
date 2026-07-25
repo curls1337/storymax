@@ -142,9 +142,22 @@ export default function App() {
   useEffect(() => {
     const onFocusIn = (e) => {
       const el = e.target;
-      if (!el || !el.tagName || !/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
+      if (!el || !el.tagName) return;
+      // Only INPUT/TEXTAREA open the on-screen keyboard. A <select> opens a native
+      // option list (no keyboard) so it must NOT be scrolled — auto-centering it made
+      // the page "jump" a little every single time a dropdown was opened.
+      if (!/^(INPUT|TEXTAREA)$/.test(el.tagName)) return;
+      // Only relevant on touch / small viewports where the keyboard overlaps content.
+      // On desktop there is no keyboard, so the nudge is just an unwanted scroll.
+      const isTouch = (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) || window.innerWidth < 1024;
+      if (!isTouch) return;
       setTimeout(() => {
-        try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (_) {}
+        try {
+          const r = el.getBoundingClientRect();
+          // Only nudge when the field sits low enough to be hidden by the keyboard;
+          // never scroll a field that is already comfortably in view.
+          if (r.top > window.innerHeight * 0.5) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        } catch (_) {}
       }, 300);
     };
     window.addEventListener('focusin', onFocusIn);

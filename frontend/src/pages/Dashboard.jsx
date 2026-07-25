@@ -296,6 +296,13 @@ export default function Dashboard({ setTab }) {
     if (mt.hasAudio === false && videoGenerateAudio) setVideoGenerateAudio(false);
   }, [userProvider, magicaCatalog, magicaVideoModel, magicaVideoMethod]);
 
+  // The currently selected Magica video method object (with its allowed duration/
+  // resolution/aspect options). Used to keep the controlled selects valid.
+  const magicaVMt = (userProvider === 'magica' && magicaCatalog)
+    ? (((magicaCatalog.videoModels || []).find(m => m.nodeType === magicaVideoModel) || {}).methods || []).find(mt => mt.category === magicaVideoMethod) || null
+    : null;
+  const inOpts = (arr, v) => Array.isArray(arr) && arr.map(x => String(x).toLowerCase()).includes(String(v).toLowerCase());
+
   const [regeneratingPages, setRegeneratingPages] = useState({});
   const [regenLogs, setRegenLogs] = useState({});
   const [downloadingId, setDownloadingId] = useState(null);
@@ -2347,7 +2354,7 @@ export default function Dashboard({ setTab }) {
                           <div className="space-y-1">
                             <label className="text-[8px] font-bold uppercase tracking-widest text-slate-500">Durasi</label>
                             <select
-                              value={videoDuration}
+                              value={magicaVMt ? (inOpts(magicaVMt.durations, videoDuration) ? videoDuration : String((magicaVMt.durations || [5])[0])) : videoDuration}
                               onChange={(e) => setVideoDuration(e.target.value)}
                               className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-1.5 py-1 text-white text-[9px] focus:outline-none focus:border-[#cfae80] font-semibold"
                             >
@@ -2369,7 +2376,7 @@ export default function Dashboard({ setTab }) {
                           <div className="space-y-1">
                             <label className="text-[8px] font-bold uppercase tracking-widest text-slate-500">Resolusi</label>
                             <select
-                              value={videoResolution}
+                              value={magicaVMt ? ((magicaVMt.resolutions && magicaVMt.resolutions.length) ? (inOpts(magicaVMt.resolutions, videoResolution) ? videoResolution : magicaVMt.resolutions[0]) : '') : videoResolution}
                               onChange={(e) => setVideoResolution(e.target.value)}
                               className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-1.5 py-1 text-white text-[9px] focus:outline-none focus:border-[#cfae80] font-semibold"
                             >
@@ -2393,7 +2400,7 @@ export default function Dashboard({ setTab }) {
                           <div className="space-y-1">
                             <label className="text-[8px] font-bold uppercase tracking-widest text-slate-500">Rasio</label>
                             <select
-                              value={videoAspectRatio}
+                              value={magicaVMt ? (inOpts(magicaVMt.aspectRatios, videoAspectRatio) ? videoAspectRatio : ((magicaVMt.aspectRatios || ['auto'])[0])) : videoAspectRatio}
                               onChange={(e) => setVideoAspectRatio(e.target.value)}
                               className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-1.5 py-1 text-white text-[9px] focus:outline-none focus:border-[#cfae80] font-semibold"
                             >
