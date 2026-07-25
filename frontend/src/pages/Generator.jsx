@@ -84,6 +84,7 @@ export default function Generator({ setTab }) {
   const [userProvider, setUserProvider] = useState('freebeat');
   const [magicaCatalog, setMagicaCatalog] = useState(null);
   const [magicaImageModel, setMagicaImageModel] = useState('');
+  const [magicaKeyId, setMagicaKeyId] = useState('auto');
   
   const [regeneratingPages, setRegeneratingPages] = useState({});
   const [regenLogs, setRegenLogs] = useState({});
@@ -398,7 +399,8 @@ export default function Generator({ setTab }) {
         voTone: enableVo ? voTone : undefined,
         videoEngine,
         containerShape,
-        magicaModel: userProvider === 'magica' ? magicaImageModel : undefined
+        magicaModel: userProvider === 'magica' ? magicaImageModel : undefined,
+        magicaKeyId: userProvider === 'magica' ? magicaKeyId : undefined
       });
       const { taskId } = res.data;
       setCurrentTaskId(taskId);
@@ -893,13 +895,19 @@ export default function Generator({ setTab }) {
 
           {userProvider === 'magica' ? (
             <div>
-              <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">API Key Magica</label>
-              <select className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#a855f7] transition-all text-xs" disabled>
+              <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Pilih API Key Magica</label>
+              <select
+                value={magicaKeyId}
+                onChange={(e) => setMagicaKeyId(e.target.value)}
+                disabled={generating}
+                className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#a855f7] transition-all text-xs"
+              >
+                <option value="auto">Pilih Otomatis (Auto-detect)</option>
                 {(((magicaCatalog && magicaCatalog.keys) || []).length)
-                  ? magicaCatalog.keys.map((k) => (<option key={k.id} value={k.id}>{k.label}</option>))
-                  : <option value="">Belum ada API Key Magica aktif</option>}
+                  ? magicaCatalog.keys.map((k) => (<option key={k.id} value={k.id}>{k.label}{k.formatted != null ? ` (⚡ ${k.formatted} kredit)` : ''}</option>))
+                  : <option value="" disabled>Belum ada API Key Magica aktif</option>}
               </select>
-              <p className="text-[8px] text-slate-500 mt-1">Provider: Magica — key dipilih otomatis dari kolam Magica.</p>
+              <p className="text-[8px] text-slate-500 mt-1">Provider: Magica — "Auto" memilih key aktif pertama dari kolam.</p>
             </div>
           ) : apiKeys.length > 0 ? (
             <div>
