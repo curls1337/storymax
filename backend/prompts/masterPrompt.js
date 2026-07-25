@@ -55,6 +55,15 @@ function dedupeList(arr) {
 // an explicit photorealism directive + anti-sketch negatives.
 const ILLUSTRATION_STYLES = new Set(['anime_comic', 'stop_motion', 'tiny_world', 'education_explainer']);
 
+// Creative "transform" styles where a reference image is only INSPIRATION for the
+// subject's identity & colors — the output is re-rendered into the style's own form
+// (cube, pod, toy, miniature, jelly, soundstage miniature), NOT a 1:1 copy of the
+// reference. Every OTHER style keeps STRICT reference fidelity (exact reproduction).
+const STYLIZED_REF_STYLES = new Set([
+  'cube_box_transform', 'shape_morph_transform', 'asmr_toy_transform',
+  'bts_practical_fx', 'mini_restoration_asmr', 'jelly_character_asmr',
+]);
+
 // Shared helper so the LLM generator applies the SAME photo/illustration decision.
 function isPhotoreal(styleId) {
   return styleId ? !ILLUSTRATION_STYLES.has(styleId) : true;
@@ -132,20 +141,33 @@ function buildMasterPrompt(spec, ctx = {}) {
     ? ['sketch', 'line art', 'pencil or ink drawing', 'concept art', 'cartoon or anime drawing', 'flat clay or low-detail CGI render']
     : [];
 
+  // Creative transform styles: the reference is only inspiration and the subject is
+  // deliberately re-formed into the style's shape, so exact 1:1 fidelity must NOT be
+  // enforced (that would forbid the transformation). All other styles stay strict.
+  const looseRef = hasRefImage && STYLIZED_REF_STYLES.has(spec.id);
+
   // Reference-fidelity negatives LEAD the list (so they survive the NEG_MAX cap)
   // when editing from a reference image; otherwise keep a light cross-panel one.
   const fidelityNeg = hasRefImage
-    ? ['different or redesigned product', 'altered or garbled logo/brand text', 'changed colors, shape or proportions']
+    ? (looseRef
+        ? ['unrecognizable subject or wrong identity/colors vs the reference', "a flat 1:1 photo copy of the reference that ignores this style's form"]
+        : ['different or redesigned product', 'altered or garbled logo/brand text', 'changed colors, shape or proportions'])
     : ['the main product looking different between panels'];
 
   // Merge + de-dupe every negative source so the tail never repeats phrases, then
   // cap its length. A 500+ char negative list (e.g. cube) would dominate the whole
   // budget; product-integrity + style terms come first, and the strongest no-people
   // / anti-sketch guarantees are ALSO carried by the face clause + realNote.
+  // In loose mode, drop any style negative that would forbid re-forming the subject
+  // ("redesigned/renamed", "keep the reference exactly", "1:1") — those fight the transform.
+  const styleNegs = looseRef
+    ? (spec.negatives || []).filter((n) => !/redesign|rename|keep the reference|matches the reference|1:1/i.test(String(n)))
+    : (spec.negatives || []);
+
   let negatives = dedupeList(
     []
       .concat(fidelityNeg)
-      .concat(spec.negatives || [])
+      .concat(styleNegs)
       .concat(antiSketch)
       .concat(fneg ? String(fneg).split(',') : [])
       .concat(['text paragraphs inside panels'])
@@ -157,7 +179,10 @@ function buildMasterPrompt(spec, ctx = {}) {
 
   const layout = (spec.layoutHint || 'a grid of {N} numbered panels on one sheet').replace('{N}', String(gc));
   const partLabel = pageCount > 1 ? ` PART ${pageNum}/${pageCount}` : '';
-  const refNote = hasRefImage
+  // Strict styles get the full "reproduce exactly" clause here; stylized styles carry
+  // their (short, always-present) "re-form" instruction in L1 instead, so refNote stays
+  // empty for them and never competes for the trimmable budget.
+  const refNote = (hasRefImage && !looseRef)
     ? ' Every panel shows the SAME product as the reference — identical shape, proportions, colors and logo/text (verbatim); never redesign, rename or replace it.'
     : '';
   const CONT = 'Keep SAME setting, lighting, wardrobe & palette across all parts.';
@@ -175,13 +200,13 @@ ${face}
 NEGATIVE: ${negatives}.`;
 
   // ── Fixed structural lines (content is fixed; always present) ──
-  const L1 = `A professional ${spec.name} storyboard sheet — ONE printed poster, ${ratio} layout, ${bgClause(spec.bg)}.${realNote}`;
+  const L1 = `A professional ${spec.name} storyboard sheet — ONE printed poster, ${ratio} layout, ${bgClause(spec.bg)}.${realNote}${looseRef ? " The reference is ONLY inspiration — re-form the subject into THIS style's own shape (recognizable, same colors), do NOT copy it 1:1." : ''}`;
   const L2 = `HEADER: banner '${spec.header}${partLabel}' + product name + badges 'DURATION ${dur}'${windowBadge} 'SCENES ${gc}' 'RATIO ${ratio}'.`;
   const L4 = `Layout: ${layout}, numbered SCENE ${startScene}–${endScene}; each panel: a short SCENE TITLE, one-line action, tiny 'CAM'/'LIGHT' tags + a duration chip. Keep on-sheet text short & correctly spelled; vary the camera per scene; keep card layout, palette & background identical.`;
   const L5 = `Base camera: ${spec.camera}; light: ${spec.lighting}.`;
 
   // ── Variable lines (content shrinks to fit) ──
-  const subjLine = (s, rn) => `SUBJECT (identical in every panel): ${s}.${rn}`;
+  const subjLine = (s, rn) => `SUBJECT (${looseRef ? 'kept recognizable & consistent across panels' : 'identical in every panel'}): ${s}.${rn}`;
   const scenesLine = (ct, ar) => {
     if (ct) {
       const prog = ar ? `progressing across the panels as: ${ar}` : 'progressing sequentially across the numbered panels';
@@ -213,10 +238,16 @@ NEGATIVE: ${negatives}.`;
   // including SCENES and camera — ALWAYS stays present; we never slice a whole line.
   if (overBy() > 0 && conceptText) conceptText = trimTail(conceptText, overBy());
   if (overBy() > 0 && arc) arc = trimTail(arc, overBy());
-  if (overBy() > 0 && refNoteCur) refNoteCur = '';
+  // Strict styles: drop the (long) reference clause here — fidelity is still carried
+  // by the leading NEGATIVE terms + the rich SUBJECT. Stylized styles KEEP their short
+  // "re-form" note as long as possible (it is the core instruction), dropping it only
+  // as a later resort below.
+  if (overBy() > 0 && refNoteCur && !looseRef) refNoteCur = '';
   if (overBy() > 0 && subj.length > subjFloor) {
     subj = subj.slice(0, Math.max(subjFloor, subj.length - overBy() - 1));
   }
+  // Stylized styles: only now, if still over, drop the re-form note.
+  if (overBy() > 0 && refNoteCur) refNoteCur = '';
   // Last resort for pathologically heavy styles: shrink the subject below its floor
   // rather than EVER dropping a structural line.
   if (overBy() > 0) subj = subj.slice(0, Math.max(0, subj.length - overBy() - 1));
@@ -229,4 +260,4 @@ NEGATIVE: ${negatives}.`;
   return body + '\n' + tail;
 }
 
-module.exports = { buildMasterPrompt, fmtRatio, fmtDuration, ILLUSTRATION_STYLES, isPhotoreal };
+module.exports = { buildMasterPrompt, fmtRatio, fmtDuration, ILLUSTRATION_STYLES, isPhotoreal, STYLIZED_REF_STYLES };
