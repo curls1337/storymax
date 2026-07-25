@@ -93,7 +93,9 @@ async function generateVideo(req, res) {
     resolution,
     generateAudio,
     backsound,
-    apiKeyId
+    apiKeyId,
+    magicaModel,
+    magicaMethod
   } = req.body;
 
   if (!storyboardId || sceneIdx === undefined || !prompt || !model || !generationType) {
@@ -143,7 +145,7 @@ async function generateVideo(req, res) {
       (async () => {
         const onLog = (m) => { if (activeTasks[taskId]) activeTasks[taskId].logs += m + '\n'; };
         try {
-          const { url, credit } = await magicaGen.generateVideoMagica(mk.key_value, { prompt, sceneImage, generationType, duration, resolution, aspectRatio, generateAudio, onLog });
+          const { url, credit } = await magicaGen.generateVideoMagica(mk.key_value, { prompt, sceneImage, generationType, duration, resolution, aspectRatio, generateAudio, nodeType: magicaModel, method: magicaMethod, onLog });
           await db.run('UPDATE generated_videos SET video_url = ?, status = ?, used_credits = ?, logs = ? WHERE id = ?', [url, 'success', credit || 0, activeTasks[taskId]?.logs || '', videoRecordId]);
           if (activeTasks[taskId]) { activeTasks[taskId].status = 'success'; activeTasks[taskId].logs += '[Magica] Video selesai.\n'; }
           try { await db.run('UPDATE magica_api_keys SET last_status = ? WHERE id = ?', ['OK - ' + new Date().toLocaleString('id-ID'), mk.id]); } catch (e) {}
@@ -1095,7 +1097,9 @@ async function generateAllVideos(req, res) {
     resolution,
     generateAudio,
     backsound,
-    apiKeyId
+    apiKeyId,
+    magicaModel,
+    magicaMethod
   } = req.body;
 
   if (!storyboardId || !model || !generationType) {
@@ -1231,7 +1235,7 @@ async function generateAllVideos(req, res) {
             break;
           }
           try {
-            const { url, credit } = await magicaGen.generateVideoMagica(mk.key_value, { prompt: promptText, sceneImage, generationType, duration, resolution, aspectRatio, generateAudio, onLog });
+            const { url, credit } = await magicaGen.generateVideoMagica(mk.key_value, { prompt: promptText, sceneImage, generationType, duration, resolution, aspectRatio, generateAudio, nodeType: magicaModel, method: magicaMethod, onLog });
             await db.run('UPDATE generated_videos SET video_url = ?, status = ?, used_credits = ?, logs = ? WHERE id = ?', [url, 'success', credit || 0, activeTasks[mTaskId].logs, mRecId]);
             activeTasks[mTaskId].status = 'success'; activeTasks[mTaskId].logs += '[Magica] Video selesai.\n';
             try { await db.run('UPDATE magica_api_keys SET last_status = ? WHERE id = ?', ['OK - ' + new Date().toLocaleString('id-ID'), mk.id]); } catch (e) {}

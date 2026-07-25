@@ -282,6 +282,7 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
             const { url, credit } = await magicaGen.generateOneImageMagica(magicaApiKey, pagePrompt, {
               aspectRatio: task.aspectRatio,
               refUrl: pageRefPath,
+              nodeType: task.magicaModel,
               onLog: (m) => { task.logs += m + '\n'; },
             });
             task.imagePaths.push(url);

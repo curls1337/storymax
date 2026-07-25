@@ -45,6 +45,25 @@ export default function Dashboard({ setTab }) {
   }, []);
 
   useEffect(() => {
+    api.get('/auth/me').then((r) => {
+      const pp = r.data.preferred_provider || 'freebeat';
+      setUserProvider(pp);
+      if (pp === 'magica') {
+        api.get('/magica/catalog').then((c) => {
+          setMagicaCatalog(c.data);
+          const vids = (c.data && c.data.videoModels) || [];
+          const def = vids.find((m) => m.nodeType === 'seedance_2_0') || vids[0];
+          if (def) {
+            setMagicaVideoModel(def.nodeType);
+            const im = (def.methods || []).find((x) => x.category === 'image-to-video') || (def.methods || [])[0];
+            if (im) setMagicaVideoMethod(im.category);
+          }
+        }).catch(() => {});
+      }
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
     const hasProcessing = storyboards.some(sb => sb.status === 'processing');
     let interval;
     if (hasProcessing) {
@@ -250,6 +269,10 @@ export default function Dashboard({ setTab }) {
   const [videoBacksound, setVideoBacksound] = useState(false);
   const [apiKeys, setApiKeys] = useState([]);
   const [selectedApiKeyId, setSelectedApiKeyId] = useState('auto');
+  const [userProvider, setUserProvider] = useState('freebeat');
+  const [magicaCatalog, setMagicaCatalog] = useState(null);
+  const [magicaVideoModel, setMagicaVideoModel] = useState('');
+  const [magicaVideoMethod, setMagicaVideoMethod] = useState('');
   
   const [regeneratingPages, setRegeneratingPages] = useState({});
   const [regenLogs, setRegenLogs] = useState({});
@@ -630,7 +653,9 @@ export default function Dashboard({ setTab }) {
         resolution: videoResolution,
         generateAudio: videoGenerateAudio,
         backsound: videoBacksound,
-        apiKeyId: selectedApiKeyId || 'auto'
+        apiKeyId: selectedApiKeyId || 'auto',
+        magicaModel: userProvider === 'magica' ? magicaVideoModel : undefined,
+        magicaMethod: userProvider === 'magica' ? magicaVideoMethod : undefined
       });
 
       // Refresh the video list to include the new 'processing' record
@@ -661,7 +686,9 @@ export default function Dashboard({ setTab }) {
         resolution: videoResolution,
         generateAudio: videoGenerateAudio,
         backsound: videoBacksound,
-        apiKeyId: selectedApiKeyId || 'auto'
+        apiKeyId: selectedApiKeyId || 'auto',
+        magicaModel: userProvider === 'magica' ? magicaVideoModel : undefined,
+        magicaMethod: userProvider === 'magica' ? magicaVideoMethod : undefined
       });
 
       // Refresh the video list to include processing statuses
@@ -2172,7 +2199,16 @@ export default function Dashboard({ setTab }) {
                             <ChevronLeft className="w-3.5 h-3.5" /> Kembali ke Video
                           </button>
                         )}
-                        {apiKeys.length > 0 && (
+                        {userProvider === 'magica' ? (
+                          <div className="space-y-1">
+                            <label className="text-[8px] font-bold uppercase tracking-widest text-[#a855f7]">API Key Magica</label>
+                            <select className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] focus:outline-none focus:border-[#a855f7] transition-all font-semibold" disabled>
+                              {(((magicaCatalog && magicaCatalog.keys) || []).length)
+                                ? magicaCatalog.keys.map(k => (<option key={k.id} value={k.id}>{k.label}</option>))
+                                : <option value="">Belum ada API Key Magica aktif</option>}
+                            </select>
+                          </div>
+                        ) : apiKeys.length > 0 ? (
                           <div className="space-y-1">
                             <label className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80]">API Key Freebeat</label>
                             <select
@@ -2188,11 +2224,22 @@ export default function Dashboard({ setTab }) {
                               ))}
                             </select>
                           </div>
-                        )}
+                        ) : null}
 
                         {/* Metode Pembuatan FIRST — the model list below auto-filters to models that support it */}
                         <div className="space-y-1">
                           <label className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80]">Metode Pembuatan</label>
+                          {userProvider === 'magica' ? (
+                            <select
+                              value={magicaVideoMethod}
+                              onChange={(e) => setMagicaVideoMethod(e.target.value)}
+                              className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] focus:outline-none focus:border-[#a855f7] transition-all font-semibold"
+                            >
+                              {((((magicaCatalog && magicaCatalog.videoModels) || []).find(m => m.nodeType === magicaVideoModel) || {}).methods || []).map(mt => (
+                                <option key={mt.category} value={mt.category}>{mt.label || mt.category}</option>
+                              ))}
+                            </select>
+                          ) : (
                           <select
                             value={videoGenType}
                             onChange={(e) => {
@@ -2219,11 +2266,29 @@ export default function Dashboard({ setTab }) {
                               { v: 'reference', l: 'Reference-to-Video (Referensi Karakter/Produk)' },
                             ].map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
                           </select>
+                          )}
                         </div>
 
                         {/* Model — only those supporting the chosen method */}
                         <div className="space-y-1">
                           <label className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80]">Pilih Model Video (mendukung metode ini)</label>
+                          {userProvider === 'magica' ? (
+                            <select
+                              value={magicaVideoModel}
+                              onChange={(e) => {
+                                const nt = e.target.value;
+                                setMagicaVideoModel(nt);
+                                const mm = ((((magicaCatalog && magicaCatalog.videoModels) || []).find(m => m.nodeType === nt) || {}).methods) || [];
+                                const im = mm.find(x => x.category === 'image-to-video') || mm[0];
+                                if (im) setMagicaVideoMethod(im.category);
+                              }}
+                              className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] focus:outline-none focus:border-[#a855f7] transition-all font-semibold"
+                            >
+                              {(((magicaCatalog && magicaCatalog.videoModels) || [])).map(m => (
+                                <option key={m.nodeType} value={m.nodeType}>{m.name}</option>
+                              ))}
+                            </select>
+                          ) : (
                           <select
                             value={videoModel}
                             onChange={(e) => {
@@ -2240,6 +2305,7 @@ export default function Dashboard({ setTab }) {
                               <option key={m.value} value={m.value}>{m.label}</option>
                             ))}
                           </select>
+                          )}
                         </div>
 
                         <div className="space-y-1">
