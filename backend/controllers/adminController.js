@@ -468,6 +468,110 @@ async function deleteStorageFile(req, res) {
   }
 }
 
+// --- Database Backup & Restore (for server migration) ---
+//
+// The SQLite DB only ever stores LINKS + settings + metadata (video/image files
+// live on disk under /uploads and are referenced by URL/path). So a full dump of
+// these tables is exactly what the user wants to carry to a new server — settings,
+// the Freebeat key pool, the LLM/AI config, Google creds, and every storyboard with
+// its video links — WITHOUT the heavy media files.
+//
+// NOTE: the backup contains password hashes and API keys/tokens — treat the file as
+// a secret.
+const BACKUP_TABLES = [
+  'users',            // accounts (bcrypt password hashes) — needed to migrate logins
+  'api_keys',         // Freebeat API key pool
+  'ai_settings',      // LLM / AI provider settings
+  'google_settings',  // Google Drive & Sheets credentials
+  'storyboards',      // storyboards + image/video links + marketing copy
+  'generated_videos', // per-scene video records + video_url links
+  'downloaded_files', // download tracking metadata
+];
+
+async function backupDatabase(req, res) {
+  try {
+    const db = getDb();
+    const tables = {};
+    const counts = {};
+    for (const t of BACKUP_TABLES) {
+      const rows = await db.all(`SELECT * FROM ${t}`);
+      tables[t] = rows;
+      counts[t] = rows.length;
+    }
+    const backup = {
+      app: 'storymax',
+      type: 'db-backup',
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      counts,
+      tables,
+    };
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="storymax-db-backup-${stamp}.json"`);
+    res.status(200).send(JSON.stringify(backup, null, 2));
+  } catch (err) {
+    console.error('Backup error:', err);
+    res.status(500).json({ message: 'Gagal membuat backup database.', error: err.message });
+  }
+}
+
+async function restoreDatabase(req, res) {
+  const db = getDb();
+  try {
+    // Accept either the backup object directly, or wrapped as { backup: {...} }.
+    const payload = req.body && req.body.tables ? req.body : (req.body && req.body.backup);
+    if (!payload || payload.type !== 'db-backup' || !payload.tables || typeof payload.tables !== 'object') {
+      return res.status(400).json({ message: 'File backup tidak valid. Pastikan ini file backup StoryMax (.json).' });
+    }
+
+    const restored = {};
+    // FK enforcement must be toggled OUTSIDE a transaction; turning it off lets us
+    // wipe + re-insert in any order without cascade surprises.
+    await db.run('PRAGMA foreign_keys = OFF');
+    await db.run('BEGIN');
+    try {
+      for (const t of BACKUP_TABLES) {
+        const rows = Array.isArray(payload.tables[t]) ? payload.tables[t] : null;
+        if (rows === null) continue; // table absent in backup → leave current data untouched
+        await db.run(`DELETE FROM ${t}`);
+        // Intersect backup columns with the CURRENT schema (defensive vs schema drift).
+        const info = await db.all(`PRAGMA table_info(${t})`);
+        const validCols = new Set(info.map((c) => c.name));
+        let inserted = 0;
+        for (const row of rows) {
+          const cols = Object.keys(row).filter((c) => validCols.has(c));
+          if (cols.length === 0) continue;
+          const placeholders = cols.map(() => '?').join(', ');
+          const values = cols.map((c) => row[c]);
+          await db.run(
+            `INSERT INTO ${t} (${cols.map((c) => `"${c}"`).join(', ')}) VALUES (${placeholders})`,
+            values
+          );
+          inserted++;
+        }
+        restored[t] = inserted;
+      }
+      await db.run('COMMIT');
+    } catch (inner) {
+      try { await db.run('ROLLBACK'); } catch (e) {}
+      throw inner;
+    } finally {
+      await db.run('PRAGMA foreign_keys = ON');
+    }
+
+    res.status(200).json({
+      message: 'Restore database berhasil.',
+      restored,
+      note: 'Data lama telah diganti. Anda mungkin perlu login ulang.',
+    });
+  } catch (err) {
+    console.error('Restore error:', err);
+    try { await getDb().run('PRAGMA foreign_keys = ON'); } catch (e) {}
+    res.status(500).json({ message: 'Gagal me-restore database. Tidak ada perubahan yang disimpan (rollback).', error: err.message });
+  }
+}
+
 module.exports = {
   getAllUsers,
   createUser,
@@ -483,5 +587,7 @@ module.exports = {
   updateAiSettings,
   testAiSettings,
   getStorageFiles,
-  deleteStorageFile
+  deleteStorageFile,
+  backupDatabase,
+  restoreDatabase
 };
