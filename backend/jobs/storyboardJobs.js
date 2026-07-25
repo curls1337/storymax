@@ -14,6 +14,7 @@ const { buildEnhancedPrompt } = require('../prompts/buildEnhancedPrompt'); // le
 const { formatTime } = require('../prompts/grid');
 const { safeClampPrompt } = require('../prompts/clamp');
 const { freebeatSizeArgs } = require('../services/freebeat/cli');
+const magicaGen = require('../services/magicaGen');
 const { getStyleSpec } = require('../prompts/styleLibrary');
 const { buildMasterPrompt } = require('../prompts/masterPrompt');
 const { generateMasterPromptWithAI } = require('../prompts/masterPromptLLM');
@@ -26,8 +27,11 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
   if (!task) return;
 
   try {
+    const storyboardIsMagica = await magicaGen.isMagicaForStoryboard(db, storyboardId);
     const keyRecord = await db.get('SELECT * FROM api_keys WHERE id = ?', [task.apiKeyId]);
-    if (!keyRecord || !keyRecord.is_active) {
+    // Freebeat needs a valid key; Magica users render via their own pool, so a missing
+    // Freebeat key must NOT fail the job for them.
+    if (!storyboardIsMagica && (!keyRecord || !keyRecord.is_active)) {
       task.status = 'failed';
       task.error = 'Selected API Key is invalid or inactive.';
       task.logs += '[ERROR] Selected API Key is invalid or inactive.\n';
@@ -36,7 +40,7 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
       return;
     }
 
-    const parsedApiKeyId = keyRecord.id;
+    const parsedApiKeyId = keyRecord ? keyRecord.id : null;
     let currentKeyRecord = keyRecord;
     const localCliPath = path.join(__dirname, '..', 'node_modules', 'freebeat-cli', 'dist', 'index.js');
     const hasLocalCli = fs.existsSync(localCliPath);
@@ -203,6 +207,24 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
 
     let currentError = null;
 
+    // Provider routing (Bagian 2): if the storyboard owner prefers Magica (and is
+    // allowed), render each page via Magica GPT Image 2 instead of the Freebeat CLI.
+    // The Freebeat spawn below is skipped per-page for Magica; Freebeat code untouched.
+    let isMagica = false, magicaApiKey = null;
+    try {
+      if (await magicaGen.isMagicaForStoryboard(db, storyboardId)) {
+        const mk = await magicaGen.pickActiveMagicaKey(db);
+        if (mk) {
+          isMagica = true; magicaApiKey = mk.key_value;
+          task.logs += '[Provider] Render gambar via Magica (GPT Image 2).\n';
+        } else {
+          task.logs += '[Provider] User memilih Magica tetapi belum ada API Key Magica aktif — memakai Freebeat.\n';
+        }
+        await saveTaskState(db, storyboardId, task);
+      }
+    } catch (e) {}
+    if (!task.imagePaths) task.imagePaths = [];
+
     for (let pageIdx = task.currentPageIdx; pageIdx < task.pageCount; pageIdx++) {
       task.currentPageIdx = pageIdx;
       await saveTaskState(db, storyboardId, task);
@@ -253,6 +275,26 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
 
         task.logs += `[Halaman ${pageNum}] Prompt (${promptSource}): ${pagePrompt.substring(0, 120)}...\n`;
         await saveTaskState(db, storyboardId, task);
+
+        // Magica render for this page — skips the Freebeat spawn/poll block below.
+        if (isMagica) {
+          try {
+            const { url, credit } = await magicaGen.generateOneImageMagica(magicaApiKey, pagePrompt, {
+              aspectRatio: task.aspectRatio,
+              refUrl: pageRefPath,
+              onLog: (m) => { task.logs += m + '\n'; },
+            });
+            task.imagePaths.push(url);
+            task.totalCreditsUsed = (task.totalCreditsUsed || 0) + credit;
+            task.currentTaskInfo = null;
+            task.logs += `[Halaman ${pageNum}] Selesai (Magica).\n`;
+            await saveTaskState(db, storyboardId, task);
+          } catch (mErr) {
+            currentError = `Magica gagal (Halaman ${pageNum}): ${mErr.message}`;
+            break;
+          }
+          continue;
+        }
 
         taskInfo = null;
         let submitSuccess = false;

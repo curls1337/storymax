@@ -11,6 +11,13 @@ export default function AdminPanel() {
   const [files, setFiles] = useState([]);
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [selectedKeyIds, setSelectedKeyIds] = useState([]);
+  const [magicaKeys, setMagicaKeys] = useState([]);
+  const [selectedMagicaKeyIds, setSelectedMagicaKeyIds] = useState([]);
+  const [newMagicaKeyVal, setNewMagicaKeyVal] = useState('');
+  const [newMagicaKeyLabel, setNewMagicaKeyLabel] = useState('');
+  const [magicaBulk, setMagicaBulk] = useState('');
+  const [magicaTest, setMagicaTest] = useState(null);
+  const [magicaTestLoading, setMagicaTestLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [sortBy, setSortBy] = useState('date_desc');
@@ -163,9 +170,97 @@ export default function AdminPanel() {
     }
   };
 
+  const fetchMagicaKeys = async () => {
+    try {
+      const res = await api.get('/admin/magica/keys');
+      setMagicaKeys(res.data);
+      setSelectedMagicaKeyIds([]);
+    } catch (err) {
+      console.error('Gagal mengambil Magica keys:', err);
+    }
+  };
+
+  const handleAddMagicaKey = async (e) => {
+    e.preventDefault();
+    setError(''); setMessage('');
+    if (!newMagicaKeyVal.trim() || !newMagicaKeyLabel.trim()) { setError('Label & API Key Magica wajib diisi.'); return; }
+    try {
+      await api.post('/admin/magica/keys', { key_value: newMagicaKeyVal.trim(), label: newMagicaKeyLabel.trim() });
+      setMessage('Magica API Key ditambahkan.');
+      setNewMagicaKeyVal(''); setNewMagicaKeyLabel('');
+      fetchMagicaKeys();
+    } catch (err) { setError(err.response?.data?.message || 'Gagal menambah Magica API Key.'); }
+  };
+
+  const handleMagicaBulk = async (e) => {
+    e.preventDefault();
+    setError(''); setMessage('');
+    if (!magicaBulk.trim()) { setError('Data bulk kosong.'); return; }
+    try {
+      const res = await api.post('/admin/magica/keys/bulk', { bulk_data: magicaBulk });
+      setMessage(res.data.message || 'Bulk import Magica selesai.');
+      setMagicaBulk('');
+      fetchMagicaKeys();
+    } catch (err) { setError(err.response?.data?.message || 'Gagal bulk import Magica.'); }
+  };
+
+  const handleToggleMagicaKey = async (id, currentStatus) => {
+    setError(''); setMessage('');
+    try {
+      await api.put(`/admin/magica/keys/${id}/toggle`, { is_active: currentStatus === 1 ? 0 : 1 });
+      fetchMagicaKeys();
+    } catch (err) { setError('Gagal mengubah status Magica key.'); }
+  };
+
+  const handleDeleteMagicaKey = async (id) => {
+    if (!(await confirm({ title: 'Hapus Magica API Key ini?', message: 'Key akan dihapus dari kolam Magica.', confirmText: 'Hapus', danger: true }))) return;
+    setError(''); setMessage('');
+    try {
+      await api.delete(`/admin/magica/keys/${id}`);
+      setMessage('Magica API Key dihapus.');
+      setSelectedMagicaKeyIds((prev) => prev.filter((x) => x !== id));
+      fetchMagicaKeys();
+    } catch (err) { setError(err.response?.data?.message || 'Gagal menghapus Magica key.'); }
+  };
+
+  const handleDeleteSelectedMagica = async () => {
+    if (selectedMagicaKeyIds.length === 0) return;
+    if (!(await confirm({ title: 'Hapus Magica API Key terpilih?', message: `${selectedMagicaKeyIds.length} key akan dihapus.`, confirmText: `Hapus ${selectedMagicaKeyIds.length}`, danger: true }))) return;
+    try {
+      await api.post('/admin/magica/keys/bulk-delete', { ids: selectedMagicaKeyIds });
+      setMessage(`${selectedMagicaKeyIds.length} Magica API Key dihapus.`);
+      setSelectedMagicaKeyIds([]);
+      fetchMagicaKeys();
+    } catch (err) { setError(err.response?.data?.message || 'Gagal menghapus Magica key terpilih.'); }
+  };
+
+  const handleTestMagica = async () => {
+    setMagicaTestLoading(true); setMagicaTest(null); setError(''); setMessage('');
+    try {
+      const res = await api.post('/admin/magica/test', {});
+      setMagicaTest(res.data);
+      setMessage('Koneksi Magica OK.');
+    } catch (err) {
+      setMagicaTest(null);
+      setError(err.response?.data?.error || err.response?.data?.message || 'Koneksi Magica gagal.');
+    } finally { setMagicaTestLoading(false); }
+  };
+
+  const handleToggleUserMagica = async (u) => {
+    setError(''); setMessage('');
+    try {
+      await api.put(`/admin/users/${u.id}/magica-access`, { can_use_magica: u.can_use_magica ? 0 : 1 });
+      fetchUsers();
+    } catch (err) { setError(err.response?.data?.message || 'Gagal mengubah izin Magica user.'); }
+  };
+
+  const magicaSelectAll = () => {
+    setSelectedMagicaKeyIds(selectedMagicaKeyIds.length === magicaKeys.length ? [] : magicaKeys.map((k) => k.id));
+  };
+
   const loadData = async () => {
     setLoading(true);
-    await Promise.all([fetchUsers(), fetchKeys(), fetchAiSettings(), fetchGoogleSettings(), fetchFiles()]);
+    await Promise.all([fetchUsers(), fetchKeys(), fetchMagicaKeys(), fetchAiSettings(), fetchGoogleSettings(), fetchFiles()]);
     setLoading(false);
   };
 
@@ -463,6 +558,17 @@ export default function AdminPanel() {
           Kolam API Key ({keys.length})
         </button>
         <button
+          onClick={() => { setActiveTab('magica'); setError(''); setMessage(''); }}
+          className={`py-2.5 px-3.5 flex items-center font-bold text-[9px] uppercase tracking-wider border-b-2 transition-all shrink-0 relative ${
+            activeTab === 'magica'
+              ? 'border-[#cfae80] text-white'
+              : 'border-transparent text-slate-400 hover:text-white'
+          }`}
+        >
+          <Sparkles className="w-3.5 h-3.5 mr-1.5 text-[#a855f7]" />
+          API Magica ({magicaKeys.length})
+        </button>
+        <button
           onClick={() => { setActiveTab('ai-settings'); setError(''); setMessage(''); }}
           className={`py-2.5 px-3.5 flex items-center font-bold text-[9px] uppercase tracking-wider border-b-2 transition-all shrink-0 relative ${
             activeTab === 'ai-settings'
@@ -637,6 +743,13 @@ export default function AdminPanel() {
                       ⚡ {u.total_credits || 0}
                     </td>
                     <td className="py-2.5 px-3 text-right space-x-1.5 whitespace-nowrap">
+                      <button
+                        onClick={() => handleToggleUserMagica(u)}
+                        title="Izin memakai provider Magica"
+                        className={`py-1 px-2 rounded-md text-[9px] font-bold uppercase tracking-wider transition-all cursor-pointer border ${u.can_use_magica ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/25' : 'bg-black/40 text-slate-500 border-[#2a2725] hover:text-slate-300'}`}
+                      >
+                        Magica: {u.can_use_magica ? 'ON' : 'OFF'}
+                      </button>
                       <button
                         onClick={() => {
                           setEditUserId(u.id);
@@ -1185,6 +1298,82 @@ export default function AdminPanel() {
             <span>
               <strong>Penting:</strong> Restore mengganti seluruh isi database (transaksional — bila gagal, tidak ada yang berubah). File video lama tetap di server sumber; yang dipindah hanya link. Setelah restore, Anda mungkin perlu login ulang.
             </span>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'magica' && (
+        <div className="bg-[#1a1918]/60 border border-[#2a2725] rounded-2xl p-4 md:p-6 relative backdrop-blur-md">
+          <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#a855f7]/25 to-transparent"></div>
+
+          <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3 mb-4 border-b border-[#2a2725] pb-3">
+            <div>
+              <h3 className="text-[10px] font-bold text-white uppercase tracking-widest flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-[#a855f7]" /> Kolam API Key Magica
+              </h3>
+              <p className="text-slate-400 text-[10px] mt-1 leading-relaxed">Provider alternatif selain Freebeat. Tentukan user mana yang boleh memakainya di tab <strong className="text-slate-300">Manajemen User</strong> (tombol Magica ON/OFF).</p>
+            </div>
+            <div className="flex gap-1.5 items-center shrink-0">
+              {selectedMagicaKeyIds.length > 0 && (
+                <button onClick={handleDeleteSelectedMagica} className="bg-red-950/40 border border-red-500/40 hover:bg-red-600 text-white font-bold py-1.5 px-3 rounded-lg flex items-center gap-1 text-[9px] uppercase tracking-wider cursor-pointer">
+                  <Trash2 className="w-3.5 h-3.5" /> Hapus ({selectedMagicaKeyIds.length})
+                </button>
+              )}
+              <button onClick={handleTestMagica} disabled={magicaTestLoading} className="bg-[#a855f7]/10 border border-[#a855f7]/30 hover:bg-[#a855f7] hover:text-white text-[#c99bfb] font-bold py-1.5 px-3 rounded-lg flex items-center gap-1 text-[9px] uppercase tracking-wider cursor-pointer disabled:opacity-50">
+                {magicaTestLoading ? <Loader className="animate-spin w-3.5 h-3.5" /> : <Check className="w-3.5 h-3.5" />} Tes Koneksi
+              </button>
+            </div>
+          </div>
+
+          {magicaTest && (
+            <div className="bg-emerald-950/20 border border-emerald-500/25 text-emerald-200 p-3 rounded-xl text-[11px] mb-4">
+              ✅ Koneksi OK — Kredit: <strong>{magicaTest.credits?.formatted ?? magicaTest.credits?.availableBalance ?? '?'}</strong> · Model total: {magicaTest.totalModels} (image {magicaTest.imageModels}, video {magicaTest.videoModels}).
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+            <form onSubmit={handleAddMagicaKey} className="bg-[#131211]/50 border border-[#2a2725] rounded-xl p-3 space-y-2">
+              <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest">Tambah Key (gx_...)</label>
+              <input type="text" value={newMagicaKeyLabel} onChange={(e)=>setNewMagicaKeyLabel(e.target.value)} placeholder="Label (mis. Magica 1)" className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-3 py-2 text-white text-xs focus:outline-none focus:border-[#a855f7]" />
+              <input type="password" value={newMagicaKeyVal} onChange={(e)=>setNewMagicaKeyVal(e.target.value)} placeholder="gx_xxxxxxxx" className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-3 py-2 text-white text-xs font-mono focus:outline-none focus:border-[#a855f7]" />
+              <button type="submit" className="bg-[#a855f7] hover:bg-[#9333ea] text-white font-bold py-2 px-3 rounded-lg text-[9px] uppercase tracking-wider flex items-center gap-1 cursor-pointer"><Plus className="w-3.5 h-3.5" /> Tambah Key</button>
+            </form>
+            <form onSubmit={handleMagicaBulk} className="bg-[#131211]/50 border border-[#2a2725] rounded-xl p-3 space-y-2">
+              <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest">Bulk Import (1 baris/key, atau label,gx_key)</label>
+              <textarea value={magicaBulk} onChange={(e)=>setMagicaBulk(e.target.value)} rows={3} placeholder={"Magica 1,gx_aaa\nMagica 2,gx_bbb"} className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-3 py-2 text-white text-[11px] font-mono resize-none focus:outline-none focus:border-[#a855f7]" />
+              <button type="submit" className="bg-black/40 border border-[#2a2725] hover:bg-[#a855f7] hover:text-white text-slate-300 font-bold py-2 px-3 rounded-lg text-[9px] uppercase tracking-wider flex items-center gap-1 cursor-pointer"><Database className="w-3.5 h-3.5" /> Import</button>
+            </form>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-[#2a2725] text-slate-400 text-[8.5px] font-bold uppercase tracking-wider">
+                  <th className="py-2.5 px-3 w-10 text-center"><input type="checkbox" checked={magicaKeys.length>0 && selectedMagicaKeyIds.length===magicaKeys.length} onChange={magicaSelectAll} className="w-3.5 h-3.5 rounded border-[#2a2725] bg-black accent-[#a855f7] cursor-pointer" /></th>
+                  <th className="py-2.5 px-3">Label</th>
+                  <th className="py-2.5 px-3">Nilai Kunci</th>
+                  <th className="py-2.5 px-3">Status</th>
+                  <th className="py-2.5 px-3 text-right">Aksi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#222435] text-xs font-medium">
+                {magicaKeys.length === 0 ? (
+                  <tr><td colSpan="5" className="py-8 text-center text-slate-500 italic text-[10px] uppercase tracking-wider">Belum ada API Key Magica</td></tr>
+                ) : magicaKeys.map((k) => (
+                  <tr key={k.id} className={`hover:bg-white/[0.02] transition-colors ${selectedMagicaKeyIds.includes(k.id) ? 'bg-[#a855f7]/10' : ''}`}>
+                    <td className="py-2.5 px-3 text-center"><input type="checkbox" checked={selectedMagicaKeyIds.includes(k.id)} onChange={()=>setSelectedMagicaKeyIds((prev)=>prev.includes(k.id)?prev.filter((x)=>x!==k.id):[...prev,k.id])} className="w-3.5 h-3.5 rounded border-[#2a2725] bg-black accent-[#a855f7] cursor-pointer" /></td>
+                    <td className="py-2.5 px-3 font-editorial italic text-white text-sm">{k.label}{k.last_status ? <span className="block not-italic font-sans text-[9px] text-slate-500 font-normal mt-0.5">📋 {k.last_status}</span> : null}</td>
+                    <td className="py-2.5 px-3 font-mono text-slate-550 text-[11px]">{String(k.key_value||'').substring(0,10)}••••••••</td>
+                    <td className="py-2.5 px-3">
+                      <button onClick={()=>handleToggleMagicaKey(k.id, k.is_active)} className={`px-2 py-0.5 rounded text-[8px] font-bold tracking-wider uppercase border transition-all cursor-pointer ${k.is_active===1 ? 'bg-green-950/20 text-green-300 border-green-500/20 hover:bg-green-600 hover:text-white' : 'bg-slate-900/40 text-slate-500 border-slate-800 hover:bg-slate-700 hover:text-white'}`}>{k.is_active===1?'Aktif':'Nonaktif'}</button>
+                    </td>
+                    <td className="py-2.5 px-3 text-right">
+                      <button onClick={()=>handleDeleteMagicaKey(k.id)} className="bg-red-950/15 border border-red-500/20 hover:bg-red-650 hover:text-white text-red-400 py-1 px-2 rounded-md text-[9px] font-bold uppercase tracking-wider transition-all cursor-pointer">Hapus</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

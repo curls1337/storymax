@@ -48,14 +48,25 @@ async function generateStoryboard(req, res) {
   }
 
   const db = getDb();
+
+  // Provider routing: Magica users generate via the Magica key pool, so the Freebeat
+  // key requirement below does not apply to them.
+  const userRow = await db.get('SELECT preferred_provider AS pp, can_use_magica AS cum FROM users WHERE id = ?', [req.user.id]);
+  const useMagica = !!(userRow && userRow.pp === 'magica' && userRow.cum);
+
   let keyRecord = null;
-  if (apiKeyId && apiKeyId !== 'auto') {
+  if (useMagica) {
+    const mk = await db.get('SELECT id FROM magica_api_keys WHERE is_active = 1 ORDER BY id ASC LIMIT 1');
+    if (!mk) {
+      return res.status(400).json({ message: 'Provider Anda = Magica, tetapi belum ada API Key Magica yang aktif. Hubungi admin.' });
+    }
+  } else if (apiKeyId && apiKeyId !== 'auto') {
     keyRecord = await db.get('SELECT * FROM api_keys WHERE id = ? AND is_active = 1', [apiKeyId]);
     if (!keyRecord) {
       return res.status(400).json({ message: 'API Key terpilih tidak aktif atau tidak valid.' });
     }
-    
-    const isKeyBusy = Object.values(activeTasks).some(task => 
+
+    const isKeyBusy = Object.values(activeTasks).some(task =>
       task.status === 'processing' && parseInt(task.apiKeyId) === parseInt(keyRecord.id)
     );
     if (isKeyBusy) {
@@ -68,7 +79,7 @@ async function generateStoryboard(req, res) {
     }
   }
 
-  const parsedApiKeyId = keyRecord.id;
+  const parsedApiKeyId = keyRecord ? keyRecord.id : null;
   const selectedModel = model ? String(model) : '108';
   const totalDuration = duration ? Number(duration) : 15;
   const selectedEngine = videoEngine || 'seedance';
