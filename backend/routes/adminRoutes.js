@@ -3,7 +3,8 @@ const {
   getAllUsers, createUser, updateUser, deleteUser,
   getAllKeys, addKey, addKeysBulk, toggleKeyStatus, deleteKey, deleteKeysBulk,
   getAiSettings, updateAiSettings, testAiSettings,
-  getStorageFiles, deleteStorageFile
+  getStorageFiles, deleteStorageFile,
+  backupDatabase, restoreDatabase
 } = require('../controllers/adminController');
 const { authenticateToken, requireAdmin } = require('../middleware/authMiddleware');
 
@@ -41,5 +42,9 @@ router.put('/google-settings', saveGoogleSettings);
 // File Manager / Storage Management
 router.get('/files', getStorageFiles);
 router.delete('/files', deleteStorageFile);
+
+// Database Backup & Restore (server migration)
+router.get('/backup', backupDatabase);
+router.post('/restore', restoreDatabase);
 
 module.exports = router;

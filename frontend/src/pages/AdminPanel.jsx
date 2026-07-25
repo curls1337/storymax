@@ -15,6 +15,8 @@ export default function AdminPanel() {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [sortBy, setSortBy] = useState('date_desc');
   const [loading, setLoading] = useState(true);
+  const [backupLoading, setBackupLoading] = useState(false);
+  const [restoreLoading, setRestoreLoading] = useState(false);
 
   const getFullFileUrl = (filePath) => {
     if (!filePath) return '';
@@ -334,6 +336,72 @@ export default function AdminPanel() {
     }
   };
 
+  const handleBackupDatabase = async () => {
+    setBackupLoading(true);
+    setError('');
+    setMessage('');
+    try {
+      const res = await api.get('/admin/backup', { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/json' }));
+      const a = document.createElement('a');
+      a.href = url;
+      const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+      a.download = `storymax-db-backup-${stamp}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      setMessage('Backup database berhasil diunduh. Simpan file ini di tempat aman — berisi API key & hash password.');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Gagal membuat backup database.');
+    } finally {
+      setBackupLoading(false);
+    }
+  };
+
+  const handleRestoreDatabase = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = ''; // allow re-picking the same file later
+    if (!file) return;
+    setError('');
+    setMessage('');
+
+    let backup;
+    try {
+      backup = JSON.parse(await file.text());
+    } catch (err) {
+      setError('File tidak bisa dibaca sebagai JSON. Pastikan ini file backup StoryMax (.json).');
+      return;
+    }
+    if (!backup || backup.type !== 'db-backup' || !backup.tables) {
+      setError('Ini bukan file backup StoryMax yang valid.');
+      return;
+    }
+
+    const counts = backup.counts || {};
+    const summary = Object.entries(counts).map(([k, v]) => `${k}: ${v}`).join(', ') || '(tidak diketahui)';
+    const ok = await confirm({
+      title: 'Restore & TIMPA seluruh database?',
+      message: `Semua data saat ini akan DIHAPUS dan diganti dengan isi backup:\n${summary}\n\nTindakan ini tidak bisa dibatalkan. Sangat disarankan unduh backup dulu. Setelah selesai Anda mungkin perlu login ulang.`,
+      confirmText: 'Ya, Restore Sekarang',
+      cancelText: 'Batal',
+      danger: true,
+    });
+    if (!ok) return;
+
+    setRestoreLoading(true);
+    try {
+      const res = await api.post('/admin/restore', backup);
+      const r = res.data.restored || {};
+      setMessage('Restore berhasil (' + Object.entries(r).map(([k, v]) => `${k} ${v}`).join(', ') + '). Muat ulang halaman / login kembali bila perlu.');
+      loadData();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Gagal me-restore database.');
+    } finally {
+      setRestoreLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex-grow flex flex-col items-center justify-center py-24">
@@ -426,6 +494,17 @@ export default function AdminPanel() {
         >
           <FolderOpen className="w-3.5 h-3.5 mr-1.5 text-[#10b981]" />
           File Manager ({files.length})
+        </button>
+        <button
+          onClick={() => { setActiveTab('backup'); setError(''); setMessage(''); }}
+          className={`py-2.5 px-3.5 flex items-center font-bold text-[9px] uppercase tracking-wider border-b-2 transition-all shrink-0 relative ${
+            activeTab === 'backup'
+              ? 'border-[#cfae80] text-white'
+              : 'border-transparent text-slate-400 hover:text-white'
+          }`}
+        >
+          <DownloadCloud className="w-3.5 h-3.5 mr-1.5 text-[#cfae80]" />
+          Backup & Restore
         </button>
       </div>
 
@@ -1045,6 +1124,67 @@ export default function AdminPanel() {
                 </>
               );
             })()}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'backup' && (
+        <div className="bg-[#1a1918]/60 border border-[#2a2725] rounded-2xl p-4 md:p-6 relative backdrop-blur-md">
+          <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#cfae80]/25 to-transparent"></div>
+
+          <div className="mb-4 border-b border-[#2a2725] pb-3">
+            <h3 className="text-[10px] font-bold text-white uppercase tracking-widest flex items-center gap-1.5">
+              <DownloadCloud className="w-4 h-4 text-[#cfae80]" />
+              Backup & Restore Database
+            </h3>
+            <p className="text-slate-400 text-xs mt-1.5 leading-relaxed">
+              Cadangkan seluruh data (user, kolam API Key Freebeat, pengaturan AI/LLM, kredensial Google, dan semua storyboard beserta LINK video) ke satu file — cocok untuk pindah server. <strong className="text-slate-300">File video TIDAK ikut</strong> (hanya link), jadi ukurannya kecil.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Backup card */}
+            <div className="bg-[#131211]/50 border border-[#2a2725] rounded-xl p-4 flex flex-col">
+              <h4 className="text-[9px] font-bold text-[#cfae80] uppercase tracking-widest mb-1.5">1. Unduh Backup</h4>
+              <p className="text-[11px] text-slate-400 leading-relaxed flex-grow">
+                Ekspor database ke file <span className="font-mono text-slate-300">.json</span>. Simpan di tempat aman — berisi API key &amp; hash password.
+              </p>
+              <button
+                type="button"
+                onClick={handleBackupDatabase}
+                disabled={backupLoading || restoreLoading}
+                className="mt-3 bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-2.5 px-4 rounded-xl transition-all text-[9.5px] uppercase tracking-wider flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer shadow-lg"
+              >
+                {backupLoading ? <Loader className="animate-spin w-3.5 h-3.5" /> : <DownloadCloud className="w-3.5 h-3.5" />}
+                {backupLoading ? 'Menyiapkan...' : 'Unduh Backup (.json)'}
+              </button>
+            </div>
+
+            {/* Restore card */}
+            <div className="bg-[#131211]/50 border border-red-500/25 rounded-xl p-4 flex flex-col">
+              <h4 className="text-[9px] font-bold text-red-400 uppercase tracking-widest mb-1.5">2. Restore (Timpa)</h4>
+              <p className="text-[11px] text-slate-400 leading-relaxed flex-grow">
+                Pulihkan dari file backup. <strong className="text-red-300">Semua data saat ini akan diganti.</strong> Unduh backup dulu sebelum melakukan ini.
+              </p>
+              <label className={`mt-3 ${restoreLoading || backupLoading ? 'opacity-50 pointer-events-none' : 'cursor-pointer'} bg-red-500/10 hover:bg-red-500 hover:text-white text-red-300 border border-red-500/30 font-bold py-2.5 px-4 rounded-xl transition-all text-[9.5px] uppercase tracking-wider flex items-center justify-center gap-1.5`}>
+                {restoreLoading ? <Loader className="animate-spin w-3.5 h-3.5" /> : <Database className="w-3.5 h-3.5" />}
+                {restoreLoading ? 'Memulihkan...' : 'Pilih File Backup & Restore'}
+                <input
+                  type="file"
+                  accept="application/json,.json"
+                  onChange={handleRestoreDatabase}
+                  disabled={restoreLoading || backupLoading}
+                  className="hidden"
+                />
+              </label>
+            </div>
+          </div>
+
+          <div className="mt-4 bg-amber-950/15 border border-amber-500/25 rounded-xl p-3 text-[10.5px] text-amber-200/90 leading-relaxed flex items-start gap-2">
+            <ShieldAlert className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
+            <span>
+              <strong>Penting:</strong> Restore mengganti seluruh isi database (transaksional — bila gagal, tidak ada yang berubah). File video lama tetap di server sumber; yang dipindah hanya link. Setelah restore, Anda mungkin perlu login ulang.
+            </span>
           </div>
         </div>
       )}
