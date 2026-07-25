@@ -30,6 +30,24 @@ const TRANSFORM_FRAMING_STYLES = new Set([
   'product_assembly', 'liquid_splash',
 ]);
 
+// A few styles' `camera` grammar describes a LAYOUT (comic panels, infographic
+// icons/arrows/callouts, split-screen). Written for the storyboard SHEET, those words
+// leak into the video prompt and make the model animate the sheet/grid instead of a
+// real scene. Neutralize the layout wording for the VIDEO path only — the storyboard
+// image itself still uses the original camera grammar from styleLibrary.
+function sanitizeCameraForVideo(cam) {
+  return String(cam || '')
+    .replace(/dynamic comic panels with action lines/gi, 'dynamic single-scene shots with action energy')
+    .replace(/flat clean graphic composition with icons,? arrows and callouts/gi, 'clean animated explainer shots — one clear subject/action per shot, with minimal icon/arrow accents')
+    .replace(/split or side[- ]by[- ]side comparison/gi, 'a clean single-frame before-then-after transition')
+    .replace(/side[- ]by[- ]side comparison/gi, 'a clean single-frame comparison')
+    .replace(/split[- ]?screen/gi, 'single full-frame framing')
+    .replace(/\bcomic panels?\b/gi, 'single-scene shots')
+    .replace(/\bgraphic composition\b/gi, 'clean scene composition')
+    .replace(/\bgrid\b/gi, 'scene')
+    .replace(/\bpanels?\b/gi, 'shots');
+}
+
 
 function httpRequest(url, headers, body) {
   return new Promise((resolve, reject) => {
@@ -557,7 +575,7 @@ SUBJECT CONSISTENCY (CRITICAL): every page/scene depicts the SAME product/subjec
   // Idea 1: anchor the video to the CHOSEN layout style (ALL styles, not just transforms),
   // so the result doesn't drift away from the storyboard's look.
   const styleSpec = getStyleSpec(storyboard.style);
-  const styleClause = `MATCH THE CHOSEN LAYOUT STYLE: "${styleSpec.name}"${styleSpec.desc ? ` — ${styleSpec.desc}` : ''}. Base camera grammar for this style: ${styleSpec.camera}. Base lighting: ${styleSpec.lighting}. Keep the video's camera language, motion, pacing and mood consistent with THIS style AND with each storyboard panel — never drift into a different look.`;
+  const styleClause = `MATCH THE CHOSEN LAYOUT STYLE: "${styleSpec.name}"${styleSpec.desc ? ` — ${styleSpec.desc}` : ''}. Base camera grammar for this style: ${sanitizeCameraForVideo(styleSpec.camera)}. Base lighting: ${styleSpec.lighting}. Keep the video's camera language, motion, pacing and mood consistent with THIS style AND with each storyboard panel — never drift into a different look.`;
 
   // Idea 2: camera discipline — consistent framing, no erratic/extreme moves.
   const cameraDisciplineClause = `CAMERA DISCIPLINE: keep a sensible, CONSISTENT shot scale that matches each panel's framing; use gentle, controlled moves (slow push-in, pan, tilt or orbit). Do NOT cut to extreme close-ups, do NOT use big or abrupt zooms, and avoid disorienting or jittery motion — UNLESS a panel's printed 'CAM:' tag explicitly calls for it. Keep the main subject/product fully in frame with a little margin and clearly visible throughout — never let it touch or spill past the edges. If the subject changes size or moves, frame for its LARGEST state so it is never cropped.`;
@@ -570,6 +588,12 @@ SUBJECT CONSISTENCY (CRITICAL): every page/scene depicts the SAME product/subjec
     ? `FRAMING — DO NOT CROP THE TRANSFORMATION (critical for this style): the subject changes scale on screen (a small object unfolds/expands into the full subject, parts converge, or a splash bursts). Frame for the LARGEST/FINAL state, NOT the small starting object: begin on a MEDIUM-WIDE to WIDE shot and keep the camera pulled back with clear empty margin/headroom on ALL sides, so the ENTIRE object and its complete expansion stay fully inside the frame at every moment and are NEVER cut off by the edges. Do NOT push in, zoom in, or sit tight during the change; if anything, ease slightly WIDER as it grows. Only move closer for the final hero beat once the subject is complete and fully visible.`
     : '';
 
+  // Universal: the page image is a storyboard PLANNING sheet — never let the video
+  // animate the sheet/grid itself (this is what turned the education/infographic
+  // storyboard into a video of moving panels). Always render the real scene INSIDE the
+  // panel as one full-frame continuous shot.
+  const noStoryboardChromeClause = `NEVER RENDER THE STORYBOARD SHEET ITSELF: each page image is a storyboard PLANNING layout — a printed poster with a grid of numbered panels, a header/title banner, badges and duration chips. Your prompts must describe ONLY the real scene happening INSIDE the relevant panel, rendered as ONE single, full-frame, continuous live shot. NEVER show, pan across, scroll or animate the sheet or its layout: no grid, no split panels/boxes/cards, no rows or columns, no panel numbers or 'Scene N' labels, no header/badge/duration chips, no on-screen captions or UI text, and NEVER write 'a 3x2 (or NxN) grid of panels', 'top-left to bottom-right' sweeps, or 'panels sliding into focus'. If a panel packs several small sub-illustrations, choose the single main action and render it full-frame.`;
+
   let systemInstruction = '';
   if (enableVo) {
     systemInstruction = `You are an expert AI Video Director and master video prompting engineer specializing in high-fidelity commercial video generation.
@@ -578,6 +602,7 @@ ${capsuleStyleClause}
 ${styleClause}
 ${cameraDisciplineClause}
 ${framingClause}
+${noStoryboardChromeClause}
 ${followBoardClause}
 
 You are provided with ${panelImages.length} page images of a storyboard. Each page image contains ${gridDescText}. This means there are exactly ${totalScenes} pages (scenes) in total.
@@ -639,6 +664,7 @@ ${capsuleStyleClause}
 ${styleClause}
 ${cameraDisciplineClause}
 ${framingClause}
+${noStoryboardChromeClause}
 ${followBoardClause}
 
 You are provided with ${panelImages.length} page images of a storyboard. Each page image contains ${gridDescText}. This means there are exactly ${totalScenes} pages (scenes) in total.
