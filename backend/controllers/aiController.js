@@ -496,11 +496,12 @@ async function generateVideoPromptsInternal({ storyboardId, promptType, regenera
   if (resolvedStyle === 'cube_box_transform') {
     // Cube transformation reveal (photorealistic viral cube -> subject).
     capsuleStyleClause = `
-CRITICAL CUBE TRANSFORMATION VIDEO RULES (photorealistic viral cube-reveal — NOT a glowing humanoid Transformer robot):
-1. PHOTOREALISTIC and cinematic. A small hyper-detailed mechanical cube (armored panels, fine seams, subtle glowing accents or the product's brand emblem) rests statically on a fitting real surface/table. Smooth motion move as the cube expands, shallow depth of field. NOT a CGI cartoon.
-2. The cube's panels UNFOLD, slide and telescope outward SMOOTHLY and satisfyingly (like a premium precision transforming toy) — mechanically CONNECTED, no loose or detached parts — and build/reshape into the subject at its natural scale — the product itself, a scaled collectible of it, or a full-scale structure/scene for a place/vehicle/building. NO hands visible in frame. NO exploding/flying/detached parts, NO energy beams, NO glow-energy magic, and it does NOT become a humanoid robot/mecha/Transformer.
-3. Keep the subject's EXACT identity, branding and colors. NO human hands in frame (automatic mechanical unfolding). End on the finished photorealistic result in a cinematic hero shot.
-I2V FIELD NOTE: in the "imageToVideoPrompt" field, convey all of this ONLY as camera + the unfolding MOTION (framed WIDE so the fully-formed subject is never cropped) — do NOT write "build/create the product" or re-describe the product there; the full build/identity description belongs to the "textToVideoPrompt" field.`;
+CRITICAL CUBE TRANSFORMATION VIDEO RULES (photorealistic viral toy-cube reveal — NOT a glowing humanoid Transformer robot):
+1. CAMERA: shoot from a FARTHER, WIDE distance on ONE stable, locked-off (or very slow) camera — do NOT cut, jump, snap or suddenly reposition the camera; keep the entire action comfortably inside the frame the whole time. Photorealistic and cinematic, shallow DOF, NOT a CGI cartoon.
+2. OPENING — the ONLY moment a hand appears: a single human hand enters just to PRESS a button on top of the small premium mechanical cube (showing it is a transforming toy), then gently TOSSES / flips the cube (into the air or onto the surface). The hand then LEAVES the frame completely.
+3. TRANSFORM (hands-free): after the toss, the cube automatically UNFOLDS — armored panels slide, hinge and telescope outward SMOOTHLY and satisfyingly, mechanically CONNECTED (no loose or detached parts) — and reshapes into the subject at its natural scale (the product itself, a scaled collectible, or a full-scale structure/scene). NO hands during this stage. NO exploding/flying/detached parts, NO energy beams, NO glow-energy magic; it does NOT become a humanoid robot/mecha/Transformer.
+4. Keep the subject's EXACT identity, branding and colors. End on the finished photorealistic result in a calm, WIDE cinematic hero shot.
+I2V FIELD NOTE: in the "imageToVideoPrompt" field, convey this ONLY as the stable WIDE camera + the action MOTION (a hand presses the button, tosses the cube, then it auto-unfolds hands-free) — do NOT re-describe or "build" the product in words; the full identity/build description belongs to the "textToVideoPrompt" field.`;
   }
 
   if (resolvedStyle === 'asmr_toy_transform') {
@@ -508,9 +509,9 @@ I2V FIELD NOTE: in the "imageToVideoPrompt" field, convey all of this ONLY as ca
     capsuleStyleClause = `
 CRITICAL ASMR TOY TRANSFORM VIDEO RULES (LOCKED camera, tabletop, ASMR — no camera effects):
 1. The CAMERA IS COMPLETELY LOCKED/STATIC on a tripod over a real worn white table, framed at a COMFORTABLE, slightly WIDE top-down distance with clear empty margin around the toy — wide enough that the FULLY-UNFOLDED finished die-cast toy stays entirely in frame and is NEVER cropped. ABSOLUTELY NO camera movement — no pan, tilt, zoom, orbit, dolly, push-in or shake (do NOT move to keep up with the toy; the starting framing must already fit the final result). ONLY the toy moves. Ignore any 'CAM:' tag that implies movement; keep the shot perfectly still.
-2. A small armored cube rests statically on the table and SMOOTHLY, mechanically UNFOLDS by itself — panels slide, hinge and telescope out step by step — into a highly detailed miniature die-cast collectible of the product on the SAME table. Photorealistic; mechanically connected; NO human hands visible in frame; NO flying/detaching parts; NO glow/energy; NOT a humanoid robot/mecha.
+2. A small armored cube rests statically on the table and SMOOTHLY, mechanically UNFOLDS by itself — panels slide, hinge and telescope out step by step — into a HIGH-END, PREMIUM, EXPENSIVE-LOOKING miniature die-cast collectible of the product on the SAME table (heavy metal die-cast feel, flawless factory paint, crisp realistic detailing, glossy premium finish — NOT a cheap hollow plastic toy). Photorealistic; mechanically connected; NO human hands visible in frame; NO flying/detaching parts; NO glow/energy; NOT a humanoid robot/mecha.
 3. AUDIO = satisfying ASMR mechanical transformation sounds ONLY (soft clicks, servo whirs, panels locking into place). No music-over.
-4. Keep the exact same worn white table and the product's exact identity throughout; end on the finished mini die-cast toy resting still on the table.
+4. Keep the exact same worn white table and the product's exact identity throughout; end on the finished PREMIUM, expensive-looking die-cast collectible resting still on the table.
 I2V FIELD NOTE: in the "imageToVideoPrompt" field, express this ONLY as the locked WIDE framing + the unfolding MOTION and sounds — do NOT re-describe or "build" the product there; the full identity/build description belongs to the "textToVideoPrompt" field.`;
   }
 
@@ -524,8 +525,9 @@ I2V FIELD NOTE: in the "imageToVideoPrompt" field, express this ONLY as the lock
 CRITICAL ADAPTIVE SHAPE TRANSFORMATION VIDEO RULES (photorealistic single container reveal — NOT a glowing humanoid Transformer robot):
 1. PHOTOREALISTIC and cinematic. The scene MUST start from a SINGLE precision high-tech mechanical pod (${shapeDesc}) resting statically on a fitting surface. Smooth motion move as the container expands, shallow depth of field.
 2. STRICT SINGLE SHAPE RULE: DO NOT change or cycle through other container shapes (NO spheres, NO cubes, NO cylinders if the container is a box). The SAME single ${shapeDesc} unfolds mechanically into the target subject.
-3. The container's panels UNFOLD, slide and telescope outward SMOOTHLY and satisfyingly — mechanically CONNECTED, no loose or detached parts — and build/reshape into the target subject at its natural scale. NO hands visible in frame. NO exploding/flying/detached parts, NO energy beams, NO glow-energy magic.
-4. Keep the subject's EXACT identity, branding and colors. NO human hands in frame (automatic mechanical unfolding). End on the finished photorealistic result in a cinematic hero shot.
+3. STRICT CONSISTENT MECHANICAL LOOK: keep the SAME high-tech, precision-engineered METAL / mechanical material, finish and realism from the FIRST frame to the LAST. It must NEVER drift into a cartoon, plastic, glossy or childish kids-toy look partway through — start mechanical, STAY mechanical all the way to the finished subject.
+4. The container's panels UNFOLD, slide and telescope outward SMOOTHLY and satisfyingly — mechanically CONNECTED, no loose or detached parts — and build/reshape into the target subject at its natural scale. NO hands visible in frame. NO exploding/flying/detached parts, NO energy beams, NO glow-energy magic.
+5. Keep the subject's EXACT identity, branding and colors. NO human hands in frame (automatic mechanical unfolding). End on the finished photorealistic result in a cinematic hero shot.
 I2V FIELD NOTE: in the "imageToVideoPrompt" field, convey all of this ONLY as camera + the unfolding MOTION (framed WIDE so the fully-formed subject is never cropped) — do NOT write "build/create the product" or re-describe the product there; the full build/identity description belongs to the "textToVideoPrompt" field.`;
   }
 
