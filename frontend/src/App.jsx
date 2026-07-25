@@ -60,62 +60,81 @@ export default function App() {
     if (mainRef.current) mainRef.current.scrollTop = 0;
   }, [tab]);
 
+  // Pull-to-refresh — deliberately gated so it ONLY fires when the user intentionally
+  // drags DOWN from the very top. It must never hijack normal scrolling: if the gesture
+  // does not start at the very top, or the first real movement is upward (i.e. the user
+  // is scrolling), pull mode is disabled for that whole gesture. A dead-zone, a high
+  // release threshold, and a "still at the top on release" re-check prevent accidental
+  // refreshes while scrolling.
   const [pullDistance, setPullDistance] = useState(0);
-  const touchStartRef = useRef({ x: 0, y: 0 });
-  const isPullingRef = useRef(false);
+  const pullDistanceRef = useRef(0);
+  const gestureRef = useRef({ startY: 0, startX: 0, active: false, pulling: false });
 
   useEffect(() => {
     const mainEl = mainRef.current;
     if (!mainEl) return;
 
+    const ACTIVATE = 14;   // dead-zone: ignore the first 14px before a drag counts as a pull
+    const MAX = 100;       // indicator travel cap
+    const THRESHOLD = 80;  // must pull at least this far (past the dead-zone) to refresh
+
+    const setPull = (d) => { pullDistanceRef.current = d; setPullDistance(d); };
+
     const handleTouchStart = (e) => {
-      if (mainEl.scrollTop === 0) {
-        touchStartRef.current = {
-          x: e.touches[0].screenX,
-          y: e.touches[0].screenY
-        };
-        isPullingRef.current = true;
-      }
+      const t = e.touches[0];
+      gestureRef.current = {
+        startY: t.screenY,
+        startX: t.screenX,
+        active: mainEl.scrollTop <= 0, // eligible ONLY when the touch starts at the very top
+        pulling: false,
+      };
     };
 
     const handleTouchMove = (e) => {
-      if (!isPullingRef.current) return;
-      const currentY = e.touches[0].screenY;
-      const currentX = e.touches[0].screenX;
-      const distY = currentY - touchStartRef.current.y;
-      const distX = currentX - touchStartRef.current.x;
+      const g = gestureRef.current;
+      if (!g.active) return;
+      const t = e.touches[0];
+      const distY = t.screenY - g.startY;
+      const distX = t.screenX - g.startX;
 
-      if (distY > 0 && distY > Math.abs(distX)) {
-        setPullDistance(Math.min(90, distY));
-        if (e.cancelable) {
-          e.preventDefault();
-        }
-      } else if (distY < 0) {
-        isPullingRef.current = false;
-        setPullDistance(0);
+      if (!g.pulling) {
+        // First meaningful move decides: any upward move => the user is scrolling, so
+        // abandon pull for the ENTIRE gesture (scrolling can never become a refresh).
+        if (distY <= 0) { g.active = false; if (pullDistanceRef.current) setPull(0); return; }
+        // Require a clearly vertical, deliberate downward drag past the dead-zone, and
+        // that we are still pinned exactly at the top, before committing to a pull.
+        if (distY < ACTIVATE || distY <= Math.abs(distX) * 1.2) return;
+        if (mainEl.scrollTop > 0) { g.active = false; return; }
+        g.pulling = true;
       }
+
+      setPull(Math.min(MAX, distY - ACTIVATE));
+      if (e.cancelable) e.preventDefault();
     };
 
     const handleTouchEnd = () => {
-      if (!isPullingRef.current) return;
-      isPullingRef.current = false;
-      if (pullDistance > 65) {
+      const g = gestureRef.current;
+      const shouldReload = g.pulling && pullDistanceRef.current >= THRESHOLD && mainEl.scrollTop <= 0;
+      gestureRef.current = { startY: 0, startX: 0, active: false, pulling: false };
+      if (shouldReload) {
         window.location.reload();
-      } else {
-        setPullDistance(0);
+      } else if (pullDistanceRef.current) {
+        setPull(0);
       }
     };
 
     mainEl.addEventListener('touchstart', handleTouchStart, { passive: true });
     mainEl.addEventListener('touchmove', handleTouchMove, { passive: false });
     mainEl.addEventListener('touchend', handleTouchEnd);
+    mainEl.addEventListener('touchcancel', handleTouchEnd);
 
     return () => {
       mainEl.removeEventListener('touchstart', handleTouchStart);
       mainEl.removeEventListener('touchmove', handleTouchMove);
       mainEl.removeEventListener('touchend', handleTouchEnd);
+      mainEl.removeEventListener('touchcancel', handleTouchEnd);
     };
-  }, [pullDistance, loading]);
+  }, [user, loading]);
 
   // Keyboard-aware focus: when an input/textarea/select gains focus (the mobile
   // keyboard opens), gently scroll it into view so it is never hidden behind the
@@ -277,7 +296,7 @@ export default function App() {
             style={{ transform: `translateY(${pullDistance - 55}px)`, opacity: Math.min(1, pullDistance / 60) }}
             className="absolute top-4 left-1/2 -translate-x-1/2 bg-[#1a1918]/90 border border-[#cfae80]/30 p-2.5 rounded-full z-50 transition-transform duration-75 flex items-center justify-center shadow-2xl backdrop-blur-md"
           >
-            <Loader className={`w-4 h-4 text-[#cfae80] ${pullDistance > 65 ? 'animate-spin' : ''}`} />
+            <Loader className={`w-4 h-4 text-[#cfae80] ${pullDistance >= 80 ? 'animate-spin' : ''}`} />
           </div>
         )}
         <div className="w-full min-h-full flex flex-col justify-start px-4 sm:px-6 md:px-8 py-6 md:py-8">
