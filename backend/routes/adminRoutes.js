@@ -4,7 +4,9 @@ const {
   getAllKeys, addKey, addKeysBulk, toggleKeyStatus, deleteKey, deleteKeysBulk,
   getAiSettings, updateAiSettings, testAiSettings,
   getStorageFiles, deleteStorageFile,
-  backupDatabase, restoreDatabase
+  backupDatabase, restoreDatabase,
+  getMagicaKeys, addMagicaKey, addMagicaKeysBulk, toggleMagicaKey, deleteMagicaKey, deleteMagicaKeysBulk,
+  testMagicaConnection, setUserMagicaAccess
 } = require('../controllers/adminController');
 const { authenticateToken, requireAdmin } = require('../middleware/authMiddleware');
 
@@ -46,5 +48,15 @@ router.delete('/files', deleteStorageFile);
 // Database Backup & Restore (server migration)
 router.get('/backup', backupDatabase);
 router.post('/restore', restoreDatabase);
+
+// Magica (multi-provider) API key pool + per-user access
+router.get('/magica/keys', getMagicaKeys);
+router.post('/magica/keys', addMagicaKey);
+router.post('/magica/keys/bulk', addMagicaKeysBulk);
+router.post('/magica/keys/bulk-delete', deleteMagicaKeysBulk);
+router.put('/magica/keys/:id/toggle', toggleMagicaKey);
+router.delete('/magica/keys/:id', deleteMagicaKey);
+router.post('/magica/test', testMagicaConnection);
+router.put('/users/:id/magica-access', setUserMagicaAccess);
 
 module.exports = router;

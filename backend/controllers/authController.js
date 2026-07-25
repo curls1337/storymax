@@ -74,7 +74,7 @@ async function login(req, res) {
 async function getMe(req, res) {
   try {
     const db = getDb();
-    const user = await db.get('SELECT id, username, role FROM users WHERE id = ?', [req.user.id]);
+    const user = await db.get('SELECT id, username, role, can_use_magica, preferred_provider FROM users WHERE id = ?', [req.user.id]);
     if (!user) {
       return res.status(404).json({ message: 'User not found.' });
     }
@@ -109,9 +109,31 @@ async function changePassword(req, res) {
   }
 }
 
+// User chooses their video/image provider (freebeat|magica). 'magica' is only
+// allowed when the admin has granted can_use_magica.
+async function setPreferredProvider(req, res) {
+  const { provider } = req.body;
+  if (!['freebeat', 'magica'].includes(provider)) {
+    return res.status(400).json({ message: 'Provider tidak valid.' });
+  }
+  try {
+    const db = getDb();
+    const user = await db.get('SELECT id, can_use_magica FROM users WHERE id = ?', [req.user.id]);
+    if (!user) return res.status(404).json({ message: 'User not found.' });
+    if (provider === 'magica' && !user.can_use_magica) {
+      return res.status(403).json({ message: 'Anda belum diberi izin memakai Magica oleh admin.' });
+    }
+    await db.run('UPDATE users SET preferred_provider = ? WHERE id = ?', [provider, req.user.id]);
+    res.json({ message: 'Provider diperbarui.', preferred_provider: provider });
+  } catch (error) {
+    res.status(500).json({ message: 'Error update provider.', error: error.message });
+  }
+}
+
 module.exports = {
   register,
   login,
   getMe,
-  changePassword
+  changePassword,
+  setPreferredProvider
 };

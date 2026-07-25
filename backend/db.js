@@ -39,6 +39,19 @@ async function initDb() {
     )
   `);
 
+  // Create Magica API Keys Table — SEPARATE pool from Freebeat so none of the
+  // existing Freebeat key queries change (zero risk to the working Freebeat flow).
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS magica_api_keys (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      key_value TEXT UNIQUE NOT NULL,
+      label TEXT NOT NULL,
+      is_active INTEGER DEFAULT 1,
+      last_status TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   // Create Storyboards Table
   await db.exec(`
     CREATE TABLE IF NOT EXISTS storyboards (
@@ -100,6 +113,20 @@ async function initDb() {
   // Ensure last_status column exists on api_keys (item 2: show last status/log per key)
   try {
     await db.exec('ALTER TABLE api_keys ADD COLUMN last_status TEXT');
+  } catch (e) {
+    // Column already exists, safe to ignore
+  }
+
+  // Multi-provider support: per-user permission to use Magica + the user's chosen
+  // provider (freebeat|magica). Admin toggles can_use_magica; the user picks
+  // preferred_provider in Settings (only 'magica' when allowed).
+  try {
+    await db.exec("ALTER TABLE users ADD COLUMN can_use_magica INTEGER DEFAULT 0");
+  } catch (e) {
+    // Column already exists, safe to ignore
+  }
+  try {
+    await db.exec("ALTER TABLE users ADD COLUMN preferred_provider TEXT DEFAULT 'freebeat'");
   } catch (e) {
     // Column already exists, safe to ignore
   }

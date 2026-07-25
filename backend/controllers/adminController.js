@@ -13,9 +13,9 @@ async function getAllUsers(req, res) {
   try {
     const db = getDb();
     const users = await db.all(`
-      SELECT u.id, u.username, u.role, COALESCE(SUM(s.used_credits), 0) AS total_credits 
-      FROM users u 
-      LEFT JOIN storyboards s ON u.id = s.user_id 
+      SELECT u.id, u.username, u.role, u.can_use_magica, u.preferred_provider, COALESCE(SUM(s.used_credits), 0) AS total_credits
+      FROM users u
+      LEFT JOIN storyboards s ON u.id = s.user_id
       GROUP BY u.id
     `);
     res.json(users);
@@ -481,6 +481,7 @@ async function deleteStorageFile(req, res) {
 const BACKUP_TABLES = [
   'users',            // accounts (bcrypt password hashes) — needed to migrate logins
   'api_keys',         // Freebeat API key pool
+  'magica_api_keys',  // Magica API key pool
   'ai_settings',      // LLM / AI provider settings
   'google_settings',  // Google Drive & Sheets credentials
   'storyboards',      // storyboards + image/video links + marketing copy
@@ -572,6 +573,132 @@ async function restoreDatabase(req, res) {
   }
 }
 
+// --- Magica (multi-provider) key pool + per-user access ---
+const magica = require('../services/magicaClient');
+
+async function getMagicaKeys(req, res) {
+  try {
+    const db = getDb();
+    const keys = await db.all('SELECT id, key_value, label, is_active, last_status, created_at FROM magica_api_keys ORDER BY id DESC');
+    res.json(keys);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching Magica keys.', error: error.message });
+  }
+}
+
+async function addMagicaKey(req, res) {
+  const { key_value, label } = req.body;
+  if (!key_value || !label) return res.status(400).json({ message: 'Magica API Key dan label wajib diisi.' });
+  try {
+    const db = getDb();
+    await db.run('INSERT INTO magica_api_keys (key_value, label, is_active) VALUES (?, ?, 1)', [String(key_value).trim(), label]);
+    res.status(201).json({ message: 'Magica API Key ditambahkan.' });
+  } catch (error) {
+    res.status(500).json({ message: 'Gagal menambah Magica API Key (mungkin duplikat).', error: error.message });
+  }
+}
+
+async function addMagicaKeysBulk(req, res) {
+  const { bulk_data } = req.body;
+  if (!bulk_data) return res.status(400).json({ message: 'Data bulk kosong.' });
+  const lines = String(bulk_data).split('\n');
+  const db = getDb();
+  let added = 0, failed = 0;
+  try {
+    await db.run('BEGIN TRANSACTION');
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+      let keyVal = line;
+      let labelVal = `Magica Key ${Date.now()}-${i}`;
+      if (line.includes(',')) {
+        const parts = line.split(',').map((x) => x.trim()).filter(Boolean);
+        const keyPart = parts.find((x) => /^gx_/i.test(x)) || parts.filter((x) => !x.includes('@')).sort((a, b) => b.length - a.length)[0] || parts[0];
+        keyVal = keyPart;
+        labelVal = parts.find((x) => x !== keyPart) || labelVal;
+      }
+      try { await db.run('INSERT INTO magica_api_keys (key_value, label, is_active) VALUES (?, ?, 1)', [keyVal, labelVal]); added++; }
+      catch (e) { failed++; }
+    }
+    await db.run('COMMIT');
+    res.json({ message: `Bulk import selesai. Ditambah: ${added}, Gagal/Duplikat: ${failed}` });
+  } catch (error) {
+    await db.run('ROLLBACK');
+    res.status(500).json({ message: 'Error bulk import Magica.', error: error.message });
+  }
+}
+
+async function toggleMagicaKey(req, res) {
+  const { id } = req.params;
+  const { is_active } = req.body;
+  try {
+    const db = getDb();
+    await db.run('UPDATE magica_api_keys SET is_active = ? WHERE id = ?', [is_active, id]);
+    res.json({ message: 'Status Magica API Key diperbarui.' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error update status Magica key.', error: error.message });
+  }
+}
+
+async function deleteMagicaKey(req, res) {
+  const { id } = req.params;
+  try {
+    const db = getDb();
+    await db.run('DELETE FROM magica_api_keys WHERE id = ?', [id]);
+    res.json({ message: 'Magica API Key dihapus.' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error menghapus Magica key.', error: error.message });
+  }
+}
+
+async function deleteMagicaKeysBulk(req, res) {
+  const { ids } = req.body;
+  if (!ids || !Array.isArray(ids) || ids.length === 0) return res.status(400).json({ message: 'Tidak ada ID key.' });
+  try {
+    const db = getDb();
+    const ph = ids.map(() => '?').join(',');
+    await db.run(`DELETE FROM magica_api_keys WHERE id IN (${ph})`, ids);
+    res.json({ message: `${ids.length} Magica API Key dihapus.` });
+  } catch (error) {
+    res.status(500).json({ message: 'Error menghapus Magica key terpilih.', error: error.message });
+  }
+}
+
+// Verify a Magica key (from the request body, or the first active pooled key) by
+// hitting the read-only /models + /credits endpoints. No credits are spent.
+async function testMagicaConnection(req, res) {
+  try {
+    const db = getDb();
+    let key = req.body && req.body.key_value ? String(req.body.key_value).trim() : null;
+    if (!key) {
+      const row = await db.get('SELECT key_value FROM magica_api_keys WHERE is_active = 1 ORDER BY id ASC LIMIT 1');
+      key = row && row.key_value;
+    }
+    if (!key) return res.status(400).json({ message: 'Belum ada Magica API Key aktif untuk dites.' });
+    const result = await magica.testConnection(key);
+    res.json({ message: 'Koneksi Magica OK.', ...result });
+  } catch (error) {
+    res.status(502).json({ message: 'Koneksi Magica gagal.', error: error.message });
+  }
+}
+
+async function setUserMagicaAccess(req, res) {
+  const { id } = req.params;
+  const { can_use_magica } = req.body;
+  try {
+    const db = getDb();
+    const val = can_use_magica ? 1 : 0;
+    await db.run('UPDATE users SET can_use_magica = ? WHERE id = ?', [val, id]);
+    // If access is revoked, reset a 'magica' preference back to Freebeat for that user.
+    if (!val) {
+      await db.run("UPDATE users SET preferred_provider = 'freebeat' WHERE id = ? AND preferred_provider = 'magica'", [id]);
+    }
+    res.json({ message: 'Izin Magica user diperbarui.' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error update izin Magica user.', error: error.message });
+  }
+}
+
 module.exports = {
   getAllUsers,
   createUser,
@@ -589,5 +716,13 @@ module.exports = {
   getStorageFiles,
   deleteStorageFile,
   backupDatabase,
-  restoreDatabase
+  restoreDatabase,
+  getMagicaKeys,
+  addMagicaKey,
+  addMagicaKeysBulk,
+  toggleMagicaKey,
+  deleteMagicaKey,
+  deleteMagicaKeysBulk,
+  testMagicaConnection,
+  setUserMagicaAccess
 };

@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
-import { Lock, LogOut, Loader, KeyRound, ShieldAlert, CheckCircle2 } from 'lucide-react';
+import { Lock, LogOut, Loader, KeyRound, ShieldAlert, CheckCircle2, Sparkles } from 'lucide-react';
 
 export default function Settings({ onLogout }) {
   const [oldPassword, setOldPassword] = useState('');
@@ -10,6 +10,33 @@ export default function Settings({ onLogout }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+
+  const [preferredProvider, setPreferredProvider] = useState('freebeat');
+  const [canUseMagica, setCanUseMagica] = useState(false);
+  const [providerSaving, setProviderSaving] = useState(false);
+
+  useEffect(() => {
+    api.get('/auth/me')
+      .then((res) => {
+        setCanUseMagica(!!res.data.can_use_magica);
+        setPreferredProvider(res.data.preferred_provider || 'freebeat');
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleChangeProvider = async (provider) => {
+    if (provider === preferredProvider) return;
+    setError(''); setMessage(''); setProviderSaving(true);
+    try {
+      await api.put('/auth/preferred-provider', { provider });
+      setPreferredProvider(provider);
+      setMessage('Provider berhasil diubah ke ' + (provider === 'magica' ? 'Magica' : 'Freebeat') + '.');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Gagal mengubah provider.');
+    } finally {
+      setProviderSaving(false);
+    }
+  };
 
   const handlePasswordChange = async (e) => {
     e.preventDefault();
@@ -47,6 +74,41 @@ export default function Settings({ onLogout }) {
       </div>
 
       <div className="space-y-4 md:space-y-6">
+        {/* Provider Card */}
+        <div className="bg-[#1a1918]/60 border border-[#2a2725] rounded-2xl p-4 md:p-6 relative backdrop-blur-md">
+          <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#a855f7]/25 to-transparent"></div>
+          <h3 className="text-[9px] font-bold text-white uppercase tracking-widest mb-1 flex items-center border-b border-[#2a2725] pb-2">
+            <Sparkles className="w-3.5 h-3.5 mr-1.5 text-[#a855f7]" />
+            Provider Video &amp; Gambar
+          </h3>
+          <p className="text-slate-400 text-[10px] mt-2 mb-3 leading-relaxed">
+            Pilih layanan yang dipakai untuk membuat gambar &amp; video.
+            {!canUseMagica && ' (Magica belum diizinkan admin untuk akun Anda.)'}
+          </p>
+          <div className="grid grid-cols-2 gap-3 max-w-md">
+            <button
+              type="button"
+              onClick={() => handleChangeProvider('freebeat')}
+              disabled={providerSaving}
+              className={`p-3 rounded-xl border text-left transition-all disabled:opacity-60 ${preferredProvider === 'freebeat' ? 'border-[#cfae80] bg-[#cfae80]/10' : 'border-[#2a2725] bg-black/40 hover:border-[#cfae80]/40'}`}
+            >
+              <div className="text-xs font-bold text-white">Freebeat</div>
+              <div className="text-[9px] text-slate-400 mt-0.5">Default</div>
+              {preferredProvider === 'freebeat' && <div className="text-[8px] text-[#cfae80] font-bold uppercase tracking-widest mt-1.5">✓ Aktif</div>}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleChangeProvider('magica')}
+              disabled={providerSaving || !canUseMagica}
+              className={`p-3 rounded-xl border text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed ${preferredProvider === 'magica' ? 'border-[#a855f7] bg-[#a855f7]/10' : 'border-[#2a2725] bg-black/40 hover:border-[#a855f7]/40'}`}
+            >
+              <div className="text-xs font-bold text-white flex items-center gap-1"><Sparkles className="w-3 h-3 text-[#a855f7]" /> Magica</div>
+              <div className="text-[9px] text-slate-400 mt-0.5">{canUseMagica ? 'Tersedia' : 'Perlu izin admin'}</div>
+              {preferredProvider === 'magica' && <div className="text-[8px] text-[#a855f7] font-bold uppercase tracking-widest mt-1.5">✓ Aktif</div>}
+            </button>
+          </div>
+        </div>
+
         {/* Password Card */}
         <div className="bg-[#1a1918]/60 border border-[#2a2725] rounded-2xl p-4 md:p-6 relative backdrop-blur-md">
           <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#cfae80]/20 to-transparent"></div>
