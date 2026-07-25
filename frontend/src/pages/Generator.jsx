@@ -81,6 +81,7 @@ export default function Generator({ setTab }) {
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
   const [loadingKeys, setLoadingKeys] = useState(true);
+  const [userProvider, setUserProvider] = useState('freebeat');
   
   const [regeneratingPages, setRegeneratingPages] = useState({});
   const [regenLogs, setRegenLogs] = useState({});
@@ -191,6 +192,7 @@ export default function Generator({ setTab }) {
 
   useEffect(() => {
     fetchKeys();
+    api.get('/auth/me').then((r) => setUserProvider(r.data.preferred_provider || 'freebeat')).catch(() => {});
     const savedTaskId = localStorage.getItem('activeTaskId');
     if (savedTaskId) {
       setCurrentTaskId(savedTaskId);
@@ -348,7 +350,7 @@ export default function Generator({ setTab }) {
 
   const handleGenerate = async (e) => {
     e.preventDefault();
-    if (!apiKeyId || apiKeys.length === 0) { setError('Admin belum mengonfigurasi API Key.'); return; }
+    if (userProvider !== 'magica' && (!apiKeyId || apiKeys.length === 0)) { setError('Admin belum mengonfigurasi API Key.'); return; }
     setError('');
     setResult(null);
     setTaskLogs('');
@@ -963,7 +965,7 @@ export default function Generator({ setTab }) {
             )}
           </div>
 
-          <button type="submit" disabled={generating || apiKeys.length === 0 || prompt.length > 1500} className="w-full bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-2.5 px-4 rounded-xl transition-all shadow-lg hover:shadow-[#cfae80]/10 disabled:opacity-50 flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-wider cursor-pointer">
+          <button type="submit" disabled={generating || (userProvider !== 'magica' && apiKeys.length === 0) || prompt.length > 1500} className="w-full bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-2.5 px-4 rounded-xl transition-all shadow-lg hover:shadow-[#cfae80]/10 disabled:opacity-50 flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-wider cursor-pointer">
             {generating ? <><Loader className="animate-spin w-3.5 h-3.5" /> Memproses...</> : <><Sparkles className="w-3.5 h-3.5" /> Generate Storyboard AI</>}
           </button>
         </form>

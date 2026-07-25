@@ -20,6 +20,7 @@ if (process.platform !== 'win32') {
 
 const { getDb } = require('../db');
 const { activeTasks } = require('./storyboardController');
+const magicaGen = require('../services/magicaGen');
 
 async function checkAndDisableKeyIfOutofCredits(db, apiKeyId, errorText, taskObj) {
   if (!apiKeyId || !errorText) return;
@@ -122,6 +123,38 @@ async function generateVideo(req, res) {
     const sceneImage = panelImages[sceneIdx];
     if (generationType !== 'text' && !sceneImage) {
       return res.status(400).json({ message: 'Gambar scene tidak ditemukan.' });
+    }
+
+    // Provider routing (Bagian 2): Magica single-video generation — bypasses the
+    // Freebeat key requirement + inline CLI spawn entirely.
+    if (await magicaGen.isMagicaForStoryboard(db, storyboardId)) {
+      const mk = await magicaGen.pickActiveMagicaKey(db);
+      if (!mk) return res.status(400).json({ message: 'Tidak ada API Key Magica yang aktif.' });
+      const taskId = 'video_task_' + Date.now();
+      const insertResult = await db.run(
+        `INSERT INTO generated_videos
+         (storyboard_id, scene_idx, prompt, model, aspect_ratio, duration, resolution, status, task_id, api_key_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [storyboardId, sceneIdx, prompt, 'magica:seedance', aspectRatio || null, duration || null, resolution || null, 'processing', taskId, null]
+      );
+      const videoRecordId = insertResult.lastID;
+      activeTasks[taskId] = { status: 'processing', apiKeyId: null, logs: '=== VIDEO STUDIO (MAGICA) ===\n\n[1/2] Mengirim perintah ke Magica (Seedance)...\n', result: null, error: null };
+      res.json({ taskId, videoId: videoRecordId, status: 'processing' });
+      (async () => {
+        const onLog = (m) => { if (activeTasks[taskId]) activeTasks[taskId].logs += m + '\n'; };
+        try {
+          const { url, credit } = await magicaGen.generateVideoMagica(mk.key_value, { prompt, sceneImage, generationType, duration, resolution, aspectRatio, generateAudio, onLog });
+          await db.run('UPDATE generated_videos SET video_url = ?, status = ?, used_credits = ?, logs = ? WHERE id = ?', [url, 'success', credit || 0, activeTasks[taskId]?.logs || '', videoRecordId]);
+          if (activeTasks[taskId]) { activeTasks[taskId].status = 'success'; activeTasks[taskId].logs += '[Magica] Video selesai.\n'; }
+          try { await db.run('UPDATE magica_api_keys SET last_status = ? WHERE id = ?', ['OK - ' + new Date().toLocaleString('id-ID'), mk.id]); } catch (e) {}
+        } catch (mErr) {
+          onLog('[ERROR] Magica gagal: ' + mErr.message);
+          if (activeTasks[taskId]) { activeTasks[taskId].status = 'failed'; activeTasks[taskId].error = mErr.message; }
+          await db.run('UPDATE generated_videos SET status = ?, error_message = ?, logs = ? WHERE id = ?', ['failed', mErr.message, activeTasks[taskId]?.logs || '', videoRecordId]);
+          try { await db.run('UPDATE magica_api_keys SET last_status = ? WHERE id = ?', ['Error: ' + String(mErr.message).slice(0, 120), mk.id]); } catch (e) {}
+        }
+      })();
+      return;
     }
 
     // 2. Retrieve active API key
@@ -830,6 +863,38 @@ async function regenerateVideoMarketingCopy(req, res) {
 }
 
 async function runSingleVideoSpawn(vRecId, tId, kRec, pText, scImg, model, generationType, duration, resolution, aspectRatio, generateAudio, storyboardId) {
+  // Provider routing (Bagian 2): render via Magica (Seedance) when the storyboard
+  // owner prefers Magica. The Freebeat spawn path below is left untouched.
+  try {
+    const db0 = getDb();
+    if (await magicaGen.isMagicaForStoryboard(db0, storyboardId)) {
+      const onLog = (m) => { if (activeTasks[tId]) activeTasks[tId].logs = (activeTasks[tId].logs || '') + m + '\n'; };
+      const mk = await magicaGen.pickActiveMagicaKey(db0);
+      if (!mk) {
+        const msg = 'User memilih Magica tetapi belum ada API Key Magica aktif.';
+        onLog('[ERROR] ' + msg);
+        if (activeTasks[tId]) { activeTasks[tId].status = 'failed'; activeTasks[tId].error = msg; }
+        await db0.run('UPDATE generated_videos SET status = ?, error_message = ?, logs = ? WHERE id = ?', ['failed', msg, activeTasks[tId]?.logs || '', vRecId]);
+        return;
+      }
+      onLog('[Provider] Membuat video via Magica (Seedance)...');
+      try {
+        const { url, credit } = await magicaGen.generateVideoMagica(mk.key_value, {
+          prompt: pText, sceneImage: scImg, generationType, duration, resolution, aspectRatio, generateAudio, onLog,
+        });
+        await db0.run('UPDATE generated_videos SET video_url = ?, status = ?, used_credits = ?, logs = ? WHERE id = ?', [url, 'success', credit || 0, activeTasks[tId]?.logs || '', vRecId]);
+        if (activeTasks[tId]) { activeTasks[tId].status = 'success'; activeTasks[tId].logs += '[Magica] Video selesai.\n'; }
+        try { await db0.run('UPDATE magica_api_keys SET last_status = ? WHERE id = ?', ['OK - ' + new Date().toLocaleString('id-ID'), mk.id]); } catch (e) {}
+      } catch (mErr) {
+        onLog('[ERROR] Magica gagal: ' + mErr.message);
+        if (activeTasks[tId]) { activeTasks[tId].status = 'failed'; activeTasks[tId].error = mErr.message; }
+        await db0.run('UPDATE generated_videos SET status = ?, error_message = ?, logs = ? WHERE id = ?', ['failed', mErr.message, activeTasks[tId]?.logs || '', vRecId]);
+        try { await db0.run('UPDATE magica_api_keys SET last_status = ? WHERE id = ?', ['Error: ' + String(mErr.message).slice(0, 120), mk.id]); } catch (e) {}
+      }
+      return;
+    }
+  } catch (e) { /* fall through to Freebeat on any routing error */ }
+
   let attemptKeyRecord = kRec;
   let submitSuccess = false;
 
@@ -1092,6 +1157,9 @@ async function generateAllVideos(req, res) {
       // MANUAL (a specific key chosen) runs ONE scene at a time; AUTO runs as many in
       // parallel as there are FREE active keys — the key acquisition below is the gate.
       const isManual = !!(apiKeyId && apiKeyId !== 'auto');
+      // Provider routing (Bagian 2): Magica renders each scene sequentially via its
+      // own pool (no Freebeat key gate). Determined once for the whole batch.
+      const isMagica = await magicaGen.isMagicaForStoryboard(getDb(), storyboardId);
 
       for (let sceneIdx = 0; sceneIdx < totalScenes; sceneIdx++) {
         // Re-read DB connection
@@ -1145,6 +1213,36 @@ async function generateAllVideos(req, res) {
         // Resolve scene image
         const pageIdx = sceneIdx;
         const sceneImage = panelImages[pageIdx];
+
+        // Magica batch scene — sequential, bypasses the Freebeat key gate below.
+        if (isMagica) {
+          const mk = await magicaGen.pickActiveMagicaKey(db);
+          const mTaskId = 'video_task_' + Date.now() + '_' + sceneIdx;
+          const mIns = await db.run(
+            `INSERT INTO generated_videos (storyboard_id, scene_idx, prompt, model, aspect_ratio, duration, resolution, status, task_id, api_key_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [storyboardId, sceneIdx, promptText, 'magica:seedance', aspectRatio || null, duration || null, resolution || null, 'processing', mTaskId, null]
+          );
+          const mRecId = mIns.lastID;
+          activeTasks[mTaskId] = { status: 'processing', storyboardId, apiKeyId: null, logs: `=== VIDEO (MAGICA) scene ${sceneIdx + 1} ===\n`, result: null, error: null };
+          const onLog = (m) => { if (activeTasks[mTaskId]) activeTasks[mTaskId].logs += m + '\n'; };
+          if (!mk) {
+            activeTasks[mTaskId].status = 'failed'; activeTasks[mTaskId].error = 'Tidak ada API Key Magica aktif.';
+            await db.run('UPDATE generated_videos SET status = ?, error_message = ?, logs = ? WHERE id = ?', ['failed', 'Tidak ada API Key Magica aktif.', activeTasks[mTaskId].logs, mRecId]);
+            break;
+          }
+          try {
+            const { url, credit } = await magicaGen.generateVideoMagica(mk.key_value, { prompt: promptText, sceneImage, generationType, duration, resolution, aspectRatio, generateAudio, onLog });
+            await db.run('UPDATE generated_videos SET video_url = ?, status = ?, used_credits = ?, logs = ? WHERE id = ?', [url, 'success', credit || 0, activeTasks[mTaskId].logs, mRecId]);
+            activeTasks[mTaskId].status = 'success'; activeTasks[mTaskId].logs += '[Magica] Video selesai.\n';
+            try { await db.run('UPDATE magica_api_keys SET last_status = ? WHERE id = ?', ['OK - ' + new Date().toLocaleString('id-ID'), mk.id]); } catch (e) {}
+          } catch (mErr) {
+            onLog('[ERROR] Magica gagal: ' + mErr.message);
+            activeTasks[mTaskId].status = 'failed'; activeTasks[mTaskId].error = mErr.message;
+            await db.run('UPDATE generated_videos SET status = ?, error_message = ?, logs = ? WHERE id = ?', ['failed', mErr.message, activeTasks[mTaskId].logs, mRecId]);
+          }
+          await sleep(1500);
+          continue;
+        }
 
         // Acquire an API key — this is ALSO the concurrency gate.
         //  - MANUAL: run ONE scene at a time — wait until this storyboard has no active
