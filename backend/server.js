@@ -29,12 +29,14 @@ const adminRoutes = require('./routes/adminRoutes');
 const storyboardRoutes = require('./routes/storyboardRoutes');
 const aiRoutes = require('./routes/aiRoutes');
 const videoRoutes = require('./routes/videoRoutes');
+const magicaRoutes = require('./routes/magicaRoutes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/storyboards', storyboardRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/videos', videoRoutes);
+app.use('/api/magica', magicaRoutes);
 
 // Server static built frontend files in production
 const frontendBuildPath = path.join(__dirname, '..', 'frontend', 'dist');

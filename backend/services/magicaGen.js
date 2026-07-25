@@ -1,24 +1,15 @@
-// Magica generation helpers (Bagian 2). Keeps the Magica-specific generate+store
-// logic OUT of the big Freebeat files so their branches stay tiny and the Freebeat
-// path is never touched. Uses services/magicaClient.js (verified REST client).
-//
-// Image  -> gpt_image_2 (gpt-image-2-text, or gpt-image-2-edit when a reference is given)
-// Video  -> seedance_2_0 (seedance-2.0-image-to-video / -text-to-video), fast variant optional
+// Magica generation helpers. Keeps Magica-specific generate+store logic OUT of the
+// big Freebeat files. Model + method are chosen by the user (Bagian 3) and resolved
+// to the exact Magica nodeType + subModelId from the live catalog.
 
 const path = require('path');
-const { getDb } = require('../db');
 const magica = require('./magicaClient');
 
-// Public base URL so Magica (a remote API) can fetch our /uploads assets and any
-// reference image. In background jobs there is no req, so we rely on PUBLIC_URL.
 function publicBase() {
   return (process.env.PUBLIC_URL || process.env.APP_URL || '').replace(/\/$/, '');
 }
 
 // Turn a stored image path/URL into a PUBLIC url Magica can fetch.
-// - already http(s)  -> use as-is (e.g. a Magica CDN url from a Magica-generated panel)
-// - local /uploads/… -> PUBLIC_URL + /uploads/<basename>
-// - anything else     -> null (caller falls back to text-only)
 function toPublicUrl(p) {
   if (!p) return null;
   const s = String(p);
@@ -38,29 +29,23 @@ function sizeFromAspect(ar) {
     default: return 'Auto';
   }
 }
-
 function videoAspect(ar) {
   const ok = ['16:9', '9:16', '4:3', '3:4', '1:1', '21:9'];
   return ok.includes(String(ar)) ? String(ar) : '9:16';
 }
-
 function videoResolution(res) {
   const ok = ['480p', '720p', '1080p', '4k'];
   return ok.includes(String(res)) ? String(res) : '720p';
 }
-
 function videoDuration(d) {
   const n = Number(d);
-  if (Number.isFinite(n) && n >= 4 && n <= 15) return Math.round(n);
-  return 5;
+  return (Number.isFinite(n) && n >= 4 && n <= 15) ? Math.round(n) : 5;
 }
 
 async function pickActiveMagicaKey(db) {
-  const row = await db.get('SELECT id, key_value FROM magica_api_keys WHERE is_active = 1 ORDER BY id ASC LIMIT 1');
-  return row || null;
+  return (await db.get('SELECT id, key_value FROM magica_api_keys WHERE is_active = 1 ORDER BY id ASC LIMIT 1')) || null;
 }
 
-// Whether this storyboard's owner prefers Magica AND is allowed to use it.
 async function isMagicaForStoryboard(db, storyboardId) {
   try {
     const row = await db.get(
@@ -68,27 +53,70 @@ async function isMagicaForStoryboard(db, storyboardId) {
       [storyboardId]
     );
     return !!(row && row.pp === 'magica' && row.cum);
-  } catch (e) {
-    return false;
-  }
+  } catch (e) { return false; }
 }
 
-// Generate ONE storyboard-sheet image via Magica GPT Image 2. Returns { url, credit }.
+// --- Model catalog (cached ~5 min) + submodel resolution ---
+let _cache = { key: null, at: 0, models: null };
+async function getModelsCached(apiKey) {
+  const now = Date.now();
+  if (_cache.models && _cache.key === apiKey && (now - _cache.at) < 5 * 60 * 1000) return _cache.models;
+  const models = await magica.listModels(apiKey);
+  _cache = { key: apiKey, at: now, models };
+  return models;
+}
+
+// Resolve a nodeType + desired category (e.g. 'image-to-video') to the exact subModelId.
+// Returns null for single-mode models (run with nodeType only).
+function resolveSubModel(models, nodeType, category) {
+  const m = (models || []).find((x) => x.nodeType === nodeType);
+  if (!m) return null;
+  const subs = m.subModels || [];
+  if (subs.length === 0) return null;
+  const hit = subs.find((s) => s.category === category)
+    || subs.find((s) => String(s.subModelId || '').includes(category))
+    || subs[0];
+  return hit ? hit.subModelId : null;
+}
+
+const VIDEO_METHODS = ['text-to-video', 'image-to-video', 'reference-to-video'];
+const IMAGE_METHODS = ['text-to-image', 'image-to-image'];
+
+// Shaped catalog for the UI: image + video models (with their methods) + active keys.
+async function getCatalog(db) {
+  const mk = await pickActiveMagicaKey(db);
+  if (!mk) return { keys: [], imageModels: [], videoModels: [] };
+  const models = await getModelsCached(mk.key_value);
+  const shape = (m, allowed) => ({
+    nodeType: m.nodeType,
+    name: m.name,
+    methods: (m.subModels || [])
+      .filter((s) => allowed.includes(s.category))
+      .map((s) => ({ subModelId: s.subModelId, category: s.category, label: s.label || s.category })),
+  });
+  const imageModels = models
+    .filter((m) => (m.subModels || []).some((s) => IMAGE_METHODS.includes(s.category)) || m.category === 'text-to-image')
+    .map((m) => shape(m, IMAGE_METHODS));
+  const videoModels = models
+    .filter((m) => (m.subModels || []).some((s) => VIDEO_METHODS.includes(s.category)) || VIDEO_METHODS.includes(m.category))
+    .map((m) => shape(m, VIDEO_METHODS));
+  const keys = await db.all('SELECT id, label FROM magica_api_keys WHERE is_active = 1 ORDER BY id ASC');
+  return { keys, imageModels, videoModels };
+}
+
+// Generate ONE storyboard image. nodeType defaults to gpt_image_2; text vs edit is
+// chosen by whether a reference image is present.
 async function generateOneImageMagica(apiKey, prompt, opts = {}) {
   const onLog = typeof opts.onLog === 'function' ? opts.onLog : () => {};
-  const size = sizeFromAspect(opts.aspectRatio);
+  const nodeType = opts.nodeType || 'gpt_image_2';
   const refUrl = toPublicUrl(opts.refUrl);
-
-  let nodeType = 'gpt_image_2';
-  let subModelId = 'gpt-image-2-text';
+  const category = refUrl ? 'image-to-image' : 'text-to-image';
+  let subModelId = null;
+  try { subModelId = resolveSubModel(await getModelsCached(apiKey), nodeType, category); } catch (e) {}
+  const size = sizeFromAspect(opts.aspectRatio);
   const input = { prompt: String(prompt || ''), size, quality: 'High', n: 1 };
-  if (refUrl) {
-    subModelId = 'gpt-image-2-edit';
-    input.uploadedImages = [refUrl];
-    onLog(`[Magica] Edit dari referensi: ${refUrl}`);
-  }
-
-  onLog(`[Magica] Mengirim gambar ke ${subModelId} (size ${size})...`);
+  if (refUrl) input.uploadedImages = [refUrl];
+  onLog(`[Magica] Gambar via ${nodeType}${subModelId ? ' / ' + subModelId : ''} (size ${size})...`);
   const runId = await magica.runModel(apiKey, nodeType, subModelId, input);
   const done = await magica.pollRun(apiKey, runId, { onLog });
   const url = (done.mediaUrls || [])[0];
@@ -96,13 +124,19 @@ async function generateOneImageMagica(apiKey, prompt, opts = {}) {
   return { url, credit: Number(done.creditUsed) || 0 };
 }
 
-// Generate ONE video via Magica Seedance. Returns { url, credit }.
-// generationType 'text' -> text-to-video; otherwise image-to-video (needs a public image url).
+// Generate ONE video. nodeType defaults to seedance_2_0; method is the submodel
+// category (text-to-video | image-to-video | reference-to-video). Falls back from
+// the legacy Freebeat generationType when method is not supplied.
 async function generateVideoMagica(apiKey, params = {}) {
   const onLog = typeof params.onLog === 'function' ? params.onLog : () => {};
-  const fast = !!params.fast;
-  const nodeType = fast ? 'seedance_2_0_fast' : 'seedance_2_0';
-  const wantImage = params.generationType && params.generationType !== 'text';
+  const nodeType = params.nodeType || (params.fast ? 'seedance_2_0_fast' : 'seedance_2_0');
+  let category = params.method;
+  if (!category) {
+    const gt = params.generationType;
+    category = gt === 'text' ? 'text-to-video' : (gt === 'reference' ? 'reference-to-video' : 'image-to-video');
+  }
+  let subModelId = null;
+  try { subModelId = resolveSubModel(await getModelsCached(apiKey), nodeType, category); } catch (e) {}
 
   const input = {
     prompt: String(params.prompt || ''),
@@ -111,18 +145,12 @@ async function generateVideoMagica(apiKey, params = {}) {
     resolution: videoResolution(params.resolution),
     generate_audio: !!params.generateAudio,
   };
-
-  let subModelId;
-  if (wantImage) {
+  if (category !== 'text-to-video') {
     const imgUrl = toPublicUrl(params.sceneImage);
     if (!imgUrl) throw new Error('Gambar panel tidak punya URL publik untuk Magica (set PUBLIC_URL, atau gunakan gambar hasil Magica).');
-    subModelId = `${fast ? 'seedance-2.0-fast' : 'seedance-2.0'}-image-to-video`;
     input.image_url = imgUrl;
-  } else {
-    subModelId = `${fast ? 'seedance-2.0-fast' : 'seedance-2.0'}-text-to-video`;
   }
-
-  onLog(`[Magica] Mengirim video ke ${subModelId} (durasi ${input.duration}s, ${input.aspect_ratio}, ${input.resolution})...`);
+  onLog(`[Magica] Video via ${nodeType}${subModelId ? ' / ' + subModelId : ''} (${input.duration}s, ${input.aspect_ratio}, ${input.resolution})...`);
   const runId = await magica.runModel(apiKey, nodeType, subModelId, input);
   const done = await magica.pollRun(apiKey, runId, { onLog, timeoutMs: 900000 });
   const url = (done.mediaUrls || [])[0];
@@ -136,6 +164,7 @@ module.exports = {
   sizeFromAspect,
   pickActiveMagicaKey,
   isMagicaForStoryboard,
+  getCatalog,
   generateOneImageMagica,
   generateVideoMagica,
 };

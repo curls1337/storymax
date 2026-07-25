@@ -82,6 +82,8 @@ export default function Generator({ setTab }) {
   const [error, setError] = useState('');
   const [loadingKeys, setLoadingKeys] = useState(true);
   const [userProvider, setUserProvider] = useState('freebeat');
+  const [magicaCatalog, setMagicaCatalog] = useState(null);
+  const [magicaImageModel, setMagicaImageModel] = useState('');
   
   const [regeneratingPages, setRegeneratingPages] = useState({});
   const [regenLogs, setRegenLogs] = useState({});
@@ -192,7 +194,18 @@ export default function Generator({ setTab }) {
 
   useEffect(() => {
     fetchKeys();
-    api.get('/auth/me').then((r) => setUserProvider(r.data.preferred_provider || 'freebeat')).catch(() => {});
+    api.get('/auth/me').then((r) => {
+      const pp = r.data.preferred_provider || 'freebeat';
+      setUserProvider(pp);
+      if (pp === 'magica') {
+        api.get('/magica/catalog').then((c) => {
+          setMagicaCatalog(c.data);
+          const imgs = (c.data && c.data.imageModels) || [];
+          const def = imgs.find((m) => m.nodeType === 'gpt_image_2') || imgs[0];
+          if (def) setMagicaImageModel(def.nodeType);
+        }).catch(() => {});
+      }
+    }).catch(() => {});
     const savedTaskId = localStorage.getItem('activeTaskId');
     if (savedTaskId) {
       setCurrentTaskId(savedTaskId);
@@ -384,7 +397,8 @@ export default function Generator({ setTab }) {
         voLanguage: enableVo ? voLanguage : undefined,
         voTone: enableVo ? voTone : undefined,
         videoEngine,
-        containerShape
+        containerShape,
+        magicaModel: userProvider === 'magica' ? magicaImageModel : undefined
       });
       const { taskId } = res.data;
       setCurrentTaskId(taskId);
@@ -744,14 +758,23 @@ export default function Generator({ setTab }) {
 
           {/* Model Generator AI */}
           <div>
-            <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Model Generator AI</label>
-            <select value={model} onChange={(e) => setModel(e.target.value)} className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs" disabled={generating}>
-              <option value="80">Nano Banana 2 (Model 80)</option>
-              <option value="64">Nano Banana Pro (Model 64)</option>
-              <option value="108">GPT-Image 2 (Model 108)</option>
-              <option value="100">Wan V2.7 Pro (Model 100)</option>
-              <option value="99">Wan V2.7 (Model 99)</option>
-            </select>
+            <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Model Generator AI{userProvider === 'magica' ? ' (Magica)' : ''}</label>
+            {userProvider === 'magica' ? (
+              <select value={magicaImageModel} onChange={(e) => setMagicaImageModel(e.target.value)} className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#a855f7] transition-all text-xs" disabled={generating}>
+                {((magicaCatalog && magicaCatalog.imageModels) || []).map((m) => (
+                  <option key={m.nodeType} value={m.nodeType}>{m.name}</option>
+                ))}
+                {(!magicaCatalog || !((magicaCatalog.imageModels || []).length)) && <option value="">Memuat model Magica...</option>}
+              </select>
+            ) : (
+              <select value={model} onChange={(e) => setModel(e.target.value)} className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs" disabled={generating}>
+                <option value="80">Nano Banana 2 (Model 80)</option>
+                <option value="64">Nano Banana Pro (Model 64)</option>
+                <option value="108">GPT-Image 2 (Model 108)</option>
+                <option value="100">Wan V2.7 Pro (Model 100)</option>
+                <option value="99">Wan V2.7 (Model 99)</option>
+              </select>
+            )}
           </div>
 
           {/* Ukuran Gambar (Aspect Ratio) */}
@@ -868,12 +891,22 @@ export default function Generator({ setTab }) {
           {/* Tokopedia Mode only: Referensi Gambar (At the bottom) */}
           {mode === 'tokopedia' && renderRefImagesSection()}
 
-          {apiKeys.length > 0 && (
+          {userProvider === 'magica' ? (
+            <div>
+              <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">API Key Magica</label>
+              <select className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#a855f7] transition-all text-xs" disabled>
+                {(((magicaCatalog && magicaCatalog.keys) || []).length)
+                  ? magicaCatalog.keys.map((k) => (<option key={k.id} value={k.id}>{k.label}</option>))
+                  : <option value="">Belum ada API Key Magica aktif</option>}
+              </select>
+              <p className="text-[8px] text-slate-500 mt-1">Provider: Magica — key dipilih otomatis dari kolam Magica.</p>
+            </div>
+          ) : apiKeys.length > 0 ? (
             <div>
               <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Pilih API Key Freebeat</label>
-              <select 
-                value={apiKeyId} 
-                onChange={(e) => setApiKeyId(e.target.value)} 
+              <select
+                value={apiKeyId}
+                onChange={(e) => setApiKeyId(e.target.value)}
                 className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs"
                 disabled={generating}
               >
@@ -885,7 +918,7 @@ export default function Generator({ setTab }) {
                 ))}
               </select>
             </div>
-          )}
+          ) : null}
 
           <div className="bg-black/20 border border-[#2a2725] rounded-xl p-3 transition-all hover:border-[#cfae80]/30">
             <label htmlFor="faceMode" className="text-[10px] font-bold text-slate-300 select-none block mb-1.5">
