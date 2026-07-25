@@ -63,25 +63,6 @@ export default function Dashboard({ setTab }) {
     }).catch(() => {});
   }, []);
 
-  // When the Magica video model/method changes, clamp duration/resolution/aspect and
-  // the audio toggle to exactly what THAT model supports (each Magica model differs).
-  useEffect(() => {
-    if (userProvider !== 'magica' || !magicaCatalog) return;
-    const m = (magicaCatalog.videoModels || []).find((x) => x.nodeType === magicaVideoModel);
-    const mt = m && (m.methods || []).find((x) => x.category === magicaVideoMethod);
-    if (!mt) return;
-    if (Array.isArray(mt.durations) && mt.durations.length && !mt.durations.map(String).includes(String(videoDuration))) {
-      setVideoDuration(String(mt.durations.includes(5) ? 5 : mt.durations[0]));
-    }
-    if (Array.isArray(mt.resolutions) && mt.resolutions.length && !mt.resolutions.map((v) => String(v).toLowerCase()).includes(String(videoResolution).toLowerCase())) {
-      setVideoResolution(mt.resolutions.includes('720p') ? '720p' : mt.resolutions[0]);
-    }
-    if (Array.isArray(mt.aspectRatios) && mt.aspectRatios.length && !mt.aspectRatios.includes(videoAspectRatio)) {
-      setVideoAspectRatio(mt.aspectRatios.includes('9:16') ? '9:16' : mt.aspectRatios[0]);
-    }
-    if (mt.hasAudio === false && videoGenerateAudio) setVideoGenerateAudio(false);
-  }, [userProvider, magicaCatalog, magicaVideoModel, magicaVideoMethod]);
-
   useEffect(() => {
     const hasProcessing = storyboards.some(sb => sb.status === 'processing');
     let interval;
@@ -293,6 +274,27 @@ export default function Dashboard({ setTab }) {
   const [magicaVideoModel, setMagicaVideoModel] = useState('');
   const [magicaVideoMethod, setMagicaVideoMethod] = useState('');
   const [magicaKeyId, setMagicaKeyId] = useState('auto');
+
+  // When the Magica video model/method changes, clamp duration/resolution/aspect and
+  // the audio toggle to exactly what THAT model supports (each Magica model differs).
+  // NOTE: must be declared AFTER the states it depends on — a useEffect whose dep array
+  // references these consts before their declaration throws a TDZ error at render.
+  useEffect(() => {
+    if (userProvider !== 'magica' || !magicaCatalog) return;
+    const m = (magicaCatalog.videoModels || []).find((x) => x.nodeType === magicaVideoModel);
+    const mt = m && (m.methods || []).find((x) => x.category === magicaVideoMethod);
+    if (!mt) return;
+    if (Array.isArray(mt.durations) && mt.durations.length && !mt.durations.map(String).includes(String(videoDuration))) {
+      setVideoDuration(String(mt.durations.includes(5) ? 5 : mt.durations[0]));
+    }
+    if (Array.isArray(mt.resolutions) && mt.resolutions.length && !mt.resolutions.map((v) => String(v).toLowerCase()).includes(String(videoResolution).toLowerCase())) {
+      setVideoResolution(mt.resolutions.includes('720p') ? '720p' : mt.resolutions[0]);
+    }
+    if (Array.isArray(mt.aspectRatios) && mt.aspectRatios.length && !mt.aspectRatios.includes(videoAspectRatio)) {
+      setVideoAspectRatio(mt.aspectRatios.includes('9:16') ? '9:16' : mt.aspectRatios[0]);
+    }
+    if (mt.hasAudio === false && videoGenerateAudio) setVideoGenerateAudio(false);
+  }, [userProvider, magicaCatalog, magicaVideoModel, magicaVideoMethod]);
 
   const [regeneratingPages, setRegeneratingPages] = useState({});
   const [regenLogs, setRegenLogs] = useState({});
