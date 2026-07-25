@@ -273,7 +273,8 @@ export default function Dashboard({ setTab }) {
   const [magicaCatalog, setMagicaCatalog] = useState(null);
   const [magicaVideoModel, setMagicaVideoModel] = useState('');
   const [magicaVideoMethod, setMagicaVideoMethod] = useState('');
-  
+  const [magicaKeyId, setMagicaKeyId] = useState('auto');
+
   const [regeneratingPages, setRegeneratingPages] = useState({});
   const [regenLogs, setRegenLogs] = useState({});
   const [downloadingId, setDownloadingId] = useState(null);
@@ -655,7 +656,8 @@ export default function Dashboard({ setTab }) {
         backsound: videoBacksound,
         apiKeyId: selectedApiKeyId || 'auto',
         magicaModel: userProvider === 'magica' ? magicaVideoModel : undefined,
-        magicaMethod: userProvider === 'magica' ? magicaVideoMethod : undefined
+        magicaMethod: userProvider === 'magica' ? magicaVideoMethod : undefined,
+        magicaKeyId: userProvider === 'magica' ? magicaKeyId : undefined
       });
 
       // Refresh the video list to include the new 'processing' record
@@ -688,7 +690,8 @@ export default function Dashboard({ setTab }) {
         backsound: videoBacksound,
         apiKeyId: selectedApiKeyId || 'auto',
         magicaModel: userProvider === 'magica' ? magicaVideoModel : undefined,
-        magicaMethod: userProvider === 'magica' ? magicaVideoMethod : undefined
+        magicaMethod: userProvider === 'magica' ? magicaVideoMethod : undefined,
+        magicaKeyId: userProvider === 'magica' ? magicaKeyId : undefined
       });
 
       // Refresh the video list to include processing statuses
@@ -2202,10 +2205,11 @@ export default function Dashboard({ setTab }) {
                         {userProvider === 'magica' ? (
                           <div className="space-y-1">
                             <label className="text-[8px] font-bold uppercase tracking-widest text-[#a855f7]">API Key Magica</label>
-                            <select className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] focus:outline-none focus:border-[#a855f7] transition-all font-semibold" disabled>
+                            <select value={magicaKeyId} onChange={(e) => setMagicaKeyId(e.target.value)} className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] focus:outline-none focus:border-[#a855f7] transition-all font-semibold">
+                              <option value="auto">Pilih Otomatis (Auto-detect)</option>
                               {(((magicaCatalog && magicaCatalog.keys) || []).length)
                                 ? magicaCatalog.keys.map(k => (<option key={k.id} value={k.id}>{k.label}</option>))
-                                : <option value="">Belum ada API Key Magica aktif</option>}
+                                : <option value="" disabled>Belum ada API Key Magica aktif</option>}
                             </select>
                           </div>
                         ) : apiKeys.length > 0 ? (

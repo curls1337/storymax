@@ -95,7 +95,8 @@ async function generateVideo(req, res) {
     backsound,
     apiKeyId,
     magicaModel,
-    magicaMethod
+    magicaMethod,
+    magicaKeyId
   } = req.body;
 
   if (!storyboardId || sceneIdx === undefined || !prompt || !model || !generationType) {
@@ -130,7 +131,7 @@ async function generateVideo(req, res) {
     // Provider routing (Bagian 2): Magica single-video generation — bypasses the
     // Freebeat key requirement + inline CLI spawn entirely.
     if (await magicaGen.isMagicaForStoryboard(db, storyboardId)) {
-      const mk = await magicaGen.pickActiveMagicaKey(db);
+      const mk = await magicaGen.pickMagicaKey(db, magicaKeyId);
       if (!mk) return res.status(400).json({ message: 'Tidak ada API Key Magica yang aktif.' });
       const taskId = 'video_task_' + Date.now();
       const insertResult = await db.run(
@@ -1099,7 +1100,8 @@ async function generateAllVideos(req, res) {
     backsound,
     apiKeyId,
     magicaModel,
-    magicaMethod
+    magicaMethod,
+    magicaKeyId
   } = req.body;
 
   if (!storyboardId || !model || !generationType) {
@@ -1220,7 +1222,7 @@ async function generateAllVideos(req, res) {
 
         // Magica batch scene — sequential, bypasses the Freebeat key gate below.
         if (isMagica) {
-          const mk = await magicaGen.pickActiveMagicaKey(db);
+          const mk = await magicaGen.pickMagicaKey(db, magicaKeyId);
           const mTaskId = 'video_task_' + Date.now() + '_' + sceneIdx;
           const mIns = await db.run(
             `INSERT INTO generated_videos (storyboard_id, scene_idx, prompt, model, aspect_ratio, duration, resolution, status, task_id, api_key_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,

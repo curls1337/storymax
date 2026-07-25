@@ -213,10 +213,10 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
     let isMagica = false, magicaApiKey = null;
     try {
       if (await magicaGen.isMagicaForStoryboard(db, storyboardId)) {
-        const mk = await magicaGen.pickActiveMagicaKey(db);
+        const mk = await magicaGen.pickMagicaKey(db, task.magicaKeyId);
         if (mk) {
           isMagica = true; magicaApiKey = mk.key_value;
-          task.logs += '[Provider] Render gambar via Magica (GPT Image 2).\n';
+          task.logs += `[Provider] Render gambar via Magica (GPT Image 2)${task.magicaKeyId && task.magicaKeyId !== 'auto' ? ' — key #' + mk.id : ' — key otomatis #' + mk.id}.\n`;
         } else {
           task.logs += '[Provider] User memilih Magica tetapi belum ada API Key Magica aktif — memakai Freebeat.\n';
         }

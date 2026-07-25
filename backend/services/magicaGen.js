@@ -46,6 +46,17 @@ async function pickActiveMagicaKey(db) {
   return (await db.get('SELECT id, key_value FROM magica_api_keys WHERE is_active = 1 ORDER BY id ASC LIMIT 1')) || null;
 }
 
+// Pick a specific active Magica key by id when the user chose one in the UI;
+// fall back to the first active key when preferredId is empty/'auto'/invalid/inactive.
+async function pickMagicaKey(db, preferredId) {
+  const idNum = parseInt(preferredId, 10);
+  if (preferredId != null && String(preferredId) !== 'auto' && Number.isFinite(idNum)) {
+    const row = await db.get('SELECT id, key_value FROM magica_api_keys WHERE id = ? AND is_active = 1', [idNum]);
+    if (row) return row;
+  }
+  return pickActiveMagicaKey(db);
+}
+
 async function isMagicaForStoryboard(db, storyboardId) {
   try {
     const row = await db.get(
@@ -163,6 +174,7 @@ module.exports = {
   toPublicUrl,
   sizeFromAspect,
   pickActiveMagicaKey,
+  pickMagicaKey,
   isMagicaForStoryboard,
   getCatalog,
   generateOneImageMagica,
