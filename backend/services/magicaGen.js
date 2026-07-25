@@ -1,6 +1,15 @@
 // Magica generation helpers. Keeps Magica-specific generate+store logic OUT of the
-// big Freebeat files. Model + method are chosen by the user (Bagian 3) and resolved
-// to the exact Magica nodeType + subModelId from the live catalog.
+// big Freebeat files.
+//
+// SCHEMA-DRIVEN: every Magica model declares its own input fields (GET /models/{id}
+// /schema). Field names + allowed values differ per model — e.g. the reference image
+// field is `uploadedImages` on gpt_image_2 but `image_urls` on grok/flux/nano and
+// `reference_image_urls` on the *_reference video models; sizing is `size` (gpt),
+// `image_size` (flux) or `aspect_ratio`+`resolution` (grok/nano); video duration/
+// resolution/aspect options vary per model. So instead of hardcoding one input shape
+// we fetch the schema and map our generic values (prompt, reference image, aspect,
+// resolution, duration, audio) onto whatever fields that model actually declares,
+// clamping enums to the allowed options. This makes ALL models work correctly.
 
 const path = require('path');
 const magica = require('./magicaClient');
@@ -21,6 +30,7 @@ function toPublicUrl(p) {
   return `${base}/${rel}`;
 }
 
+// Map an aspect ratio to a gpt_image_2 `size` value (its size enum is WxH strings).
 function sizeFromAspect(ar) {
   switch (String(ar || '')) {
     case '1:1': return '1024x1024';
@@ -28,18 +38,6 @@ function sizeFromAspect(ar) {
     case '9:16': return '1024x1536';
     default: return 'Auto';
   }
-}
-function videoAspect(ar) {
-  const ok = ['16:9', '9:16', '4:3', '3:4', '1:1', '21:9'];
-  return ok.includes(String(ar)) ? String(ar) : '9:16';
-}
-function videoResolution(res) {
-  const ok = ['480p', '720p', '1080p', '4k'];
-  return ok.includes(String(res)) ? String(res) : '720p';
-}
-function videoDuration(d) {
-  const n = Number(d);
-  return (Number.isFinite(n) && n >= 4 && n <= 15) ? Math.round(n) : 5;
 }
 
 async function pickActiveMagicaKey(db) {
@@ -67,14 +65,24 @@ async function isMagicaForStoryboard(db, storyboardId) {
   } catch (e) { return false; }
 }
 
-// --- Model catalog (cached ~5 min) + submodel resolution ---
-let _cache = { key: null, at: 0, models: null };
+// --- Model catalog + schema (cached ~5 min) ---
+let _modelsCache = { key: null, at: 0, models: null };
 async function getModelsCached(apiKey) {
   const now = Date.now();
-  if (_cache.models && _cache.key === apiKey && (now - _cache.at) < 5 * 60 * 1000) return _cache.models;
+  if (_modelsCache.models && _modelsCache.key === apiKey && (now - _modelsCache.at) < 5 * 60 * 1000) return _modelsCache.models;
   const models = await magica.listModels(apiKey);
-  _cache = { key: apiKey, at: now, models };
+  _modelsCache = { key: apiKey, at: now, models };
   return models;
+}
+
+const _schemaCache = new Map(); // id -> { at, schema }
+async function getSchemaCached(apiKey, modelId) {
+  const hit = _schemaCache.get(modelId);
+  const now = Date.now();
+  if (hit && (now - hit.at) < 5 * 60 * 1000) return hit.schema;
+  const schema = await magica.getModelSchema(apiKey, modelId);
+  _schemaCache.set(modelId, { at: now, schema });
+  return schema;
 }
 
 // Resolve a nodeType + desired category (e.g. 'image-to-video') to the exact subModelId.
@@ -92,42 +100,186 @@ function resolveSubModel(models, nodeType, category) {
 
 const VIDEO_METHODS = ['text-to-video', 'image-to-video', 'reference-to-video'];
 const IMAGE_METHODS = ['text-to-image', 'image-to-image'];
+// Models that declare image categories but do not output usable 2D storyboard images.
+const IMAGE_MODEL_EXCLUDE = new Set(['meshy_v6_preview']);
 
-// Shaped catalog for the UI: image + video models (with their methods) + active keys.
+// --- Schema-driven input building ---------------------------------------------
+
+const lc = (s) => String(s || '').toLowerCase();
+
+// Pick a value from an enum, case-insensitively; try fallbacks; else undefined.
+function coerceEnum(options, want, fallbacks) {
+  if (!Array.isArray(options) || !options.length) return want;
+  const find = (v) => options.find((o) => lc(o) === lc(v));
+  if (want != null && find(want) !== undefined) return find(want);
+  for (const f of (fallbacks || [])) {
+    if (f != null && find(f) !== undefined) return find(f);
+  }
+  return undefined;
+}
+
+// Largest numeric option <= want; else the smallest option.
+function nearestNum(options, want) {
+  const nums = (options || []).map(Number).filter(Number.isFinite).sort((a, b) => a - b);
+  if (!nums.length) return undefined;
+  const w = Number(want);
+  if (!Number.isFinite(w)) return undefined;
+  const le = nums.filter((n) => n <= w).pop();
+  return le != null ? le : nums[0];
+}
+
+function isImageArrayField(f) {
+  const dt = f.dataType || f.type;
+  return dt === 'string[]' && /image/.test(lc(f.name)) && !/(video|audio)/.test(lc(f.name));
+}
+
+// Build the exact input object a model expects from our generic values.
+// vals: { prompt, aspect, resolution, duration, generateAudio, imageUrls: [url] }
+function buildInput(fields, vals) {
+  const input = {};
+  const imageUrls = (vals.imageUrls || []).filter(Boolean);
+  for (const f of (fields || [])) {
+    const name = f.name;
+    const lname = lc(name);
+    const dt = f.dataType || f.type;
+    const opts = f.options;
+    let v;
+
+    if (lname === 'prompt') {
+      v = String(vals.prompt || '');
+      if (f.max) v = v.slice(0, f.max);
+    } else if (isImageArrayField(f)) {
+      if (imageUrls.length) v = imageUrls.slice(0, f.maxImages || 10);
+      else if (f.required) v = [];
+    } else if (lname === 'image_url') {
+      if (imageUrls[0]) v = imageUrls[0];
+    } else if (lname === 'size') {
+      v = coerceEnum(opts, sizeFromAspect(vals.aspect), ['Auto']);
+      if (v === undefined) v = f.default;
+    } else if (lname === 'image_size' || lname.includes('aspect')) {
+      v = coerceEnum(opts, vals.aspect, ['auto', 'Auto']);
+      if (v === undefined) v = f.default;
+    } else if (lname.includes('resolution')) {
+      if (vals.resolution != null) {
+        v = coerceEnum(opts, vals.resolution, []);
+        if (v === undefined) v = f.default;
+      }
+    } else if (lname.includes('duration')) {
+      if (vals.duration != null) {
+        v = nearestNum(opts, vals.duration);
+        if (v === undefined) v = f.default;
+      }
+    } else if ((dt === 'boolean') && lname.includes('audio')) {
+      if (vals.generateAudio != null) v = !!vals.generateAudio;
+    } else if (lname === 'n' || lname === 'num_images') {
+      v = 1;
+    }
+
+    if (v === undefined) {
+      // Fill required fields we didn't map with their declared default so the API
+      // never receives `undefined` for a required field.
+      if (f.required && f.default !== undefined) v = f.default;
+      else continue;
+    }
+    input[name] = v;
+  }
+  return input;
+}
+
+// Pull UI constraints out of a schema (allowed durations/resolutions/aspects + audio).
+function extractConstraints(schema) {
+  const fields = (schema && schema.fields) || [];
+  const find = (pred) => fields.find(pred);
+  const durF = find((f) => lc(f.name).includes('duration'));
+  const resF = find((f) => lc(f.name).includes('resolution'));
+  const arF = find((f) => lc(f.name).includes('aspect') || lc(f.name) === 'image_size' || lc(f.name) === 'size');
+  const audioF = find((f) => (f.dataType === 'boolean' || f.type === 'boolean') && lc(f.name).includes('audio'));
+  const imgArr = find(isImageArrayField);
+  const imgOne = find((f) => lc(f.name) === 'image_url');
+  return {
+    durations: durF && durF.options ? durF.options : null,
+    resolutions: resF && resF.options ? resF.options : null,
+    aspectRatios: arF && arF.options ? arF.options : null,
+    hasAudio: !!audioF,
+    needsImage: !!((imgArr && imgArr.required) || (imgOne && imgOne.required)),
+  };
+}
+
+// Shaped catalog for the UI: image + video models (with per-method constraints) + keys.
 async function getCatalog(db) {
   const mk = await pickActiveMagicaKey(db);
   if (!mk) return { keys: [], imageModels: [], videoModels: [] };
   const models = await getModelsCached(mk.key_value);
-  const shape = (m, allowed) => ({
-    nodeType: m.nodeType,
-    name: m.name,
-    methods: (m.subModels || [])
-      .filter((s) => allowed.includes(s.category))
-      .map((s) => ({ subModelId: s.subModelId, category: s.category, label: s.label || s.category })),
-  });
+
+  const shape = (m, allowed) => {
+    const subs = (m.subModels || []).filter((s) => allowed.includes(s.category));
+    const methods = subs.length
+      ? subs.map((s) => ({ subModelId: s.subModelId, category: s.category, label: s.label || s.category }))
+      : (allowed.includes(m.category) ? [{ subModelId: null, category: m.category, label: m.category }] : []);
+    return { nodeType: m.nodeType, name: m.name, methods };
+  };
+
+  // Only TRUE image generators (they expose a text-to-image method). This drops
+  // image utilities like topaz_upscale / faceswap / background_remover (image-to-image
+  // only) and meshy (3D mesh output, not a usable storyboard panel).
   const imageModels = models
-    .filter((m) => (m.subModels || []).some((s) => IMAGE_METHODS.includes(s.category)) || m.category === 'text-to-image')
-    .map((m) => shape(m, IMAGE_METHODS));
+    .filter((m) => !IMAGE_MODEL_EXCLUDE.has(m.nodeType))
+    .filter((m) => (m.subModels || []).some((s) => s.category === 'text-to-image') || m.category === 'text-to-image')
+    .map((m) => shape(m, IMAGE_METHODS))
+    .filter((m) => m.methods.length);
   const videoModels = models
     .filter((m) => (m.subModels || []).some((s) => VIDEO_METHODS.includes(s.category)) || VIDEO_METHODS.includes(m.category))
-    .map((m) => shape(m, VIDEO_METHODS));
-  const keys = await db.all('SELECT id, label FROM magica_api_keys WHERE is_active = 1 ORDER BY id ASC');
+    .map((m) => shape(m, VIDEO_METHODS))
+    .filter((m) => m.methods.length);
+
+  // Enrich each VIDEO method with its schema constraints (duration/resolution/aspect/
+  // audio) so the UI can offer exactly what each model supports. Cached per schema.
+  const jobs = [];
+  for (const m of videoModels) {
+    for (const mt of m.methods) {
+      jobs.push((async () => {
+        try {
+          const sc = await getSchemaCached(mk.key_value, mt.subModelId || m.nodeType);
+          Object.assign(mt, extractConstraints(sc));
+        } catch (e) { /* leave method without constraints on any failure */ }
+      })());
+    }
+  }
+  await Promise.all(jobs);
+
+  // Active keys WITH balances so the UI shows credits and the user can pick a funded
+  // key (a 403 "insufficient credits" means the chosen key's balance is too low).
+  const rawKeys = await db.all('SELECT id, label, key_value FROM magica_api_keys WHERE is_active = 1 ORDER BY id ASC');
+  const keys = await Promise.all(rawKeys.map(async (k) => {
+    let balance = null, formatted = null;
+    try {
+      const bal = await magica.getCreditBalance(k.key_value);
+      balance = Number(bal.availableBalance);
+      formatted = bal.formatted;
+    } catch (e) {}
+    return { id: k.id, label: k.label, balance, formatted };
+  }));
+
   return { keys, imageModels, videoModels };
 }
 
 // Generate ONE storyboard image. nodeType defaults to gpt_image_2; text vs edit is
-// chosen by whether a reference image is present.
+// chosen by whether a reference image is present, then the input is built from the
+// resolved submodel's live schema (correct field names per model).
 async function generateOneImageMagica(apiKey, prompt, opts = {}) {
   const onLog = typeof opts.onLog === 'function' ? opts.onLog : () => {};
   const nodeType = opts.nodeType || 'gpt_image_2';
   const refUrl = toPublicUrl(opts.refUrl);
   const category = refUrl ? 'image-to-image' : 'text-to-image';
-  let subModelId = null;
-  try { subModelId = resolveSubModel(await getModelsCached(apiKey), nodeType, category); } catch (e) {}
-  const size = sizeFromAspect(opts.aspectRatio);
-  const input = { prompt: String(prompt || ''), size, quality: 'High', n: 1 };
-  if (refUrl) input.uploadedImages = [refUrl];
-  onLog(`[Magica] Gambar via ${nodeType}${subModelId ? ' / ' + subModelId : ''} (size ${size})...`);
+  const models = await getModelsCached(apiKey);
+  const subModelId = resolveSubModel(models, nodeType, category);
+
+  let fields = [];
+  try { fields = ((await getSchemaCached(apiKey, subModelId || nodeType)) || {}).fields || []; } catch (e) {}
+  const input = buildInput(fields, { prompt, aspect: opts.aspectRatio, imageUrls: refUrl ? [refUrl] : [] });
+  if (!('prompt' in input) && prompt) input.prompt = String(prompt);
+
+  onLog(`[Magica] Gambar via ${nodeType}${subModelId ? ' / ' + subModelId : ''} (fields: ${Object.keys(input).join(', ')})...`);
   const runId = await magica.runModel(apiKey, nodeType, subModelId, input);
   const done = await magica.pollRun(apiKey, runId, { onLog });
   const url = (done.mediaUrls || [])[0];
@@ -135,9 +287,10 @@ async function generateOneImageMagica(apiKey, prompt, opts = {}) {
   return { url, credit: Number(done.creditUsed) || 0 };
 }
 
-// Generate ONE video. nodeType defaults to seedance_2_0; method is the submodel
-// category (text-to-video | image-to-video | reference-to-video). Falls back from
-// the legacy Freebeat generationType when method is not supplied.
+// Generate ONE video. nodeType defaults to seedance_2_0_fast; method is the submodel
+// category (text-to-video | image-to-video | reference-to-video). Input is built from
+// the resolved submodel's live schema, so duration/resolution/aspect are clamped to
+// what THAT model supports and the reference-image field name is chosen correctly.
 async function generateVideoMagica(apiKey, params = {}) {
   const onLog = typeof params.onLog === 'function' ? params.onLog : () => {};
   const nodeType = params.nodeType || (params.fast ? 'seedance_2_0_fast' : 'seedance_2_0');
@@ -146,22 +299,29 @@ async function generateVideoMagica(apiKey, params = {}) {
     const gt = params.generationType;
     category = gt === 'text' ? 'text-to-video' : (gt === 'reference' ? 'reference-to-video' : 'image-to-video');
   }
-  let subModelId = null;
-  try { subModelId = resolveSubModel(await getModelsCached(apiKey), nodeType, category); } catch (e) {}
+  const models = await getModelsCached(apiKey);
+  const subModelId = resolveSubModel(models, nodeType, category);
 
-  const input = {
-    prompt: String(params.prompt || ''),
-    duration: videoDuration(params.duration),
-    aspect_ratio: videoAspect(params.aspectRatio),
-    resolution: videoResolution(params.resolution),
-    generate_audio: !!params.generateAudio,
-  };
-  if (category !== 'text-to-video') {
-    const imgUrl = toPublicUrl(params.sceneImage);
-    if (!imgUrl) throw new Error('Gambar panel tidak punya URL publik untuk Magica (set PUBLIC_URL, atau gunakan gambar hasil Magica).');
-    input.image_url = imgUrl;
+  let fields = [];
+  try { fields = ((await getSchemaCached(apiKey, subModelId || nodeType)) || {}).fields || []; } catch (e) {}
+
+  const imgUrl = toPublicUrl(params.sceneImage);
+  const needsImage = fields.some((f) => (lc(f.name) === 'image_url' && f.required) || (isImageArrayField(f) && f.required));
+  if (category !== 'text-to-video' && needsImage && !imgUrl) {
+    throw new Error('Gambar panel tidak punya URL publik untuk Magica (set PUBLIC_URL di server, atau gunakan gambar hasil Magica).');
   }
-  onLog(`[Magica] Video via ${nodeType}${subModelId ? ' / ' + subModelId : ''} (${input.duration}s, ${input.aspect_ratio}, ${input.resolution})...`);
+
+  const input = buildInput(fields, {
+    prompt: params.prompt,
+    aspect: params.aspectRatio,
+    resolution: params.resolution,
+    duration: params.duration,
+    generateAudio: params.generateAudio,
+    imageUrls: imgUrl ? [imgUrl] : [],
+  });
+  if (!('prompt' in input) && params.prompt) input.prompt = String(params.prompt);
+
+  onLog(`[Magica] Video via ${nodeType}${subModelId ? ' / ' + subModelId : ''} (durasi ${input.duration || '-'}, rasio ${input.aspect_ratio || '-'}, resolusi ${input.resolution || '-'})...`);
   const runId = await magica.runModel(apiKey, nodeType, subModelId, input);
   const done = await magica.pollRun(apiKey, runId, { onLog, timeoutMs: 900000 });
   const url = (done.mediaUrls || [])[0];
@@ -176,6 +336,11 @@ module.exports = {
   pickActiveMagicaKey,
   pickMagicaKey,
   isMagicaForStoryboard,
+  getModelsCached,
+  getSchemaCached,
+  resolveSubModel,
+  buildInput,
+  extractConstraints,
   getCatalog,
   generateOneImageMagica,
   generateVideoMagica,

@@ -63,6 +63,25 @@ export default function Dashboard({ setTab }) {
     }).catch(() => {});
   }, []);
 
+  // When the Magica video model/method changes, clamp duration/resolution/aspect and
+  // the audio toggle to exactly what THAT model supports (each Magica model differs).
+  useEffect(() => {
+    if (userProvider !== 'magica' || !magicaCatalog) return;
+    const m = (magicaCatalog.videoModels || []).find((x) => x.nodeType === magicaVideoModel);
+    const mt = m && (m.methods || []).find((x) => x.category === magicaVideoMethod);
+    if (!mt) return;
+    if (Array.isArray(mt.durations) && mt.durations.length && !mt.durations.map(String).includes(String(videoDuration))) {
+      setVideoDuration(String(mt.durations.includes(5) ? 5 : mt.durations[0]));
+    }
+    if (Array.isArray(mt.resolutions) && mt.resolutions.length && !mt.resolutions.map((v) => String(v).toLowerCase()).includes(String(videoResolution).toLowerCase())) {
+      setVideoResolution(mt.resolutions.includes('720p') ? '720p' : mt.resolutions[0]);
+    }
+    if (Array.isArray(mt.aspectRatios) && mt.aspectRatios.length && !mt.aspectRatios.includes(videoAspectRatio)) {
+      setVideoAspectRatio(mt.aspectRatios.includes('9:16') ? '9:16' : mt.aspectRatios[0]);
+    }
+    if (mt.hasAudio === false && videoGenerateAudio) setVideoGenerateAudio(false);
+  }, [userProvider, magicaCatalog, magicaVideoModel, magicaVideoMethod]);
+
   useEffect(() => {
     const hasProcessing = storyboards.some(sb => sb.status === 'processing');
     let interval;
@@ -2208,7 +2227,7 @@ export default function Dashboard({ setTab }) {
                             <select value={magicaKeyId} onChange={(e) => setMagicaKeyId(e.target.value)} className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] focus:outline-none focus:border-[#a855f7] transition-all font-semibold">
                               <option value="auto">Pilih Otomatis (Auto-detect)</option>
                               {(((magicaCatalog && magicaCatalog.keys) || []).length)
-                                ? magicaCatalog.keys.map(k => (<option key={k.id} value={k.id}>{k.label}</option>))
+                                ? magicaCatalog.keys.map(k => (<option key={k.id} value={k.id}>{k.label}{k.formatted != null ? ` (⚡ ${k.formatted} kredit)` : ''}</option>))
                                 : <option value="" disabled>Belum ada API Key Magica aktif</option>}
                             </select>
                           </div>
@@ -2331,6 +2350,12 @@ export default function Dashboard({ setTab }) {
                               className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-1.5 py-1 text-white text-[9px] focus:outline-none focus:border-[#cfae80] font-semibold"
                             >
                               {(() => {
+                                if (userProvider === 'magica') {
+                                  const mm = (magicaCatalog?.videoModels || []).find(x => x.nodeType === magicaVideoModel);
+                                  const mt = mm && (mm.methods || []).find(x => x.category === magicaVideoMethod);
+                                  const durs = (mt && mt.durations) || [5];
+                                  return durs.map(d => (<option key={d} value={d}>{d}s</option>));
+                                }
                                 const m = VIDEO_MODELS.find(x => x.value === videoModel);
                                 return m?.durations.map(d => (
                                   <option key={d} value={d}>{d}s</option>
@@ -2347,6 +2372,14 @@ export default function Dashboard({ setTab }) {
                               className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-1.5 py-1 text-white text-[9px] focus:outline-none focus:border-[#cfae80] font-semibold"
                             >
                               {(() => {
+                                if (userProvider === 'magica') {
+                                  const mm = (magicaCatalog?.videoModels || []).find(x => x.nodeType === magicaVideoModel);
+                                  const mt = mm && (mm.methods || []).find(x => x.category === magicaVideoMethod);
+                                  const res = (mt && mt.resolutions) || [];
+                                  return res.length
+                                    ? res.map(r => (<option key={r} value={r}>{r}</option>))
+                                    : (<option value="">— (default model)</option>);
+                                }
                                 const m = VIDEO_MODELS.find(x => x.value === videoModel);
                                 return m?.resolutions.map(r => (
                                   <option key={r} value={r}>{r}</option>
@@ -2362,16 +2395,30 @@ export default function Dashboard({ setTab }) {
                               onChange={(e) => setVideoAspectRatio(e.target.value)}
                               className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-1.5 py-1 text-white text-[9px] focus:outline-none focus:border-[#cfae80] font-semibold"
                             >
-                              <option value="auto">Auto</option>
-                              <option value="16:9">16:9</option>
-                              <option value="9:16">9:16</option>
-                              <option value="1:1">1:1</option>
-                              <option value="4:3">4:3</option>
-                              <option value="3:4">3:4</option>
+                              {userProvider === 'magica' ? (() => {
+                                const mm = (magicaCatalog?.videoModels || []).find(x => x.nodeType === magicaVideoModel);
+                                const mt = mm && (mm.methods || []).find(x => x.category === magicaVideoMethod);
+                                const ars = (mt && mt.aspectRatios) || ['auto'];
+                                return ars.map(a => (<option key={a} value={a}>{a === 'auto' ? 'Auto' : a}</option>));
+                              })() : (<>
+                                <option value="auto">Auto</option>
+                                <option value="16:9">16:9</option>
+                                <option value="9:16">9:16</option>
+                                <option value="1:1">1:1</option>
+                                <option value="4:3">4:3</option>
+                                <option value="3:4">3:4</option>
+                              </>)}
                             </select>
                           </div>
                         </div>
 
+                        {(() => {
+                          if (userProvider === 'magica') {
+                            const mm = (magicaCatalog?.videoModels || []).find(x => x.nodeType === magicaVideoModel);
+                            const mt = mm && (mm.methods || []).find(x => x.category === magicaVideoMethod);
+                            if (mt && mt.hasAudio === false) return null;
+                          }
+                          return (
                         <label className="flex items-center gap-2 cursor-pointer select-none border-t border-[#2a2725]/40 pt-2 pb-1">
                           <input
                             type="checkbox"
@@ -2383,6 +2430,8 @@ export default function Dashboard({ setTab }) {
                             Hasilkan Audio / Sound Effect (Voiceover)
                           </span>
                         </label>
+                          );
+                        })()}
 
                         <label className="flex items-center gap-2 cursor-pointer select-none pb-1">
                           <input
