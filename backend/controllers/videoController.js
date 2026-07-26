@@ -1641,6 +1641,7 @@ module.exports = {
   resumeProcessingVideos,
   regenerateVideoMarketingCopy,
   regenerateStoryboardMarketingCopy,
+  generateMarketingCopyInternal,
   generateAllVideos,
   mergeStoryboardVideos
 };

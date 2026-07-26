@@ -125,45 +125,49 @@ function buildGoogleAuth(conf) {
 }
 
 async function getMarketingCopyForStoryboard(db, sb) {
-  let title = sb.title || 'Untitled';
-  let caption = sb.prompt || '';
-
-  // 0. Canonical single marketing copy stored on the storyboard itself (written by
-  // every generate/regenerate). Source of truth so the export ALWAYS reflects the
-  // latest copy — not an older per-video row.
+  // 0. Canonical marketing copy stored on the storyboard (source of truth).
   if (sb.marketing_title) {
     return { title: sb.marketing_title, caption: sb.marketing_description || '' };
   }
 
-  // 1. Try to fetch from generated_videos
+  // 1. From a generated video row.
   const videoWithCopy = await db.get(
     'SELECT marketing_title, marketing_description FROM generated_videos WHERE storyboard_id = ? AND marketing_title IS NOT NULL AND marketing_title != "" ORDER BY id DESC LIMIT 1',
     [sb.id]
   );
-
   if (videoWithCopy && videoWithCopy.marketing_title) {
-    title = videoWithCopy.marketing_title;
-    caption = videoWithCopy.marketing_description || '';
-  } else if (sb.video_prompts) {
-    // 2. Try to parse from video_prompts
+    return { title: videoWithCopy.marketing_title, caption: videoWithCopy.marketing_description || '' };
+  }
+
+  // 2. From video_prompts (older storyboards).
+  if (sb.video_prompts) {
     try {
       const parsed = JSON.parse(sb.video_prompts);
-      if (Array.isArray(parsed)) {
-        for (const s of parsed) {
-          if (s.marketing_title) {
-            title = s.marketing_title;
-            caption = s.marketing_description || '';
-            break;
-          }
-        }
-      } else if (parsed && typeof parsed === 'object') {
-        if (parsed.marketing_title) title = parsed.marketing_title;
-        if (parsed.marketing_description) caption = parsed.marketing_description;
+      const scenes = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.scenes) ? parsed.scenes : []);
+      for (const s of scenes) {
+        if (s && s.marketing_title) return { title: s.marketing_title, caption: s.marketing_description || '' };
+      }
+      if (parsed && !Array.isArray(parsed) && parsed.marketing_title) {
+        return { title: parsed.marketing_title, caption: parsed.marketing_description || '' };
       }
     } catch (e) {}
   }
 
-  return { title, caption };
+  // 3. AUTO-GENERATE via the AI Marketing Copy engine — the export must use marketing
+  // copy, NOT the raw storyboard title/prompt. Persist it so future exports are instant.
+  try {
+    const { generateMarketingCopyInternal } = require('./videoController'); // lazy require (avoid circular dep)
+    const gen = await generateMarketingCopyInternal(sb.id, 0);
+    if (gen && gen.title) {
+      try {
+        await db.run('UPDATE storyboards SET marketing_title = ?, marketing_description = ? WHERE id = ?', [gen.title, gen.description || '', sb.id]);
+      } catch (e) {}
+      return { title: gen.title, caption: gen.description || '' };
+    }
+  } catch (e) { /* generation failed — fall through to raw values below */ }
+
+  // 4. Last resort.
+  return { title: sb.title || 'Untitled', caption: sb.prompt || '' };
 }
 
 async function exportToGoogleSheets(req, res) {
