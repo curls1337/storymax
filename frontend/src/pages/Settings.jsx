@@ -56,6 +56,15 @@ export default function Settings({ onLogout }) {
     } catch (e) {}
   }, []);
 
+  // While any export is still 'processing', poll so the list updates even after the
+  // Dashboard tab that started it is closed — the job runs in the background on the server.
+  useEffect(() => {
+    const hasProcessing = (googleExports || []).some((e) => (e.status || '') === 'processing');
+    if (!hasProcessing) return;
+    const t = setInterval(fetchGoogleStatus, 4000);
+    return () => clearInterval(t);
+  }, [googleExports]);
+
   const handleConnectGoogle = async () => {
     setError(''); setMessage(''); setGoogleBusy(true);
     try { const r = await api.get('/google/oauth/url'); window.location.href = r.data.url; }
@@ -191,20 +200,35 @@ export default function Settings({ onLogout }) {
 
           {googleStatus && googleStatus.connected && (
             <div className="mt-3 border-t border-[#2a2725] pt-3">
-              <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500 mb-2">Daftar Spreadsheet Export <span className="text-slate-600 normal-case font-normal">— tiap export = sheet baru</span></p>
+              <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500 mb-2">Riwayat Export <span className="text-slate-600 normal-case font-normal">— cloud (Buka) &amp; CSV (Download), berjalan di background</span></p>
               {googleExports.length === 0 ? (
-                <p className="text-slate-500 text-[10px]">Belum ada. Export dari Dashboard untuk membuat spreadsheet baru.</p>
+                <p className="text-slate-500 text-[10px]">Belum ada. Export dari Dashboard — prosesnya jalan di background & muncul di sini.</p>
               ) : (
-                <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
-                  {googleExports.map((ex) => (
-                    <div key={ex.id} className="flex items-center justify-between gap-2 bg-black/30 border border-[#2a2725] rounded-lg px-2.5 py-1.5">
-                      <div className="min-w-0">
-                        <p className="text-[10px] text-slate-200 truncate">{ex.title || 'Spreadsheet'}</p>
-                        <p className="text-[8.5px] text-slate-500 truncate">{(ex.item_count || 0)} item{ex.created_at ? ' · ' + ex.created_at : ''}</p>
+                <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
+                  {googleExports.map((ex) => {
+                    const status = ex.status || 'success';
+                    const isCloud = ex.type === 'cloud' || (!ex.type && !!ex.spreadsheet_url);
+                    const typeLabel = ex.type === 'full' ? 'CSV Full' : (ex.type === 'csv' ? 'CSV' : 'Cloud');
+                    return (
+                      <div key={ex.id} className="flex items-center justify-between gap-2 bg-black/30 border border-[#2a2725] rounded-lg px-2.5 py-1.5">
+                        <div className="min-w-0">
+                          <p className="text-[10px] text-slate-200 truncate"><span className="text-[8px] font-bold uppercase tracking-wider text-slate-500 mr-1">[{typeLabel}]</span>{ex.title || 'Export'}</p>
+                          <p className="text-[8.5px] text-slate-500 truncate">{(ex.total || ex.item_count || 0)} item{ex.created_at ? ' · ' + ex.created_at : ''}{status === 'failed' && ex.error ? ' · ' + ex.error : ''}</p>
+                        </div>
+                        <div className="shrink-0">
+                          {status === 'processing' ? (
+                            <span className="text-[9px] text-[#cfae80] font-bold uppercase tracking-wider flex items-center gap-1"><Loader className="animate-spin w-3 h-3" /> Diproses</span>
+                          ) : status === 'failed' ? (
+                            <span className="text-[9px] text-red-400 font-bold uppercase tracking-wider">Gagal</span>
+                          ) : isCloud ? (
+                            ex.spreadsheet_url ? <a href={ex.spreadsheet_url} target="_blank" rel="noopener noreferrer" className="text-[9px] text-[#22c55e] font-bold uppercase tracking-wider hover:underline">Buka</a> : <span className="text-[9px] text-slate-500">—</span>
+                          ) : (
+                            <a href={`${api.defaults.baseURL}/google/oauth/exports/${ex.id}/download?token=${encodeURIComponent(localStorage.getItem('token') || '')}`} className="text-[9px] text-[#22c55e] font-bold uppercase tracking-wider hover:underline">Download</a>
+                          )}
+                        </div>
                       </div>
-                      {ex.spreadsheet_url && <a href={ex.spreadsheet_url} target="_blank" rel="noopener noreferrer" className="text-[9px] text-[#22c55e] font-bold uppercase tracking-wider hover:underline shrink-0">Buka</a>}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

@@ -247,16 +247,23 @@ async function initDb() {
     )
   `);
 
-  // History of export spreadsheets per user — each export makes a NEW sheet, listed in Settings.
+  // Export history per user (BACKGROUND JOBS). type: cloud|csv|full. status:
+  // processing|success|failed. Cloud jobs fill spreadsheet_url; CSV jobs fill file_path.
   await db.exec(`
     CREATE TABLE IF NOT EXISTS user_google_exports (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
+      type TEXT DEFAULT 'cloud',
+      status TEXT DEFAULT 'success',
       spreadsheet_id TEXT,
       spreadsheet_url TEXT,
+      file_path TEXT,
       title TEXT,
       item_count INTEGER DEFAULT 0,
+      total INTEGER DEFAULT 0,
+      error TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )
   `);
@@ -381,6 +388,17 @@ async function initDb() {
   try { await db.exec('ALTER TABLE google_settings ADD COLUMN service_account_json TEXT'); } catch (e) { /* exists */ }
   // Per-user OAuth: admin-configured redirect URI for the consent callback.
   try { await db.exec('ALTER TABLE google_settings ADD COLUMN redirect_uri TEXT'); } catch (e) { /* exists */ }
+  // Export jobs (background): extend user_google_exports for status/type/file/error.
+  for (const [col, type] of [
+    ['type', "TEXT DEFAULT 'cloud'"],
+    ['status', "TEXT DEFAULT 'success'"],
+    ['file_path', 'TEXT'],
+    ['total', 'INTEGER DEFAULT 0'],
+    ['error', 'TEXT'],
+    ['updated_at', 'TEXT'],
+  ]) {
+    try { await db.exec(`ALTER TABLE user_google_exports ADD COLUMN ${col} ${type}`); } catch (e) { /* exists */ }
+  }
 
   // Seed default admin if no users exist
   const adminExists = await db.get('SELECT * FROM users WHERE role = "admin"');
