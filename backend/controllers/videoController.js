@@ -21,6 +21,7 @@ if (process.platform !== 'win32') {
 const { getDb } = require('../db');
 const { activeTasks } = require('./storyboardController');
 const magicaGen = require('../services/magicaGen');
+const { llmChatViaSettings } = require('../prompts/aiClient');
 
 async function checkAndDisableKeyIfOutofCredits(db, apiKeyId, errorText, taskObj) {
   if (!apiKeyId || !errorText) return;
@@ -395,39 +396,12 @@ async function generateVideo(req, res) {
   }
 }
 
+// Marketing-copy LLM call. Routes through the central ai_settings config so it honors
+// the admin LLM-provider setting (Magica for text-only, else the default endpoint).
+// endpoint/apiKey are ignored in favor of that shared config; the { statusCode, body }
+// contract is preserved so callers keep their existing parsing.
 function callAi(endpoint, apiKey, payload) {
-  return new Promise((resolve, reject) => {
-    const url = new URL(endpoint + '/chat/completions');
-    const client = url.protocol === 'https:' ? https : http;
-    const bodyStr = JSON.stringify(payload);
-
-    const options = {
-      hostname: url.hostname,
-      port: url.port || (url.protocol === 'https:' ? 443 : 80),
-      path: url.pathname + url.search,
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      timeout: 30000
-    };
-
-    const req = client.request(options, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => resolve({ statusCode: res.statusCode, body: data }));
-    });
-
-    req.on('error', reject);
-    req.on('timeout', () => {
-      req.destroy();
-      reject(new Error('AI Request Timeout'));
-    });
-
-    req.write(bodyStr);
-    req.end();
-  });
+  return llmChatViaSettings(payload, { db: getDb(), timeoutMs: 30000 });
 }
 
 async function generateMarketingCopyInternal(storyboardId, sceneIdx) {

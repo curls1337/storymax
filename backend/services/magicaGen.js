@@ -55,6 +55,13 @@ async function pickMagicaKey(db, preferredId) {
   return pickActiveMagicaKey(db);
 }
 
+// Random active Magica key — the admin asked LLM traffic to spread across keys.
+async function pickRandomMagicaKey(db) {
+  const rows = await db.all('SELECT id, key_value FROM magica_api_keys WHERE is_active = 1');
+  if (!rows || !rows.length) return null;
+  return rows[Math.floor(Math.random() * rows.length)];
+}
+
 async function isMagicaForStoryboard(db, storyboardId) {
   try {
     const row = await db.get(
@@ -260,7 +267,12 @@ async function getCatalog(db) {
     return { id: k.id, label: k.label, balance, formatted };
   }));
 
-  return { keys, imageModels, videoModels };
+  // Text LLM models (category 'llm') for the admin LLM-provider picker.
+  const llmModels = models
+    .filter((m) => m.category === 'llm')
+    .map((m) => ({ nodeType: m.nodeType, name: m.name }));
+
+  return { keys, imageModels, videoModels, llmModels };
 }
 
 // Generate ONE storyboard image. nodeType defaults to gpt_image_2; text vs edit is
@@ -329,12 +341,44 @@ async function generateVideoMagica(apiKey, params = {}) {
   return { url, credit: Number(done.creditUsed) || 0 };
 }
 
+// LLM text completion via a Magica text model (category 'llm'). Maps OpenAI-style
+// messages -> Magica {prompt, system_prompt}. Uses a RANDOM active key (admin request).
+// Text-only: callers must route vision requests to the default provider (Magica LLM
+// needs public image URLs, not base64).
+async function magicaChatCompletion(db, messages, opts = {}) {
+  const key = await pickRandomMagicaKey(db);
+  if (!key) throw new Error('Tidak ada API Key Magica aktif untuk LLM.');
+  const nodeType = opts.model || 'gemini_3_5_flash';
+  const msgs = Array.isArray(messages) ? messages : [];
+  const textOf = (c) => Array.isArray(c)
+    ? c.filter((p) => p && (p.type === 'text' || typeof p === 'string')).map((p) => (typeof p === 'string' ? p : p.text)).join('\n')
+    : String(c || '');
+  const system_prompt = msgs.filter((m) => m.role === 'system').map((m) => textOf(m.content)).join('\n\n');
+  const prompt = msgs.filter((m) => m.role !== 'system')
+    .map((m) => (m.role === 'assistant' ? 'Assistant: ' : '') + textOf(m.content)).join('\n\n');
+  const input = {
+    prompt: prompt || ' ',
+    system_prompt: system_prompt || '',
+    temperature: opts.temperature != null ? opts.temperature : 0.6,
+    max_tokens: opts.maxTokens || 4096,
+  };
+  const runId = await magica.runModel(key.key_value, nodeType, null, input);
+  const done = await magica.pollRun(key.key_value, runId, { timeoutMs: opts.timeoutMs || 120000, intervalMs: 2000 });
+  const out = done.run && done.run.output;
+  let text = out && (out.output || out.text || out.result || out.content);
+  if (Array.isArray(text)) text = text.join('');
+  if (!text || !String(text).trim()) throw new Error('Respons LLM Magica kosong.');
+  return String(text).trim();
+}
+
 module.exports = {
   publicBase,
   toPublicUrl,
   sizeFromAspect,
   pickActiveMagicaKey,
   pickMagicaKey,
+  pickRandomMagicaKey,
+  magicaChatCompletion,
   isMagicaForStoryboard,
   getModelsCached,
   getSchemaCached,

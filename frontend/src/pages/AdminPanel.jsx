@@ -55,6 +55,9 @@ export default function AdminPanel() {
   const [aiEndpoint, setAiEndpoint] = useState('');
   const [aiApiKey, setAiApiKey] = useState('');
   const [aiModel, setAiModel] = useState('gemini-3-flash');
+  const [aiLlmProvider, setAiLlmProvider] = useState('default');
+  const [aiMagicaLlmModel, setAiMagicaLlmModel] = useState('gemini_3_5_flash');
+  const [magicaLlmModels, setMagicaLlmModels] = useState([]);
   const [aiTestLoading, setAiTestLoading] = useState(false);
   const [aiSaveLoading, setAiSaveLoading] = useState(false);
 
@@ -93,6 +96,12 @@ export default function AdminPanel() {
       setAiEndpoint(res.data.endpoint || '');
       setAiApiKey(res.data.api_key || '');
       setAiModel(res.data.model || 'gemini-3-flash');
+      setAiLlmProvider(res.data.llm_provider || 'default');
+      setAiMagicaLlmModel(res.data.magica_llm_model || 'gemini_3_5_flash');
+      try {
+        const c = await api.get('/magica/catalog');
+        setMagicaLlmModels((c.data && c.data.llmModels) || []);
+      } catch (e) { /* no active magica key yet */ }
     } catch (err) {
       console.error('Gagal mengambil pengaturan AI:', err);
     }
@@ -408,7 +417,7 @@ export default function AdminPanel() {
     setMessage('');
     setAiSaveLoading(true);
     try {
-      await api.put('/admin/ai-settings', { endpoint: aiEndpoint, api_key: aiApiKey, model: aiModel });
+      await api.put('/admin/ai-settings', { endpoint: aiEndpoint, api_key: aiApiKey, model: aiModel, llm_provider: aiLlmProvider, magica_llm_model: aiMagicaLlmModel });
       setMessage('Pengaturan AI berhasil disimpan!');
     } catch (err) {
       setError(err.response?.data?.message || 'Gagal menyimpan pengaturan AI.');
@@ -884,6 +893,35 @@ export default function AdminPanel() {
           </div>
 
           <form onSubmit={handleSaveAiSettings} className="space-y-4 max-w-2xl">
+            <div>
+              <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Provider LLM</label>
+              <select
+                value={aiLlmProvider}
+                onChange={(e) => setAiLlmProvider(e.target.value)}
+                className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white text-xs font-semibold focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all"
+              >
+                <option value="default">Default (Endpoint di bawah)</option>
+                <option value="magica">Magica (kolam key — key dipilih acak)</option>
+              </select>
+              <p className="text-[8px] text-slate-500 mt-1">Magica dipakai untuk LLM teks (generate prompt). Analisa gambar (vision) tetap memakai Endpoint default karena Magica butuh URL publik, bukan base64.</p>
+            </div>
+
+            {aiLlmProvider === 'magica' && (
+              <div>
+                <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Model LLM Magica</label>
+                <select
+                  value={aiMagicaLlmModel}
+                  onChange={(e) => setAiMagicaLlmModel(e.target.value)}
+                  className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white text-xs font-semibold focus:outline-none focus:border-[#a855f7] transition-all"
+                >
+                  {magicaLlmModels.length
+                    ? magicaLlmModels.map((m) => (<option key={m.nodeType} value={m.nodeType}>{m.name}</option>))
+                    : <option value={aiMagicaLlmModel}>{aiMagicaLlmModel} (tambah API Key Magica untuk daftar penuh)</option>}
+                </select>
+                <p className="text-[8px] text-slate-500 mt-1">Key Magica dipilih acak dari kolam aktif setiap panggilan. Endpoint default di bawah tetap dipakai untuk analisa gambar.</p>
+              </div>
+            )}
+
             <div>
               <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Model AI Antigravity</label>
               <select 

@@ -11,6 +11,7 @@ const { uploadsDir } = require('../config');
 
 const LAYOUT_STYLES = require('../constants/layoutStyles');
 const { resolveStyleId, getStyleSpec } = require('../prompts/styleLibrary');
+const { llmChatViaSettings } = require('../prompts/aiClient');
 
 // Styles whose VIDEO should get the full cinematic atmosphere (haze + subtle lens
 // flare + shallow DOF). Every other style stays clean & crisp (DOF only, no
@@ -282,7 +283,7 @@ Anda harus mengembalikan respon hanya dalam format JSON mentah dengan key 'title
       'Authorization': `Bearer ${apiToken}`
     };
 
-    const response = await httpRequest(`${apiHost}/chat/completions`, headers, payload);
+    const response = await llmChatViaSettings(payload, { db });
 
     if (response.statusCode !== 200) {
       return res.status(500).json({ message: 'Gagal menghubungi server AI.', error: response.body });
@@ -728,7 +729,7 @@ Please analyze the provided image sheet(s) carefully. Generate the requested JSO
     'Authorization': `Bearer ${apiToken}`
   };
 
-  const response = await httpRequest(`${apiHost}/chat/completions`, headers, payload);
+  const response = await llmChatViaSettings(payload, { db });
 
   if (response.statusCode !== 200) {
     throw new Error(`Vision API Error (status ${response.statusCode}): ${response.body}`);

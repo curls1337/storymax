@@ -316,6 +316,10 @@ async function getAiSettings(req, res) {
 
 async function updateAiSettings(req, res) {
   const { endpoint, api_key, model } = req.body;
+  // Admin LLM-provider selection. 'default' = the OpenAI-compatible endpoint;
+  // 'magica' = route text LLM through the Magica key pool (random key).
+  const llm_provider = req.body.llm_provider === 'magica' ? 'magica' : 'default';
+  const magica_llm_model = req.body.magica_llm_model || 'gemini_3_5_flash';
   if (!endpoint || !api_key || !model) {
     return res.status(400).json({ message: 'Endpoint, API Key, dan Model wajib diisi.' });
   }
@@ -325,13 +329,13 @@ async function updateAiSettings(req, res) {
     let settings = await db.get('SELECT * FROM ai_settings LIMIT 1');
     if (settings) {
       await db.run(
-        'UPDATE ai_settings SET endpoint = ?, api_key = ?, model = ? WHERE id = ?',
-        [endpoint, api_key, model, settings.id]
+        'UPDATE ai_settings SET endpoint = ?, api_key = ?, model = ?, llm_provider = ?, magica_llm_model = ? WHERE id = ?',
+        [endpoint, api_key, model, llm_provider, magica_llm_model, settings.id]
       );
     } else {
       await db.run(
-        'INSERT INTO ai_settings (endpoint, api_key, model) VALUES (?, ?, ?)',
-        [endpoint, api_key, model]
+        'INSERT INTO ai_settings (endpoint, api_key, model, llm_provider, magica_llm_model) VALUES (?, ?, ?, ?, ?)',
+        [endpoint, api_key, model, llm_provider, magica_llm_model]
       );
     }
     res.json({ message: 'Pengaturan AI berhasil diperbarui.' });
