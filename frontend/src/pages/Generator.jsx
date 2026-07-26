@@ -9,30 +9,37 @@ import { confirm } from '../utils/confirm';
 
 const ENGINE_DURATIONS = {
   seedance: [
-    { value: 15, label: '15 Detik (1 Halaman)' },
-    { value: 30, label: '30 Detik (2 Halaman)' },
-    { value: 45, label: '45 Detik (3 Halaman)' },
-    { value: 60, label: '60 Detik (4 Halaman)' }
+    { value: 15, pages: 1, label: '15 Detik (1 Halaman)' },
+    { value: 30, pages: 2, label: '30 Detik (2 Halaman)' },
+    { value: 45, pages: 3, label: '45 Detik (3 Halaman)' },
+    { value: 60, pages: 4, label: '60 Detik (4 Halaman)' }
   ],
   omni: [
-    { value: 10, label: '10 Detik (1 Halaman)' },
-    { value: 20, label: '20 Detik (2 Halaman)' },
-    { value: 30, label: '30 Detik (3 Halaman)' },
-    { value: 40, label: '40 Detik (4 Halaman)' },
-    { value: 50, label: '50 Detik (5 Halaman)' },
-    { value: 60, label: '60 Detik (6 Halaman)' }
+    { value: 10, pages: 1, label: '10 Detik (1 Halaman)' },
+    { value: 20, pages: 2, label: '20 Detik (2 Halaman)' },
+    { value: 30, pages: 3, label: '30 Detik (3 Halaman)' },
+    { value: 40, pages: 4, label: '40 Detik (4 Halaman)' },
+    { value: 50, pages: 5, label: '50 Detik (5 Halaman)' },
+    { value: 60, pages: 6, label: '60 Detik (6 Halaman)' }
   ],
   veo: [
-    { value: 8, label: '8 Detik (1 Halaman)' },
-    { value: 16, label: '16 Detik (2 Halaman)' },
-    { value: 24, label: '24 Detik (3 Halaman)' },
-    { value: 32, label: '32 Detik (4 Halaman)' },
-    { value: 40, label: '40 Detik (5 Halaman)' },
-    { value: 48, label: '48 Detik (6 Halaman)' },
-    { value: 56, label: '56 Detik (7 Halaman)' },
-    { value: 64, label: '64 Detik (8 Halaman)' }
+    { value: 8, pages: 1, label: '8 Detik (1 Halaman)' },
+    { value: 16, pages: 2, label: '16 Detik (2 Halaman)' },
+    { value: 24, pages: 3, label: '24 Detik (3 Halaman)' },
+    { value: 32, pages: 4, label: '32 Detik (4 Halaman)' },
+    { value: 40, pages: 5, label: '40 Detik (5 Halaman)' },
+    { value: 48, pages: 6, label: '48 Detik (6 Halaman)' },
+    { value: 56, pages: 7, label: '56 Detik (7 Halaman)' },
+    { value: 64, pages: 8, label: '64 Detik (8 Halaman)' }
   ]
 };
+
+// How many storyboard pages (= separate image renders) the current duration maps to.
+function pagesForDuration(engine, durationValue) {
+  const list = ENGINE_DURATIONS[engine] || ENGINE_DURATIONS.seedance;
+  const hit = list.find((o) => o.value === durationValue);
+  return (hit && hit.pages) || 1;
+}
 
 export default function Generator({ setTab }) {
   const [mode, setMode] = useState('tokopedia');
@@ -1031,7 +1038,7 @@ export default function Generator({ setTab }) {
 
           {userProvider === 'magica' && imgEstimate && (
             <div className="text-center text-[9px] text-slate-400 font-semibold -mb-1">
-              Estimasi biaya Magica: <span className="text-[#a855f7] font-bold">≈ {imgEstimate.credits.toFixed(3)} kredit / gambar</span>
+              Estimasi biaya Magica: <span className="text-[#a855f7] font-bold">≈ {imgEstimate.credits.toFixed(3)} kredit / gambar</span> × {pagesForDuration(videoEngine, duration)} halaman = <span className="text-[#a855f7] font-bold">≈ {(imgEstimate.credits * pagesForDuration(videoEngine, duration)).toFixed(3)} kredit total</span>
             </div>
           )}
 
