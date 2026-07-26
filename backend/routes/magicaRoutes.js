@@ -31,6 +31,23 @@ router.get('/catalog', async (req, res) => {
   }
 });
 
+// Lightweight active-key list (id, label, balance) for pickers (e.g. the 3D tab).
+router.get('/keys', async (req, res) => {
+  try {
+    const db = getDb();
+    const rows = await db.all('SELECT id, label FROM magica_api_keys WHERE is_active = 1 ORDER BY id ASC');
+    const bals = await magicaGen.getKeyBalances(db);
+    const balById = {};
+    bals.forEach((b) => { balById[b.id] = b.balance; });
+    res.json(rows.map((r) => {
+      const bal = balById[r.id];
+      return { id: r.id, label: r.label, balance: bal != null ? bal : null, formatted: bal != null ? (bal / 1e6).toFixed(2) : null };
+    }));
+  } catch (err) {
+    res.status(502).json({ message: 'Gagal mengambil daftar key Magica.', error: err.message });
+  }
+});
+
 // Estimate a job's credit cost BEFORE generating. Body: { kind:'image'|'video'|'3d',
 // model, method, duration, resolution, aspectRatio, hasImage, prompt, targetPolycount, mode }.
 router.post('/estimate', async (req, res) => {
@@ -49,9 +66,8 @@ router.post('/estimate', async (req, res) => {
 router.post('/3d/generate', async (req, res) => {
   const db = getDb();
   try {
-    const u = await db.get('SELECT can_use_magica AS cum FROM users WHERE id = ?', [req.user.id]);
-    if (!u || !u.cum) return res.status(403).json({ message: 'Fitur 3D (Magica) belum diaktifkan untuk akun Anda. Hubungi admin.' });
-
+    // 3D is open to ALL logged-in users (no per-user Magica permission needed); it only
+    // requires the admin to have an active Magica key in the pool.
     const b = req.body || {};
     const mode = b.mode === 'image' ? 'image' : 'text';
     let imageUrls = [];
@@ -63,10 +79,13 @@ router.post('/3d/generate', async (req, res) => {
       return res.status(400).json({ message: 'Prompt teks wajib diisi untuk 3D.' });
     }
 
-    // 3D is cheap; pick the highest-balance active key and let the pre-flight guard cost.
+    // Key selection: honor the user's chosen key ('auto' = the highest-balance one).
     const keys = await magicaGen.getKeyBalances(db);
-    const best = keys.slice().sort((a, c) => c.balance - a.balance)[0];
-    if (!best) return res.status(400).json({ message: 'Belum ada API Key Magica aktif.' });
+    let best = null;
+    const idNum = parseInt(b.magicaKeyId, 10);
+    if (b.magicaKeyId && b.magicaKeyId !== 'auto' && Number.isFinite(idNum)) best = keys.find((k) => k.id === idNum) || null;
+    if (!best) best = keys.slice().sort((a, c) => c.balance - a.balance)[0];
+    if (!best) return res.status(400).json({ message: 'Belum ada API Key Magica aktif. Minta admin menambahkannya di Admin → API Magica.' });
 
     const ins = await db.run('INSERT INTO generated_3d (user_id, mode, prompt, status) VALUES (?, ?, ?, ?)',
       [req.user.id, mode, b.prompt || null, 'processing']);

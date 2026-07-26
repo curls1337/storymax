@@ -6,7 +6,8 @@ import { toast } from '../utils/toast';
 // 3D generation tab powered by Magica's Meshy V6 (text-to-3D + image-to-3D).
 // Results are .glb models previewed with <model-viewer> (orbit + play animations).
 export default function ThreeD() {
-  const [allowed, setAllowed] = useState(true);
+  const [keys, setKeys] = useState([]);        // active Magica keys (id, label, balance)
+  const [keyId, setKeyId] = useState('auto');  // chosen key or 'auto'
   const [mode, setMode] = useState('text'); // 'text' | 'image'
   const [prompt, setPrompt] = useState('');
   const [imageBase64, setImageBase64] = useState('');
@@ -30,11 +31,14 @@ export default function ThreeD() {
   const pollRef = useRef(null);
 
   useEffect(() => {
-    api.get('/auth/me').then((r) => setAllowed(!!r.data.can_use_magica)).catch(() => {});
+    fetchKeys();
     fetchList();
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, []);
 
+  const fetchKeys = async () => {
+    try { const r = await api.get('/magica/keys'); setKeys(r.data || []); } catch (e) {}
+  };
   const fetchList = async () => {
     try { const r = await api.get('/magica/3d/list'); setItems(r.data || []); } catch (e) {}
   };
@@ -84,6 +88,7 @@ export default function ThreeD() {
     try {
       const body = {
         mode, meshMode, prompt, imageBase64: mode === 'image' ? imageBase64 : undefined,
+        magicaKeyId: keyId,
         targetPolycount, topology, symmetryMode, shouldRemesh, shouldTexture, enablePbr,
         isAtPose, riggingHeightMeters, animationActionId, texturePrompt: texturePrompt || undefined,
       };
@@ -109,9 +114,9 @@ export default function ThreeD() {
         <p className="text-slate-400 text-[10px] uppercase tracking-widest font-semibold mt-1">Text-to-3D &amp; Image-to-3D — preview bisa diputar &amp; dianimasikan</p>
       </div>
 
-      {!allowed && (
+      {keys.length === 0 && (
         <div className="mb-5 flex items-center gap-2 bg-amber-950/20 border border-amber-500/30 rounded-xl px-4 py-3 text-amber-300 text-xs">
-          <AlertTriangle className="w-4 h-4 shrink-0" /> Fitur 3D (Magica) belum diaktifkan untuk akun Anda. Minta admin mengaktifkan Magica.
+          <AlertTriangle className="w-4 h-4 shrink-0" /> Belum ada API Key Magica aktif. Minta admin menambahkannya di Admin → API Magica.
         </div>
       )}
 
@@ -121,6 +126,14 @@ export default function ThreeD() {
           <div className="flex gap-2">
             <button onClick={() => setMode('text')} className={`flex-1 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider border transition-all ${mode === 'text' ? 'bg-[#a855f7]/10 border-[#a855f7]/40 text-white' : 'border-[#2a2725] text-slate-400'}`}>Text → 3D</button>
             <button onClick={() => setMode('image')} className={`flex-1 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider border transition-all ${mode === 'image' ? 'bg-[#a855f7]/10 border-[#a855f7]/40 text-white' : 'border-[#2a2725] text-slate-400'}`}>Image → 3D</button>
+          </div>
+
+          <div>
+            <label className={labelCls}>API Key Magica</label>
+            <select value={keyId} onChange={(e) => setKeyId(e.target.value)} disabled={generating} className={inputCls}>
+              <option value="auto">Pilih Otomatis (saldo tertinggi)</option>
+              {keys.map((k) => (<option key={k.id} value={k.id}>{k.label}{k.formatted != null ? ` (⚡ ${k.formatted} kredit)` : ''}</option>))}
+            </select>
           </div>
 
           {mode === 'text' ? (
@@ -207,7 +220,7 @@ export default function ThreeD() {
             <span className="text-[10px] text-slate-400 font-semibold">
               {estimate ? <>Estimasi biaya: <span className="text-[#a855f7] font-bold">≈ {estimate.credits.toFixed(3)} kredit</span></> : 'Estimasi biaya: —'}
             </span>
-            <button onClick={handleGenerate} disabled={generating || !allowed} className="bg-[#a855f7] hover:bg-[#9333ea] text-white font-bold py-2 px-5 rounded-xl transition-all text-[10px] uppercase tracking-wider flex items-center gap-2 disabled:opacity-50">
+            <button onClick={handleGenerate} disabled={generating || keys.length === 0} className="bg-[#a855f7] hover:bg-[#9333ea] text-white font-bold py-2 px-5 rounded-xl transition-all text-[10px] uppercase tracking-wider flex items-center gap-2 disabled:opacity-50">
               {generating ? <><Loader className="animate-spin w-3.5 h-3.5" /> Membuat...</> : <><Sparkles className="w-3.5 h-3.5" /> Buat 3D</>}
             </button>
           </div>
