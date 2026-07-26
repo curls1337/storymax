@@ -12,10 +12,20 @@ const https = require('https');
 async function getAllUsers(req, res) {
   try {
     const db = getDb();
+    // total_credits = existing "Kredit Terpakai" (all storyboards, unchanged).
+    // magica_credits_micro = Magica-only usage across the 3 Magica record types:
+    //   storyboards flagged Magica (generationParams carries magicaKeyId/magicaModel)
+    //   + Magica videos (model like 'magica:%') + all 3D (Meshy is Magica-only).
+    // Values are microcredits; the UI divides by 1e6 to show credits.
     const users = await db.all(`
-      SELECT u.id, u.username, u.role, u.can_use_magica, u.preferred_provider, COALESCE(SUM(s.used_credits), 0) AS total_credits
+      SELECT u.id, u.username, u.role, u.can_use_magica, u.preferred_provider,
+        COALESCE((SELECT SUM(s.used_credits) FROM storyboards s WHERE s.user_id = u.id), 0) AS total_credits,
+        (
+          COALESCE((SELECT SUM(s.used_credits) FROM storyboards s WHERE s.user_id = u.id AND s.generation_params LIKE '%magica%'), 0)
+          + COALESCE((SELECT SUM(gv.used_credits) FROM generated_videos gv JOIN storyboards s2 ON s2.id = gv.storyboard_id WHERE s2.user_id = u.id AND gv.model LIKE 'magica:%'), 0)
+          + COALESCE((SELECT SUM(g3.credit_used) FROM generated_3d g3 WHERE g3.user_id = u.id), 0)
+        ) AS magica_credits_micro
       FROM users u
-      LEFT JOIN storyboards s ON u.id = s.user_id
       GROUP BY u.id
     `);
     res.json(users);
@@ -486,10 +496,11 @@ const BACKUP_TABLES = [
   'users',            // accounts (bcrypt password hashes) — needed to migrate logins
   'api_keys',         // Freebeat API key pool
   'magica_api_keys',  // Magica API key pool
-  'ai_settings',      // LLM / AI provider settings
+  'ai_settings',      // LLM / AI provider settings (incl. llm_provider + magica_llm_model)
   'google_settings',  // Google Drive & Sheets credentials
   'storyboards',      // storyboards + image/video links + marketing copy
   'generated_videos', // per-scene video records + video_url links
+  'generated_3d',     // 3D (Meshy V6) generations + model/thumb links
   'downloaded_files', // download tracking metadata
 ];
 
@@ -506,7 +517,7 @@ async function backupDatabase(req, res) {
     const backup = {
       app: 'storymax',
       type: 'db-backup',
-      version: 1,
+      version: 2,
       exportedAt: new Date().toISOString(),
       counts,
       tables,

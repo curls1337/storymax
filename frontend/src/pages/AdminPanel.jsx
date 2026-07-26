@@ -751,6 +751,7 @@ export default function AdminPanel() {
                   <th className="py-2.5 px-3">Username</th>
                   <th className="py-2.5 px-3">Role</th>
                   <th className="py-2.5 px-3">Kredit Terpakai</th>
+                  <th className="py-2.5 px-3">Magica Terpakai</th>
                   <th className="py-2.5 px-3 text-right">Aksi</th>
                 </tr>
               </thead>
@@ -770,6 +771,9 @@ export default function AdminPanel() {
                     </td>
                     <td className="py-2.5 px-3 font-mono text-[#cfae80] font-bold text-[11px]">
                       ⚡ {u.total_credits || 0}
+                    </td>
+                    <td className="py-2.5 px-3 font-mono text-[#a855f7] font-bold text-[11px]" title="Total kredit Magica terpakai (gambar + video + 3D)">
+                      ⚡ {((Number(u.magica_credits_micro) || 0) / 1e6).toFixed(2)}
                     </td>
                     <td className="py-2.5 px-3 text-right space-x-1.5 whitespace-nowrap">
                       <button
@@ -1309,7 +1313,7 @@ export default function AdminPanel() {
               Backup & Restore Database
             </h3>
             <p className="text-slate-400 text-xs mt-1.5 leading-relaxed">
-              Cadangkan seluruh data (user, kolam API Key Freebeat, pengaturan AI/LLM, kredensial Google, dan semua storyboard beserta LINK video) ke satu file — cocok untuk pindah server. <strong className="text-slate-300">File video TIDAK ikut</strong> (hanya link), jadi ukurannya kecil.
+              Cadangkan seluruh data (user, kolam API Key Freebeat, <strong className="text-slate-300">kolam API Key Magica</strong>, pengaturan AI/LLM, kredensial Google, semua storyboard beserta LINK video, dan <strong className="text-slate-300">riwayat 3D</strong>) ke satu file — cocok untuk pindah server. <strong className="text-slate-300">File video/3D TIDAK ikut</strong> (hanya link), jadi ukurannya kecil.
             </p>
           </div>
 
@@ -1369,14 +1373,9 @@ export default function AdminPanel() {
               <h3 className="text-[10px] font-bold text-white uppercase tracking-widest flex items-center gap-1.5">
                 <Sparkles className="w-4 h-4 text-[#a855f7]" /> Kolam API Key Magica
               </h3>
-              <p className="text-slate-400 text-[10px] mt-1 leading-relaxed">Provider alternatif selain Freebeat. Tentukan user mana yang boleh memakainya di tab <strong className="text-slate-300">Manajemen User</strong> (tombol Magica ON/OFF).</p>
+              <p className="text-slate-400 text-[10px] mt-1 leading-relaxed">Provider alternatif selain Freebeat. Kelola tiap key (aktif/nonaktif, hapus &amp; saldo) langsung di kartu di bawah. Izin per-user diatur di tab <strong className="text-slate-300">Manajemen User</strong>.</p>
             </div>
             <div className="flex gap-1.5 items-center shrink-0">
-              {selectedMagicaKeyIds.length > 0 && (
-                <button onClick={handleDeleteSelectedMagica} className="bg-red-950/40 border border-red-500/40 hover:bg-red-600 text-white font-bold py-1.5 px-3 rounded-lg flex items-center gap-1 text-[9px] uppercase tracking-wider cursor-pointer">
-                  <Trash2 className="w-3.5 h-3.5" /> Hapus ({selectedMagicaKeyIds.length})
-                </button>
-              )}
               <button onClick={handleTestMagica} disabled={magicaTestLoading} className="bg-[#a855f7]/10 border border-[#a855f7]/30 hover:bg-[#a855f7] hover:text-white text-[#c99bfb] font-bold py-1.5 px-3 rounded-lg flex items-center gap-1 text-[9px] uppercase tracking-wider cursor-pointer disabled:opacity-50">
                 {magicaTestLoading ? <Loader className="animate-spin w-3.5 h-3.5" /> : <Check className="w-3.5 h-3.5" />} Tes Koneksi
               </button>
@@ -1402,16 +1401,34 @@ export default function AdminPanel() {
                 {magicaBalLoading ? <Loader className="animate-spin w-3.5 h-3.5" /> : <RefreshCw className="w-3.5 h-3.5" />} Refresh
               </button>
             </div>
-            {magicaBalances && Array.isArray(magicaBalances.keys) && magicaBalances.keys.length > 0 && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3">
-                {magicaBalances.keys.map((k) => (
-                  <div key={k.id} className="bg-black/30 border border-[#2a2725] rounded-lg px-2.5 py-1.5">
-                    <p className="text-[10px] text-slate-300 truncate">{k.label}</p>
-                    <p className="text-[11px] font-bold text-[#c99bfb]">{k.credits != null ? `⚡ ${k.formatted ?? k.credits.toFixed(2)} kredit` : (k.error ? 'gagal baca' : '—')}</p>
+            {/* Per-key management — replaces the old crowded table: label, masked key,
+                balance, last status, active toggle & delete, all in one responsive grid
+                (1 col on mobile/iOS/Android, 2-3 cols on larger screens). */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2 mt-3">
+              {magicaKeys.length === 0 ? (
+                <p className="col-span-full text-center text-slate-500 italic text-[10px] uppercase tracking-wider py-4">Belum ada API Key Magica</p>
+              ) : magicaKeys.map((k) => {
+                const bal = ((magicaBalances && magicaBalances.keys) || []).find((b) => b.id === k.id);
+                return (
+                  <div key={k.id} className="bg-black/30 border border-[#2a2725] rounded-lg p-2.5 flex flex-col gap-1.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-[10px] text-slate-200 font-semibold truncate" title={k.label}>{k.label}</p>
+                        <p className="text-[9px] font-mono text-slate-500 truncate">{String(k.key_value || '').substring(0, 10)}••••</p>
+                      </div>
+                      <span className="text-[11px] font-bold text-[#c99bfb] whitespace-nowrap shrink-0">
+                        {bal && bal.credits != null ? `⚡ ${bal.formatted ?? bal.credits.toFixed(2)}` : (k.is_active !== 1 ? '—' : (bal && bal.error ? '⚠️' : '…'))}
+                      </span>
+                    </div>
+                    {k.last_status ? <p className="text-[8px] text-slate-500 truncate" title={k.last_status}>📋 {k.last_status}</p> : null}
+                    <div className="flex items-center gap-1.5">
+                      <button onClick={() => handleToggleMagicaKey(k.id, k.is_active)} className={`flex-1 px-2 py-1.5 rounded-md text-[8px] font-bold tracking-wider uppercase border transition-all cursor-pointer ${k.is_active === 1 ? 'bg-green-950/20 text-green-300 border-green-500/20 hover:bg-green-600 hover:text-white' : 'bg-slate-900/40 text-slate-500 border-slate-800 hover:bg-slate-700 hover:text-white'}`}>{k.is_active === 1 ? 'Aktif' : 'Nonaktif'}</button>
+                      <button onClick={() => handleDeleteMagicaKey(k.id)} title="Hapus key" className="px-2.5 py-1.5 rounded-md bg-red-950/15 border border-red-500/20 text-red-400 hover:bg-red-600 hover:text-white transition-all cursor-pointer"><Trash2 className="w-3 h-3" /></button>
+                    </div>
                   </div>
-                ))}
-              </div>
-            )}
+                );
+              })}
+            </div>
           </div>
 
           {magicaTest && (
@@ -1434,36 +1451,6 @@ export default function AdminPanel() {
             </form>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-[#2a2725] text-slate-400 text-[8.5px] font-bold uppercase tracking-wider">
-                  <th className="py-2.5 px-3 w-10 text-center"><input type="checkbox" checked={magicaKeys.length>0 && selectedMagicaKeyIds.length===magicaKeys.length} onChange={magicaSelectAll} className="w-3.5 h-3.5 rounded border-[#2a2725] bg-black accent-[#a855f7] cursor-pointer" /></th>
-                  <th className="py-2.5 px-3">Label</th>
-                  <th className="py-2.5 px-3">Nilai Kunci</th>
-                  <th className="py-2.5 px-3">Status</th>
-                  <th className="py-2.5 px-3 text-right">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#222435] text-xs font-medium">
-                {magicaKeys.length === 0 ? (
-                  <tr><td colSpan="5" className="py-8 text-center text-slate-500 italic text-[10px] uppercase tracking-wider">Belum ada API Key Magica</td></tr>
-                ) : magicaKeys.map((k) => (
-                  <tr key={k.id} className={`hover:bg-white/[0.02] transition-colors ${selectedMagicaKeyIds.includes(k.id) ? 'bg-[#a855f7]/10' : ''}`}>
-                    <td className="py-2.5 px-3 text-center"><input type="checkbox" checked={selectedMagicaKeyIds.includes(k.id)} onChange={()=>setSelectedMagicaKeyIds((prev)=>prev.includes(k.id)?prev.filter((x)=>x!==k.id):[...prev,k.id])} className="w-3.5 h-3.5 rounded border-[#2a2725] bg-black accent-[#a855f7] cursor-pointer" /></td>
-                    <td className="py-2.5 px-3 font-editorial italic text-white text-sm">{k.label}{k.last_status ? <span className="block not-italic font-sans text-[9px] text-slate-500 font-normal mt-0.5">📋 {k.last_status}</span> : null}</td>
-                    <td className="py-2.5 px-3 font-mono text-slate-550 text-[11px]">{String(k.key_value||'').substring(0,10)}••••••••</td>
-                    <td className="py-2.5 px-3">
-                      <button onClick={()=>handleToggleMagicaKey(k.id, k.is_active)} className={`px-2 py-0.5 rounded text-[8px] font-bold tracking-wider uppercase border transition-all cursor-pointer ${k.is_active===1 ? 'bg-green-950/20 text-green-300 border-green-500/20 hover:bg-green-600 hover:text-white' : 'bg-slate-900/40 text-slate-500 border-slate-800 hover:bg-slate-700 hover:text-white'}`}>{k.is_active===1?'Aktif':'Nonaktif'}</button>
-                    </td>
-                    <td className="py-2.5 px-3 text-right">
-                      <button onClick={()=>handleDeleteMagicaKey(k.id)} className="bg-red-950/15 border border-red-500/20 hover:bg-red-650 hover:text-white text-red-400 py-1 px-2 rounded-md text-[9px] font-bold uppercase tracking-wider transition-all cursor-pointer">Hapus</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
         </div>
       )}
 
