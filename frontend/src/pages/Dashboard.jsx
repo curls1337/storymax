@@ -619,7 +619,7 @@ export default function Dashboard({ setTab }) {
             if (params.voLanguage) lang = params.voLanguage;
           } catch (e) {}
         }
-        basePrompt += `\n\nVoiceover (${lang}):\n${narration}`;
+        basePrompt += `\n\nAudio — voiceover: an off-screen narrator speaks this line in ${lang}, paced evenly across the whole clip and synced to the on-screen action — begin as the shot starts and finish about one second before it ends, natural and unhurried, clear articulation, no rushing and no dead air. No on-screen text or subtitles, and no other voices. Voiceover line: "${narration}"`;
       }
       setVideoStudioPrompt(basePrompt);
     }
