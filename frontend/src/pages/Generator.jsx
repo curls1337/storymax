@@ -1022,6 +1022,13 @@ export default function Generator({ setTab }) {
             )}
           </div>
 
+          {error && (
+            <div className="flex items-start gap-2 bg-red-950/30 border border-red-500/40 rounded-xl px-3 py-2.5 text-red-300 text-[10px]">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+              <span className="break-words leading-relaxed"><b className="uppercase tracking-wider">Gagal:</b> {error}</span>
+            </div>
+          )}
+
           {userProvider === 'magica' && imgEstimate && (
             <div className="text-center text-[9px] text-slate-400 font-semibold -mb-1">
               Estimasi biaya Magica: <span className="text-[#a855f7] font-bold">≈ {imgEstimate.credits.toFixed(3)} kredit / gambar</span>

@@ -28,6 +28,7 @@ export default function ThreeD() {
   const [estimate, setEstimate] = useState(null);
   const [generating, setGenerating] = useState(false);
   const [items, setItems] = useState([]);
+  const [selected, setSelected] = useState(null); // item shown in the big preview
   const pollRef = useRef(null);
 
   useEffect(() => {
@@ -35,6 +36,11 @@ export default function ThreeD() {
     fetchList();
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, []);
+
+  // Auto-select the newest successful model for the big preview when none is chosen.
+  useEffect(() => {
+    setSelected((prev) => prev || items.find((x) => x.status === 'success') || null);
+  }, [items]);
 
   const fetchKeys = async () => {
     try { const r = await api.get('/magica/keys'); setKeys(r.data || []); } catch (e) {}
@@ -73,6 +79,7 @@ export default function ThreeD() {
         if (r.data.status === 'success' || r.data.status === 'failed') {
           clearInterval(pollRef.current); pollRef.current = null;
           setGenerating(false);
+          setSelected(r.data); // show the result (or its error) in the big preview
           if (r.data.status === 'failed') toast.error(r.data.error_message || 'Gagal membuat 3D.');
           else toast.success('Model 3D selesai!');
           fetchList();
@@ -226,45 +233,79 @@ export default function ThreeD() {
           </div>
         </div>
 
-        {/* ---- Right: gallery ---- */}
-        <div className="bg-[#1a1918]/60 border border-[#2a2725] rounded-2xl p-4 md:p-5">
+        {/* ---- Right: big preview + history strip ---- */}
+        <div className="bg-[#1a1918]/60 border border-[#2a2725] rounded-2xl p-4 md:p-5 flex flex-col">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-editorial italic text-white">Hasil 3D</h2>
-            <button onClick={fetchList} className="text-slate-400 hover:text-white transition-colors"><RefreshCw className="w-3.5 h-3.5" /></button>
+            <button onClick={() => { fetchList(); fetchKeys(); }} className="text-slate-400 hover:text-white transition-colors"><RefreshCw className="w-3.5 h-3.5" /></button>
           </div>
-          {items.length === 0 ? (
-            <p className="text-slate-500 text-xs py-8 text-center">Belum ada model 3D. Buat yang pertama!</p>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[70vh] overflow-y-auto pr-1">
-              {items.map((it) => (
-                <div key={it.id} className="bg-black/30 border border-[#2a2725] rounded-xl overflow-hidden">
-                  {it.status === 'success' && it.model_url ? (
-                    <model-viewer
-                      src={it.model_url}
-                      camera-controls
-                      auto-rotate
-                      autoplay
-                      shadow-intensity="1"
-                      style={{ width: '100%', height: '220px', backgroundColor: '#0d0c0b' }}
-                    ></model-viewer>
-                  ) : it.status === 'failed' ? (
-                    <div className="h-[220px] flex flex-col items-center justify-center gap-2 text-red-400/80 text-[10px] px-3 text-center"><AlertTriangle className="w-5 h-5" /> {it.error_message || 'Gagal'}</div>
-                  ) : (
-                    <div className="h-[220px] flex flex-col items-center justify-center gap-2 text-slate-500 text-[10px]"><Loader className="animate-spin w-5 h-5 text-[#a855f7]" /> Memproses...</div>
-                  )}
-                  <div className="p-2.5">
-                    <p className="text-[10px] text-slate-300 font-semibold truncate">{it.prompt || (it.mode === 'image' ? 'Image → 3D' : '3D')}</p>
-                    <div className="flex items-center justify-between mt-1">
-                      <span className="text-[8.5px] text-slate-500">⚡ {(Number(it.credit_used || 0) / 1e6).toFixed(3)} kredit</span>
-                      {it.status === 'success' && it.model_url && (
-                        <a href={it.model_url} target="_blank" rel="noopener noreferrer" className="text-[8.5px] text-[#a855f7] font-bold uppercase tracking-wider flex items-center gap-1 hover:underline"><Download className="w-3 h-3" /> .glb</a>
-                      )}
-                    </div>
-                  </div>
+
+          {/* Big preview (fills the panel) */}
+          <div className="rounded-xl overflow-hidden border border-[#2a2725] bg-[#0d0c0b]">
+            {selected && selected.status === 'success' && selected.model_url ? (
+              <model-viewer
+                key={selected.id}
+                src={selected.model_url}
+                camera-controls
+                auto-rotate
+                autoplay
+                shadow-intensity="1"
+                style={{ width: '100%', height: '440px', backgroundColor: '#0d0c0b' }}
+              ></model-viewer>
+            ) : selected && selected.status === 'failed' ? (
+              <div className="h-[440px] flex flex-col items-center justify-center gap-3 text-red-300 text-xs px-6 text-center">
+                <AlertTriangle className="w-9 h-9" />
+                <div>
+                  <p className="font-bold uppercase tracking-wider mb-1.5">Gagal membuat 3D</p>
+                  <p className="text-[10px] text-red-300/80 break-words leading-relaxed">{selected.error_message || 'Error tidak diketahui dari Magica.'}</p>
                 </div>
-              ))}
+              </div>
+            ) : generating ? (
+              <div className="h-[440px] flex flex-col items-center justify-center gap-2 text-slate-500 text-xs"><Loader className="animate-spin w-7 h-7 text-[#a855f7]" /> Membuat model 3D... (~1-2 menit)</div>
+            ) : (
+              <div className="h-[440px] flex flex-col items-center justify-center gap-2 text-slate-600 text-xs"><Box className="w-10 h-10 opacity-40" /> Preview 3D muncul di sini</div>
+            )}
+          </div>
+
+          {/* Selected meta */}
+          {selected && selected.status === 'success' && (
+            <div className="flex items-center justify-between mt-2 px-1">
+              <p className="text-[10px] text-slate-300 font-semibold truncate mr-2">{selected.prompt || (selected.mode === 'image' ? 'Image → 3D' : '3D')}</p>
+              <div className="flex items-center gap-3 shrink-0">
+                <span className="text-[9px] text-slate-500">⚡ {(Number(selected.credit_used || 0) / 1e6).toFixed(3)} kredit</span>
+                {selected.model_url && <a href={selected.model_url} target="_blank" rel="noopener noreferrer" className="text-[9px] text-[#a855f7] font-bold uppercase tracking-wider flex items-center gap-1 hover:underline"><Download className="w-3 h-3" /> .glb</a>}
+              </div>
             </div>
           )}
+
+          {/* History strip — click a thumbnail to preview it above */}
+          <div className="border-t border-[#2a2725] mt-3 pt-3">
+            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500 mb-2">History — klik untuk pratinjau</p>
+            {items.length === 0 ? (
+              <p className="text-slate-500 text-xs py-3 text-center">Belum ada model 3D. Buat yang pertama!</p>
+            ) : (
+              <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 max-h-44 overflow-y-auto pr-1">
+                {items.map((it) => (
+                  <button
+                    key={it.id}
+                    onClick={() => setSelected(it)}
+                    title={it.status === 'failed' ? (it.error_message || 'Gagal') : (it.prompt || (it.mode === 'image' ? 'Image → 3D' : '3D'))}
+                    className={`relative aspect-square rounded-lg overflow-hidden border transition-all ${selected && selected.id === it.id ? 'border-[#a855f7] ring-1 ring-[#a855f7]/40' : 'border-[#2a2725] hover:border-[#a855f7]/50'}`}
+                  >
+                    {it.status === 'success' ? (
+                      it.thumb_url
+                        ? <img src={it.thumb_url} alt="" className="w-full h-full object-cover" />
+                        : <div className="w-full h-full flex items-center justify-center bg-black/40 text-slate-400"><Box className="w-4 h-4" /></div>
+                    ) : it.status === 'failed' ? (
+                      <div className="w-full h-full flex items-center justify-center bg-black/40 text-red-400/70"><AlertTriangle className="w-4 h-4" /></div>
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-black/40 text-slate-500"><Loader className="animate-spin w-4 h-4 text-[#a855f7]" /></div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
