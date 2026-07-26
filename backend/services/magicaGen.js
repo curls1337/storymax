@@ -420,7 +420,10 @@ async function generateVideoMagica(apiKey, params = {}) {
   }
 
   onLog(`[Magica] Video via ${nodeType}${subModelId ? ' / ' + subModelId : ''} (durasi ${input.duration || '-'}, rasio ${input.aspect_ratio || '-'}, resolusi ${input.resolution || '-'})...`);
-  const runId = await magica.runModel(apiKey, nodeType, subModelId, input);
+  const runId = await magica.runModel(apiKey, nodeType, subModelId, input, params.webhook);
+  // Let the caller persist the runId immediately (so an async webhook can map this
+  // run back to its record + the exact key that owns it).
+  if (typeof params.onRunStart === 'function') { try { await params.onRunStart(runId); } catch (e) {} }
   // Heavy renders (1080p/long) can take >15 min; allow up to 25 min before giving up.
   const done = await magica.pollRun(apiKey, runId, { onLog, timeoutMs: params.timeoutMs || 1500000 });
   const url = (done.mediaUrls || [])[0];
@@ -513,6 +516,35 @@ async function estimateMagicaCost(apiKey, spec = {}) {
   return { microcredits: micro, credits: micro / 1e6, nodeType, subModelId };
 }
 
+// Extract the .glb model URL + preview thumbnail + credit from a completed Meshy run
+// (raw run object). Shared by the synchronous generator and the async webhook handler.
+function extractMeshyResult(run) {
+  const urls = magica.extractMediaUrls(run);
+  const meta = (run && run.output && run.output.resultMetadata) || [];
+  let modelUrl = null, thumbUrl = null;
+  urls.forEach((u, i) => {
+    const mt = String((meta[i] && meta[i].mimeType) || '');
+    if (/gltf|glb/i.test(mt) || /\.glb(\?|$)/i.test(u)) modelUrl = modelUrl || u;
+    else if (/image\//i.test(mt) || /\.(png|jpe?g|webp)(\?|$)/i.test(u)) thumbUrl = thumbUrl || u;
+  });
+  if (!modelUrl) modelUrl = urls.find((u) => /\.glb(\?|$)/i.test(u)) || urls[0] || null;
+  const credit = Number((run && run.creditUsed) || (run && run.output && run.output.creditUsed)) || 0;
+  return { modelUrl, thumbUrl, credit };
+}
+
+// Build the per-run webhook object (async completion callback). Returns null when no
+// public base URL is configured (PUBLIC_URL) — then we rely on polling only. metadata
+// carries what the callback needs to map back safely: record id, kind, and a token.
+function buildWebhook(kind, recId, token) {
+  const base = publicBase();
+  if (!base) return null;
+  return {
+    url: `${base}/api/magica/webhook`,
+    events: ['run.completed', 'run.failed'],
+    metadata: { app: 'storymax', kind, recId, token },
+  };
+}
+
 // Generate a 3D model via Meshy V6 (text-to-3D or image-to-3D). Returns the .glb model
 // URL + a preview thumbnail (.png) + credits used. Rigged/animated when the edit-mode
 // rigging/animation fields are supplied.
@@ -540,20 +572,13 @@ async function generateMeshy3D(apiKey, opts = {}) {
   }
 
   onLog(`[Magica] 3D via ${nodeType} / ${subModelId} ...`);
-  const runId = await magica.runModel(apiKey, nodeType, subModelId, input);
+  const runId = await magica.runModel(apiKey, nodeType, subModelId, input, opts.webhook);
+  if (typeof opts.onRunStart === 'function') { try { await opts.onRunStart(runId); } catch (e) {} }
   const done = await magica.pollRun(apiKey, runId, { onLog, timeoutMs: opts.timeoutMs || 1200000 });
-  const urls = done.mediaUrls || [];
-  const meta = (done.run && done.run.output && done.run.output.resultMetadata) || [];
-  let modelUrl = null, thumbUrl = null;
-  urls.forEach((u, i) => {
-    const mt = String((meta[i] && meta[i].mimeType) || '');
-    if (/gltf|glb/i.test(mt) || /\.glb(\?|$)/i.test(u)) modelUrl = modelUrl || u;
-    else if (/image\//i.test(mt) || /\.(png|jpe?g|webp)(\?|$)/i.test(u)) thumbUrl = thumbUrl || u;
-  });
-  if (!modelUrl) modelUrl = urls.find((u) => /\.glb(\?|$)/i.test(u)) || urls[0];
+  const { modelUrl, thumbUrl, credit } = extractMeshyResult(done.run);
   if (!modelUrl) throw new Error('Magica tidak mengembalikan model 3D.');
   invalidateBalanceCache();
-  return { modelUrl, thumbUrl, credit: Number(done.creditUsed || (done.run && done.run.output && done.run.output.creditUsed)) || 0 };
+  return { modelUrl, thumbUrl, credit };
 }
 
 module.exports = {
@@ -579,4 +604,6 @@ module.exports = {
   getCatalog,
   generateOneImageMagica,
   generateVideoMagica,
+  buildWebhook,
+  extractMeshyResult,
 };

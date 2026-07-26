@@ -149,11 +149,12 @@ async function generateVideo(req, res) {
       const mk = await magicaGen.pickMediaMagicaKey(db, magicaKeyId);
       if (!mk) return res.status(400).json({ message: 'Tidak ada API Key Magica dengan saldo cukup (>= 5 kredit) untuk video. Key di bawah 5 kredit hanya untuk LLM — isi ulang atau tambah key.' });
       const taskId = 'video_task_' + Date.now();
+      const whToken = require('crypto').randomBytes(16).toString('hex');
       const insertResult = await db.run(
         `INSERT INTO generated_videos
-         (storyboard_id, scene_idx, prompt, model, aspect_ratio, duration, resolution, status, task_id, api_key_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [storyboardId, sceneIdx, prompt, 'magica:seedance', aspectRatio || null, duration || null, resolution || null, 'processing', taskId, null]
+         (storyboard_id, scene_idx, prompt, model, aspect_ratio, duration, resolution, status, task_id, api_key_id, magica_key_id, webhook_token)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [storyboardId, sceneIdx, prompt, 'magica:seedance', aspectRatio || null, duration || null, resolution || null, 'processing', taskId, null, mk.id, whToken]
       );
       const videoRecordId = insertResult.lastID;
       activeTasks[taskId] = { status: 'processing', apiKeyId: null, logs: '=== VIDEO STUDIO (MAGICA) ===\n\n[1/2] Mengirim perintah ke Magica (Seedance)...\n', result: null, error: null };
@@ -161,7 +162,7 @@ async function generateVideo(req, res) {
       (async () => {
         const onLog = (m) => { if (activeTasks[taskId]) activeTasks[taskId].logs += m + '\n'; };
         try {
-          const { url, credit } = await magicaGen.generateVideoMagica(mk.key_value, { prompt, sceneImage, generationType, duration, resolution, aspectRatio, generateAudio, nodeType: magicaModel, method: magicaMethod, onLog });
+          const { url, credit } = await magicaGen.generateVideoMagica(mk.key_value, { prompt, sceneImage, generationType, duration, resolution, aspectRatio, generateAudio, nodeType: magicaModel, method: magicaMethod, onLog, webhook: magicaGen.buildWebhook('video', videoRecordId, whToken), onRunStart: (rid) => db.run('UPDATE generated_videos SET magica_run_id = ? WHERE id = ?', [rid, videoRecordId]).catch(() => {}) });
           await db.run('UPDATE generated_videos SET video_url = ?, status = ?, used_credits = ?, logs = ? WHERE id = ?', [url, 'success', credit || 0, activeTasks[taskId]?.logs || '', videoRecordId]);
           if (activeTasks[taskId]) { activeTasks[taskId].status = 'success'; activeTasks[taskId].logs += '[Magica] Video selesai.\n'; }
           try { await db.run('UPDATE magica_api_keys SET last_status = ? WHERE id = ?', ['OK - ' + new Date().toLocaleString('id-ID'), mk.id]); } catch (e) {}
@@ -1194,9 +1195,10 @@ async function generateAllVideos(req, res) {
         if (isMagica) {
           const mk = await magicaGen.pickMediaMagicaKey(db, magicaKeyId);
           const mTaskId = 'video_task_' + Date.now() + '_' + sceneIdx;
+          const mWhToken = require('crypto').randomBytes(16).toString('hex');
           const mIns = await db.run(
-            `INSERT INTO generated_videos (storyboard_id, scene_idx, prompt, model, aspect_ratio, duration, resolution, status, task_id, api_key_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [storyboardId, sceneIdx, promptText, 'magica:seedance', aspectRatio || null, duration || null, resolution || null, 'processing', mTaskId, null]
+            `INSERT INTO generated_videos (storyboard_id, scene_idx, prompt, model, aspect_ratio, duration, resolution, status, task_id, api_key_id, magica_key_id, webhook_token) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [storyboardId, sceneIdx, promptText, 'magica:seedance', aspectRatio || null, duration || null, resolution || null, 'processing', mTaskId, null, mk ? mk.id : null, mWhToken]
           );
           const mRecId = mIns.lastID;
           activeTasks[mTaskId] = { status: 'processing', storyboardId, apiKeyId: null, logs: `=== VIDEO (MAGICA) scene ${sceneIdx + 1} ===\n`, result: null, error: null };
@@ -1208,7 +1210,7 @@ async function generateAllVideos(req, res) {
             break;
           }
           try {
-            const { url, credit } = await magicaGen.generateVideoMagica(mk.key_value, { prompt: promptText, sceneImage, generationType, duration, resolution, aspectRatio, generateAudio, nodeType: magicaModel, method: magicaMethod, onLog });
+            const { url, credit } = await magicaGen.generateVideoMagica(mk.key_value, { prompt: promptText, sceneImage, generationType, duration, resolution, aspectRatio, generateAudio, nodeType: magicaModel, method: magicaMethod, onLog, webhook: magicaGen.buildWebhook('video', mRecId, mWhToken), onRunStart: (rid) => db.run('UPDATE generated_videos SET magica_run_id = ? WHERE id = ?', [rid, mRecId]).catch(() => {}) });
             await db.run('UPDATE generated_videos SET video_url = ?, status = ?, used_credits = ?, logs = ? WHERE id = ?', [url, 'success', credit || 0, activeTasks[mTaskId].logs, mRecId]);
             activeTasks[mTaskId].status = 'success'; activeTasks[mTaskId].logs += '[Magica] Video selesai.\n';
             try { await db.run('UPDATE magica_api_keys SET last_status = ? WHERE id = ?', ['OK - ' + new Date().toLocaleString('id-ID'), mk.id]); } catch (e) {}
