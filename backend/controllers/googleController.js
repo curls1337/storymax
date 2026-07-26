@@ -14,17 +14,27 @@ async function getGoogleSettings(req, res) {
         refresh_token: '',
         spreadsheet_id: '',
         spreadsheet_url: '',
+        service_account_configured: false,
+        service_account_email: '',
+        mode: 'none',
         configured: false
       });
     }
 
+    const hasSA = !!settings.service_account_json;
+    const hasOAuth = !!(settings.client_id && settings.client_secret && settings.refresh_token);
+    let saEmail = '';
+    if (hasSA) { try { saEmail = JSON.parse(settings.service_account_json).client_email || ''; } catch (e) {} }
     return res.json({
       client_id: settings.client_id || '',
       client_secret: settings.client_secret ? '••••••••' : '',
       refresh_token: settings.refresh_token ? '••••••••' : '',
       spreadsheet_id: settings.spreadsheet_id || '',
       spreadsheet_url: settings.spreadsheet_url || '',
-      configured: !!(settings.client_id && settings.client_secret && settings.refresh_token)
+      service_account_configured: hasSA,
+      service_account_email: saEmail,
+      mode: hasSA ? 'service_account' : (hasOAuth ? 'oauth' : 'none'),
+      configured: hasSA || hasOAuth
     });
   } catch (err) {
     console.error('Error fetching Google settings:', err);
@@ -34,33 +44,41 @@ async function getGoogleSettings(req, res) {
 
 async function saveGoogleSettings(req, res) {
   try {
-    const { client_id, client_secret, refresh_token, spreadsheet_id, spreadsheet_url } = req.body;
+    const { client_id, client_secret, refresh_token, spreadsheet_id, spreadsheet_url, service_account_json } = req.body;
     const db = getDb();
 
     const existing = await db.get('SELECT * FROM google_settings LIMIT 1');
 
     let finalSecret = client_secret;
     let finalRefresh = refresh_token;
+    let finalSA = service_account_json;
 
-    // Preserve existing masked secrets if user didn't overwrite them
+    // Preserve existing masked/omitted secrets if the user didn't overwrite them.
     if (existing) {
-      if (client_secret === '••••••••' || !client_secret) {
-        finalSecret = existing.client_secret;
-      }
-      if (refresh_token === '••••••••' || !refresh_token) {
-        finalRefresh = existing.refresh_token;
+      if (client_secret === '••••••••' || !client_secret) finalSecret = existing.client_secret;
+      if (refresh_token === '••••••••' || !refresh_token) finalRefresh = existing.refresh_token;
+      if (service_account_json === '••••••••' || service_account_json == null || service_account_json === '') finalSA = existing.service_account_json;
+    }
+
+    // Validate a newly-provided Service Account JSON before saving.
+    if (finalSA && finalSA !== (existing && existing.service_account_json)) {
+      try {
+        const c = JSON.parse(finalSA);
+        if (!c.client_email || !c.private_key) throw new Error('missing fields');
+      } catch (e) {
+        return res.status(400).json({ message: 'Service Account JSON tidak valid (butuh client_email & private_key).' });
       }
     }
 
     if (existing) {
       await db.run(
-        `UPDATE google_settings SET client_id = ?, client_secret = ?, refresh_token = ?, spreadsheet_id = ?, spreadsheet_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-        [client_id, finalSecret, finalRefresh, spreadsheet_id || null, spreadsheet_url || null, existing.id]
+        `UPDATE google_settings SET client_id = ?, client_secret = ?, refresh_token = ?, spreadsheet_id = ?, spreadsheet_url = ?, service_account_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+        [client_id || null, finalSecret || null, finalRefresh || null, spreadsheet_id || null, spreadsheet_url || null, finalSA || null, existing.id]
       );
     } else {
       await db.run(
-        `INSERT INTO google_settings (client_id, client_secret, refresh_token, spreadsheet_id, spreadsheet_url) VALUES (?, ?, ?, ?, ?)`,
-        [client_id, finalSecret, finalRefresh, spreadsheet_id || null, spreadsheet_url || null]
+        `INSERT INTO google_settings (client_id, client_secret, refresh_token, spreadsheet_id, spreadsheet_url, service_account_json) VALUES (?, ?, ?, ?, ?, ?)`,
+        [client_id || null, finalSecret || null, finalRefresh || null, spreadsheet_id || null, spreadsheet_url || null, finalSA || null]
       );
     }
 
@@ -82,6 +100,25 @@ function getPublicApiBase(req) {
   const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
   const host = req.headers['x-forwarded-host'] || req.get('host') || 'localhost:5033';
   return `${protocol}://${host}`;
+}
+
+// Build a Google auth client from stored settings. Prefers a Service Account JSON
+// (the "just upload one file" flow) when present; otherwise falls back to OAuth2
+// (client_id/secret/refresh_token). Returns null when nothing is configured.
+function buildGoogleAuth(conf) {
+  const SCOPES = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'];
+  if (conf && conf.service_account_json) {
+    let creds;
+    try { creds = JSON.parse(conf.service_account_json); } catch (e) { throw new Error('Service Account JSON tidak valid (bukan JSON).'); }
+    if (!creds.client_email || !creds.private_key) throw new Error('Service Account JSON tidak lengkap (butuh client_email & private_key).');
+    return new google.auth.JWT({ email: creds.client_email, key: creds.private_key, scopes: SCOPES });
+  }
+  if (conf && conf.client_id && conf.client_secret && conf.refresh_token) {
+    const o = new google.auth.OAuth2(conf.client_id, conf.client_secret);
+    o.setCredentials({ refresh_token: conf.refresh_token });
+    return o;
+  }
+  return null;
 }
 
 async function getMarketingCopyForStoryboard(db, sb) {
@@ -136,9 +173,9 @@ async function exportToGoogleSheets(req, res) {
     const db = getDb();
     const googleConf = await db.get('SELECT * FROM google_settings LIMIT 1');
 
-    if (!googleConf || !googleConf.client_id || !googleConf.client_secret || !googleConf.refresh_token) {
+    if (!googleConf || (!googleConf.service_account_json && !(googleConf.client_id && googleConf.client_secret && googleConf.refresh_token))) {
       return res.status(400).json({
-        message: 'Kredensial Google Drive/Sheets belum dikonfigurasi oleh Admin di menu Pengaturan.'
+        message: 'Kredensial Google belum dikonfigurasi (OAuth atau Service Account JSON) oleh Admin di menu Pengaturan.'
       });
     }
 
@@ -153,15 +190,10 @@ async function exportToGoogleSheets(req, res) {
       return res.status(404).json({ message: 'Data storyboard tidak ditemukan.' });
     }
 
-    // Setup OAuth2 Client
-    const oauth2Client = new google.auth.OAuth2(
-      googleConf.client_id,
-      googleConf.client_secret
-    );
-    oauth2Client.setCredentials({ refresh_token: googleConf.refresh_token });
-
-    const sheetsAPI = google.sheets({ version: 'v4', auth: oauth2Client });
-    const driveAPI = google.drive({ version: 'v3', auth: oauth2Client });
+    // Auth: Service Account JSON (preferred) or OAuth2 — see buildGoogleAuth.
+    const auth = buildGoogleAuth(googleConf);
+    const sheetsAPI = google.sheets({ version: 'v4', auth });
+    const driveAPI = google.drive({ version: 'v3', auth });
 
     let spreadsheetId = googleConf.spreadsheet_id;
     let spreadsheetUrl = googleConf.spreadsheet_url;
@@ -388,9 +420,101 @@ async function exportToCSV(req, res) {
   }
 }
 
+// FULL export: one tidy row PER SCENE with everything — storyboard prompt, per-scene
+// image link, image-to-video & text-to-video prompts, narration, video link, credits,
+// marketing copy, and the merged video link. Media are LINKS only (no files bundled).
+async function exportFullCSV(req, res) {
+  try {
+    const { storyboardIds } = req.body;
+    if (!Array.isArray(storyboardIds) || storyboardIds.length === 0) {
+      return res.status(400).json({ message: 'Pilih minimal 1 storyboard untuk diekspor.' });
+    }
+    const db = getDb();
+    const placeholders = storyboardIds.map(() => '?').join(',');
+    const storyboards = await db.all(
+      `SELECT * FROM storyboards WHERE id IN (${placeholders}) ORDER BY id DESC`,
+      storyboardIds
+    );
+    if (storyboards.length === 0) return res.status(404).json({ message: 'Data storyboard tidak ditemukan.' });
+
+    const apiBase = getPublicApiBase(req);
+    const abs = (u) => {
+      u = String(u == null ? '' : u);
+      if (!u) return '';
+      if (/^https?:\/\//i.test(u)) return u;
+      return u.startsWith('/') ? `${apiBase}${u}` : `${apiBase}/${u}`;
+    };
+
+    const rows = [[
+      'Storyboard ID', 'Tanggal', 'Judul', 'Gaya', 'Provider', 'Status', 'Scene',
+      'Prompt Storyboard', 'Link Gambar', 'Prompt Image-to-Video', 'Prompt Text-to-Video',
+      'Narasi (VO)', 'Link Video', 'Kredit Video', 'Caption Marketing', 'Link Video Gabungan',
+    ]];
+
+    for (const sb of storyboards) {
+      try {
+        const createdDate = new Date(sb.created_at || Date.now()).toLocaleDateString('id-ID');
+        const { title, caption } = await getMarketingCopyForStoryboard(db, sb);
+        const provider = /magica/i.test(sb.generation_params || '') ? 'Magica' : 'Freebeat';
+
+        let images = [];
+        try { images = sb.image_path && sb.image_path.startsWith('[') ? JSON.parse(sb.image_path) : (sb.image_path ? [sb.image_path] : []); }
+        catch (e) { images = sb.image_path ? [sb.image_path] : []; }
+
+        let scenes = [];
+        try { const vp = sb.video_prompts ? JSON.parse(sb.video_prompts) : null; scenes = (vp && Array.isArray(vp.scenes)) ? vp.scenes : []; } catch (e) {}
+
+        const vids = await db.all('SELECT scene_idx, video_url, used_credits, status FROM generated_videos WHERE storyboard_id = ? ORDER BY id ASC', [sb.id]);
+        const vidByScene = {};
+        for (const v of vids) { const cur = vidByScene[v.scene_idx]; if (!cur || v.status === 'success') vidByScene[v.scene_idx] = v; }
+        const mergedVideo = abs(sb.merged_video_url);
+
+        const sceneCount = Math.max(images.length, scenes.length, ...vids.map((v) => (Number(v.scene_idx) || 0) + 1), 1);
+        for (let i = 0; i < sceneCount; i++) {
+          const sc = scenes.find((s) => s.scene_idx === i) || scenes[i] || {};
+          const vid = vidByScene[i] || {};
+          rows.push([
+            sb.id,
+            createdDate,
+            title,
+            sb.style || '',
+            provider,
+            sb.status || '',
+            String(i + 1),
+            i === 0 ? (sb.prompt || '') : '',
+            abs(images[i]),
+            sc.imageToVideoPrompt || '',
+            sc.textToVideoPrompt || '',
+            sc.narration || '',
+            abs(vid.video_url),
+            vid.used_credits != null ? String(vid.used_credits) : '',
+            i === 0 ? (caption || '') : '',
+            i === 0 ? mergedVideo : '',
+          ]);
+        }
+      } catch (rowErr) {
+        console.error('Full CSV row failed for storyboard', sb && sb.id, rowErr && rowErr.message);
+        rows.push([(sb && sb.id) || '', '', (sb && sb.title) || '', '', '', '', '', (sb && sb.prompt) || '', '', '', '', '', '', '', '', '']);
+      }
+    }
+
+    const csvContent = rows.map((row) =>
+      row.map((field) => `"${String(field == null ? '' : field).replace(/"/g, '""')}"`).join(',')
+    ).join('\n');
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="storymax_full_export.csv"');
+    return res.send('﻿' + csvContent); // UTF-8 BOM so Excel renders Indonesian text cleanly
+  } catch (err) {
+    console.error('Error exporting full CSV:', err);
+    return res.status(500).json({ message: 'Gagal mengekspor data (full).', error: String((err && err.message) || err) });
+  }
+}
+
 module.exports = {
   getGoogleSettings,
   saveGoogleSettings,
   exportToGoogleSheets,
-  exportToCSV
+  exportToCSV,
+  exportFullCSV
 };

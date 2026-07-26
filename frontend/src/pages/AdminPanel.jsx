@@ -69,6 +69,9 @@ export default function AdminPanel() {
   const [googleRefreshToken, setGoogleRefreshToken] = useState('');
   const [googleSpreadsheetId, setGoogleSpreadsheetId] = useState('');
   const [googleConfigured, setGoogleConfigured] = useState(false);
+  const [googleServiceJson, setGoogleServiceJson] = useState('');
+  const [googleServiceConfigured, setGoogleServiceConfigured] = useState(false);
+  const [googleServiceEmail, setGoogleServiceEmail] = useState('');
   const [googleSaveLoading, setGoogleSaveLoading] = useState(false);
 
   const [error, setError] = useState('');
@@ -117,6 +120,9 @@ export default function AdminPanel() {
       setGoogleRefreshToken(res.data.refresh_token || '');
       setGoogleSpreadsheetId(res.data.spreadsheet_id || '');
       setGoogleConfigured(res.data.configured || false);
+      setGoogleServiceConfigured(res.data.service_account_configured || false);
+      setGoogleServiceEmail(res.data.service_account_email || '');
+      setGoogleServiceJson('');
     } catch (err) {
       console.error('Gagal mengambil pengaturan Google:', err);
     }
@@ -132,7 +138,8 @@ export default function AdminPanel() {
         client_id: googleClientId,
         client_secret: googleClientSecret,
         refresh_token: googleRefreshToken,
-        spreadsheet_id: googleSpreadsheetId
+        spreadsheet_id: googleSpreadsheetId,
+        service_account_json: googleServiceJson || undefined
       });
       setMessage('Pengaturan Google Drive & Sheets berhasil disimpan!');
       fetchGoogleSettings();
@@ -665,10 +672,37 @@ export default function AdminPanel() {
           </div>
 
           <p className="text-slate-400 text-xs mb-4 leading-relaxed">
-            Konfigurasikan OAuth2 Kredensial Google Cloud Console (Client ID, Client Secret, Refresh Token). Setelah disimpan oleh Admin, seluruh user dapat mengekspor storyboard langsung dari Dashboard ke Google Sheets di Google Drive tanpa perlu OAuth ulang.
+            Dua cara autentikasi: <strong className="text-slate-200">(A) Service Account JSON</strong> — paling mudah, cukup upload 1 file (disarankan); atau <strong className="text-slate-200">(B) OAuth2</strong> (Client ID/Secret/Refresh Token). Setelah disimpan Admin, semua user bisa export storyboard ke Google Sheets dari Dashboard.
           </p>
 
           <form onSubmit={handleSaveGoogleSettings} className="space-y-4">
+            {/* (A) Service Account JSON — recommended: just upload one file */}
+            <div className="bg-[#131211]/50 border border-[#22c55e]/25 rounded-xl p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="block text-slate-200 text-[10px] font-bold uppercase tracking-widest">A. Service Account JSON (disarankan — upload 1 file)</label>
+                {googleServiceConfigured && <span className="text-[8.5px] text-emerald-400 font-bold uppercase tracking-wider flex items-center gap-1"><Check className="w-3 h-3" /> Terpasang</span>}
+              </div>
+              {googleServiceConfigured && googleServiceEmail && (
+                <p className="text-[9px] text-slate-400 break-all">Email service account: <span className="font-mono text-emerald-300">{googleServiceEmail}</span><br />Penting: buka Google Sheet target Anda → <b>Share</b> ke email ini sebagai <b>Editor</b>.</p>
+              )}
+              <input
+                type="file"
+                accept="application/json,.json"
+                onChange={(e) => { const f = e.target.files && e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => setGoogleServiceJson(String(r.result || '')); r.readAsText(f); }}
+                className="w-full text-[10px] text-slate-300 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-[#22c55e]/20 file:text-emerald-300 file:font-bold file:text-[9px] file:uppercase file:cursor-pointer cursor-pointer"
+              />
+              <textarea
+                value={googleServiceJson}
+                onChange={(e) => setGoogleServiceJson(e.target.value)}
+                rows={3}
+                placeholder={googleServiceConfigured ? 'JSON sudah tersimpan. Upload/tempel baru hanya jika ingin mengganti.' : 'Atau tempel isi file JSON di sini'}
+                className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-3 py-2 text-white text-[10px] font-mono resize-none focus:outline-none focus:border-[#22c55e]"
+              />
+              <p className="text-[8.5px] text-slate-500 leading-relaxed">Cloud Console: Service Account → Keys → Add key (JSON). Aktifkan Google Sheets API &amp; Drive API. Lalu Share spreadsheet target ke email di atas (Editor).</p>
+            </div>
+
+            <div className="text-center text-[9px] text-slate-500 uppercase tracking-widest">— atau pakai OAuth —</div>
+
             <div>
               <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Google OAuth Client ID</label>
               <input
@@ -677,7 +711,6 @@ export default function AdminPanel() {
                 onChange={(e) => setGoogleClientId(e.target.value)}
                 className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs font-mono"
                 placeholder="xxxxxxxxx-xxxxxxxxx.apps.googleusercontent.com"
-                required
               />
             </div>
 
@@ -689,7 +722,6 @@ export default function AdminPanel() {
                 onChange={(e) => setGoogleClientSecret(e.target.value)}
                 className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs font-mono"
                 placeholder="GOCSPX-xxxxxxxxxxxxxxxxxxxxxxxx"
-                required
               />
             </div>
 
@@ -701,7 +733,6 @@ export default function AdminPanel() {
                 onChange={(e) => setGoogleRefreshToken(e.target.value)}
                 className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs font-mono"
                 placeholder="1//0xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                required
               />
             </div>
 
