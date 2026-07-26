@@ -2,6 +2,7 @@ const { getDb } = require('../db');
 const { google } = require('googleapis');
 const fs = require('fs');
 const path = require('path');
+const googleOAuth = require('../services/googleOAuth');
 
 async function getGoogleSettings(req, res) {
   try {
@@ -14,6 +15,7 @@ async function getGoogleSettings(req, res) {
         refresh_token: '',
         spreadsheet_id: '',
         spreadsheet_url: '',
+        redirect_uri: '',
         service_account_configured: false,
         service_account_email: '',
         mode: 'none',
@@ -31,6 +33,7 @@ async function getGoogleSettings(req, res) {
       refresh_token: settings.refresh_token ? '••••••••' : '',
       spreadsheet_id: settings.spreadsheet_id || '',
       spreadsheet_url: settings.spreadsheet_url || '',
+      redirect_uri: settings.redirect_uri || '',
       service_account_configured: hasSA,
       service_account_email: saEmail,
       mode: hasSA ? 'service_account' : (hasOAuth ? 'oauth' : 'none'),
@@ -44,7 +47,7 @@ async function getGoogleSettings(req, res) {
 
 async function saveGoogleSettings(req, res) {
   try {
-    const { client_id, client_secret, refresh_token, spreadsheet_id, spreadsheet_url, service_account_json } = req.body;
+    const { client_id, client_secret, refresh_token, spreadsheet_id, spreadsheet_url, service_account_json, redirect_uri } = req.body;
     const db = getDb();
 
     const existing = await db.get('SELECT * FROM google_settings LIMIT 1');
@@ -72,13 +75,13 @@ async function saveGoogleSettings(req, res) {
 
     if (existing) {
       await db.run(
-        `UPDATE google_settings SET client_id = ?, client_secret = ?, refresh_token = ?, spreadsheet_id = ?, spreadsheet_url = ?, service_account_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-        [client_id || null, finalSecret || null, finalRefresh || null, spreadsheet_id || null, spreadsheet_url || null, finalSA || null, existing.id]
+        `UPDATE google_settings SET client_id = ?, client_secret = ?, refresh_token = ?, spreadsheet_id = ?, spreadsheet_url = ?, service_account_json = ?, redirect_uri = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+        [client_id || null, finalSecret || null, finalRefresh || null, spreadsheet_id || null, spreadsheet_url || null, finalSA || null, redirect_uri || null, existing.id]
       );
     } else {
       await db.run(
-        `INSERT INTO google_settings (client_id, client_secret, refresh_token, spreadsheet_id, spreadsheet_url, service_account_json) VALUES (?, ?, ?, ?, ?, ?)`,
-        [client_id || null, finalSecret || null, finalRefresh || null, spreadsheet_id || null, spreadsheet_url || null, finalSA || null]
+        `INSERT INTO google_settings (client_id, client_secret, refresh_token, spreadsheet_id, spreadsheet_url, service_account_json, redirect_uri) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [client_id || null, finalSecret || null, finalRefresh || null, spreadsheet_id || null, spreadsheet_url || null, finalSA || null, redirect_uri || null]
       );
     }
 
@@ -171,12 +174,24 @@ async function exportToGoogleSheets(req, res) {
     }
 
     const db = getDb();
-    const googleConf = await db.get('SELECT * FROM google_settings LIMIT 1');
+    const googleConf = (await db.get('SELECT * FROM google_settings LIMIT 1')) || {};
 
-    if (!googleConf || (!googleConf.service_account_json && !(googleConf.client_id && googleConf.client_secret && googleConf.refresh_token))) {
-      return res.status(400).json({
-        message: 'Kredensial Google belum dikonfigurasi (OAuth atau Service Account JSON) oleh Admin di menu Pengaturan.'
-      });
+    // Prefer the CURRENT user's OWN connected Google account (per-user). Fall back to
+    // the admin global creds (Service Account / OAuth) only if the user isn't connected.
+    let auth = null; let perUser = false; let account = null;
+    try {
+      const info = await googleOAuth.getAuthorizedClientForUser(db, req.user.id);
+      if (info) { auth = info.client; account = info.account; perUser = true; }
+    } catch (e) {
+      return res.status(400).json({ message: e.message });
+    }
+    if (!auth) {
+      auth = buildGoogleAuth(googleConf);
+      if (!auth) {
+        return res.status(400).json({
+          message: 'Akun Google Anda belum terhubung. Buka Settings → Hubungkan Akun Google (atau minta Admin mengatur kredensial global).'
+        });
+      }
     }
 
     // Load storyboards to export
@@ -190,13 +205,11 @@ async function exportToGoogleSheets(req, res) {
       return res.status(404).json({ message: 'Data storyboard tidak ditemukan.' });
     }
 
-    // Auth: Service Account JSON (preferred) or OAuth2 — see buildGoogleAuth.
-    const auth = buildGoogleAuth(googleConf);
     const sheetsAPI = google.sheets({ version: 'v4', auth });
     const driveAPI = google.drive({ version: 'v3', auth });
 
-    let spreadsheetId = googleConf.spreadsheet_id;
-    let spreadsheetUrl = googleConf.spreadsheet_url;
+    let spreadsheetId = perUser ? account.spreadsheet_id : googleConf.spreadsheet_id;
+    let spreadsheetUrl = perUser ? account.spreadsheet_url : googleConf.spreadsheet_url;
 
     // Create new spreadsheet if not existing
     if (!spreadsheetId) {
@@ -228,12 +241,13 @@ async function exportToGoogleSheets(req, res) {
         console.warn('Could not set public permission on spreadsheet:', e.message);
       }
 
-      // Save spreadsheet ID back to google_settings
-      await db.run('UPDATE google_settings SET spreadsheet_id = ?, spreadsheet_url = ? WHERE id = ?', [
-        spreadsheetId,
-        spreadsheetUrl,
-        googleConf.id
-      ]);
+      // Persist the spreadsheet id/url — to the user's OWN record (per-user) or the
+      // admin global settings (fallback).
+      if (perUser) {
+        await googleOAuth.setUserSpreadsheet(db, req.user.id, spreadsheetId, spreadsheetUrl);
+      } else if (googleConf.id) {
+        await db.run('UPDATE google_settings SET spreadsheet_id = ?, spreadsheet_url = ? WHERE id = ?', [spreadsheetId, spreadsheetUrl, googleConf.id]);
+      }
     }
 
     const sheetName = 'Storyboard List';
