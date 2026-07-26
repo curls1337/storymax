@@ -178,6 +178,7 @@ export default function Dashboard({ setTab }) {
   const [exportSelectedIds, setExportSelectedIds] = useState([]);
   const [exportingGoogle, setExportingGoogle] = useState(false);
   const [exportingCsv, setExportingCsv] = useState(false);
+  const [exportingFull, setExportingFull] = useState(false);
   const [exportSuccessModal, setExportSuccessModal] = useState(null);
 
   const toggleExportSelect = (id, e) => {
@@ -239,6 +240,34 @@ export default function Dashboard({ setTab }) {
       toast.error(err.response?.data?.error ? ('Gagal export CSV: ' + err.response.data.error) : 'Gagal mengekspor data ke CSV.');
     } finally {
       setExportingCsv(false);
+    }
+  };
+
+  // FULL export — comprehensive per-scene CSV (image prompt + i2v/t2v prompts +
+  // narration + image & video links + credits + marketing copy). Links only, tidy.
+  const handleExportFullCSV = async () => {
+    if (exportSelectedIds.length === 0) return;
+    setExportingFull(true);
+    try {
+      const response = await api.post(
+        '/storyboards/export-full-csv',
+        { storyboardIds: exportSelectedIds },
+        { responseType: 'blob' }
+      );
+      const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `storymax_full_export_${Date.now()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Error exporting FULL CSV:", err, err.response?.data);
+      toast.error(err.response?.data?.error ? ('Gagal export Full: ' + err.response.data.error) : 'Gagal mengekspor data (Full).');
+    } finally {
+      setExportingFull(false);
     }
   };
 
@@ -1086,7 +1115,7 @@ export default function Dashboard({ setTab }) {
                 <button
                   type="button"
                   onClick={handleExportToCSV}
-                  disabled={exportingCsv || exportingGoogle}
+                  disabled={exportingCsv || exportingGoogle || exportingFull}
                   className="bg-black/60 hover:bg-[#cfae80] hover:text-black text-slate-200 border border-[#2a2725] font-bold py-2 px-3.5 rounded-xl text-[10px] uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer disabled:opacity-50"
                 >
                   {exportingCsv ? (
@@ -1102,8 +1131,26 @@ export default function Dashboard({ setTab }) {
                 </button>
                 <button
                   type="button"
+                  onClick={handleExportFullCSV}
+                  disabled={exportingFull || exportingCsv || exportingGoogle}
+                  title="Export lengkap per scene: prompt gambar + prompt video + semua link (link saja, rapi)"
+                  className="bg-black/60 hover:bg-[#a855f7] hover:text-white text-slate-200 border border-[#a855f7]/40 font-bold py-2 px-3.5 rounded-xl text-[10px] uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer disabled:opacity-50"
+                >
+                  {exportingFull ? (
+                    <>
+                      <Loader className="animate-spin w-3.5 h-3.5" />
+                      Menyiapkan...
+                    </>
+                  ) : (
+                    <>
+                      🗂️ Export Full (CSV)
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
                   onClick={handleExportToGoogleSheets}
-                  disabled={exportingGoogle || exportingCsv}
+                  disabled={exportingGoogle || exportingCsv || exportingFull}
                   className="bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-2 px-4 rounded-xl text-[10px] uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-lg cursor-pointer disabled:opacity-50"
                 >
                   {exportingGoogle ? (
@@ -1120,7 +1167,7 @@ export default function Dashboard({ setTab }) {
                 <button
                   type="button"
                   onClick={handleBulkDelete}
-                  disabled={bulkDeleting || exportingCsv || exportingGoogle}
+                  disabled={bulkDeleting || exportingCsv || exportingGoogle || exportingFull}
                   className="bg-red-500/10 hover:bg-red-500 hover:text-white text-red-400 border border-red-500/30 font-bold py-2 px-3.5 rounded-xl text-[10px] uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer disabled:opacity-50"
                 >
                   {bulkDeleting ? (

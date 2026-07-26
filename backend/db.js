@@ -222,6 +222,7 @@ async function initDb() {
       refresh_token TEXT,
       spreadsheet_id TEXT,
       spreadsheet_url TEXT,
+      service_account_json TEXT,
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     )
   `);
@@ -341,6 +342,9 @@ async function initDb() {
   ]) {
     try { await db.exec(`ALTER TABLE ${tbl} ADD COLUMN ${col} ${type}`); } catch (e) { /* exists */ }
   }
+
+  // Google export can also authenticate via an uploaded Service Account JSON.
+  try { await db.exec('ALTER TABLE google_settings ADD COLUMN service_account_json TEXT'); } catch (e) { /* exists */ }
 
   // Seed default admin if no users exist
   const adminExists = await db.get('SELECT * FROM users WHERE role = "admin"');
