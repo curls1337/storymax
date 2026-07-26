@@ -196,6 +196,20 @@ function isImageArrayField(f) {
   return dt === 'string[]' && /image/.test(lc(f.name)) && !/(video|audio)/.test(lc(f.name));
 }
 
+// A SINGLE (non-array) image input field. Model field names vary — most use
+// `image_url`, but e.g. kling uses `start_image_url`. Match any single string image
+// field EXCEPT the optional end/last-frame and non-image string fields, so the
+// storyboard panel is actually sent. (Previously only the exact name `image_url` was
+// mapped, so kling & similar SILENTLY dropped the reference image → the generated
+// video ignored the storyboard.)
+function isSingleImageField(f) {
+  const dt = f.dataType || f.type;
+  if (dt !== 'string') return false;
+  const n = lc(f.name);
+  if (/(end|last|tail|video|audio|mask|negative|style|size|prompt)/.test(n)) return false;
+  return /image/.test(n);
+}
+
 // Build the exact input object a model expects from our generic values.
 // vals: { prompt, aspect, resolution, duration, generateAudio, imageUrls: [url] }
 function buildInput(fields, vals) {
@@ -214,7 +228,7 @@ function buildInput(fields, vals) {
     } else if (isImageArrayField(f)) {
       if (imageUrls.length) v = imageUrls.slice(0, f.maxImages || 10);
       else if (f.required) v = [];
-    } else if (lname === 'image_url') {
+    } else if (isSingleImageField(f)) {
       if (imageUrls[0]) v = imageUrls[0];
     } else if (lname === 'size') {
       v = coerceEnum(opts, sizeFromAspect(vals.aspect), ['Auto']);
@@ -374,9 +388,12 @@ async function generateVideoMagica(apiKey, params = {}) {
   try { fields = ((await getSchemaCached(apiKey, subModelId || nodeType)) || {}).fields || []; } catch (e) {}
 
   const imgUrl = toPublicUrl(params.sceneImage);
-  const needsImage = fields.some((f) => (lc(f.name) === 'image_url' && f.required) || (isImageArrayField(f) && f.required));
-  if (category !== 'text-to-video' && needsImage && !imgUrl) {
-    throw new Error('Gambar panel tidak punya URL publik untuk Magica (set PUBLIC_URL di server, atau gunakan gambar hasil Magica).');
+  // For image/reference methods the panel image is the whole point. If the model has an
+  // image input but we have no public URL, FAIL FAST with a clear reason instead of
+  // silently generating a video that ignores the storyboard (the "melenceng" bug).
+  const hasImageField = fields.some((f) => isSingleImageField(f) || isImageArrayField(f));
+  if (category !== 'text-to-video' && hasImageField && !imgUrl) {
+    throw new Error('Gambar panel tidak punya URL publik untuk Magica (set PUBLIC_URL di server, atau pakai storyboard hasil Magica). Tanpa gambar, video akan melenceng dari storyboard.');
   }
 
   const input = buildInput(fields, {
