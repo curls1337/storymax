@@ -85,6 +85,7 @@ export default function Generator({ setTab }) {
   const [magicaCatalog, setMagicaCatalog] = useState(null);
   const [magicaImageModel, setMagicaImageModel] = useState('');
   const [magicaKeyId, setMagicaKeyId] = useState('auto');
+  const [imgEstimate, setImgEstimate] = useState(null);
   
   const [regeneratingPages, setRegeneratingPages] = useState({});
   const [regenLogs, setRegenLogs] = useState({});
@@ -231,6 +232,21 @@ export default function Generator({ setTab }) {
     } catch (e) {}
     return () => { if (pollIntervalRef.current) clearInterval(pollIntervalRef.current); };
   }, []);
+
+  // Live Magica cost estimate for ONE storyboard image (per gambar).
+  useEffect(() => {
+    if (userProvider !== 'magica' || !magicaImageModel) { setImgEstimate(null); return; }
+    const t = setTimeout(async () => {
+      try {
+        const r = await api.post('/magica/estimate', {
+          kind: 'image', model: magicaImageModel, aspectRatio,
+          imageUrls: (selectedRefImages && selectedRefImages.length) ? ['x'] : [],
+        });
+        setImgEstimate(r.data);
+      } catch (e) { setImgEstimate(null); }
+    }, 500);
+    return () => clearTimeout(t);
+  }, [userProvider, magicaImageModel, aspectRatio, (selectedRefImages || []).length]);
 
   useEffect(() => {
     if (logContainerRef.current) {
@@ -904,7 +920,7 @@ export default function Generator({ setTab }) {
               >
                 <option value="auto">Pilih Otomatis (Auto-detect)</option>
                 {(((magicaCatalog && magicaCatalog.keys) || []).length)
-                  ? magicaCatalog.keys.map((k) => (<option key={k.id} value={k.id}>{k.label}{k.formatted != null ? ` (⚡ ${k.formatted} kredit)` : ''}</option>))
+                  ? magicaCatalog.keys.map((k) => { const low = k.balance != null && k.balance < 5000000; return (<option key={k.id} value={k.id} disabled={low}>{k.label}{k.formatted != null ? ` (⚡ ${k.formatted} kredit)` : ''}{low ? ' — LLM saja' : ''}</option>); })
                   : <option value="" disabled>Belum ada API Key Magica aktif</option>}
               </select>
               <p className="text-[8px] text-slate-500 mt-1">Provider: Magica — "Auto" memilih key aktif pertama dari kolam.</p>
@@ -1005,6 +1021,12 @@ export default function Generator({ setTab }) {
               </div>
             )}
           </div>
+
+          {userProvider === 'magica' && imgEstimate && (
+            <div className="text-center text-[9px] text-slate-400 font-semibold -mb-1">
+              Estimasi biaya Magica: <span className="text-[#a855f7] font-bold">≈ {imgEstimate.credits.toFixed(3)} kredit / gambar</span>
+            </div>
+          )}
 
           <button type="submit" disabled={generating || (userProvider !== 'magica' && apiKeys.length === 0) || prompt.length > 1500} className="w-full bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-2.5 px-4 rounded-xl transition-all shadow-lg hover:shadow-[#cfae80]/10 disabled:opacity-50 flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-wider cursor-pointer">
             {generating ? <><Loader className="animate-spin w-3.5 h-3.5" /> Memproses...</> : <><Sparkles className="w-3.5 h-3.5" /> Generate Storyboard AI</>}

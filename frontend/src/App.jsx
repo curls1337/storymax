@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Generator from './pages/Generator';
+import ThreeD from './pages/ThreeD';
 import Settings from './pages/Settings';
 import AdminPanel from './pages/AdminPanel';
-import { Home, Sparkles, Settings as SettingsIcon, ShieldAlert, LogOut, Loader, User, Zap, Menu, X } from 'lucide-react';
+import { Home, Sparkles, Settings as SettingsIcon, ShieldAlert, LogOut, Loader, User, Zap, Menu, X, Box } from 'lucide-react';
 import api from './utils/api';
 
 export default function App() {
@@ -245,6 +246,21 @@ export default function App() {
             </button>
 
             <button
+              onClick={() => { setTab('3d'); setSidebarOpen(false); }}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-[10px] font-semibold tracking-widest uppercase transition-all duration-350 border ${
+                tab === '3d'
+                  ? 'text-white bg-[#a855f7]/5 border-[#a855f7]/30'
+                  : 'text-slate-400 hover:text-white border-transparent hover:bg-white/[0.01]'
+              }`}
+            >
+              <span className="flex items-center gap-3">
+                <Box className="w-3.5 h-3.5 text-[#a855f7]" />
+                Studio 3D
+              </span>
+              {tab === '3d' && <div className="w-1.5 h-1.5 rounded-full bg-[#a855f7] shadow-sm shadow-[#a855f7]"></div>}
+            </button>
+
+            <button
               onClick={() => { setTab('settings'); setSidebarOpen(false); }}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-[10px] font-semibold tracking-widest uppercase transition-all duration-350 border ${
                 tab === 'settings'
@@ -315,6 +331,7 @@ export default function App() {
         <div className="w-full min-h-full flex flex-col justify-start px-4 sm:px-6 md:px-8 py-6 md:py-8">
           {tab === 'dashboard' && <Dashboard setTab={setTab} />}
           {tab === 'generator' && <Generator setTab={setTab} />}
+          {tab === '3d' && <ThreeD />}
           {tab === 'settings' && <Settings onLogout={handleLogout} />}
           {tab === 'admin' && user.role === 'admin' && <AdminPanel />}
         </div>
@@ -340,8 +357,17 @@ export default function App() {
           <Sparkles className="w-4.5 h-4.5" />
           <span className="text-[7.5px] font-bold uppercase tracking-widest mt-0.5">AI Gen</span>
         </button>
-        <button 
-          onClick={() => setTab('settings')} 
+        <button
+          onClick={() => setTab('3d')}
+          className={`flex flex-col items-center justify-center gap-1 w-16 py-1.5 transition-all duration-200 ${
+            tab === '3d' ? 'text-[#a855f7]' : 'text-slate-400'
+          }`}
+        >
+          <Box className="w-4.5 h-4.5" />
+          <span className="text-[7.5px] font-bold uppercase tracking-widest mt-0.5">3D</span>
+        </button>
+        <button
+          onClick={() => setTab('settings')}
           className={`flex flex-col items-center justify-center gap-1 w-16 py-1.5 transition-all duration-200 ${
             tab === 'settings' ? 'text-[#cfae80]' : 'text-slate-400'
           }`}

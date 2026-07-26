@@ -8,6 +8,10 @@ import { Plus, Trash2, ExternalLink, Calendar, Loader, FolderOpen, X, ChevronRig
 import { toast } from '../utils/toast';
 import { confirm } from '../utils/confirm';
 
+// Credits can be stored in Freebeat units (small ints) or Magica microcredits (large).
+// Show Magica values as credits (÷1e6); leave small Freebeat values as-is.
+const fmtCredit = (v) => { const n = Number(v) || 0; return n >= 10000 ? (n / 1e6).toFixed(2) : String(n); };
+
 export default function Dashboard({ setTab }) {
   const [storyboards, setStoryboards] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -274,6 +278,7 @@ export default function Dashboard({ setTab }) {
   const [magicaVideoModel, setMagicaVideoModel] = useState('');
   const [magicaVideoMethod, setMagicaVideoMethod] = useState('');
   const [magicaKeyId, setMagicaKeyId] = useState('auto');
+  const [vidEstimate, setVidEstimate] = useState(null);
 
   // When the Magica video model/method changes, clamp duration/resolution/aspect and
   // the audio toggle to exactly what THAT model supports (each Magica model differs).
@@ -302,6 +307,23 @@ export default function Dashboard({ setTab }) {
     ? (((magicaCatalog.videoModels || []).find(m => m.nodeType === magicaVideoModel) || {}).methods || []).find(mt => mt.category === magicaVideoMethod) || null
     : null;
   const inOpts = (arr, v) => Array.isArray(arr) && arr.map(x => String(x).toLowerCase()).includes(String(v).toLowerCase());
+
+  // Live Magica cost estimate for ONE video (current model/method/duration/resolution).
+  useEffect(() => {
+    if (userProvider !== 'magica' || !magicaVideoModel || !magicaVideoMethod) { setVidEstimate(null); return; }
+    const t = setTimeout(async () => {
+      try {
+        const r = await api.post('/magica/estimate', {
+          kind: 'video', model: magicaVideoModel, method: magicaVideoMethod,
+          duration: videoDuration === 'auto' ? undefined : Number(videoDuration),
+          resolution: videoResolution, aspectRatio: videoAspectRatio,
+          hasImage: magicaVideoMethod !== 'text-to-video',
+        });
+        setVidEstimate(r.data);
+      } catch (e) { setVidEstimate(null); }
+    }, 500);
+    return () => clearTimeout(t);
+  }, [userProvider, magicaVideoModel, magicaVideoMethod, videoDuration, videoResolution, videoAspectRatio]);
 
   const [regeneratingPages, setRegeneratingPages] = useState({});
   const [regenLogs, setRegenLogs] = useState({});
@@ -1417,7 +1439,7 @@ export default function Dashboard({ setTab }) {
                           : '15 Detik'}
                       </span>
                       <span className="px-2.5 py-0.5 rounded bg-slate-800/40 text-slate-300 text-[8px] font-bold tracking-widest uppercase border border-slate-700/50">
-                        ⚡ {selectedStoryboard.used_credits || 0} Kredit
+                        ⚡ {fmtCredit(selectedStoryboard.used_credits)} Kredit
                       </span>
                     </div>
                   </div>
@@ -2236,7 +2258,7 @@ export default function Dashboard({ setTab }) {
                             <select value={magicaKeyId} onChange={(e) => setMagicaKeyId(e.target.value)} className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] focus:outline-none focus:border-[#a855f7] transition-all font-semibold">
                               <option value="auto">Pilih Otomatis (Auto-detect)</option>
                               {(((magicaCatalog && magicaCatalog.keys) || []).length)
-                                ? magicaCatalog.keys.map(k => (<option key={k.id} value={k.id}>{k.label}{k.formatted != null ? ` (⚡ ${k.formatted} kredit)` : ''}</option>))
+                                ? magicaCatalog.keys.map(k => { const low = k.balance != null && k.balance < 5000000; return (<option key={k.id} value={k.id} disabled={low}>{k.label}{k.formatted != null ? ` (⚡ ${k.formatted} kredit)` : ''}{low ? ' — LLM saja' : ''}</option>); })
                                 : <option value="" disabled>Belum ada API Key Magica aktif</option>}
                             </select>
                           </div>
@@ -2455,6 +2477,12 @@ export default function Dashboard({ setTab }) {
                         </label>
                         {!videoBacksound && (
                           <p className="text-[8px] text-slate-500 -mt-1 pl-6">Tanpa musik latar — hanya suara natural/ASMR/SFX.</p>
+                        )}
+
+                        {userProvider === 'magica' && vidEstimate && (
+                          <div className="text-center text-[8.5px] text-slate-400 font-semibold mt-1.5">
+                            Estimasi biaya Magica: <span className="text-[#a855f7] font-bold">≈ {vidEstimate.credits.toFixed(3)} kredit / video</span>
+                          </div>
                         )}
 
                         <div className="flex gap-2 mt-2">
@@ -2729,7 +2757,7 @@ export default function Dashboard({ setTab }) {
                         >
                           {sceneVids.map(v => (
                             <option key={v.id} value={v.id}>
-                              Video ID {v.id} ({v.model} - {new Date(v.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })})
+                              Video ID {v.id} ({v.model} - {new Date(v.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}){v.used_credits ? ` · ⚡ ${fmtCredit(v.used_credits)} kr` : ''}
                             </option>
                           ))}
                         </select>

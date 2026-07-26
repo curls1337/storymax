@@ -52,6 +52,22 @@ async function initDb() {
     )
   `);
 
+  // 3D generations (Meshy V6 via Magica). model_url = .glb, thumb_url = .png preview.
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS generated_3d (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      mode TEXT NOT NULL DEFAULT 'text',
+      prompt TEXT,
+      model_url TEXT,
+      thumb_url TEXT,
+      credit_used INTEGER DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'processing',
+      error_message TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   // Create Storyboards Table
   await db.exec(`
     CREATE TABLE IF NOT EXISTS storyboards (

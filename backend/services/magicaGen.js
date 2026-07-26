@@ -55,11 +55,67 @@ async function pickMagicaKey(db, preferredId) {
   return pickActiveMagicaKey(db);
 }
 
-// Random active Magica key — the admin asked LLM traffic to spread across keys.
-async function pickRandomMagicaKey(db) {
+// Minimum balance (microcredits) a key must have to be used for IMAGE/VIDEO. Keys
+// below this are reserved for LLM only (admin rule: cheap keys -> LLM; funded -> media).
+const MEDIA_MIN_MICRO = 5000000; // 5 credits
+
+// Cached per-key balances (~60s) so key selection does not hammer the balance API.
+let _balCache = { at: 0, keys: null };
+async function getKeyBalances(db) {
+  const now = Date.now();
+  if (_balCache.keys && (now - _balCache.at) < 60000) return _balCache.keys;
   const rows = await db.all('SELECT id, key_value FROM magica_api_keys WHERE is_active = 1');
-  if (!rows || !rows.length) return null;
-  return rows[Math.floor(Math.random() * rows.length)];
+  const keys = [];
+  await Promise.all((rows || []).map(async (k) => {
+    let balance = 0;
+    try { balance = Number((await magica.getCreditBalance(k.key_value)).availableBalance) || 0; } catch (e) { balance = 0; }
+    keys.push({ id: k.id, key_value: k.key_value, balance });
+  }));
+  _balCache = { at: now, keys };
+  return keys;
+}
+function invalidateBalanceCache() { _balCache = { at: 0, keys: null }; }
+
+// LLM key: prefer CHEAP (<5 credit) keys so funded keys stay free for media; fall back
+// to any active key at random. Balance lookups are best-effort.
+async function pickRandomMagicaKey(db) {
+  let keys = [];
+  try { keys = await getKeyBalances(db); } catch (e) {}
+  if (!keys.length) {
+    const rows = await db.all('SELECT id, key_value FROM magica_api_keys WHERE is_active = 1');
+    if (!rows || !rows.length) return null;
+    return rows[Math.floor(Math.random() * rows.length)];
+  }
+  const cheap = keys.filter((k) => k.balance < MEDIA_MIN_MICRO);
+  const pool = cheap.length ? cheap : keys;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+// IMAGE/VIDEO key: only keys with balance >= MEDIA_MIN_MICRO qualify (below that is
+// LLM-only per admin rule). Honor the user's chosen key if it qualifies; else the
+// highest-balance qualifying key (headroom for expensive renders); else null.
+async function pickMediaMagicaKey(db, preferredId) {
+  let keys = [];
+  try { keys = await getKeyBalances(db); } catch (e) {}
+  const qualifying = keys.filter((k) => k.balance >= MEDIA_MIN_MICRO);
+  if (!qualifying.length) return null;
+  const idNum = parseInt(preferredId, 10);
+  if (preferredId != null && String(preferredId) !== 'auto' && Number.isFinite(idNum)) {
+    const hit = qualifying.find((k) => k.id === idNum);
+    if (hit) return hit;
+  }
+  qualifying.sort((a, b) => b.balance - a.balance);
+  return qualifying[0];
+}
+
+// Estimate a node run's cost in microcredits (no side effects). 0 on any failure.
+async function estimateNodeCost(apiKey, nodeType, subModelId, data) {
+  try {
+    const node = { type: nodeType, data: data || {} };
+    if (subModelId) node.subModelId = subModelId;
+    const est = await magica.estimateCredits(apiKey, [node]);
+    return Number(est[0] && est[0].microcredits) || 0;
+  } catch (e) { return 0; }
 }
 
 async function isMagicaForStoryboard(db, storyboardId) {
@@ -333,11 +389,26 @@ async function generateVideoMagica(apiKey, params = {}) {
   });
   if (!('prompt' in input) && params.prompt) input.prompt = String(params.prompt);
 
+  // Pre-flight: fail FAST when this key cannot afford THIS job. Without it an
+  // unaffordable/expensive render either 403s or waits a long time before failing —
+  // the cause of the ~2h "timeout". Estimate mirrors the real charge exactly.
+  const cost = await estimateNodeCost(apiKey, nodeType, subModelId, input);
+  if (cost) {
+    let bal = null;
+    try { bal = Number((await magica.getCreditBalance(apiKey)).availableBalance); } catch (e) {}
+    onLog(`[Magica] Estimasi biaya: ~${(cost / 1e6).toFixed(2)} kredit${bal != null ? ` (saldo key ~${(bal / 1e6).toFixed(2)})` : ''}.`);
+    if (bal != null && bal < cost) {
+      throw new Error(`Kredit key tidak cukup untuk video ini: butuh ~${(cost / 1e6).toFixed(2)} kredit, saldo ~${(bal / 1e6).toFixed(2)}. Kurangi durasi/resolusi, pilih model lebih murah, atau pakai key lain / isi ulang.`);
+    }
+  }
+
   onLog(`[Magica] Video via ${nodeType}${subModelId ? ' / ' + subModelId : ''} (durasi ${input.duration || '-'}, rasio ${input.aspect_ratio || '-'}, resolusi ${input.resolution || '-'})...`);
   const runId = await magica.runModel(apiKey, nodeType, subModelId, input);
-  const done = await magica.pollRun(apiKey, runId, { onLog, timeoutMs: 900000 });
+  // Heavy renders (1080p/long) can take >15 min; allow up to 25 min before giving up.
+  const done = await magica.pollRun(apiKey, runId, { onLog, timeoutMs: params.timeoutMs || 1500000 });
   const url = (done.mediaUrls || [])[0];
   if (!url) throw new Error('Magica tidak mengembalikan URL video.');
+  invalidateBalanceCache();
   return { url, credit: Number(done.creditUsed) || 0 };
 }
 
@@ -371,13 +442,116 @@ async function magicaChatCompletion(db, messages, opts = {}) {
   return String(text).trim();
 }
 
+// Build the Meshy V6 input from our settings, only including fields the resolved
+// submodel actually declares (text-to-3D vs image-to-3D differ).
+function buildMeshyInput(fields, opts, isImage) {
+  const has = (n) => fields.some((f) => f.name === n);
+  const input = {};
+  if (isImage) {
+    if (has('image_urls')) input.image_urls = (opts.imageUrls || []).map(toPublicUrl).filter(Boolean).slice(0, 4);
+  } else if (has('prompt')) {
+    input.prompt = String(opts.prompt || '').slice(0, 600);
+  }
+  const set = (n, v) => { if (v !== undefined && v !== null && has(n)) input[n] = v; };
+  set('mode', opts.mode);
+  set('topology', opts.topology);
+  set('target_polycount', opts.targetPolycount != null ? Number(opts.targetPolycount) : undefined);
+  set('symmetry_mode', opts.symmetryMode);
+  set('should_remesh', opts.shouldRemesh);
+  set('should_texture', opts.shouldTexture);
+  set('enable_pbr', opts.enablePbr);
+  set('is_a_t_pose', opts.isAtPose);
+  set('rigging_height_meters', opts.riggingHeightMeters != null ? Number(opts.riggingHeightMeters) : undefined);
+  set('animation_action_id', opts.animationActionId != null ? Number(opts.animationActionId) : undefined);
+  set('texture_prompt', opts.texturePrompt);
+  set('enable_prompt_expansion', opts.enablePromptExpansion);
+  return input;
+}
+
+// Resolve a job to its exact submodel + input, then return its microcredit cost from
+// the estimate engine (mirrors run-time charge). kind: 'image' | 'video' | '3d'.
+async function estimateMagicaCost(apiKey, spec = {}) {
+  const kind = spec.kind || 'image';
+  const models = await getModelsCached(apiKey);
+  let nodeType, subModelId, input;
+  if (kind === '3d') {
+    nodeType = 'meshy_v6_preview';
+    const isImage = Array.isArray(spec.imageUrls) && spec.imageUrls.filter(Boolean).length > 0;
+    subModelId = resolveSubModel(models, nodeType, isImage ? 'image-to-image' : 'text-to-image');
+    let fields = []; try { fields = ((await getSchemaCached(apiKey, subModelId || nodeType)) || {}).fields || []; } catch (e) {}
+    input = buildMeshyInput(fields, spec, isImage);
+  } else if (kind === 'video') {
+    nodeType = spec.model || 'seedance_2_0_fast';
+    subModelId = resolveSubModel(models, nodeType, spec.method || 'image-to-video');
+    let fields = []; try { fields = ((await getSchemaCached(apiKey, subModelId || nodeType)) || {}).fields || []; } catch (e) {}
+    input = buildInput(fields, { prompt: spec.prompt || 'x', aspect: spec.aspectRatio, resolution: spec.resolution, duration: spec.duration, generateAudio: spec.generateAudio, imageUrls: spec.imageUrls || (spec.hasImage ? ['https://example.com/x.png'] : []) });
+  } else {
+    nodeType = spec.model || 'gpt_image_2';
+    const isImg = Array.isArray(spec.imageUrls) && spec.imageUrls.filter(Boolean).length > 0;
+    subModelId = resolveSubModel(models, nodeType, isImg ? 'image-to-image' : 'text-to-image');
+    let fields = []; try { fields = ((await getSchemaCached(apiKey, subModelId || nodeType)) || {}).fields || []; } catch (e) {}
+    input = buildInput(fields, { prompt: spec.prompt || 'x', aspect: spec.aspectRatio, imageUrls: spec.imageUrls || [] });
+  }
+  const micro = await estimateNodeCost(apiKey, nodeType, subModelId, input);
+  return { microcredits: micro, credits: micro / 1e6, nodeType, subModelId };
+}
+
+// Generate a 3D model via Meshy V6 (text-to-3D or image-to-3D). Returns the .glb model
+// URL + a preview thumbnail (.png) + credits used. Rigged/animated when the edit-mode
+// rigging/animation fields are supplied.
+async function generateMeshy3D(apiKey, opts = {}) {
+  const onLog = typeof opts.onLog === 'function' ? opts.onLog : () => {};
+  const nodeType = 'meshy_v6_preview';
+  const isImage = Array.isArray(opts.imageUrls) && opts.imageUrls.filter(Boolean).length > 0;
+  const category = isImage ? 'image-to-image' : 'text-to-image';
+  const models = await getModelsCached(apiKey);
+  const subModelId = resolveSubModel(models, nodeType, category);
+  let fields = []; try { fields = ((await getSchemaCached(apiKey, subModelId || nodeType)) || {}).fields || []; } catch (e) {}
+  const input = buildMeshyInput(fields, opts, isImage);
+  if (isImage && (!input.image_urls || !input.image_urls.length)) {
+    throw new Error('Gambar untuk 3D tidak punya URL publik (set PUBLIC_URL, atau pakai gambar hasil Magica).');
+  }
+  if (!isImage && !input.prompt) throw new Error('Prompt teks untuk 3D wajib diisi.');
+
+  // Pre-flight cost check (same as video) — fail fast if the key cannot afford it.
+  const cost = await estimateNodeCost(apiKey, nodeType, subModelId, input);
+  if (cost) {
+    let bal = null;
+    try { bal = Number((await magica.getCreditBalance(apiKey)).availableBalance); } catch (e) {}
+    onLog(`[Magica] Estimasi biaya 3D: ~${(cost / 1e6).toFixed(2)} kredit${bal != null ? ` (saldo key ~${(bal / 1e6).toFixed(2)})` : ''}.`);
+    if (bal != null && bal < cost) throw new Error(`Kredit key tidak cukup untuk 3D ini: butuh ~${(cost / 1e6).toFixed(2)} kredit, saldo ~${(bal / 1e6).toFixed(2)}.`);
+  }
+
+  onLog(`[Magica] 3D via ${nodeType} / ${subModelId} ...`);
+  const runId = await magica.runModel(apiKey, nodeType, subModelId, input);
+  const done = await magica.pollRun(apiKey, runId, { onLog, timeoutMs: opts.timeoutMs || 1200000 });
+  const urls = done.mediaUrls || [];
+  const meta = (done.run && done.run.output && done.run.output.resultMetadata) || [];
+  let modelUrl = null, thumbUrl = null;
+  urls.forEach((u, i) => {
+    const mt = String((meta[i] && meta[i].mimeType) || '');
+    if (/gltf|glb/i.test(mt) || /\.glb(\?|$)/i.test(u)) modelUrl = modelUrl || u;
+    else if (/image\//i.test(mt) || /\.(png|jpe?g|webp)(\?|$)/i.test(u)) thumbUrl = thumbUrl || u;
+  });
+  if (!modelUrl) modelUrl = urls.find((u) => /\.glb(\?|$)/i.test(u)) || urls[0];
+  if (!modelUrl) throw new Error('Magica tidak mengembalikan model 3D.');
+  invalidateBalanceCache();
+  return { modelUrl, thumbUrl, credit: Number(done.creditUsed || (done.run && done.run.output && done.run.output.creditUsed)) || 0 };
+}
+
 module.exports = {
   publicBase,
   toPublicUrl,
   sizeFromAspect,
+  estimateMagicaCost,
+  generateMeshy3D,
   pickActiveMagicaKey,
   pickMagicaKey,
   pickRandomMagicaKey,
+  pickMediaMagicaKey,
+  getKeyBalances,
+  estimateNodeCost,
+  MEDIA_MIN_MICRO,
   magicaChatCompletion,
   isMagicaForStoryboard,
   getModelsCached,
