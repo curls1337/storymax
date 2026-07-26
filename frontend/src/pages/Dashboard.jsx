@@ -196,21 +196,19 @@ export default function Dashboard({ setTab }) {
     }
   };
 
+  // All exports now run as BACKGROUND JOBS on the server: the request returns
+  // immediately with { jobId, status, message } and the actual work continues even if
+  // this tab is closed. Progress + results (Buka for cloud, Download for CSV/Full)
+  // live in Settings → Riwayat Export.
   const handleExportToGoogleSheets = async () => {
     if (exportSelectedIds.length === 0) return;
     setExportingGoogle(true);
     try {
-      const res = await api.post('/storyboards/export-google-sheets', {
-        storyboardIds: exportSelectedIds
-      });
-      setExportSuccessModal({
-        url: res.data.spreadsheetUrl,
-        message: res.data.message,
-        count: res.data.count
-      });
+      const res = await api.post('/storyboards/export-google-sheets', { storyboardIds: exportSelectedIds });
+      toast.success(res.data?.message || 'Export ke Google Sheets dimulai — cek hasilnya di Settings › Riwayat Export.');
     } catch (err) {
       console.error("Error exporting to Google Sheets:", err);
-      toast.error(err.response?.data?.message || 'Gagal mengekspor data ke Google Sheets.');
+      toast.error(err.response?.data?.message || 'Gagal memulai export ke Google Sheets.');
     } finally {
       setExportingGoogle(false);
     }
@@ -220,24 +218,11 @@ export default function Dashboard({ setTab }) {
     if (exportSelectedIds.length === 0) return;
     setExportingCsv(true);
     try {
-      const response = await api.post(
-        '/storyboards/export-csv',
-        { storyboardIds: exportSelectedIds },
-        { responseType: 'blob' }
-      );
-      
-      const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8;' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `storymax_export_${Date.now()}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      const res = await api.post('/storyboards/export-csv', { storyboardIds: exportSelectedIds });
+      toast.success(res.data?.message || 'Export CSV dimulai — filenya bisa didownload di Settings › Riwayat Export.');
     } catch (err) {
       console.error("Error exporting to CSV:", err, err.response?.data);
-      toast.error(err.response?.data?.error ? ('Gagal export CSV: ' + err.response.data.error) : 'Gagal mengekspor data ke CSV.');
+      toast.error(err.response?.data?.message || err.response?.data?.error || 'Gagal memulai export CSV.');
     } finally {
       setExportingCsv(false);
     }
@@ -249,23 +234,11 @@ export default function Dashboard({ setTab }) {
     if (exportSelectedIds.length === 0) return;
     setExportingFull(true);
     try {
-      const response = await api.post(
-        '/storyboards/export-full-csv',
-        { storyboardIds: exportSelectedIds },
-        { responseType: 'blob' }
-      );
-      const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8;' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `storymax_full_export_${Date.now()}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      const res = await api.post('/storyboards/export-full-csv', { storyboardIds: exportSelectedIds });
+      toast.success(res.data?.message || 'Export Full (CSV) dimulai — filenya bisa didownload di Settings › Riwayat Export.');
     } catch (err) {
       console.error("Error exporting FULL CSV:", err, err.response?.data);
-      toast.error(err.response?.data?.error ? ('Gagal export Full: ' + err.response.data.error) : 'Gagal mengekspor data (Full).');
+      toast.error(err.response?.data?.message || err.response?.data?.error || 'Gagal memulai export Full.');
     } finally {
       setExportingFull(false);
     }
@@ -1121,7 +1094,7 @@ export default function Dashboard({ setTab }) {
                   {exportingCsv ? (
                     <>
                       <Loader className="animate-spin w-3.5 h-3.5" />
-                      Mengunduh CSV...
+                      Memulai...
                     </>
                   ) : (
                     <>
@@ -1139,7 +1112,7 @@ export default function Dashboard({ setTab }) {
                   {exportingFull ? (
                     <>
                       <Loader className="animate-spin w-3.5 h-3.5" />
-                      Menyiapkan...
+                      Memulai...
                     </>
                   ) : (
                     <>
@@ -1156,7 +1129,7 @@ export default function Dashboard({ setTab }) {
                   {exportingGoogle ? (
                     <>
                       <Loader className="animate-spin w-3.5 h-3.5" />
-                      Mengespor ke Drive...
+                      Memulai...
                     </>
                   ) : (
                     <>

@@ -3,8 +3,9 @@
 // present) — the user identity is carried in a signed `state`. The other routes require
 // auth. There is intentionally NO router-wide auth middleware here.
 const express = require('express');
+const fs = require('fs');
 const { getDb } = require('../db');
-const { authenticateToken } = require('../middleware/authMiddleware');
+const { authenticateToken, authenticateTokenAllowQuery } = require('../middleware/authMiddleware');
 const googleOAuth = require('../services/googleOAuth');
 
 const router = express.Router();
@@ -47,6 +48,22 @@ router.get('/exports', authenticateToken, async (req, res) => {
     const db = getDb();
     const rows = await googleOAuth.listExports(db, req.user.id);
     res.json(rows || []);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Download a CSV export file (owner-only). Uses query-token auth so a browser link works.
+router.get('/exports/:id/download', authenticateTokenAllowQuery, async (req, res) => {
+  try {
+    const db = getDb();
+    const row = await db.get('SELECT file_path, title FROM user_google_exports WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
+    if (!row || !row.file_path) return res.status(404).json({ message: 'File export tidak ditemukan.' });
+    if (!fs.existsSync(row.file_path)) return res.status(404).json({ message: 'File export sudah tidak tersedia (mungkin dibersihkan).' });
+    const safe = String(row.title || 'export').replace(/[^\w.-]+/g, '_').slice(0, 60);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${safe}.csv"`);
+    fs.createReadStream(row.file_path).pipe(res);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

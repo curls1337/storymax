@@ -122,10 +122,12 @@ async function recordExport(db, userId, { spreadsheetId, spreadsheetUrl, title, 
   );
 }
 
-// List a user's export spreadsheets (newest first).
+// List a user's export jobs (newest first). Omits the server-side file_path; the UI
+// uses the download route by id when type is csv/full and status is success.
 async function listExports(db, userId, limit = 50) {
   return db.all(
-    'SELECT id, spreadsheet_id, spreadsheet_url, title, item_count, created_at FROM user_google_exports WHERE user_id = ? ORDER BY id DESC LIMIT ?',
+    `SELECT id, type, status, spreadsheet_id, spreadsheet_url, title, item_count, total, error, created_at, updated_at
+     FROM user_google_exports WHERE user_id = ? ORDER BY id DESC LIMIT ?`,
     [userId, limit]
   );
 }
