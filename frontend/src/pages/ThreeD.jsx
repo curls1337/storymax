@@ -5,6 +5,24 @@ import { toast } from '../utils/toast';
 
 // 3D generation tab powered by Magica's Meshy V6 (text-to-3D + image-to-3D).
 // Results are .glb models previewed with <model-viewer> (orbit + play animations).
+
+// Curated preset animations from Meshy's Animation Library (each has a unique
+// integer action_id). We expose friendly names instead of raw numbers so users
+// pick "Diam / Jalan / Lari" rather than guessing an ID. IDs verified against
+// https://docs.meshy.ai/en/api/animation-library (0=Idle, 1=Walking, 30=Casual
+// Walk, 14=Run, 16=RunFast, 44=Jump, 28=Wave, 22=Dance, 59=Victory).
+const ANIMATION_ACTIONS = [
+  { id: 0, label: 'Diam / Idle' },
+  { id: 1, label: 'Jalan (Walking)' },
+  { id: 30, label: 'Jalan Santai (Casual Walk)' },
+  { id: 14, label: 'Lari (Run)' },
+  { id: 16, label: 'Lari Cepat (Run Fast)' },
+  { id: 44, label: 'Lompat (Jump)' },
+  { id: 28, label: 'Melambai (Wave Hello)' },
+  { id: 22, label: 'Menari (Dance)' },
+  { id: 59, label: 'Selebrasi (Victory Cheer)' },
+];
+
 export default function ThreeD() {
   const [keys, setKeys] = useState([]);        // active Magica keys (id, label, balance)
   const [keyId, setKeyId] = useState('auto');  // chosen key or 'auto'
@@ -22,7 +40,7 @@ export default function ThreeD() {
   const [enablePbr, setEnablePbr] = useState(false);
   const [isAtPose, setIsAtPose] = useState(false);
   const [riggingHeightMeters, setRiggingHeightMeters] = useState(1.7);
-  const [animationActionId, setAnimationActionId] = useState(1001);
+  const [animationActionId, setAnimationActionId] = useState(0); // Meshy preset action_id (default: Idle)
   const [texturePrompt, setTexturePrompt] = useState('');
 
   const [estimate, setEstimate] = useState(null);
@@ -217,8 +235,10 @@ export default function ThreeD() {
                 <input type="number" step="0.1" min={0.1} max={10} value={riggingHeightMeters} onChange={(e) => setRiggingHeightMeters(Number(e.target.value))} disabled={generating} className={inputCls} />
               </div>
               <div>
-                <label className={labelCls}>Animation Action ID</label>
-                <input type="number" value={animationActionId} onChange={(e) => setAnimationActionId(Number(e.target.value))} disabled={generating} className={inputCls} />
+                <label className={labelCls}>Animasi</label>
+                <select value={animationActionId} onChange={(e) => setAnimationActionId(Number(e.target.value))} disabled={generating} className={inputCls}>
+                  {ANIMATION_ACTIONS.map((a) => (<option key={a.id} value={a.id}>{a.label}</option>))}
+                </select>
               </div>
             </div>
           )}
