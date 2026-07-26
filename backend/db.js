@@ -64,6 +64,7 @@ async function initDb() {
       credit_used INTEGER DEFAULT 0,
       status TEXT NOT NULL DEFAULT 'processing',
       error_message TEXT,
+      logs TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     )
   `);
@@ -310,6 +311,13 @@ async function initDb() {
   // Ensure logs column exists in generated_videos (migration support)
   try {
     await db.exec('ALTER TABLE generated_videos ADD COLUMN logs TEXT');
+  } catch (e) {
+    // Column already exists, safe to ignore
+  }
+
+  // Ensure logs column exists in generated_3d (migration support)
+  try {
+    await db.exec('ALTER TABLE generated_3d ADD COLUMN logs TEXT');
   } catch (e) {
     // Column already exists, safe to ignore
   }

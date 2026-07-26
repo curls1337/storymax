@@ -87,12 +87,24 @@ router.post('/3d/generate', async (req, res) => {
     if (!best) best = keys.slice().sort((a, c) => c.balance - a.balance)[0];
     if (!best) return res.status(400).json({ message: 'Belum ada API Key Magica aktif. Minta admin menambahkannya di Admin → API Magica.' });
 
-    const ins = await db.run('INSERT INTO generated_3d (user_id, mode, prompt, status) VALUES (?, ?, ?, ?)',
-      [req.user.id, mode, b.prompt || null, 'processing']);
+    const ts = () => new Date().toLocaleTimeString('id-ID');
+    const startLog = `[${ts()}] Memulai 3D (${mode === 'image' ? 'Image→3D' : 'Text→3D'})...`;
+    const ins = await db.run('INSERT INTO generated_3d (user_id, mode, prompt, status, logs) VALUES (?, ?, ?, ?, ?)',
+      [req.user.id, mode, b.prompt || null, 'processing', startLog]);
     const id = ins.lastID;
     res.json({ id });
 
     (async () => {
+      // Capture progress so the user can see WHAT is happening (was: silent — no way
+      // to tell if a 3D job is still running or why it failed). Persist throttled.
+      let logs = startLog;
+      let lastWrite = 0;
+      const persist = async () => { try { await db.run('UPDATE generated_3d SET logs = ? WHERE id = ?', [logs.slice(-6000), id]); } catch (e) {} };
+      const onLog = (m) => {
+        logs += `\n[${ts()}] ${m}`;
+        const now = Date.now();
+        if (now - lastWrite > 1500) { lastWrite = now; persist(); }
+      };
       try {
         const r = await magicaGen.generateMeshy3D(best.key_value, {
           mode: b.meshMode, // Meshy 'preview' | 'full' (text mode)
@@ -101,12 +113,15 @@ router.post('/3d/generate', async (req, res) => {
           shouldRemesh: b.shouldRemesh, shouldTexture: b.shouldTexture, enablePbr: b.enablePbr,
           isAtPose: b.isAtPose, riggingHeightMeters: b.riggingHeightMeters, animationActionId: b.animationActionId,
           texturePrompt: b.texturePrompt, enablePromptExpansion: b.enablePromptExpansion,
+          onLog,
         });
-        await db.run('UPDATE generated_3d SET status = ?, model_url = ?, thumb_url = ?, credit_used = ? WHERE id = ?',
-          ['success', r.modelUrl, r.thumbUrl || null, r.credit || 0, id]);
+        logs += `\n[${ts()}] Selesai — model 3D siap (${((r.credit || 0) / 1e6).toFixed(3)} kredit).`;
+        await db.run('UPDATE generated_3d SET status = ?, model_url = ?, thumb_url = ?, credit_used = ?, logs = ? WHERE id = ?',
+          ['success', r.modelUrl, r.thumbUrl || null, r.credit || 0, logs.slice(-6000), id]);
       } catch (e) {
-        await db.run('UPDATE generated_3d SET status = ?, error_message = ? WHERE id = ?',
-          ['failed', String(e.message || 'error').slice(0, 300), id]);
+        logs += `\n[${ts()}] GAGAL: ${e.message || 'error'}`;
+        await db.run('UPDATE generated_3d SET status = ?, error_message = ?, logs = ? WHERE id = ?',
+          ['failed', String(e.message || 'error').slice(0, 300), logs.slice(-6000), id]);
       }
     })();
   } catch (err) {
@@ -119,7 +134,7 @@ router.get('/3d/task/:id', async (req, res) => {
   try {
     const db = getDb();
     const row = await db.get(
-      'SELECT id, mode, prompt, model_url, thumb_url, credit_used, status, error_message, created_at FROM generated_3d WHERE id = ? AND user_id = ?',
+      'SELECT id, mode, prompt, model_url, thumb_url, credit_used, status, error_message, logs, created_at FROM generated_3d WHERE id = ? AND user_id = ?',
       [req.params.id, req.user.id]
     );
     if (!row) return res.status(404).json({ message: 'Tidak ditemukan.' });
@@ -132,7 +147,7 @@ router.get('/3d/list', async (req, res) => {
   try {
     const db = getDb();
     const rows = await db.all(
-      'SELECT id, mode, prompt, model_url, thumb_url, credit_used, status, error_message, created_at FROM generated_3d WHERE user_id = ? ORDER BY id DESC LIMIT 60',
+      'SELECT id, mode, prompt, model_url, thumb_url, credit_used, status, error_message, logs, created_at FROM generated_3d WHERE user_id = ? ORDER BY id DESC LIMIT 60',
       [req.user.id]
     );
     res.json(rows);
