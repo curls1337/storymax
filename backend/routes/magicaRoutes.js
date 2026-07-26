@@ -89,8 +89,9 @@ router.post('/3d/generate', async (req, res) => {
 
     const ts = () => new Date().toLocaleTimeString('id-ID');
     const startLog = `[${ts()}] Memulai 3D (${mode === 'image' ? 'Image→3D' : 'Text→3D'})...`;
-    const ins = await db.run('INSERT INTO generated_3d (user_id, mode, prompt, status, logs) VALUES (?, ?, ?, ?, ?)',
-      [req.user.id, mode, b.prompt || null, 'processing', startLog]);
+    const whToken = crypto.randomBytes(16).toString('hex');
+    const ins = await db.run('INSERT INTO generated_3d (user_id, mode, prompt, status, logs, magica_key_id, webhook_token) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [req.user.id, mode, b.prompt || null, 'processing', startLog, best.id, whToken]);
     const id = ins.lastID;
     res.json({ id });
 
@@ -114,6 +115,8 @@ router.post('/3d/generate', async (req, res) => {
           isAtPose: b.isAtPose, riggingHeightMeters: b.riggingHeightMeters, animationActionId: b.animationActionId,
           texturePrompt: b.texturePrompt, enablePromptExpansion: b.enablePromptExpansion,
           onLog,
+          webhook: magicaGen.buildWebhook('3d', id, whToken),
+          onRunStart: (rid) => db.run('UPDATE generated_3d SET magica_run_id = ? WHERE id = ?', [rid, id]).catch(() => {}),
         });
         logs += `\n[${ts()}] Selesai — model 3D siap (${((r.credit || 0) / 1e6).toFixed(3)} kredit).`;
         await db.run('UPDATE generated_3d SET status = ?, model_url = ?, thumb_url = ?, credit_used = ?, logs = ? WHERE id = ?',

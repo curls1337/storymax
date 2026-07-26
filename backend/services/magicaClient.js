@@ -66,10 +66,12 @@ async function getModelSchema(apiKey, modelId) {
   return r.data;
 }
 
-// Start a model run. Returns the runId.
-async function runModel(apiKey, nodeType, subModelId, input) {
+// Start a model run. Returns the runId. Optional `webhook` object ({url, events,
+// metadata}) registers an async callback for this run (Magica POSTs on completion).
+async function runModel(apiKey, nodeType, subModelId, input, webhook) {
   const body = { input: input || {} };
   if (subModelId) body.subModelId = subModelId;
+  if (webhook && webhook.url) body.webhook = webhook;
   const r = await request(apiKey, 'POST', `/nodes/${encodeURIComponent(nodeType)}/run`, body, 60000);
   if (!r.ok) throw new Error(magicaError(r, 'Gagal memulai run Magica'));
   const runId = r.data && (r.data.runId || r.data.id || (r.data.data && r.data.data.runId));

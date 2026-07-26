@@ -65,6 +65,9 @@ async function initDb() {
       status TEXT NOT NULL DEFAULT 'processing',
       error_message TEXT,
       logs TEXT,
+      magica_run_id TEXT,
+      magica_key_id INTEGER,
+      webhook_token TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     )
   `);
@@ -249,6 +252,9 @@ async function initDb() {
       task_id TEXT,
       used_credits INTEGER DEFAULT 0,
       api_key_id INTEGER,
+      magica_run_id TEXT,
+      magica_key_id INTEGER,
+      webhook_token TEXT,
       serial_no TEXT,
       marketing_title TEXT,
       marketing_description TEXT,
@@ -320,6 +326,20 @@ async function initDb() {
     await db.exec('ALTER TABLE generated_3d ADD COLUMN logs TEXT');
   } catch (e) {
     // Column already exists, safe to ignore
+  }
+
+  // Webhook support: per-run Magica runId + owning key id + token on video & 3D
+  // records, so an async webhook callback can hit the CORRECT key (runId is scoped
+  // to the account/key that created it — critical with a multi-key/bulk pool).
+  for (const [tbl, col, type] of [
+    ['generated_videos', 'magica_run_id', 'TEXT'],
+    ['generated_videos', 'magica_key_id', 'INTEGER'],
+    ['generated_videos', 'webhook_token', 'TEXT'],
+    ['generated_3d', 'magica_run_id', 'TEXT'],
+    ['generated_3d', 'magica_key_id', 'INTEGER'],
+    ['generated_3d', 'webhook_token', 'TEXT'],
+  ]) {
+    try { await db.exec(`ALTER TABLE ${tbl} ADD COLUMN ${col} ${type}`); } catch (e) { /* exists */ }
   }
 
   // Seed default admin if no users exist
