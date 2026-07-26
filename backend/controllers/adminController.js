@@ -502,6 +502,8 @@ const BACKUP_TABLES = [
   'generated_videos', // per-scene video records + video_url links
   'generated_3d',     // 3D (Meshy V6) generations + model/thumb links
   'downloaded_files', // download tracking metadata
+  'user_google_accounts', // per-user Google OAuth (refresh tokens) — so restore keeps each user's Drive connection
+  'user_google_exports',  // per-user export history (spreadsheet links + CSV job records)
 ];
 
 async function backupDatabase(req, res) {
@@ -517,7 +519,7 @@ async function backupDatabase(req, res) {
     const backup = {
       app: 'storymax',
       type: 'db-backup',
-      version: 2,
+      version: 3,
       exportedAt: new Date().toISOString(),
       counts,
       tables,
