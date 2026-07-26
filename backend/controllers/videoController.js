@@ -67,12 +67,26 @@ function enforceNoVoiceover(text) {
   let t = String(text || '');
   // Drop any appended "Voiceover (Lang): ..." block (usually to end of prompt).
   t = t.replace(/\n*\s*Voiceover\s*\([^)]*\)\s*:[\s\S]*$/i, '');
+  // Drop the new structured "Audio — voiceover: ..." directive block if present.
+  t = t.replace(/\n*\s*Audio\s*[—-]\s*voiceover\s*:[\s\S]*$/i, '');
   // Drop inline VO timing cues like "At 0s, narrator speaks: '...'."
   t = t.replace(/\bAt\s*\d+\s*s?,?\s*(the\s+)?narrator\s+speaks[^.]*\.?/gi, '');
   t = t.replace(/\b(the\s+)?narrator\s+speaks[^.]*\.?/gi, '');
   t = t.replace(/\bvoice[-\s]?over\b[^.]*\.?/gi, '');
   t = t.trim();
   return `${t}\n\nIMPORTANT AUDIO RULE: NO voiceover, NO narration, NO spoken words and NO dialogue of any kind. Ignore any "narrator speaks"/voiceover cues above. The audio may contain only natural/ambient/diegetic sound.`;
+}
+
+// Build the single, consistent voiceover directive appended to a video prompt when
+// audio/VO is ON. Unlike the old plain "Voiceover (lang): <text>" tail, this anchors
+// the delivery to the clip timeline (spoken evenly across the shot, synced to the
+// on-screen action, off-screen narrator, no subtitles) so the model places the
+// voiceover correctly instead of guessing when to speak. Returns '' when empty.
+function buildVoiceoverDirective(narration, lang) {
+  const line = String(narration || '').trim();
+  if (!line) return '';
+  const language = lang || 'Bahasa Indonesia';
+  return `\n\nAudio — voiceover: an off-screen narrator speaks this line in ${language}, paced evenly across the whole clip and synced to the on-screen action — begin as the shot starts and finish about one second before it ends, natural and unhurried, clear articulation, no rushing and no dead air. No on-screen text or subtitles, and no other voices. Voiceover line: "${line}"`;
 }
 
 // When "backsound" (background music) is OFF, forbid any BGM/soundtrack so the video
@@ -228,28 +242,10 @@ async function generateVideo(req, res) {
     (async () => {
       try {
         let finalPrompt = prompt;
-        if (generateAudio && storyboard.video_prompts) {
-          try {
-            const parsed = JSON.parse(storyboard.video_prompts);
-            if (parsed && Array.isArray(parsed.scenes)) {
-              const match = parsed.scenes.find(s => s.scene_idx === sceneIdx);
-              if (match && match.narration) {
-                let lang = 'Bahasa Indonesia';
-                let tone = 'casual';
-                if (storyboard.generation_params) {
-                  try {
-                    const params = JSON.parse(storyboard.generation_params);
-                    if (params.voLanguage) lang = params.voLanguage;
-                    if (params.voTone) tone = params.voTone;
-                  } catch (e) {}
-                }
-                finalPrompt += `\n\n[Voiceover Narration - ${lang}]:\n"${match.narration}"`;
-              }
-            }
-          } catch (e) {
-            console.error("Failed to append voiceover narration to video prompt:", e);
-          }
-        }
+        // The voiceover directive is already built into `prompt` by the client (Video
+        // Studio) — the single source of truth for single-video generation. We do NOT
+        // re-append it here; doing so previously DOUBLED the voiceover (client tail +
+        // this block) in the Freebeat path. generate-all builds the VO server-side.
 
         // VO toggle is authoritative: if audio/VO is off, ensure the model does not speak.
         if (!generateAudio) {
@@ -1173,7 +1169,7 @@ async function generateAllVideos(req, res) {
                 if (params.voTone) tone = params.voTone;
               } catch (e) {}
             }
-            promptText += `\n\n[Voiceover Narration - ${lang}]:\n"${matchingPrompt.narration}"`;
+            promptText += buildVoiceoverDirective(matchingPrompt.narration, lang);
           }
         }
         
