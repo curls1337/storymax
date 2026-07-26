@@ -675,100 +675,87 @@ export default function AdminPanel() {
           </div>
 
           <p className="text-slate-400 text-xs mb-4 leading-relaxed">
-            Dua cara autentikasi: <strong className="text-slate-200">(A) Service Account JSON</strong> — paling mudah, cukup upload 1 file (disarankan); atau <strong className="text-slate-200">(B) OAuth2</strong> (Client ID/Secret/Refresh Token). Setelah disimpan Admin, semua user bisa export storyboard ke Google Sheets dari Dashboard.
+            Cukup isi <strong className="text-slate-200">Client ID</strong>, <strong className="text-slate-200">Client Secret</strong>, dan <strong className="text-slate-200">Redirect URI</strong> dari OAuth App Google (atau upload file OAuth Client JSON untuk mengisinya otomatis). Setelah disimpan, tiap user tinggal <strong className="text-slate-200">Hubungkan Akun Google</strong> sendiri di halaman Settings — export lalu masuk ke Drive masing-masing.
           </p>
 
           <form onSubmit={handleSaveGoogleSettings} className="space-y-4">
-            {/* (A) Service Account JSON — recommended: just upload one file */}
-            <div className="bg-[#131211]/50 border border-[#22c55e]/25 rounded-xl p-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="block text-slate-200 text-[10px] font-bold uppercase tracking-widest">A. Service Account JSON (disarankan — upload 1 file)</label>
-                {googleServiceConfigured && <span className="text-[8.5px] text-emerald-400 font-bold uppercase tracking-wider flex items-center gap-1"><Check className="w-3 h-3" /> Terpasang</span>}
-              </div>
-              {googleServiceConfigured && googleServiceEmail && (
-                <p className="text-[9px] text-slate-400 break-all">Email service account: <span className="font-mono text-emerald-300">{googleServiceEmail}</span><br />Penting: buka Google Sheet target Anda → <b>Share</b> ke email ini sebagai <b>Editor</b>.</p>
-              )}
+            {/* Quick-fill: upload the OAuth Client JSON downloaded from the OAuth client */}
+            <div className="bg-[#131211]/50 border border-[#22c55e]/25 rounded-xl p-3 space-y-1.5">
+              <label className="block text-slate-200 text-[10px] font-bold uppercase tracking-widest">Upload OAuth Client JSON (opsional — otomatis isi 3 kolom)</label>
               <input
                 type="file"
                 accept="application/json,.json"
-                onChange={(e) => { const f = e.target.files && e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => setGoogleServiceJson(String(r.result || '')); r.readAsText(f); }}
+                onChange={(e) => {
+                  const f = e.target.files && e.target.files[0]; if (!f) return;
+                  const r = new FileReader();
+                  r.onload = () => {
+                    try {
+                      const j = JSON.parse(String(r.result || ''));
+                      if (j && j.type === 'service_account' && j.client_email && j.private_key) {
+                        setGoogleServiceJson(String(r.result || ''));
+                        setMessage('Terdeteksi Service Account JSON — tersimpan di Opsi Lanjutan. Klik Simpan.');
+                        return;
+                      }
+                      const w = (j && (j.web || j.installed)) || j || {};
+                      if (w.client_id) setGoogleClientId(w.client_id);
+                      if (w.client_secret) setGoogleClientSecret(w.client_secret);
+                      const ru = Array.isArray(w.redirect_uris) ? w.redirect_uris[0] : (w.redirect_uri || '');
+                      if (ru) setGoogleRedirectUri(ru);
+                      if (w.client_id || w.client_secret) setMessage('Client ID / Secret / Redirect URI terisi dari file. Klik Simpan.');
+                      else setError('File JSON tidak dikenali (bukan OAuth Client maupun Service Account).');
+                    } catch (err) { setError('File JSON tidak valid.'); }
+                  };
+                  r.readAsText(f);
+                }}
                 className="w-full text-[10px] text-slate-300 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-[#22c55e]/20 file:text-emerald-300 file:font-bold file:text-[9px] file:uppercase file:cursor-pointer cursor-pointer"
               />
-              <textarea
-                value={googleServiceJson}
-                onChange={(e) => setGoogleServiceJson(e.target.value)}
-                rows={3}
-                placeholder={googleServiceConfigured ? 'JSON sudah tersimpan. Upload/tempel baru hanya jika ingin mengganti.' : 'Atau tempel isi file JSON di sini'}
-                className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-3 py-2 text-white text-[10px] font-mono resize-none focus:outline-none focus:border-[#22c55e]"
-              />
-              <p className="text-[8.5px] text-slate-500 leading-relaxed">Cloud Console: Service Account → Keys → Add key (JSON). Aktifkan Google Sheets API &amp; Drive API. Lalu Share spreadsheet target ke email di atas (Editor).</p>
+              <p className="text-[8.5px] text-slate-500 leading-relaxed">Google Cloud Console → Credentials → OAuth Client (Web) → Download JSON. Atau isi manual di bawah.</p>
             </div>
-
-            <div className="text-center text-[9px] text-slate-500 uppercase tracking-widest">— atau pakai OAuth —</div>
 
             <div>
               <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Google OAuth Client ID</label>
-              <input
-                type="text"
-                value={googleClientId}
-                onChange={(e) => setGoogleClientId(e.target.value)}
-                className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs font-mono"
-                placeholder="xxxxxxxxx-xxxxxxxxx.apps.googleusercontent.com"
-              />
+              <input type="text" value={googleClientId} onChange={(e) => setGoogleClientId(e.target.value)} className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs font-mono" placeholder="xxxxxxxxx-xxxxxxxxx.apps.googleusercontent.com" />
             </div>
 
             <div>
               <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Google OAuth Client Secret</label>
-              <input
-                type="password"
-                value={googleClientSecret}
-                onChange={(e) => setGoogleClientSecret(e.target.value)}
-                className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs font-mono"
-                placeholder="GOCSPX-xxxxxxxxxxxxxxxxxxxxxxxx"
-              />
+              <input type="password" value={googleClientSecret} onChange={(e) => setGoogleClientSecret(e.target.value)} className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs font-mono" placeholder="GOCSPX-xxxxxxxxxxxxxxxxxxxxxxxx" />
             </div>
 
             <div>
-              <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Google Refresh Token</label>
-              <input
-                type="password"
-                value={googleRefreshToken}
-                onChange={(e) => setGoogleRefreshToken(e.target.value)}
-                className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs font-mono"
-                placeholder="1//0xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-              />
+              <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Redirect URI</label>
+              <input type="text" value={googleRedirectUri} onChange={(e) => setGoogleRedirectUri(e.target.value)} className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs font-mono" placeholder="https://story.devcurl.me/api/google/oauth/callback" />
+              <p className="text-[8.5px] text-slate-500 mt-1 leading-relaxed">Kosongkan = pakai default (PUBLIC_URL + /api/google/oauth/callback). HARUS sama persis dengan Authorized redirect URIs di OAuth App.</p>
             </div>
 
-            <div>
-              <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Default Spreadsheet ID / URL (Opsional)</label>
-              <input
-                type="text"
-                value={googleSpreadsheetId}
-                onChange={(e) => setGoogleSpreadsheetId(e.target.value)}
-                className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs font-mono"
-                placeholder="Jika kosong, sistem akan otomatis membuat Spreadsheet baru di Drive"
-              />
-            </div>
-
-            <div>
-              <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Redirect URI (untuk login Google per-user)</label>
-              <input
-                type="text"
-                value={googleRedirectUri}
-                onChange={(e) => setGoogleRedirectUri(e.target.value)}
-                className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs font-mono"
-                placeholder="https://story.devcurl.me/api/google/oauth/callback"
-              />
-              <p className="text-[8.5px] text-slate-500 mt-1 leading-relaxed">Kosongkan = pakai default (PUBLIC_URL + /api/google/oauth/callback). Nilai ini HARUS didaftarkan sama persis di Google Cloud Console → OAuth App → Authorized redirect URIs.</p>
-            </div>
+            {/* Advanced / optional — usually not needed for per-user login */}
+            <details className="bg-black/20 border border-[#2a2725] rounded-xl">
+              <summary className="cursor-pointer select-none px-3 py-2 text-[9px] font-bold uppercase tracking-widest text-slate-400 hover:text-white">Opsi Lanjutan (biasanya tidak perlu)</summary>
+              <div className="p-3 pt-1 space-y-3">
+                <div>
+                  <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Google Refresh Token (opsional)</label>
+                  <input type="password" value={googleRefreshToken} onChange={(e) => setGoogleRefreshToken(e.target.value)} className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#cfae80] text-xs font-mono" placeholder="Tidak perlu untuk login per-user" />
+                </div>
+                <div>
+                  <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Default Spreadsheet ID / URL (opsional)</label>
+                  <input type="text" value={googleSpreadsheetId} onChange={(e) => setGoogleSpreadsheetId(e.target.value)} className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#cfae80] text-xs font-mono" placeholder="Kosongkan = sheet dibuat otomatis di Drive user" />
+                </div>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest">Service Account JSON (alternatif, jarang dipakai)</label>
+                    {googleServiceConfigured && <span className="text-[8.5px] text-emerald-400 font-bold uppercase tracking-wider flex items-center gap-1"><Check className="w-3 h-3" /> Terpasang</span>}
+                  </div>
+                  {googleServiceConfigured && googleServiceEmail && (
+                    <p className="text-[9px] text-slate-400 break-all">Email: <span className="font-mono text-emerald-300">{googleServiceEmail}</span> — Share Sheet ke email ini sebagai Editor.</p>
+                  )}
+                  <textarea value={googleServiceJson} onChange={(e) => setGoogleServiceJson(e.target.value)} rows={2} placeholder="Tempel service-account key JSON (punya client_email & private_key) — HANYA jika pakai mode Service Account" className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-3 py-2 text-white text-[10px] font-mono resize-none focus:outline-none focus:border-[#22c55e]" />
+                </div>
+              </div>
+            </details>
 
             <div className="pt-2">
-              <button
-                type="submit"
-                disabled={googleSaveLoading}
-                className="bg-[#22c55e] hover:bg-[#16a34a] text-black font-bold py-2 px-4 rounded-xl transition-all text-[9.5px] uppercase tracking-wider flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer shadow-lg"
-              >
-                {googleSaveLoading ? <Loader className="animate-spin w-3.5 h-3.5" /> : 'Simpan Pengaturan Google Drive'}
+              <button type="submit" disabled={googleSaveLoading} className="bg-[#22c55e] hover:bg-[#16a34a] text-black font-bold py-2 px-4 rounded-xl transition-all text-[9.5px] uppercase tracking-wider flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer shadow-lg">
+                {googleSaveLoading ? <Loader className="animate-spin w-3.5 h-3.5" /> : 'Simpan Pengaturan Google'}
               </button>
             </div>
           </form>
