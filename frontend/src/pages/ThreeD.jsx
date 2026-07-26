@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import api from '../utils/api';
-import { Box, Loader, Upload, X, Download, ExternalLink, Sparkles, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Box, Loader, Upload, X, Download, ExternalLink, Sparkles, AlertTriangle, RefreshCw, Trash2 } from 'lucide-react';
 import { toast } from '../utils/toast';
+import { confirm } from '../utils/confirm';
 
 // 3D generation tab powered by Magica's Meshy V6 (text-to-3D + image-to-3D).
 // Results are .glb models previewed with <model-viewer> (orbit + play animations).
@@ -143,6 +144,24 @@ export default function ThreeD() {
     } catch (err) {
       setGenerating(false);
       toast.error(err.response?.data?.message || 'Gagal memulai 3D.');
+    }
+  };
+
+  // Delete a 3D history item (any status, incl. a stuck 'processing' one). Stops the
+  // poll if we're deleting the item currently being watched.
+  const handleDeleteItem = async (id) => {
+    if (!(await confirm({ title: 'Hapus item 3D ini?', message: 'Item akan dihapus dari history. Tindakan ini permanen.', confirmText: 'Hapus', danger: true }))) return;
+    try {
+      await api.delete(`/magica/3d/${id}`);
+      if (selected && selected.id === id) {
+        if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+        setGenerating(false);
+        setSelected(null);
+      }
+      toast.success('Item 3D dihapus.');
+      fetchList();
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Gagal menghapus item 3D.');
     }
   };
 
@@ -349,22 +368,30 @@ export default function ThreeD() {
         ) : (
           <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2">
             {items.map((it) => (
-              <button
-                key={it.id}
-                onClick={() => setSelected(it)}
-                title={it.status === 'failed' ? (it.error_message || 'Gagal') : (it.prompt || (it.mode === 'image' ? 'Image → 3D' : '3D'))}
-                className={`relative aspect-square rounded-lg overflow-hidden border transition-all ${selected && selected.id === it.id ? 'border-[#a855f7] ring-1 ring-[#a855f7]/40' : 'border-[#2a2725] hover:border-[#a855f7]/50'}`}
-              >
-                {it.status === 'success' ? (
-                  it.thumb_url
-                    ? <img src={it.thumb_url} alt="" className="w-full h-full object-cover" />
-                    : <div className="w-full h-full flex items-center justify-center bg-black/40 text-slate-400"><Box className="w-4 h-4" /></div>
-                ) : it.status === 'failed' ? (
-                  <div className="w-full h-full flex items-center justify-center bg-black/40 text-red-400/70"><AlertTriangle className="w-4 h-4" /></div>
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-black/40 text-slate-500"><Loader className="animate-spin w-4 h-4 text-[#a855f7]" /></div>
-                )}
-              </button>
+              <div key={it.id} className="relative aspect-square group">
+                <button
+                  onClick={() => setSelected(it)}
+                  title={it.status === 'failed' ? (it.error_message || 'Gagal') : (it.prompt || (it.mode === 'image' ? 'Image → 3D' : '3D'))}
+                  className={`w-full h-full rounded-lg overflow-hidden border transition-all ${selected && selected.id === it.id ? 'border-[#a855f7] ring-1 ring-[#a855f7]/40' : 'border-[#2a2725] hover:border-[#a855f7]/50'}`}
+                >
+                  {it.status === 'success' ? (
+                    it.thumb_url
+                      ? <img src={it.thumb_url} alt="" className="w-full h-full object-cover" />
+                      : <div className="w-full h-full flex items-center justify-center bg-black/40 text-slate-400"><Box className="w-4 h-4" /></div>
+                  ) : it.status === 'failed' ? (
+                    <div className="w-full h-full flex items-center justify-center bg-black/40 text-red-400/70"><AlertTriangle className="w-4 h-4" /></div>
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-black/40 text-slate-500"><Loader className="animate-spin w-4 h-4 text-[#a855f7]" /></div>
+                  )}
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleDeleteItem(it.id); }}
+                  title="Hapus dari history"
+                  className="absolute top-1 right-1 bg-black/70 hover:bg-red-600 text-white rounded-md p-1 transition-colors"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              </div>
             ))}
           </div>
         )}

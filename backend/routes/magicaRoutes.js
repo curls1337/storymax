@@ -129,10 +129,23 @@ router.post('/3d/generate', async (req, res) => {
   }
 });
 
+// Jobs left 'processing' well past the max render time are almost certainly dead
+// (e.g. the server restarted mid-job) — flip them to 'failed' so the UI stops
+// showing a forever-spinning "stuck" item.
+async function failStale3d(db, userId) {
+  try {
+    await db.run(
+      "UPDATE generated_3d SET status = 'failed', error_message = COALESCE(NULLIF(error_message, ''), 'Proses berhenti / timeout (mungkin server sempat restart). Silakan buat lagi.') WHERE user_id = ? AND status = 'processing' AND created_at <= datetime('now', '-30 minutes')",
+      [userId]
+    );
+  } catch (e) { /* best-effort cleanup */ }
+}
+
 // Poll one 3D generation.
 router.get('/3d/task/:id', async (req, res) => {
   try {
     const db = getDb();
+    await failStale3d(db, req.user.id);
     const row = await db.get(
       'SELECT id, mode, prompt, model_url, thumb_url, credit_used, status, error_message, logs, created_at FROM generated_3d WHERE id = ? AND user_id = ?',
       [req.params.id, req.user.id]
@@ -146,12 +159,24 @@ router.get('/3d/task/:id', async (req, res) => {
 router.get('/3d/list', async (req, res) => {
   try {
     const db = getDb();
+    await failStale3d(db, req.user.id);
     const rows = await db.all(
       'SELECT id, mode, prompt, model_url, thumb_url, credit_used, status, error_message, logs, created_at FROM generated_3d WHERE user_id = ? ORDER BY id DESC LIMIT 60',
       [req.user.id]
     );
     res.json(rows);
   } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// Delete one 3D generation from this user's history — works for ANY status,
+// including a stuck 'processing' item. Only the owner can delete their own row.
+router.delete('/3d/:id', async (req, res) => {
+  try {
+    const db = getDb();
+    const r = await db.run('DELETE FROM generated_3d WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
+    if (r && r.changes === 0) return res.status(404).json({ message: 'Item 3D tidak ditemukan.' });
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ message: 'Gagal menghapus item 3D.', error: err.message }); }
 });
 
 module.exports = router;
