@@ -8,6 +8,14 @@ import { Plus, Trash2, ExternalLink, Calendar, Loader, FolderOpen, X, ChevronRig
 import { toast } from '../utils/toast';
 import { confirm } from '../utils/confirm';
 
+// Canonical Magica video methods (friendly labels). A method is shown only if at
+// least one catalog model supports it; the model list then filters to supporters.
+const MAGICA_VIDEO_METHODS = [
+  { category: 'text-to-video', label: 'Text → Video (hanya prompt teks)' },
+  { category: 'image-to-video', label: 'Image → Video (pakai gambar panel)' },
+  { category: 'reference-to-video', label: 'Referensi → Video (referensi karakter/produk)' },
+];
+
 // Credits can be stored in Freebeat units (small ints) or Magica microcredits (large).
 // Show Magica values as credits (÷1e6); leave small Freebeat values as-is.
 const fmtCredit = (v) => { const n = Number(v) || 0; return n >= 10000 ? (n / 1e6).toFixed(2) : String(n); };
@@ -1488,7 +1496,7 @@ export default function Dashboard({ setTab }) {
                             <select 
                               value={videoDurationI2v} 
                               onChange={(e) => setVideoDurationI2v(e.target.value)} 
-                              className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2 py-1 text-white text-[9px] focus:outline-none focus:border-[#cfae80] transition-all font-semibold"
+                              className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[11px] focus:outline-none focus:border-[#cfae80] transition-all font-semibold"
                             >
                               <option value="auto">Auto-detect (SeedDance: 15s | Omni: 10s | Kling: 15s | Gemini: 8s)</option>
                               <option value="8">8 Detik (Gemini)</option>
@@ -1519,7 +1527,7 @@ export default function Dashboard({ setTab }) {
                               <select 
                                 value={voLanguageI2v} 
                                 onChange={(e) => setVoLanguageI2v(e.target.value)} 
-                                className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2 py-1 text-white text-[9px] focus:outline-none focus:border-[#cfae80] transition-all font-semibold mb-1"
+                                className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[11px] focus:outline-none focus:border-[#cfae80] transition-all font-semibold mb-1"
                               >
                                 <option value="Bahasa Indonesia">Bahasa Indonesia</option>
                                 <option value="English">English</option>
@@ -1531,24 +1539,24 @@ export default function Dashboard({ setTab }) {
                               <select 
                                 value={voToneI2v} 
                                 onChange={(e) => setVoToneI2v(e.target.value)} 
-                                className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2 py-1 text-white text-[9px] focus:outline-none focus:border-[#cfae80] transition-all font-semibold"
+                                className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[11px] focus:outline-none focus:border-[#cfae80] transition-all font-semibold"
                               >
-                                <option value="casual">Casual / Santai (Akrab & Gaul)</option>
-                                <option value="comedy">Comedy / Humor (Lucu & Jenaka)</option>
-                                <option value="excited">Excited / Antusias (Selling & High-Energy)</option>
-                                <option value="formal">Formal / Resmi & Edukatif (Berwibawa)</option>
-                                <option value="emotional">Emotional / Menyentuh Hati (Puitis & Empatis)</option>
-                                <option value="storytelling">Storytelling / Alur Kisah Memikat</option>
-                                <option value="dramatic">Dramatic / Misterius & Teater (Tegang)</option>
-                                <option value="soft_spoken">Soft-Spoken / Bisikan ASMR (Tenang & Rileks)</option>
-                                <option value="luxury_premium">Luxury / Premium Elite (Elegan & Mewah)</option>
-                                <option value="poetic_aesthetic">Poetic / Puitis & Estetik (Indah)</option>
-                                <option value="news_anchor">News Anchor / Reporter Berita (Fakta & Lugas)</option>
-                                <option value="motivator_inspirational">Motivator / Semangat Inspiratif (Powerfully Inspiring)</option>
-                                <option value="review_honest">Honest Reviewer / Ulasan Jujur (Autentik)</option>
-                                <option value="cinematic_trailer">Movie Trailer / Hollywood Box-Office (Epik)</option>
-                                <option value="sarcastic_witty">Sarcastic / Witty & Sindiran Halus (Cerdas)</option>
-                                <option value="kids_playful">Kids & Playful / Dunia Anak (Ceria & Riang)</option>
+                                <option value="casual">Santai / Casual — obrolan akrab & gaul, cocok untuk UGC & konten harian</option>
+                                <option value="comedy">Komedi / Humor — lucu & jenaka, bikin penonton ketawa</option>
+                                <option value="excited">Antusias / Selling — energik & persuasif untuk promo/jualan</option>
+                                <option value="formal">Formal / Edukatif — resmi, informatif & berwibawa (EYD)</option>
+                                <option value="emotional">Emosional / Menyentuh — hangat & empatis, menyentuh perasaan</option>
+                                <option value="storytelling">Storytelling — naratif mendongeng, bikin penasaran</option>
+                                <option value="dramatic">Dramatis / Misterius — tegang & penuh suspense</option>
+                                <option value="soft_spoken">Soft-Spoken / ASMR — lembut, tenang & menenangkan</option>
+                                <option value="luxury_premium">Luxury / Premium — elegan, mewah & eksklusif</option>
+                                <option value="poetic_aesthetic">Puitis / Estetik — kata-kata indah & artistik</option>
+                                <option value="news_anchor">News Anchor — lugas berbasis fakta, gaya reporter berita</option>
+                                <option value="motivator_inspirational">Motivator / Inspiratif — membakar semangat & percaya diri</option>
+                                <option value="review_honest">Reviewer Jujur — objektif tanpa basa-basi, plus-minus produk</option>
+                                <option value="cinematic_trailer">Movie Trailer — epik & megah ala trailer Hollywood</option>
+                                <option value="sarcastic_witty">Sarkas / Witty — cerdas & menyindir halus dengan jenaka</option>
+                                <option value="kids_playful">Anak / Ceria — riang & energik, dunia anak</option>
                               </select>
                             </div>
                           )}
@@ -1643,22 +1651,22 @@ export default function Dashboard({ setTab }) {
                                   onChange={(e) => setVoToneI2v(e.target.value)} 
                                   className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all font-semibold"
                                 >
-                                  <option value="casual">Casual / Santai (Akrab & Gaul)</option>
-                                  <option value="comedy">Comedy / Humor (Lucu & Jenaka)</option>
-                                  <option value="excited">Excited / Antusias (Selling & High-Energy)</option>
-                                  <option value="formal">Formal / Resmi & Edukatif (Berwibawa)</option>
-                                  <option value="emotional">Emotional / Menyentuh Hati (Puitis & Empatis)</option>
-                                  <option value="storytelling">Storytelling / Alur Kisah Memikat</option>
-                                  <option value="dramatic">Dramatic / Misterius & Teater (Tegang)</option>
-                                  <option value="soft_spoken">Soft-Spoken / Bisikan ASMR (Tenang & Rileks)</option>
-                                  <option value="luxury_premium">Luxury / Premium Elite (Elegan & Mewah)</option>
-                                  <option value="poetic_aesthetic">Poetic / Puitis & Estetik (Indah)</option>
-                                  <option value="news_anchor">News Anchor / Reporter Berita (Fakta & Lugas)</option>
-                                  <option value="motivator_inspirational">Motivator / Semangat Inspiratif (Powerfully Inspiring)</option>
-                                  <option value="review_honest">Honest Reviewer / Ulasan Jujur (Autentik)</option>
-                                  <option value="cinematic_trailer">Movie Trailer / Hollywood Box-Office (Epik)</option>
-                                  <option value="sarcastic_witty">Sarcastic / Witty & Sindiran Halus (Cerdas)</option>
-                                  <option value="kids_playful">Kids & Playful / Dunia Anak (Ceria & Riang)</option>
+                                  <option value="casual">Santai / Casual — obrolan akrab & gaul, cocok untuk UGC & konten harian</option>
+                                <option value="comedy">Komedi / Humor — lucu & jenaka, bikin penonton ketawa</option>
+                                <option value="excited">Antusias / Selling — energik & persuasif untuk promo/jualan</option>
+                                <option value="formal">Formal / Edukatif — resmi, informatif & berwibawa (EYD)</option>
+                                <option value="emotional">Emosional / Menyentuh — hangat & empatis, menyentuh perasaan</option>
+                                <option value="storytelling">Storytelling — naratif mendongeng, bikin penasaran</option>
+                                <option value="dramatic">Dramatis / Misterius — tegang & penuh suspense</option>
+                                <option value="soft_spoken">Soft-Spoken / ASMR — lembut, tenang & menenangkan</option>
+                                <option value="luxury_premium">Luxury / Premium — elegan, mewah & eksklusif</option>
+                                <option value="poetic_aesthetic">Puitis / Estetik — kata-kata indah & artistik</option>
+                                <option value="news_anchor">News Anchor — lugas berbasis fakta, gaya reporter berita</option>
+                                <option value="motivator_inspirational">Motivator / Inspiratif — membakar semangat & percaya diri</option>
+                                <option value="review_honest">Reviewer Jujur — objektif tanpa basa-basi, plus-minus produk</option>
+                                <option value="cinematic_trailer">Movie Trailer — epik & megah ala trailer Hollywood</option>
+                                <option value="sarcastic_witty">Sarkas / Witty — cerdas & menyindir halus dengan jenaka</option>
+                                <option value="kids_playful">Anak / Ceria — riang & energik, dunia anak</option>
                                 </select>
                               </div>
                             )}
@@ -1724,7 +1732,7 @@ export default function Dashboard({ setTab }) {
                             <select 
                               value={videoDurationT2v} 
                               onChange={(e) => setVideoDurationT2v(e.target.value)} 
-                              className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2 py-1 text-white text-[9px] focus:outline-none focus:border-[#cfae80] transition-all font-semibold"
+                              className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[11px] focus:outline-none focus:border-[#cfae80] transition-all font-semibold"
                             >
                               <option value="auto">Auto-detect (15 Detik)</option>
                               <option value="8">8 Detik (Gemini)</option>
@@ -1755,7 +1763,7 @@ export default function Dashboard({ setTab }) {
                               <select 
                                 value={voLanguageT2v} 
                                 onChange={(e) => setVoLanguageT2v(e.target.value)} 
-                                className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2 py-1 text-white text-[9px] focus:outline-none focus:border-[#cfae80] transition-all font-semibold mb-1"
+                                className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[11px] focus:outline-none focus:border-[#cfae80] transition-all font-semibold mb-1"
                               >
                                 <option value="Bahasa Indonesia">Bahasa Indonesia</option>
                                 <option value="English">English</option>
@@ -1767,24 +1775,24 @@ export default function Dashboard({ setTab }) {
                               <select 
                                 value={voToneT2v} 
                                 onChange={(e) => setVoToneT2v(e.target.value)} 
-                                className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2 py-1 text-white text-[9px] focus:outline-none focus:border-[#cfae80] transition-all font-semibold"
+                                className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[11px] focus:outline-none focus:border-[#cfae80] transition-all font-semibold"
                               >
-                                <option value="casual">Casual / Santai (Akrab & Gaul)</option>
-                                <option value="comedy">Comedy / Humor (Lucu & Jenaka)</option>
-                                <option value="excited">Excited / Antusias (Selling & High-Energy)</option>
-                                <option value="formal">Formal / Resmi & Edukatif (Berwibawa)</option>
-                                <option value="emotional">Emotional / Menyentuh Hati (Puitis & Empatis)</option>
-                                <option value="storytelling">Storytelling / Alur Kisah Memikat</option>
-                                <option value="dramatic">Dramatic / Misterius & Teater (Tegang)</option>
-                                <option value="soft_spoken">Soft-Spoken / Bisikan ASMR (Tenang & Rileks)</option>
-                                <option value="luxury_premium">Luxury / Premium Elite (Elegan & Mewah)</option>
-                                <option value="poetic_aesthetic">Poetic / Puitis & Estetik (Indah)</option>
-                                <option value="news_anchor">News Anchor / Reporter Berita (Fakta & Lugas)</option>
-                                <option value="motivator_inspirational">Motivator / Semangat Inspiratif (Powerfully Inspiring)</option>
-                                <option value="review_honest">Honest Reviewer / Ulasan Jujur (Autentik)</option>
-                                <option value="cinematic_trailer">Movie Trailer / Hollywood Box-Office (Epik)</option>
-                                <option value="sarcastic_witty">Sarcastic / Witty & Sindiran Halus (Cerdas)</option>
-                                <option value="kids_playful">Kids & Playful / Dunia Anak (Ceria & Riang)</option>
+                                <option value="casual">Santai / Casual — obrolan akrab & gaul, cocok untuk UGC & konten harian</option>
+                                <option value="comedy">Komedi / Humor — lucu & jenaka, bikin penonton ketawa</option>
+                                <option value="excited">Antusias / Selling — energik & persuasif untuk promo/jualan</option>
+                                <option value="formal">Formal / Edukatif — resmi, informatif & berwibawa (EYD)</option>
+                                <option value="emotional">Emosional / Menyentuh — hangat & empatis, menyentuh perasaan</option>
+                                <option value="storytelling">Storytelling — naratif mendongeng, bikin penasaran</option>
+                                <option value="dramatic">Dramatis / Misterius — tegang & penuh suspense</option>
+                                <option value="soft_spoken">Soft-Spoken / ASMR — lembut, tenang & menenangkan</option>
+                                <option value="luxury_premium">Luxury / Premium — elegan, mewah & eksklusif</option>
+                                <option value="poetic_aesthetic">Puitis / Estetik — kata-kata indah & artistik</option>
+                                <option value="news_anchor">News Anchor — lugas berbasis fakta, gaya reporter berita</option>
+                                <option value="motivator_inspirational">Motivator / Inspiratif — membakar semangat & percaya diri</option>
+                                <option value="review_honest">Reviewer Jujur — objektif tanpa basa-basi, plus-minus produk</option>
+                                <option value="cinematic_trailer">Movie Trailer — epik & megah ala trailer Hollywood</option>
+                                <option value="sarcastic_witty">Sarkas / Witty — cerdas & menyindir halus dengan jenaka</option>
+                                <option value="kids_playful">Anak / Ceria — riang & energik, dunia anak</option>
                               </select>
                             </div>
                           )}
@@ -1876,22 +1884,22 @@ export default function Dashboard({ setTab }) {
                                   onChange={(e) => setVoToneT2v(e.target.value)} 
                                   className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all font-semibold"
                                 >
-                                 <option value="casual">Casual / Santai (Akrab & Gaul)</option>
-                                 <option value="comedy">Comedy / Humor (Lucu & Jenaka)</option>
-                                 <option value="excited">Excited / Antusias (Selling & High-Energy)</option>
-                                 <option value="formal">Formal / Resmi & Edukatif (Berwibawa)</option>
-                                 <option value="emotional">Emotional / Menyentuh Hati (Puitis & Empatis)</option>
-                                 <option value="storytelling">Storytelling / Alur Kisah Memikat</option>
-                                 <option value="dramatic">Dramatic / Misterius & Teater (Tegang)</option>
-                                 <option value="soft_spoken">Soft-Spoken / Bisikan ASMR (Tenang & Rileks)</option>
-                                 <option value="luxury_premium">Luxury / Premium Elite (Elegan & Mewah)</option>
-                                 <option value="poetic_aesthetic">Poetic / Puitis & Estetik (Indah)</option>
-                                 <option value="news_anchor">News Anchor / Reporter Berita (Fakta & Lugas)</option>
-                                 <option value="motivator_inspirational">Motivator / Semangat Inspiratif (Powerfully Inspiring)</option>
-                                 <option value="review_honest">Honest Reviewer / Ulasan Jujur (Autentik)</option>
-                                 <option value="cinematic_trailer">Movie Trailer / Hollywood Box-Office (Epik)</option>
-                                 <option value="sarcastic_witty">Sarcastic / Witty & Sindiran Halus (Cerdas)</option>
-                                 <option value="kids_playful">Kids & Playful / Dunia Anak (Ceria & Riang)</option>
+                                 <option value="casual">Santai / Casual — obrolan akrab & gaul, cocok untuk UGC & konten harian</option>
+                                <option value="comedy">Komedi / Humor — lucu & jenaka, bikin penonton ketawa</option>
+                                <option value="excited">Antusias / Selling — energik & persuasif untuk promo/jualan</option>
+                                <option value="formal">Formal / Edukatif — resmi, informatif & berwibawa (EYD)</option>
+                                <option value="emotional">Emosional / Menyentuh — hangat & empatis, menyentuh perasaan</option>
+                                <option value="storytelling">Storytelling — naratif mendongeng, bikin penasaran</option>
+                                <option value="dramatic">Dramatis / Misterius — tegang & penuh suspense</option>
+                                <option value="soft_spoken">Soft-Spoken / ASMR — lembut, tenang & menenangkan</option>
+                                <option value="luxury_premium">Luxury / Premium — elegan, mewah & eksklusif</option>
+                                <option value="poetic_aesthetic">Puitis / Estetik — kata-kata indah & artistik</option>
+                                <option value="news_anchor">News Anchor — lugas berbasis fakta, gaya reporter berita</option>
+                                <option value="motivator_inspirational">Motivator / Inspiratif — membakar semangat & percaya diri</option>
+                                <option value="review_honest">Reviewer Jujur — objektif tanpa basa-basi, plus-minus produk</option>
+                                <option value="cinematic_trailer">Movie Trailer — epik & megah ala trailer Hollywood</option>
+                                <option value="sarcastic_witty">Sarkas / Witty — cerdas & menyindir halus dengan jenaka</option>
+                                <option value="kids_playful">Anak / Ceria — riang & energik, dunia anak</option>
                                 </select>
                               </div>
                             )}
@@ -2286,11 +2294,22 @@ export default function Dashboard({ setTab }) {
                           {userProvider === 'magica' ? (
                             <select
                               value={magicaVideoMethod}
-                              onChange={(e) => setMagicaVideoMethod(e.target.value)}
+                              onChange={(e) => {
+                                const cat = e.target.value;
+                                setMagicaVideoMethod(cat);
+                                // Method-first: if the current model doesn't support this
+                                // method, switch to the first catalog model that does.
+                                const vids = (magicaCatalog && magicaCatalog.videoModels) || [];
+                                const cur = vids.find(m => m.nodeType === magicaVideoModel);
+                                if (!cur || !(cur.methods || []).some(mt => mt.category === cat)) {
+                                  const first = vids.find(m => (m.methods || []).some(mt => mt.category === cat));
+                                  if (first) setMagicaVideoModel(first.nodeType);
+                                }
+                              }}
                               className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] focus:outline-none focus:border-[#a855f7] transition-all font-semibold"
                             >
-                              {((((magicaCatalog && magicaCatalog.videoModels) || []).find(m => m.nodeType === magicaVideoModel) || {}).methods || []).map(mt => (
-                                <option key={mt.category} value={mt.category}>{mt.label || mt.category}</option>
+                              {MAGICA_VIDEO_METHODS.filter(mm => (((magicaCatalog && magicaCatalog.videoModels) || []).some(m => (m.methods || []).some(mt => mt.category === mm.category)))).map(mm => (
+                                <option key={mm.category} value={mm.category}>{mm.label}</option>
                               ))}
                             </select>
                           ) : (
@@ -2329,16 +2348,10 @@ export default function Dashboard({ setTab }) {
                           {userProvider === 'magica' ? (
                             <select
                               value={magicaVideoModel}
-                              onChange={(e) => {
-                                const nt = e.target.value;
-                                setMagicaVideoModel(nt);
-                                const mm = ((((magicaCatalog && magicaCatalog.videoModels) || []).find(m => m.nodeType === nt) || {}).methods) || [];
-                                const im = mm.find(x => x.category === 'image-to-video') || mm[0];
-                                if (im) setMagicaVideoMethod(im.category);
-                              }}
+                              onChange={(e) => setMagicaVideoModel(e.target.value)}
                               className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] focus:outline-none focus:border-[#a855f7] transition-all font-semibold"
                             >
-                              {(((magicaCatalog && magicaCatalog.videoModels) || [])).map(m => (
+                              {((magicaCatalog && magicaCatalog.videoModels) || []).filter(m => (m.methods || []).some(mt => mt.category === magicaVideoMethod)).map(m => (
                                 <option key={m.nodeType} value={m.nodeType}>{m.name}</option>
                               ))}
                             </select>
