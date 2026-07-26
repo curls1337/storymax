@@ -17,6 +17,7 @@ export default function Settings({ onLogout }) {
 
   const [googleStatus, setGoogleStatus] = useState(null); // { appConfigured, connected, email, name, picture }
   const [googleBusy, setGoogleBusy] = useState(false);
+  const [googleExports, setGoogleExports] = useState([]); // history of export spreadsheets
 
   useEffect(() => {
     api.get('/auth/me')
@@ -28,8 +29,15 @@ export default function Settings({ onLogout }) {
   }, []);
 
   const fetchGoogleStatus = async () => {
-    try { const r = await api.get('/google/oauth/status'); setGoogleStatus(r.data); }
-    catch (e) { setGoogleStatus(null); }
+    try {
+      const r = await api.get('/google/oauth/status');
+      setGoogleStatus(r.data);
+      if (r.data && r.data.connected) {
+        try { const e = await api.get('/google/oauth/exports'); setGoogleExports(e.data || []); } catch (er) { setGoogleExports([]); }
+      } else {
+        setGoogleExports([]);
+      }
+    } catch (e) { setGoogleStatus(null); }
   };
 
   useEffect(() => {
@@ -179,6 +187,27 @@ export default function Settings({ onLogout }) {
             <button type="button" onClick={handleConnectGoogle} disabled={googleBusy} className="bg-[#22c55e] hover:bg-[#16a34a] text-black font-bold py-2 px-4 rounded-xl text-[10px] uppercase tracking-wider flex items-center gap-2 disabled:opacity-50 cursor-pointer shadow-lg">
               {googleBusy ? <Loader className="animate-spin w-3.5 h-3.5" /> : <Cloud className="w-3.5 h-3.5" />} Hubungkan Akun Google
             </button>
+          )}
+
+          {googleStatus && googleStatus.connected && (
+            <div className="mt-3 border-t border-[#2a2725] pt-3">
+              <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500 mb-2">Daftar Spreadsheet Export <span className="text-slate-600 normal-case font-normal">— tiap export = sheet baru</span></p>
+              {googleExports.length === 0 ? (
+                <p className="text-slate-500 text-[10px]">Belum ada. Export dari Dashboard untuk membuat spreadsheet baru.</p>
+              ) : (
+                <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
+                  {googleExports.map((ex) => (
+                    <div key={ex.id} className="flex items-center justify-between gap-2 bg-black/30 border border-[#2a2725] rounded-lg px-2.5 py-1.5">
+                      <div className="min-w-0">
+                        <p className="text-[10px] text-slate-200 truncate">{ex.title || 'Spreadsheet'}</p>
+                        <p className="text-[8.5px] text-slate-500 truncate">{(ex.item_count || 0)} item{ex.created_at ? ' · ' + ex.created_at : ''}</p>
+                      </div>
+                      {ex.spreadsheet_url && <a href={ex.spreadsheet_url} target="_blank" rel="noopener noreferrer" className="text-[9px] text-[#22c55e] font-bold uppercase tracking-wider hover:underline shrink-0">Buka</a>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
         </div>
 

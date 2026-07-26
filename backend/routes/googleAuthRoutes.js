@@ -41,6 +41,17 @@ router.get('/status', authenticateToken, async (req, res) => {
   }
 });
 
+// List the current user's export spreadsheets (each export = a new sheet).
+router.get('/exports', authenticateToken, async (req, res) => {
+  try {
+    const db = getDb();
+    const rows = await googleOAuth.listExports(db, req.user.id);
+    res.json(rows || []);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // Disconnect the current user's Google account.
 router.post('/disconnect', authenticateToken, async (req, res) => {
   try {

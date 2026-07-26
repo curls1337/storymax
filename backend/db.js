@@ -247,6 +247,20 @@ async function initDb() {
     )
   `);
 
+  // History of export spreadsheets per user — each export makes a NEW sheet, listed in Settings.
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS user_google_exports (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      spreadsheet_id TEXT,
+      spreadsheet_url TEXT,
+      title TEXT,
+      item_count INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+
   // Create Downloaded Files Table
   await db.exec(`
     CREATE TABLE IF NOT EXISTS downloaded_files (
