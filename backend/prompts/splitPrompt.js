@@ -98,40 +98,9 @@ Contoh (2 halaman — subjek & setting dikunci sama, ADA handoff):
       temperature: 0.4
     };
 
-    const headers = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiToken}`
-    };
-
-    const response = await new Promise((resolve, reject) => {
-      const urlParsed = new URL(`${apiHost}/chat/completions`);
-      const client = urlParsed.protocol === 'https:' ? https : http;
-      const port = urlParsed.port || (urlParsed.protocol === 'https:' ? 443 : 80);
-
-      const options = {
-        hostname: urlParsed.hostname,
-        port: port,
-        path: urlParsed.pathname + urlParsed.search,
-        method: 'POST',
-        headers: headers,
-        timeout: 45000 // 45 seconds for cloud environments like Railway
-      };
-
-      const req = client.request(options, (res) => {
-        let data = '';
-        res.on('data', (chunk) => data += chunk);
-        res.on('end', () => resolve({ statusCode: res.statusCode, body: data }));
-      });
-
-      req.on('error', reject);
-      req.on('timeout', () => {
-        req.destroy();
-        reject(new Error('Timeout'));
-      });
-
-      req.write(JSON.stringify(payload));
-      req.end();
-    });
+    // Honor the admin LLM-provider setting (Magica for text-only, else default host).
+    const { llmChatViaSettings } = require('./aiClient');
+    const response = await llmChatViaSettings(payload, { db, timeoutMs: 45000 });
 
     if (response.statusCode !== 200) {
       console.warn('[AI Split] API failed with status:', response.statusCode, response.body);

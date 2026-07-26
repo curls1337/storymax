@@ -1,18 +1,36 @@
 // Minimal OpenAI-compatible chat client for prompt generation.
 // Reads AI config from the ai_settings table (falls back to env defaults).
+//
+// Provider routing (admin-controlled via ai_settings.llm_provider):
+//   'default' -> the OpenAI-compatible endpoint below.
+//   'magica'  -> route TEXT LLM through the Magica key pool (random key).
+// Vision requests (messages carrying an image) ALWAYS use the default endpoint,
+// because Magica LLM needs public image URLs and StoryMax sends base64 data URLs.
 const http = require('http');
 const https = require('https');
 const { AI_API_HOST, AI_API_TOKEN, AI_MODEL } = require('../config/secrets');
 
 async function getAiConfig(db) {
   let host = AI_API_HOST, token = AI_API_TOKEN, model = AI_MODEL;
+  let provider = 'default', magicaModel = 'gemini_3_5_flash';
   try {
     if (db) {
       const s = await db.get('SELECT * FROM ai_settings LIMIT 1');
-      if (s) { host = s.endpoint || host; token = s.api_key || token; model = s.model || model; }
+      if (s) {
+        host = s.endpoint || host; token = s.api_key || token; model = s.model || model;
+        provider = s.llm_provider || provider;
+        magicaModel = s.magica_llm_model || magicaModel;
+      }
     }
   } catch (e) { /* use defaults */ }
-  return { host, token, model };
+  return { host, token, model, provider, magicaModel };
+}
+
+// True when any message carries image content (OpenAI vision format). Such requests
+// cannot go to Magica (base64 not fetchable) and must use the default endpoint.
+function messagesHaveImage(messages) {
+  return (messages || []).some((m) => Array.isArray(m.content)
+    && m.content.some((p) => p && (p.type === 'image_url' || p.type === 'image' || p.image_url)));
 }
 
 function postJson(url, headers, body, timeoutMs) {
@@ -42,12 +60,25 @@ function postJson(url, headers, body, timeoutMs) {
 // messages: OpenAI-compatible array. Returns assistant text, or throws.
 async function chatCompletion(messages, opts = {}) {
   const { db, temperature = 0.6, timeoutMs } = opts;
-  const { host, token, model } = await getAiConfig(db);
-  if (!token) throw new Error('No AI api_key configured');
+  const cfg = await getAiConfig(db);
+
+  // Route text-only requests to Magica when the admin selected it.
+  if (cfg.provider === 'magica' && !messagesHaveImage(messages)) {
+    try {
+      const magicaGen = require('../services/magicaGen');
+      return await magicaGen.magicaChatCompletion(db, messages, {
+        model: cfg.magicaModel, temperature, timeoutMs,
+      });
+    } catch (e) {
+      // Fall through to the default endpoint on any Magica failure (resilience).
+    }
+  }
+
+  if (!cfg.token) throw new Error('No AI api_key configured');
   const res = await postJson(
-    `${host}/chat/completions`,
-    { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-    { model, messages, temperature },
+    `${cfg.host}/chat/completions`,
+    { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cfg.token}` },
+    { model: cfg.model, messages, temperature },
     timeoutMs
   );
   if (res.statusCode !== 200) throw new Error(`AI HTTP ${res.statusCode}`);
@@ -57,4 +88,35 @@ async function chatCompletion(messages, opts = {}) {
   return String(content).trim();
 }
 
-module.exports = { getAiConfig, chatCompletion };
+// Drop-in for existing callers that build their own OpenAI payload and parse the raw
+// HTTP response. Returns { statusCode, body } shaped exactly like /chat/completions,
+// so caller parsing stays unchanged, while honoring the admin LLM-provider setting.
+// Magica is used only for text-only payloads; vision + failures use the default host.
+async function llmChatViaSettings(payload, opts = {}) {
+  const { db, timeoutMs } = opts;
+  const cfg = await getAiConfig(db);
+  const messages = (payload && payload.messages) || [];
+
+  if (cfg.provider === 'magica' && !messagesHaveImage(messages)) {
+    try {
+      const magicaGen = require('../services/magicaGen');
+      const content = await magicaGen.magicaChatCompletion(db, messages, {
+        model: cfg.magicaModel,
+        temperature: payload.temperature,
+        timeoutMs,
+      });
+      return { statusCode: 200, body: JSON.stringify({ choices: [{ message: { content } }] }) };
+    } catch (e) {
+      // fall through to the default endpoint
+    }
+  }
+
+  return postJson(
+    `${cfg.host}/chat/completions`,
+    { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cfg.token}` },
+    { ...payload, model: payload.model || cfg.model },
+    timeoutMs
+  );
+}
+
+module.exports = { getAiConfig, chatCompletion, llmChatViaSettings, messagesHaveImage };

@@ -183,6 +183,16 @@ async function initDb() {
     // Column already exists, safe to ignore
   }
 
+  // LLM provider selection (admin-controlled): 'default' = the OpenAI-compatible
+  // endpoint above, 'magica' = route text LLM through the Magica key pool (random key).
+  try {
+    await db.exec("ALTER TABLE ai_settings ADD COLUMN llm_provider TEXT NOT NULL DEFAULT 'default'");
+  } catch (e) { /* column exists */ }
+  // Which Magica text model to use when llm_provider = 'magica'.
+  try {
+    await db.exec("ALTER TABLE ai_settings ADD COLUMN magica_llm_model TEXT NOT NULL DEFAULT 'gemini_3_5_flash'");
+  } catch (e) { /* column exists */ }
+
   // Create Google Settings Table
   await db.exec(`
     CREATE TABLE IF NOT EXISTS google_settings (
