@@ -686,6 +686,81 @@ async function testMagicaConnection(req, res) {
   }
 }
 
+// Try to derive a stable per-account identifier from a Magica /credits/balance
+// payload so keys belonging to the same account can be de-duplicated. Returns null
+// when the payload exposes no account-identifying field.
+function pickAccountKey(bal) {
+  if (!bal || typeof bal !== 'object') return null;
+  const cand = bal.accountId || bal.account_id || bal.organizationId || bal.organization_id
+    || bal.orgId || bal.org_id || bal.workspaceId || bal.workspace_id
+    || bal.userId || bal.user_id || bal.customerId || bal.customer_id
+    || bal.subscriptionId || bal.subscription_id || bal.email
+    || (bal.account && (bal.account.id || bal.account.email))
+    || (bal.user && (bal.user.id || bal.user.email));
+  return cand != null ? String(cand) : null;
+}
+
+// Aggregate credit balances across all ACTIVE Magica keys for the admin dashboard.
+// Magica credit is PER-ACCOUNT: several keys can belong to the same account and thus
+// SHARE one balance. We de-duplicate by an account identifier from the balance payload
+// when present, so same-account keys are counted once. If no identifier is exposed we
+// sum every active key and flag `mayDoubleCount` so the UI can warn about over-counting.
+// availableBalance is in MICROCREDITS (1 credit = 1,000,000); we return credits.
+async function getMagicaBalances(req, res) {
+  try {
+    const db = getDb();
+    const rows = await db.all('SELECT id, label, key_value FROM magica_api_keys WHERE is_active = 1 ORDER BY id ASC');
+    const enriched = await Promise.all((rows || []).map(async (k) => {
+      let micro = null, formatted = null, accountKey = null, error = null;
+      try {
+        const bal = await magica.getCreditBalance(k.key_value);
+        const n = Number(bal.availableBalance);
+        micro = Number.isFinite(n) ? n : null;
+        formatted = bal.formatted != null ? String(bal.formatted) : null;
+        accountKey = pickAccountKey(bal);
+      } catch (e) { error = e.message; }
+      return { id: k.id, label: k.label, micro, formatted, accountKey, error };
+    }));
+
+    // De-duplicate by account when an identifier is available; otherwise count each key.
+    let totalMicro = 0, accountsCounted = 0, missingAccountKeys = 0;
+    const seen = new Set();
+    for (const k of enriched) {
+      if (k.micro == null) continue;
+      if (k.accountKey) {
+        if (seen.has(k.accountKey)) continue;
+        seen.add(k.accountKey);
+      } else {
+        missingAccountKeys++;
+      }
+      totalMicro += k.micro;
+      accountsCounted++;
+    }
+    const totalCredits = totalMicro / 1e6;
+    const keysWithBalance = enriched.filter((k) => k.micro != null).length;
+
+    res.json({
+      keys: enriched.map((k) => ({
+        id: k.id,
+        label: k.label,
+        credits: k.micro != null ? k.micro / 1e6 : null,
+        formatted: k.formatted,
+        error: k.error,
+      })),
+      totalCredits,
+      totalFormatted: totalCredits.toLocaleString('id-ID', { maximumFractionDigits: 2 }),
+      activeKeys: enriched.length,
+      keysWithBalance,
+      accountsCounted,
+      // If accounts can't be identified and 2+ keys reported a balance, the sum may
+      // include same-account keys more than once.
+      mayDoubleCount: missingAccountKeys > 1,
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Gagal mengambil saldo Magica.', error: error.message });
+  }
+}
+
 async function setUserMagicaAccess(req, res) {
   const { id } = req.params;
   const { can_use_magica } = req.body;
@@ -728,5 +803,6 @@ module.exports = {
   deleteMagicaKey,
   deleteMagicaKeysBulk,
   testMagicaConnection,
+  getMagicaBalances,
   setUserMagicaAccess
 };

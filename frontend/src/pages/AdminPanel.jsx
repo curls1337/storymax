@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import api from '../utils/api';
-import { Users, Key, Plus, Trash2, ShieldAlert, Eye, EyeOff, Loader, Check, X, ShieldCheck, Terminal, UserPlus, Database, Sparkles, FolderOpen, HardDrive, DownloadCloud } from 'lucide-react';
+import { Users, Key, Plus, Trash2, ShieldAlert, Eye, EyeOff, Loader, Check, X, ShieldCheck, Terminal, UserPlus, Database, Sparkles, FolderOpen, HardDrive, DownloadCloud, Wallet, RefreshCw } from 'lucide-react';
 import { confirm } from '../utils/confirm';
 
 export default function AdminPanel() {
@@ -18,6 +18,8 @@ export default function AdminPanel() {
   const [magicaBulk, setMagicaBulk] = useState('');
   const [magicaTest, setMagicaTest] = useState(null);
   const [magicaTestLoading, setMagicaTestLoading] = useState(false);
+  const [magicaBalances, setMagicaBalances] = useState(null);
+  const [magicaBalLoading, setMagicaBalLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [sortBy, setSortBy] = useState('date_desc');
@@ -179,6 +181,18 @@ export default function AdminPanel() {
     }
   };
 
+  const fetchMagicaBalances = async () => {
+    setMagicaBalLoading(true);
+    try {
+      const res = await api.get('/admin/magica/balances');
+      setMagicaBalances(res.data);
+    } catch (err) {
+      console.error('Gagal mengambil saldo Magica:', err);
+    } finally {
+      setMagicaBalLoading(false);
+    }
+  };
+
   const fetchMagicaKeys = async () => {
     try {
       const res = await api.get('/admin/magica/keys');
@@ -276,6 +290,12 @@ export default function AdminPanel() {
   useEffect(() => {
     loadData();
   }, []);
+
+  // Load/refresh Magica balances when the admin opens the Magica tab, and again
+  // whenever the key list changes (add/toggle/delete) while the tab is open.
+  useEffect(() => {
+    if (activeTab === 'magica') fetchMagicaBalances();
+  }, [activeTab, magicaKeys]);
 
   const handleCreateUser = async (e) => {
     e.preventDefault();
@@ -1361,6 +1381,37 @@ export default function AdminPanel() {
                 {magicaTestLoading ? <Loader className="animate-spin w-3.5 h-3.5" /> : <Check className="w-3.5 h-3.5" />} Tes Koneksi
               </button>
             </div>
+          </div>
+
+          {/* Total balance across all active Magica keys (PR A) */}
+          <div className="bg-[#131211]/50 border border-[#a855f7]/25 rounded-xl p-4 mb-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-slate-350 text-[9px] font-bold uppercase tracking-widest flex items-center gap-1.5"><Wallet className="w-3.5 h-3.5 text-[#a855f7]" /> Total Saldo Semua Key Aktif</p>
+                <p className="text-2xl font-editorial italic text-white mt-1.5">
+                  {magicaBalances ? (<>⚡ {magicaBalances.totalFormatted} <span className="text-sm not-italic text-slate-400">kredit</span></>) : (magicaBalLoading ? <span className="text-base not-italic text-slate-500">Menghitung…</span> : <span className="text-base not-italic text-slate-600">—</span>)}
+                </p>
+                {magicaBalances && (
+                  <p className="text-[9px] text-slate-500 mt-1">
+                    {magicaBalances.keysWithBalance}/{magicaBalances.activeKeys} key aktif terbaca saldonya
+                    {magicaBalances.mayDoubleCount ? ' · ⚠️ sebagian key mungkin dari akun Magica yang sama, total bisa dobel-hitung' : ''}
+                  </p>
+                )}
+              </div>
+              <button onClick={fetchMagicaBalances} disabled={magicaBalLoading} className="bg-[#a855f7]/10 border border-[#a855f7]/30 hover:bg-[#a855f7] hover:text-white text-[#c99bfb] font-bold py-1.5 px-3 rounded-lg flex items-center gap-1 text-[9px] uppercase tracking-wider cursor-pointer disabled:opacity-50 shrink-0">
+                {magicaBalLoading ? <Loader className="animate-spin w-3.5 h-3.5" /> : <RefreshCw className="w-3.5 h-3.5" />} Refresh
+              </button>
+            </div>
+            {magicaBalances && Array.isArray(magicaBalances.keys) && magicaBalances.keys.length > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3">
+                {magicaBalances.keys.map((k) => (
+                  <div key={k.id} className="bg-black/30 border border-[#2a2725] rounded-lg px-2.5 py-1.5">
+                    <p className="text-[10px] text-slate-300 truncate">{k.label}</p>
+                    <p className="text-[11px] font-bold text-[#c99bfb]">{k.credits != null ? `⚡ ${k.formatted ?? k.credits.toFixed(2)} kredit` : (k.error ? 'gagal baca' : '—')}</p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {magicaTest && (
