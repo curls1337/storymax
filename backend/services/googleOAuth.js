@@ -114,8 +114,24 @@ async function getAuthorizedClientForUser(db, userId) {
   return { client, account };
 }
 
+// Record one export (a new spreadsheet) into the user's history.
+async function recordExport(db, userId, { spreadsheetId, spreadsheetUrl, title, count }) {
+  await db.run(
+    'INSERT INTO user_google_exports (user_id, spreadsheet_id, spreadsheet_url, title, item_count) VALUES (?, ?, ?, ?, ?)',
+    [userId, spreadsheetId || null, spreadsheetUrl || null, title || null, count || 0]
+  );
+}
+
+// List a user's export spreadsheets (newest first).
+async function listExports(db, userId, limit = 50) {
+  return db.all(
+    'SELECT id, spreadsheet_id, spreadsheet_url, title, item_count, created_at FROM user_google_exports WHERE user_id = ? ORDER BY id DESC LIMIT ?',
+    [userId, limit]
+  );
+}
+
 module.exports = {
   SCOPES, resolveRedirect, oauthClient, signState, verifyState, getAuthUrl,
   exchangeCode, fetchProfile, getAccount, upsertAccount, deleteAccount,
-  setUserSpreadsheet, getAuthorizedClientForUser,
+  setUserSpreadsheet, getAuthorizedClientForUser, recordExport, listExports,
 };

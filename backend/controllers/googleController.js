@@ -212,46 +212,24 @@ async function exportToGoogleSheets(req, res) {
     const sheetsAPI = google.sheets({ version: 'v4', auth });
     const driveAPI = google.drive({ version: 'v3', auth });
 
-    let spreadsheetId = perUser ? account.spreadsheet_id : googleConf.spreadsheet_id;
-    let spreadsheetUrl = perUser ? account.spreadsheet_url : googleConf.spreadsheet_url;
+    // Each export creates a BRAND-NEW spreadsheet (so exports never overwrite/merge, and
+    // the user can tell them apart). We do NOT reuse a previous sheet.
+    const stamp = new Date().toLocaleString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const exportTitle = `Storymax Export - ${stamp}`;
+    const createRes = await sheetsAPI.spreadsheets.create({
+      requestBody: {
+        properties: { title: exportTitle },
+        sheets: [{ properties: { title: 'Storyboard List' } }],
+      },
+    });
+    let spreadsheetId = createRes.data.spreadsheetId;
+    let spreadsheetUrl = createRes.data.spreadsheetUrl;
 
-    // Create new spreadsheet if not existing
-    if (!spreadsheetId) {
-      const todayStr = new Date().toLocaleDateString('id-ID');
-      const createRes = await sheetsAPI.spreadsheets.create({
-        requestBody: {
-          properties: {
-            title: `Storymax Export - ${todayStr}`
-          },
-          sheets: [
-            { properties: { title: 'Storyboard List' } }
-          ]
-        }
-      });
-
-      spreadsheetId = createRes.data.spreadsheetId;
-      spreadsheetUrl = createRes.data.spreadsheetUrl;
-
-      // Make spreadsheet shareable (anyone with link can view/edit)
-      try {
-        await driveAPI.permissions.create({
-          fileId: spreadsheetId,
-          requestBody: {
-            role: 'writer',
-            type: 'anyone'
-          }
-        });
-      } catch (e) {
-        console.warn('Could not set public permission on spreadsheet:', e.message);
-      }
-
-      // Persist the spreadsheet id/url — to the user's OWN record (per-user) or the
-      // admin global settings (fallback).
-      if (perUser) {
-        await googleOAuth.setUserSpreadsheet(db, req.user.id, spreadsheetId, spreadsheetUrl);
-      } else if (googleConf.id) {
-        await db.run('UPDATE google_settings SET spreadsheet_id = ?, spreadsheet_url = ? WHERE id = ?', [spreadsheetId, spreadsheetUrl, googleConf.id]);
-      }
+    // Share as editor (anyone with the link can edit) — not private.
+    try {
+      await driveAPI.permissions.create({ fileId: spreadsheetId, requestBody: { role: 'writer', type: 'anyone' } });
+    } catch (e) {
+      console.warn('Could not set public permission on spreadsheet:', e.message);
     }
 
     const sheetName = 'Storyboard List';
@@ -331,9 +309,12 @@ async function exportToGoogleSheets(req, res) {
       }
     });
 
+    // Record this export in the user's history (shown in Settings).
+    try { await googleOAuth.recordExport(db, req.user.id, { spreadsheetId, spreadsheetUrl, title: exportTitle, count: storyboards.length }); } catch (e) {}
+
     return res.json({
       success: true,
-      message: `Berhasil mengekspor ${storyboards.length} storyboard ke Google Sheets!`,
+      message: `Berhasil mengekspor ${storyboards.length} storyboard ke Google Sheets baru!`,
       spreadsheetId,
       spreadsheetUrl,
       count: storyboards.length
