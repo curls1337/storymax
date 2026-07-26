@@ -55,11 +55,67 @@ async function pickMagicaKey(db, preferredId) {
   return pickActiveMagicaKey(db);
 }
 
-// Random active Magica key — the admin asked LLM traffic to spread across keys.
-async function pickRandomMagicaKey(db) {
+// Minimum balance (microcredits) a key must have to be used for IMAGE/VIDEO. Keys
+// below this are reserved for LLM only (admin rule: cheap keys -> LLM; funded -> media).
+const MEDIA_MIN_MICRO = 5000000; // 5 credits
+
+// Cached per-key balances (~60s) so key selection does not hammer the balance API.
+let _balCache = { at: 0, keys: null };
+async function getKeyBalances(db) {
+  const now = Date.now();
+  if (_balCache.keys && (now - _balCache.at) < 60000) return _balCache.keys;
   const rows = await db.all('SELECT id, key_value FROM magica_api_keys WHERE is_active = 1');
-  if (!rows || !rows.length) return null;
-  return rows[Math.floor(Math.random() * rows.length)];
+  const keys = [];
+  await Promise.all((rows || []).map(async (k) => {
+    let balance = 0;
+    try { balance = Number((await magica.getCreditBalance(k.key_value)).availableBalance) || 0; } catch (e) { balance = 0; }
+    keys.push({ id: k.id, key_value: k.key_value, balance });
+  }));
+  _balCache = { at: now, keys };
+  return keys;
+}
+function invalidateBalanceCache() { _balCache = { at: 0, keys: null }; }
+
+// LLM key: prefer CHEAP (<5 credit) keys so funded keys stay free for media; fall back
+// to any active key at random. Balance lookups are best-effort.
+async function pickRandomMagicaKey(db) {
+  let keys = [];
+  try { keys = await getKeyBalances(db); } catch (e) {}
+  if (!keys.length) {
+    const rows = await db.all('SELECT id, key_value FROM magica_api_keys WHERE is_active = 1');
+    if (!rows || !rows.length) return null;
+    return rows[Math.floor(Math.random() * rows.length)];
+  }
+  const cheap = keys.filter((k) => k.balance < MEDIA_MIN_MICRO);
+  const pool = cheap.length ? cheap : keys;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+// IMAGE/VIDEO key: only keys with balance >= MEDIA_MIN_MICRO qualify (below that is
+// LLM-only per admin rule). Honor the user's chosen key if it qualifies; else the
+// highest-balance qualifying key (headroom for expensive renders); else null.
+async function pickMediaMagicaKey(db, preferredId) {
+  let keys = [];
+  try { keys = await getKeyBalances(db); } catch (e) {}
+  const qualifying = keys.filter((k) => k.balance >= MEDIA_MIN_MICRO);
+  if (!qualifying.length) return null;
+  const idNum = parseInt(preferredId, 10);
+  if (preferredId != null && String(preferredId) !== 'auto' && Number.isFinite(idNum)) {
+    const hit = qualifying.find((k) => k.id === idNum);
+    if (hit) return hit;
+  }
+  qualifying.sort((a, b) => b.balance - a.balance);
+  return qualifying[0];
+}
+
+// Estimate a node run's cost in microcredits (no side effects). 0 on any failure.
+async function estimateNodeCost(apiKey, nodeType, subModelId, data) {
+  try {
+    const node = { type: nodeType, data: data || {} };
+    if (subModelId) node.subModelId = subModelId;
+    const est = await magica.estimateCredits(apiKey, [node]);
+    return Number(est[0] && est[0].microcredits) || 0;
+  } catch (e) { return 0; }
 }
 
 async function isMagicaForStoryboard(db, storyboardId) {
@@ -333,11 +389,26 @@ async function generateVideoMagica(apiKey, params = {}) {
   });
   if (!('prompt' in input) && params.prompt) input.prompt = String(params.prompt);
 
+  // Pre-flight: fail FAST when this key cannot afford THIS job. Without it an
+  // unaffordable/expensive render either 403s or waits a long time before failing —
+  // the cause of the ~2h "timeout". Estimate mirrors the real charge exactly.
+  const cost = await estimateNodeCost(apiKey, nodeType, subModelId, input);
+  if (cost) {
+    let bal = null;
+    try { bal = Number((await magica.getCreditBalance(apiKey)).availableBalance); } catch (e) {}
+    onLog(`[Magica] Estimasi biaya: ~${(cost / 1e6).toFixed(2)} kredit${bal != null ? ` (saldo key ~${(bal / 1e6).toFixed(2)})` : ''}.`);
+    if (bal != null && bal < cost) {
+      throw new Error(`Kredit key tidak cukup untuk video ini: butuh ~${(cost / 1e6).toFixed(2)} kredit, saldo ~${(bal / 1e6).toFixed(2)}. Kurangi durasi/resolusi, pilih model lebih murah, atau pakai key lain / isi ulang.`);
+    }
+  }
+
   onLog(`[Magica] Video via ${nodeType}${subModelId ? ' / ' + subModelId : ''} (durasi ${input.duration || '-'}, rasio ${input.aspect_ratio || '-'}, resolusi ${input.resolution || '-'})...`);
   const runId = await magica.runModel(apiKey, nodeType, subModelId, input);
-  const done = await magica.pollRun(apiKey, runId, { onLog, timeoutMs: 900000 });
+  // Heavy renders (1080p/long) can take >15 min; allow up to 25 min before giving up.
+  const done = await magica.pollRun(apiKey, runId, { onLog, timeoutMs: params.timeoutMs || 1500000 });
   const url = (done.mediaUrls || [])[0];
   if (!url) throw new Error('Magica tidak mengembalikan URL video.');
+  invalidateBalanceCache();
   return { url, credit: Number(done.creditUsed) || 0 };
 }
 
@@ -378,6 +449,10 @@ module.exports = {
   pickActiveMagicaKey,
   pickMagicaKey,
   pickRandomMagicaKey,
+  pickMediaMagicaKey,
+  getKeyBalances,
+  estimateNodeCost,
+  MEDIA_MIN_MICRO,
   magicaChatCompletion,
   isMagicaForStoryboard,
   getModelsCached,

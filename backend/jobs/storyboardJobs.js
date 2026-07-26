@@ -213,12 +213,12 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
     let isMagica = false, magicaApiKey = null;
     try {
       if (await magicaGen.isMagicaForStoryboard(db, storyboardId)) {
-        const mk = await magicaGen.pickMagicaKey(db, task.magicaKeyId);
+        const mk = await magicaGen.pickMediaMagicaKey(db, task.magicaKeyId);
         if (mk) {
           isMagica = true; magicaApiKey = mk.key_value;
-          task.logs += `[Provider] Render gambar via Magica (GPT Image 2)${task.magicaKeyId && task.magicaKeyId !== 'auto' ? ' — key #' + mk.id : ' — key otomatis #' + mk.id}.\n`;
+          task.logs += `[Provider] Render gambar via Magica (GPT Image 2) — key #${mk.id} (saldo ~${(mk.balance / 1e6).toFixed(2)} kredit).\n`;
         } else {
-          task.logs += '[Provider] User memilih Magica tetapi belum ada API Key Magica aktif — memakai Freebeat.\n';
+          task.logs += '[Provider] Tidak ada API Key Magica dengan saldo cukup (>= 5 kredit) untuk gambar. Key di bawah 5 kredit hanya untuk LLM. Isi ulang / tambah key. Memakai Freebeat bila tersedia.\n';
         }
         await saveTaskState(db, storyboardId, task);
       }

@@ -904,7 +904,7 @@ export default function Generator({ setTab }) {
               >
                 <option value="auto">Pilih Otomatis (Auto-detect)</option>
                 {(((magicaCatalog && magicaCatalog.keys) || []).length)
-                  ? magicaCatalog.keys.map((k) => (<option key={k.id} value={k.id}>{k.label}{k.formatted != null ? ` (⚡ ${k.formatted} kredit)` : ''}</option>))
+                  ? magicaCatalog.keys.map((k) => { const low = k.balance != null && k.balance < 5000000; return (<option key={k.id} value={k.id} disabled={low}>{k.label}{k.formatted != null ? ` (⚡ ${k.formatted} kredit)` : ''}{low ? ' — LLM saja' : ''}</option>); })
                   : <option value="" disabled>Belum ada API Key Magica aktif</option>}
               </select>
               <p className="text-[8px] text-slate-500 mt-1">Provider: Magica — "Auto" memilih key aktif pertama dari kolam.</p>
