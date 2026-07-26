@@ -31,6 +31,7 @@ const aiRoutes = require('./routes/aiRoutes');
 const videoRoutes = require('./routes/videoRoutes');
 const magicaRoutes = require('./routes/magicaRoutes');
 const magicaWebhookRoutes = require('./routes/magicaWebhook');
+const googleAuthRoutes = require('./routes/googleAuthRoutes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
@@ -40,6 +41,8 @@ app.use('/api/videos', videoRoutes);
 // Public Magica webhook (no JWT) — MUST be mounted before the authenticated /api/magica router.
 app.use('/api/magica/webhook', magicaWebhookRoutes);
 app.use('/api/magica', magicaRoutes);
+// Per-user Google OAuth (connect account, callback, status, disconnect).
+app.use('/api/google/oauth', googleAuthRoutes);
 
 // Server static built frontend files in production
 const frontendBuildPath = path.join(__dirname, '..', 'frontend', 'dist');

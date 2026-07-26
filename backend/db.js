@@ -223,7 +223,27 @@ async function initDb() {
       spreadsheet_id TEXT,
       spreadsheet_url TEXT,
       service_account_json TEXT,
+      redirect_uri TEXT,
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Per-user Google account (OAuth): each StoryMax user connects their OWN Google
+  // account; cloud export writes Sheets to THAT user's Drive.
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS user_google_accounts (
+      user_id INTEGER PRIMARY KEY,
+      email TEXT,
+      name TEXT,
+      picture TEXT,
+      access_token TEXT,
+      refresh_token TEXT,
+      expiry_date INTEGER,
+      spreadsheet_id TEXT,
+      spreadsheet_url TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )
   `);
 
@@ -345,6 +365,8 @@ async function initDb() {
 
   // Google export can also authenticate via an uploaded Service Account JSON.
   try { await db.exec('ALTER TABLE google_settings ADD COLUMN service_account_json TEXT'); } catch (e) { /* exists */ }
+  // Per-user OAuth: admin-configured redirect URI for the consent callback.
+  try { await db.exec('ALTER TABLE google_settings ADD COLUMN redirect_uri TEXT'); } catch (e) { /* exists */ }
 
   // Seed default admin if no users exist
   const adminExists = await db.get('SELECT * FROM users WHERE role = "admin"');

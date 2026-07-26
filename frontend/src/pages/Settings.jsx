@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
-import { Lock, LogOut, Loader, KeyRound, ShieldAlert, CheckCircle2, Sparkles } from 'lucide-react';
+import { Lock, LogOut, Loader, KeyRound, ShieldAlert, CheckCircle2, Sparkles, Cloud, Link2 } from 'lucide-react';
 
 export default function Settings({ onLogout }) {
   const [oldPassword, setOldPassword] = useState('');
@@ -15,6 +15,9 @@ export default function Settings({ onLogout }) {
   const [canUseMagica, setCanUseMagica] = useState(false);
   const [providerSaving, setProviderSaving] = useState(false);
 
+  const [googleStatus, setGoogleStatus] = useState(null); // { appConfigured, connected, email, name, picture }
+  const [googleBusy, setGoogleBusy] = useState(false);
+
   useEffect(() => {
     api.get('/auth/me')
       .then((res) => {
@@ -23,6 +26,40 @@ export default function Settings({ onLogout }) {
       })
       .catch(() => {});
   }, []);
+
+  const fetchGoogleStatus = async () => {
+    try { const r = await api.get('/google/oauth/status'); setGoogleStatus(r.data); }
+    catch (e) { setGoogleStatus(null); }
+  };
+
+  useEffect(() => {
+    fetchGoogleStatus();
+    // Surface the OAuth redirect result (?google=connected|error) then clean the URL.
+    try {
+      const p = new URLSearchParams(window.location.search);
+      const g = p.get('google');
+      if (g === 'connected') setMessage('Akun Google berhasil terhubung.');
+      else if (g === 'error') setError('Gagal menghubungkan Google: ' + (p.get('reason') || 'error'));
+      if (g) {
+        p.delete('google'); p.delete('reason');
+        const q = p.toString();
+        window.history.replaceState({}, document.title, window.location.pathname + (q ? '?' + q : ''));
+      }
+    } catch (e) {}
+  }, []);
+
+  const handleConnectGoogle = async () => {
+    setError(''); setMessage(''); setGoogleBusy(true);
+    try { const r = await api.get('/google/oauth/url'); window.location.href = r.data.url; }
+    catch (err) { setError(err.response?.data?.message || 'Gagal memulai koneksi Google.'); setGoogleBusy(false); }
+  };
+
+  const handleDisconnectGoogle = async () => {
+    setError(''); setMessage(''); setGoogleBusy(true);
+    try { await api.post('/google/oauth/disconnect'); await fetchGoogleStatus(); setMessage('Akun Google diputus.'); }
+    catch (err) { setError('Gagal memutus akun Google.'); }
+    finally { setGoogleBusy(false); }
+  };
 
   const handleChangeProvider = async (provider) => {
     if (provider === preferredProvider) return;
@@ -107,6 +144,42 @@ export default function Settings({ onLogout }) {
               {preferredProvider === 'magica' && <div className="text-[8px] text-[#a855f7] font-bold uppercase tracking-widest mt-1.5">✓ Aktif</div>}
             </button>
           </div>
+        </div>
+
+        {/* Google Account Card (per-user cloud export) */}
+        <div className="bg-[#1a1918]/60 border border-[#2a2725] rounded-2xl p-4 md:p-6 relative backdrop-blur-md">
+          <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#22c55e]/25 to-transparent"></div>
+          <h3 className="text-[9px] font-bold text-white uppercase tracking-widest mb-1 flex items-center border-b border-[#2a2725] pb-2">
+            <Cloud className="w-3.5 h-3.5 mr-1.5 text-[#22c55e]" />
+            Akun Google (Export ke Sheets)
+          </h3>
+          <p className="text-slate-400 text-[10px] mt-2 mb-3 leading-relaxed">
+            Hubungkan akun Google Anda agar bisa export storyboard ke Google Sheets di Drive Anda sendiri, langsung dari Dashboard. Sheet dibuat sebagai editor (bisa diakses via link), bukan private.
+          </p>
+          {googleStatus && !googleStatus.appConfigured ? (
+            <div className="bg-amber-950/20 border border-amber-500/30 text-amber-300 rounded-xl px-3 py-2 text-[10px]">
+              Admin belum mengatur OAuth App Google. Silakan hubungi admin dulu.
+            </div>
+          ) : googleStatus && googleStatus.connected ? (
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2.5 min-w-0">
+                {googleStatus.picture
+                  ? <img src={googleStatus.picture} alt="" className="w-8 h-8 rounded-full border border-[#2a2725]" />
+                  : <div className="w-8 h-8 rounded-full bg-[#22c55e]/20 flex items-center justify-center"><CheckCircle2 className="w-4 h-4 text-[#22c55e]" /></div>}
+                <div className="min-w-0">
+                  <p className="text-xs text-white font-semibold truncate">{googleStatus.name || 'Akun Google Terhubung'}</p>
+                  <p className="text-[10px] text-slate-400 truncate">{googleStatus.email}</p>
+                </div>
+              </div>
+              <button type="button" onClick={handleDisconnectGoogle} disabled={googleBusy} className="border border-red-500/25 bg-red-950/10 hover:bg-red-650 hover:text-white text-red-400 font-bold py-1.5 px-3 rounded-lg text-[9px] uppercase tracking-wider flex items-center gap-1.5 disabled:opacity-50 cursor-pointer">
+                {googleBusy ? <Loader className="animate-spin w-3.5 h-3.5" /> : <Link2 className="w-3.5 h-3.5" />} Putuskan
+              </button>
+            </div>
+          ) : (
+            <button type="button" onClick={handleConnectGoogle} disabled={googleBusy} className="bg-[#22c55e] hover:bg-[#16a34a] text-black font-bold py-2 px-4 rounded-xl text-[10px] uppercase tracking-wider flex items-center gap-2 disabled:opacity-50 cursor-pointer shadow-lg">
+              {googleBusy ? <Loader className="animate-spin w-3.5 h-3.5" /> : <Cloud className="w-3.5 h-3.5" />} Hubungkan Akun Google
+            </button>
+          )}
         </div>
 
         {/* Password Card */}

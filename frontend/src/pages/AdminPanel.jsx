@@ -68,6 +68,7 @@ export default function AdminPanel() {
   const [googleClientSecret, setGoogleClientSecret] = useState('');
   const [googleRefreshToken, setGoogleRefreshToken] = useState('');
   const [googleSpreadsheetId, setGoogleSpreadsheetId] = useState('');
+  const [googleRedirectUri, setGoogleRedirectUri] = useState('');
   const [googleConfigured, setGoogleConfigured] = useState(false);
   const [googleServiceJson, setGoogleServiceJson] = useState('');
   const [googleServiceConfigured, setGoogleServiceConfigured] = useState(false);
@@ -119,6 +120,7 @@ export default function AdminPanel() {
       setGoogleClientSecret(res.data.client_secret || '');
       setGoogleRefreshToken(res.data.refresh_token || '');
       setGoogleSpreadsheetId(res.data.spreadsheet_id || '');
+      setGoogleRedirectUri(res.data.redirect_uri || '');
       setGoogleConfigured(res.data.configured || false);
       setGoogleServiceConfigured(res.data.service_account_configured || false);
       setGoogleServiceEmail(res.data.service_account_email || '');
@@ -139,6 +141,7 @@ export default function AdminPanel() {
         client_secret: googleClientSecret,
         refresh_token: googleRefreshToken,
         spreadsheet_id: googleSpreadsheetId,
+        redirect_uri: googleRedirectUri || undefined,
         service_account_json: googleServiceJson || undefined
       });
       setMessage('Pengaturan Google Drive & Sheets berhasil disimpan!');
@@ -745,6 +748,18 @@ export default function AdminPanel() {
                 className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs font-mono"
                 placeholder="Jika kosong, sistem akan otomatis membuat Spreadsheet baru di Drive"
               />
+            </div>
+
+            <div>
+              <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Redirect URI (untuk login Google per-user)</label>
+              <input
+                type="text"
+                value={googleRedirectUri}
+                onChange={(e) => setGoogleRedirectUri(e.target.value)}
+                className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs font-mono"
+                placeholder="https://story.devcurl.me/api/google/oauth/callback"
+              />
+              <p className="text-[8.5px] text-slate-500 mt-1 leading-relaxed">Kosongkan = pakai default (PUBLIC_URL + /api/google/oauth/callback). Nilai ini HARUS didaftarkan sama persis di Google Cloud Console → OAuth App → Authorized redirect URIs.</p>
             </div>
 
             <div className="pt-2">
