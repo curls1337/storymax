@@ -1,10 +1,24 @@
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
 const { authenticateToken } = require('../middleware/authMiddleware');
 const { getDb } = require('../db');
+const { uploadsDir } = require('../config');
 const magicaGen = require('../services/magicaGen');
 
 const router = express.Router();
 router.use(authenticateToken);
+
+// Save a data:image base64 to /uploads and return its relative path (image-to-3D).
+function saveBase64Image(b64) {
+  const m = /^data:(image\/(png|jpe?g|webp));base64,(.+)$/i.exec(String(b64 || ''));
+  if (!m) return null;
+  const ext = m[2].toLowerCase() === 'jpeg' ? 'jpg' : m[2].toLowerCase();
+  const name = `3d_${Date.now()}_${crypto.randomBytes(4).toString('hex')}.${ext}`;
+  fs.writeFileSync(path.join(uploadsDir, name), Buffer.from(m[3], 'base64'));
+  return `uploads/${name}`;
+}
 
 // Provider-aware catalog for the Generator + Video Studio pickers when a user is on
 // Magica: active Magica keys + image/video models with their methods (submodels).
@@ -15,6 +29,95 @@ router.get('/catalog', async (req, res) => {
   } catch (err) {
     res.status(502).json({ message: 'Gagal mengambil katalog Magica.', error: err.message });
   }
+});
+
+// Estimate a job's credit cost BEFORE generating. Body: { kind:'image'|'video'|'3d',
+// model, method, duration, resolution, aspectRatio, hasImage, prompt, targetPolycount, mode }.
+router.post('/estimate', async (req, res) => {
+  try {
+    const db = getDb();
+    const key = await magicaGen.pickRandomMagicaKey(db);
+    if (!key) return res.status(400).json({ message: 'Belum ada API Key Magica aktif.' });
+    const r = await magicaGen.estimateMagicaCost(key.key_value, req.body || {});
+    res.json({ microcredits: r.microcredits, credits: r.credits });
+  } catch (err) {
+    res.status(502).json({ message: 'Gagal estimasi biaya Magica.', error: err.message });
+  }
+});
+
+// Start a 3D (Meshy V6) generation. Runs in the background; poll GET /3d/task/:id.
+router.post('/3d/generate', async (req, res) => {
+  const db = getDb();
+  try {
+    const u = await db.get('SELECT can_use_magica AS cum FROM users WHERE id = ?', [req.user.id]);
+    if (!u || !u.cum) return res.status(403).json({ message: 'Fitur 3D (Magica) belum diaktifkan untuk akun Anda. Hubungi admin.' });
+
+    const b = req.body || {};
+    const mode = b.mode === 'image' ? 'image' : 'text';
+    let imageUrls = [];
+    if (mode === 'image') {
+      if (Array.isArray(b.imageUrls)) imageUrls = b.imageUrls.filter(Boolean);
+      if (b.imageBase64) { const p = saveBase64Image(b.imageBase64); if (p) imageUrls.push(p); }
+      if (!imageUrls.length) return res.status(400).json({ message: 'Mode gambar butuh minimal 1 gambar.' });
+    } else if (!b.prompt) {
+      return res.status(400).json({ message: 'Prompt teks wajib diisi untuk 3D.' });
+    }
+
+    // 3D is cheap; pick the highest-balance active key and let the pre-flight guard cost.
+    const keys = await magicaGen.getKeyBalances(db);
+    const best = keys.slice().sort((a, c) => c.balance - a.balance)[0];
+    if (!best) return res.status(400).json({ message: 'Belum ada API Key Magica aktif.' });
+
+    const ins = await db.run('INSERT INTO generated_3d (user_id, mode, prompt, status) VALUES (?, ?, ?, ?)',
+      [req.user.id, mode, b.prompt || null, 'processing']);
+    const id = ins.lastID;
+    res.json({ id });
+
+    (async () => {
+      try {
+        const r = await magicaGen.generateMeshy3D(best.key_value, {
+          mode: b.meshMode, // Meshy 'preview' | 'full' (text mode)
+          prompt: b.prompt, imageUrls,
+          topology: b.topology, targetPolycount: b.targetPolycount, symmetryMode: b.symmetryMode,
+          shouldRemesh: b.shouldRemesh, shouldTexture: b.shouldTexture, enablePbr: b.enablePbr,
+          isAtPose: b.isAtPose, riggingHeightMeters: b.riggingHeightMeters, animationActionId: b.animationActionId,
+          texturePrompt: b.texturePrompt, enablePromptExpansion: b.enablePromptExpansion,
+        });
+        await db.run('UPDATE generated_3d SET status = ?, model_url = ?, thumb_url = ?, credit_used = ? WHERE id = ?',
+          ['success', r.modelUrl, r.thumbUrl || null, r.credit || 0, id]);
+      } catch (e) {
+        await db.run('UPDATE generated_3d SET status = ?, error_message = ? WHERE id = ?',
+          ['failed', String(e.message || 'error').slice(0, 300), id]);
+      }
+    })();
+  } catch (err) {
+    res.status(500).json({ message: 'Gagal memulai 3D.', error: err.message });
+  }
+});
+
+// Poll one 3D generation.
+router.get('/3d/task/:id', async (req, res) => {
+  try {
+    const db = getDb();
+    const row = await db.get(
+      'SELECT id, mode, prompt, model_url, thumb_url, credit_used, status, error_message, created_at FROM generated_3d WHERE id = ? AND user_id = ?',
+      [req.params.id, req.user.id]
+    );
+    if (!row) return res.status(404).json({ message: 'Tidak ditemukan.' });
+    res.json(row);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// List this user's 3D generations (newest first).
+router.get('/3d/list', async (req, res) => {
+  try {
+    const db = getDb();
+    const rows = await db.all(
+      'SELECT id, mode, prompt, model_url, thumb_url, credit_used, status, error_message, created_at FROM generated_3d WHERE user_id = ? ORDER BY id DESC LIMIT 60',
+      [req.user.id]
+    );
+    res.json(rows);
+  } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
 module.exports = router;

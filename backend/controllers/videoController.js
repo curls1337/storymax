@@ -132,8 +132,8 @@ async function generateVideo(req, res) {
     // Provider routing (Bagian 2): Magica single-video generation — bypasses the
     // Freebeat key requirement + inline CLI spawn entirely.
     if (await magicaGen.isMagicaForStoryboard(db, storyboardId)) {
-      const mk = await magicaGen.pickMagicaKey(db, magicaKeyId);
-      if (!mk) return res.status(400).json({ message: 'Tidak ada API Key Magica yang aktif.' });
+      const mk = await magicaGen.pickMediaMagicaKey(db, magicaKeyId);
+      if (!mk) return res.status(400).json({ message: 'Tidak ada API Key Magica dengan saldo cukup (>= 5 kredit) untuk video. Key di bawah 5 kredit hanya untuk LLM — isi ulang atau tambah key.' });
       const taskId = 'video_task_' + Date.now();
       const insertResult = await db.run(
         `INSERT INTO generated_videos
@@ -846,9 +846,9 @@ async function runSingleVideoSpawn(vRecId, tId, kRec, pText, scImg, model, gener
     const db0 = getDb();
     if (await magicaGen.isMagicaForStoryboard(db0, storyboardId)) {
       const onLog = (m) => { if (activeTasks[tId]) activeTasks[tId].logs = (activeTasks[tId].logs || '') + m + '\n'; };
-      const mk = await magicaGen.pickActiveMagicaKey(db0);
+      const mk = await magicaGen.pickMediaMagicaKey(db0, null);
       if (!mk) {
-        const msg = 'User memilih Magica tetapi belum ada API Key Magica aktif.';
+        const msg = 'Tidak ada API Key Magica dengan saldo cukup (>= 5 kredit) untuk video (key < 5 kredit hanya untuk LLM).';
         onLog('[ERROR] ' + msg);
         if (activeTasks[tId]) { activeTasks[tId].status = 'failed'; activeTasks[tId].error = msg; }
         await db0.run('UPDATE generated_videos SET status = ?, error_message = ?, logs = ? WHERE id = ?', ['failed', msg, activeTasks[tId]?.logs || '', vRecId]);
@@ -1196,7 +1196,7 @@ async function generateAllVideos(req, res) {
 
         // Magica batch scene — sequential, bypasses the Freebeat key gate below.
         if (isMagica) {
-          const mk = await magicaGen.pickMagicaKey(db, magicaKeyId);
+          const mk = await magicaGen.pickMediaMagicaKey(db, magicaKeyId);
           const mTaskId = 'video_task_' + Date.now() + '_' + sceneIdx;
           const mIns = await db.run(
             `INSERT INTO generated_videos (storyboard_id, scene_idx, prompt, model, aspect_ratio, duration, resolution, status, task_id, api_key_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -1206,8 +1206,9 @@ async function generateAllVideos(req, res) {
           activeTasks[mTaskId] = { status: 'processing', storyboardId, apiKeyId: null, logs: `=== VIDEO (MAGICA) scene ${sceneIdx + 1} ===\n`, result: null, error: null };
           const onLog = (m) => { if (activeTasks[mTaskId]) activeTasks[mTaskId].logs += m + '\n'; };
           if (!mk) {
-            activeTasks[mTaskId].status = 'failed'; activeTasks[mTaskId].error = 'Tidak ada API Key Magica aktif.';
-            await db.run('UPDATE generated_videos SET status = ?, error_message = ?, logs = ? WHERE id = ?', ['failed', 'Tidak ada API Key Magica aktif.', activeTasks[mTaskId].logs, mRecId]);
+            const _noKeyMsg = 'Tidak ada API Key Magica dengan saldo cukup (>= 5 kredit) untuk video (key < 5 kredit hanya untuk LLM).';
+            activeTasks[mTaskId].status = 'failed'; activeTasks[mTaskId].error = _noKeyMsg;
+            await db.run('UPDATE generated_videos SET status = ?, error_message = ?, logs = ? WHERE id = ?', ['failed', _noKeyMsg, activeTasks[mTaskId].logs, mRecId]);
             break;
           }
           try {

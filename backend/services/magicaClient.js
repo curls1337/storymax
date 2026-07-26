@@ -52,6 +52,14 @@ async function getCreditBalance(apiKey) {
   return r.data; // { availableBalance, formatted, hasActiveSubscription, ... }
 }
 
+// Estimate the microcredit cost of one or more node runs WITHOUT side effects.
+// nodes: [{ type, data, subModelId? }]. Mirrors the run-time charge exactly.
+async function estimateCredits(apiKey, nodes) {
+  const r = await request(apiKey, 'POST', '/nodes/estimate-credits', { nodes }, 30000);
+  if (!r.ok) throw new Error(magicaError(r, 'Gagal estimasi kredit Magica'));
+  return (r.data && r.data.estimates) || [];
+}
+
 async function getModelSchema(apiKey, modelId) {
   const r = await request(apiKey, 'GET', `/models/${encodeURIComponent(modelId)}/schema`, null, 30000);
   if (!r.ok) throw new Error(magicaError(r, `Gagal mengambil schema model ${modelId}`));
@@ -145,6 +153,7 @@ module.exports = {
   MAGICA_BASE,
   listModels,
   getCreditBalance,
+  estimateCredits,
   getModelSchema,
   runModel,
   getRun,

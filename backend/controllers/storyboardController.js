@@ -10,6 +10,7 @@ const { spawn } = require('child_process');
 const { getDb } = require('../db');
 const { scrapeTokopedia } = require('../lib/scrapers/tokopedia');
 const { uploadsDir } = require('../config');
+const magicaGen = require('../services/magicaGen');
 const { activeTasks, saveTaskState } = require('../state/taskStore');
 const { getAvailableApiKey } = require('../services/keyPool');
 const { resolveFreebeatBase, freebeatSizeArgs } = require('../services/freebeat/cli');
@@ -56,9 +57,13 @@ async function generateStoryboard(req, res) {
 
   let keyRecord = null;
   if (useMagica) {
-    const mk = await db.get('SELECT id FROM magica_api_keys WHERE is_active = 1 ORDER BY id ASC LIMIT 1');
+    // Image generation needs a key with >= 5 credits (keys below that are LLM-only).
+    const mk = await magicaGen.pickMediaMagicaKey(db, magicaKeyId);
     if (!mk) {
-      return res.status(400).json({ message: 'Provider Anda = Magica, tetapi belum ada API Key Magica yang aktif. Hubungi admin.' });
+      const anyKey = await db.get('SELECT id FROM magica_api_keys WHERE is_active = 1 LIMIT 1');
+      return res.status(400).json({ message: anyKey
+        ? 'API Key Magica Anda saldonya di bawah 5 kredit — itu hanya untuk LLM, tidak cukup untuk membuat gambar. Isi ulang atau tambah key.'
+        : 'Provider Anda = Magica, tetapi belum ada API Key Magica yang aktif. Hubungi admin.' });
     }
   } else if (apiKeyId && apiKeyId !== 'auto') {
     keyRecord = await db.get('SELECT * FROM api_keys WHERE id = ? AND is_active = 1', [apiKeyId]);
