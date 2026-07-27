@@ -53,7 +53,7 @@ function dedupeList(arr) {
 // should render as photorealistic PHOTO panels — not sketches / concept art. The
 // word "storyboard" biases image models toward rough sketches, so photo styles get
 // an explicit photorealism directive + anti-sketch negatives.
-const ILLUSTRATION_STYLES = new Set(['anime_comic', 'stop_motion', 'tiny_world', 'education_explainer']);
+const ILLUSTRATION_STYLES = new Set(['anime_comic', 'stop_motion', 'tiny_world', 'education_explainer', 'kids_education']);
 
 // Creative "transform" styles where a reference image is only INSPIRATION for the
 // subject's identity & colors — the output is re-rendered into the style's own form
