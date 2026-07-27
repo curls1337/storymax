@@ -64,11 +64,20 @@ export default function Dashboard({ setTab }) {
         api.get('/magica/catalog').then((c) => {
           setMagicaCatalog(c.data);
           const vids = (c.data && c.data.videoModels) || [];
-          const def = vids.find((m) => m.nodeType === 'seedance_2_0') || vids[0];
+          // Default to REFERENCE-to-video: the storyboard (grid sheet) is used as LOOSE
+          // guidance and does NOT appear literally in the video → natural results that
+          // follow the storyboard. (image-to-video would lock the storyboard GRID as the
+          // literal first frame, so the grid shows up / "melenceng".)
+          const refPref = ['seedance_2_0_reference', 'seedance_2_0_fast_reference', 'happy_horse_reference'];
+          const def = refPref.map((nt) => vids.find((m) => m.nodeType === nt)).find(Boolean)
+            || vids.find((m) => (m.methods || []).some((x) => x.category === 'reference-to-video'))
+            || vids.find((m) => m.nodeType === 'seedance_2_0') || vids[0];
           if (def) {
             setMagicaVideoModel(def.nodeType);
-            const im = (def.methods || []).find((x) => x.category === 'image-to-video') || (def.methods || [])[0];
-            if (im) setMagicaVideoMethod(im.category);
+            const pref = (def.methods || []).find((x) => x.category === 'reference-to-video')
+              || (def.methods || []).find((x) => x.category === 'image-to-video')
+              || (def.methods || [])[0];
+            if (pref) setMagicaVideoMethod(pref.category);
           }
         }).catch(() => {});
       }
