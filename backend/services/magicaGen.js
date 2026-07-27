@@ -375,12 +375,19 @@ async function generateOneImageMagica(apiKey, prompt, opts = {}) {
 // what THAT model supports and the reference-image field name is chosen correctly.
 async function generateVideoMagica(apiKey, params = {}) {
   const onLog = typeof params.onLog === 'function' ? params.onLog : () => {};
-  const nodeType = params.nodeType || (params.fast ? 'seedance_2_0_fast' : 'seedance_2_0');
   let category = params.method;
   if (!category) {
     const gt = params.generationType;
     category = gt === 'text' ? 'text-to-video' : (gt === 'reference' ? 'reference-to-video' : 'image-to-video');
   }
+  // Category-aware default model. reference-to-video needs a *_reference nodeType — plain
+  // `seedance_2_0` has NO reference submodel, so pairing it with reference-to-video would
+  // make resolveSubModel fall back to the text-to-video submodel and SILENTLY drop the
+  // storyboard image (a root cause of "melenceng"). Only used when caller omits the model.
+  const defaultNode = category === 'reference-to-video'
+    ? (params.fast ? 'seedance_2_0_fast_reference' : 'seedance_2_0_reference')
+    : (params.fast ? 'seedance_2_0_fast' : 'seedance_2_0');
+  const nodeType = params.nodeType || defaultNode;
   const models = await getModelsCached(apiKey);
   const subModelId = resolveSubModel(models, nodeType, category);
 
@@ -388,10 +395,16 @@ async function generateVideoMagica(apiKey, params = {}) {
   try { fields = ((await getSchemaCached(apiKey, subModelId || nodeType)) || {}).fields || []; } catch (e) {}
 
   const imgUrl = toPublicUrl(params.sceneImage);
-  // For image/reference methods the panel image is the whole point. If the model has an
-  // image input but we have no public URL, FAIL FAST with a clear reason instead of
-  // silently generating a video that ignores the storyboard (the "melenceng" bug).
   const hasImageField = fields.some((f) => isSingleImageField(f) || isImageArrayField(f));
+  // Guard: an image/reference method MUST resolve to a submodel that actually declares an
+  // image field. If it doesn't, the (model, method) pair is mismatched — e.g. a non-reference
+  // model paired with reference-to-video — and we'd otherwise silently run text-to-video, so
+  // the video completely ignores the storyboard. Fail clearly instead of producing garbage.
+  if (category !== 'text-to-video' && !hasImageField) {
+    throw new Error(`Model "${nodeType}" tidak mendukung metode ${category} (tidak ada field gambar pada skema). Pilih model yang sesuai — mis. model *_reference untuk reference-to-video.`);
+  }
+  // If the model HAS an image field but we have no public URL, FAIL FAST with a clear reason
+  // instead of silently generating a video that ignores the storyboard (the "melenceng" bug).
   if (category !== 'text-to-video' && hasImageField && !imgUrl) {
     throw new Error('Gambar panel tidak punya URL publik untuk Magica (set PUBLIC_URL di server, atau pakai storyboard hasil Magica). Tanpa gambar, video akan melenceng dari storyboard.');
   }
