@@ -285,7 +285,21 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
               nodeType: task.magicaModel,
               onLog: (m) => { task.logs += m + '\n'; },
             });
-            task.imagePaths.push(url);
+            // B2 parity with Freebeat: download the Magica image to /uploads so pages
+            // survive Magica CDN link expiry (and stay uniform). Best-effort — on ANY
+            // download failure we keep the public Magica CDN URL as fallback, so this is
+            // never worse than before.
+            let magicaStored = url;
+            try {
+              const ext = ((String(url).split('?')[0].match(/\.(png|jpe?g|webp)$/i) || [])[1] || 'png').toLowerCase();
+              const fname = `storyboard_${storyboardId}_page_${pageIdx}_${Date.now()}.${ext}`;
+              await downloadFile(url, path.join(uploadsDir, fname));
+              magicaStored = `/uploads/${fname}`;
+              task.logs += `[Halaman ${pageNum}] Gambar Magica disimpan lokal: ${magicaStored}\n`;
+            } catch (dlErr) {
+              task.logs += `[WARNING][Halaman ${pageNum}] Gagal simpan lokal (${dlErr.message}); memakai URL CDN Magica (bisa kadaluarsa).\n`;
+            }
+            task.imagePaths.push(magicaStored);
             task.totalCreditsUsed = (task.totalCreditsUsed || 0) + credit;
             task.currentTaskInfo = null;
             task.logs += `[Halaman ${pageNum}] Selesai (Magica).\n`;
