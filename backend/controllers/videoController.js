@@ -161,8 +161,14 @@ async function generateVideo(req, res) {
       res.json({ taskId, videoId: videoRecordId, status: 'processing' });
       (async () => {
         const onLog = (m) => { if (activeTasks[taskId]) activeTasks[taskId].logs += m + '\n'; };
+        // Audio/backsound hygiene (parity with Freebeat & generate-all): the toggles are
+        // authoritative. Audio off → forbid speech; backsound off → forbid BGM, so a native-
+        // audio Magica model never sneaks in voiceover/music the user did not enable.
+        let magicaPrompt = prompt;
+        if (!generateAudio) magicaPrompt = enforceNoVoiceover(magicaPrompt);
+        if (!backsound) magicaPrompt = applyNoBacksound(magicaPrompt);
         try {
-          const { url, credit } = await magicaGen.generateVideoMagica(mk.key_value, { prompt, sceneImage, generationType, duration, resolution, aspectRatio, generateAudio, nodeType: magicaModel, method: magicaMethod, onLog, webhook: magicaGen.buildWebhook('video', videoRecordId, whToken), onRunStart: (rid) => db.run('UPDATE generated_videos SET magica_run_id = ? WHERE id = ?', [rid, videoRecordId]).catch(() => {}) });
+          const { url, credit } = await magicaGen.generateVideoMagica(mk.key_value, { prompt: magicaPrompt, sceneImage, generationType, duration, resolution, aspectRatio, generateAudio, nodeType: magicaModel, method: magicaMethod, onLog, webhook: magicaGen.buildWebhook('video', videoRecordId, whToken), onRunStart: (rid) => db.run('UPDATE generated_videos SET magica_run_id = ? WHERE id = ?', [rid, videoRecordId]).catch(() => {}) });
           await db.run('UPDATE generated_videos SET video_url = ?, status = ?, used_credits = ?, logs = ? WHERE id = ?', [url, 'success', credit || 0, activeTasks[taskId]?.logs || '', videoRecordId]);
           if (activeTasks[taskId]) { activeTasks[taskId].status = 'success'; activeTasks[taskId].logs += '[Magica] Video selesai.\n'; }
           try { await db.run('UPDATE magica_api_keys SET last_status = ? WHERE id = ?', ['OK - ' + new Date().toLocaleString('id-ID'), mk.id]); } catch (e) {}
