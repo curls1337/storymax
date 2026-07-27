@@ -42,7 +42,7 @@ async function getUserStoryboards(req, res) {
 }
 
 async function generateStoryboard(req, res) {
-  const { title, prompt, style, apiKeyId, refImageBase64, refImageUrl, refImages, gridCount, model, duration, showFace, faceMode, aspectRatio, enableVo, voLanguage, voTone, videoEngine, containerShape, magicaModel, magicaKeyId } = req.body;
+  const { title, prompt, style, apiKeyId, refImageBase64, refImageUrl, refImages, gridCount, model, duration, showFace, faceMode, aspectRatio, enableVo, voLanguage, voTone, videoEngine, containerShape, magicaModel, magicaKeyId, textOnScreen } = req.body;
 
   if (!title || !prompt || !style || !apiKeyId) {
     return res.status(400).json({ message: 'Title, prompt, style, and API Key ID are required.' });
@@ -112,7 +112,8 @@ async function generateStoryboard(req, res) {
     videoEngine: selectedEngine,
     containerShape: containerShape || 'auto',
     magicaModel: magicaModel || null,
-    magicaKeyId: magicaKeyId || null
+    magicaKeyId: magicaKeyId || null,
+    textOnScreen: !!textOnScreen
   });
 
   // Create unique task ID immediately
@@ -148,6 +149,7 @@ async function generateStoryboard(req, res) {
     containerShape: containerShape || 'auto',
     magicaModel: magicaModel || null,
     magicaKeyId: magicaKeyId || null,
+    textOnScreen: !!textOnScreen,
     prompt,
     title,
     enableVo: !!enableVo,
