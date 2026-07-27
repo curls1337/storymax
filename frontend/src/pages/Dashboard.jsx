@@ -639,7 +639,13 @@ export default function Dashboard({ setTab }) {
   useEffect(() => {
     if (selectedStoryboard) {
       const { imageToVideoPrompt: i2v, textToVideoPrompt: t2v, narration } = parseVideoPrompts(selectedStoryboard.video_prompts, modalCarouselIdx);
-      let basePrompt = (videoGenType === 'image' || videoGenType === 'reference' || videoGenType === 'transition') ? (i2v || '') : (t2v || '');
+      // Auto-detect the right AI prompt for the CURRENT method (like Freebeat). For Magica
+      // the method is `magicaVideoMethod`; for Freebeat it's `videoGenType`. text-to-video
+      // pulls the Text-to-Video prompt; image/reference/transition pull the Image-to-Video prompt.
+      const isTextMethod = userProvider === 'magica'
+        ? (magicaVideoMethod === 'text-to-video')
+        : (videoGenType === 'text');
+      let basePrompt = isTextMethod ? (t2v || '') : (i2v || '');
       
       if (videoGenerateAudio && narration) {
         let lang = 'Bahasa Indonesia';
@@ -653,7 +659,7 @@ export default function Dashboard({ setTab }) {
       }
       setVideoStudioPrompt(basePrompt);
     }
-  }, [modalCarouselIdx, selectedStoryboard, videoGenType, videoGenerateAudio]);
+  }, [modalCarouselIdx, selectedStoryboard, videoGenType, videoGenerateAudio, userProvider, magicaVideoMethod]);
 
   useEffect(() => {
     if (selectedStoryboard) {
