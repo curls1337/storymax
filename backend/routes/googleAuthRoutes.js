@@ -53,6 +53,24 @@ router.get('/exports', authenticateToken, async (req, res) => {
   }
 });
 
+// Status of a single export job (owner-only) — used by the Dashboard to poll a job it
+// started until it finishes, then show the success popup (Buka / Download / Salin link).
+router.get('/exports/:id', authenticateToken, async (req, res) => {
+  try {
+    const db = getDb();
+    const row = await db.get(
+      `SELECT id, type, status, spreadsheet_id, spreadsheet_url, title, item_count, total, error, created_at, updated_at,
+              (CASE WHEN file_path IS NOT NULL AND file_path != '' THEN 1 ELSE 0 END) AS has_file
+       FROM user_google_exports WHERE id = ? AND user_id = ?`,
+      [req.params.id, req.user.id]
+    );
+    if (!row) return res.status(404).json({ message: 'Export tidak ditemukan.' });
+    res.json(row);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // Download a CSV export file (owner-only). Uses query-token auth so a browser link works.
 router.get('/exports/:id/download', authenticateTokenAllowQuery, async (req, res) => {
   try {

@@ -4,7 +4,7 @@ import api from '../utils/api';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { CapacitorHttp } from '@capacitor/core';
-import { Plus, Trash2, ExternalLink, Calendar, Loader, FolderOpen, X, ChevronRight, ChevronLeft, Download, Eye, AlertTriangle, Image, FileText, Film, Play, Zap, RefreshCw, Sparkles } from 'lucide-react';
+import { Plus, Trash2, ExternalLink, Calendar, Loader, FolderOpen, X, ChevronRight, ChevronLeft, Download, Eye, AlertTriangle, Image, FileText, Film, Play, Zap, RefreshCw, Sparkles, Copy, Check } from 'lucide-react';
 import { toast } from '../utils/toast';
 import { confirm } from '../utils/confirm';
 
@@ -180,6 +180,7 @@ export default function Dashboard({ setTab }) {
   const [exportingCsv, setExportingCsv] = useState(false);
   const [exportingFull, setExportingFull] = useState(false);
   const [exportSuccessModal, setExportSuccessModal] = useState(null);
+  const [exportLinkCopied, setExportLinkCopied] = useState(false);
 
   const toggleExportSelect = (id, e) => {
     if (e) e.stopPropagation();
@@ -196,53 +197,63 @@ export default function Dashboard({ setTab }) {
     }
   };
 
-  // All exports now run as BACKGROUND JOBS on the server: the request returns
-  // immediately with { jobId, status, message } and the actual work continues even if
-  // this tab is closed. Progress + results (Buka for cloud, Download for CSV/Full)
-  // live in Settings → Riwayat Export.
-  const handleExportToGoogleSheets = async () => {
+  // All exports run as BACKGROUND JOBS on the server: the request returns immediately
+  // with { jobId } and the work continues even if this tab is closed (results always
+  // live in Settings → Riwayat Export). As a convenience, while the user stays on this
+  // page we POLL the job and, when it finishes, show a success popup with Buka / Download
+  // / Salin link — like the old flow, but non-blocking & 502-proof.
+  const pollExportJob = async (jobId) => {
+    const startedAt = Date.now();
+    const MAX_MS = 5 * 60 * 1000; // give up the popup after 5 min (job itself keeps going)
+    while (Date.now() - startedAt < MAX_MS) {
+      await new Promise((r) => setTimeout(r, 3000));
+      let row;
+      try {
+        const r = await api.get(`/google/oauth/exports/${jobId}`);
+        row = r.data;
+      } catch (e) { continue; } // transient — keep polling
+      if (!row) continue;
+      if (row.status === 'success') return row;
+      if (row.status === 'failed') { const err = new Error(row.error || 'Export gagal.'); err.jobFailed = true; throw err; }
+    }
+    const err = new Error('timeout'); err.jobTimeout = true; throw err;
+  };
+
+  const runExportJob = async ({ endpoint, kind, setBusy }) => {
     if (exportSelectedIds.length === 0) return;
-    setExportingGoogle(true);
+    setBusy(true);
     try {
-      const res = await api.post('/storyboards/export-google-sheets', { storyboardIds: exportSelectedIds });
-      toast.success(res.data?.message || 'Export ke Google Sheets dimulai — cek hasilnya di Settings › Riwayat Export.');
+      const res = await api.post(endpoint, { storyboardIds: exportSelectedIds });
+      const jobId = res.data?.jobId;
+      toast.success(res.data?.message || 'Export dimulai di background…');
+      if (!jobId) return;
+      const row = await pollExportJob(jobId);
+      if (kind === 'cloud') {
+        setExportSuccessModal({ kind: 'cloud', url: row.spreadsheet_url || '', count: row.item_count || row.total || 0 });
+      } else {
+        const token = localStorage.getItem('token') || '';
+        const downloadUrl = `${api.defaults.baseURL}/google/oauth/exports/${jobId}/download?token=${encodeURIComponent(token)}`;
+        setExportSuccessModal({ kind, downloadUrl, count: row.item_count || row.total || 0 });
+      }
     } catch (err) {
-      console.error("Error exporting to Google Sheets:", err);
-      toast.error(err.response?.data?.message || 'Gagal memulai export ke Google Sheets.');
+      if (err.jobFailed) {
+        toast.error('Export gagal: ' + err.message);
+      } else if (err.jobTimeout) {
+        toast('Masih diproses di background. Hasilnya akan muncul di Settings › Riwayat Export.', { icon: '⏳' });
+      } else {
+        console.error('Export error:', err, err.response?.data);
+        toast.error(err.response?.data?.message || err.response?.data?.error || 'Gagal memulai export.');
+      }
     } finally {
-      setExportingGoogle(false);
+      setBusy(false);
     }
   };
 
-  const handleExportToCSV = async () => {
-    if (exportSelectedIds.length === 0) return;
-    setExportingCsv(true);
-    try {
-      const res = await api.post('/storyboards/export-csv', { storyboardIds: exportSelectedIds });
-      toast.success(res.data?.message || 'Export CSV dimulai — filenya bisa didownload di Settings › Riwayat Export.');
-    } catch (err) {
-      console.error("Error exporting to CSV:", err, err.response?.data);
-      toast.error(err.response?.data?.message || err.response?.data?.error || 'Gagal memulai export CSV.');
-    } finally {
-      setExportingCsv(false);
-    }
-  };
-
-  // FULL export — comprehensive per-scene CSV (image prompt + i2v/t2v prompts +
-  // narration + image & video links + credits + marketing copy). Links only, tidy.
-  const handleExportFullCSV = async () => {
-    if (exportSelectedIds.length === 0) return;
-    setExportingFull(true);
-    try {
-      const res = await api.post('/storyboards/export-full-csv', { storyboardIds: exportSelectedIds });
-      toast.success(res.data?.message || 'Export Full (CSV) dimulai — filenya bisa didownload di Settings › Riwayat Export.');
-    } catch (err) {
-      console.error("Error exporting FULL CSV:", err, err.response?.data);
-      toast.error(err.response?.data?.message || err.response?.data?.error || 'Gagal memulai export Full.');
-    } finally {
-      setExportingFull(false);
-    }
-  };
+  const handleExportToGoogleSheets = () => runExportJob({ endpoint: '/storyboards/export-google-sheets', kind: 'cloud', setBusy: setExportingGoogle });
+  const handleExportToCSV = () => runExportJob({ endpoint: '/storyboards/export-csv', kind: 'csv', setBusy: setExportingCsv });
+  // FULL export — comprehensive per-scene CSV (image prompt + i2v/t2v prompts + narration
+  // + image & video links + credits + marketing copy). Links only, tidy.
+  const handleExportFullCSV = () => runExportJob({ endpoint: '/storyboards/export-full-csv', kind: 'full', setBusy: setExportingFull });
 
   // Bulk delete of the currently selected storyboards (reuses the export selection).
   const [bulkDeleting, setBulkDeleting] = useState(false);
@@ -2855,42 +2866,82 @@ export default function Dashboard({ setTab }) {
 
       {/* Google Sheets Export Success Modal */}
       {exportSuccessModal && createPortal(
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-[#1a1918] border border-[#2a2725] rounded-3xl p-6 max-w-md w-full text-center space-y-4 shadow-2xl relative">
-            <div className="w-12 h-12 bg-[#cfae80]/15 text-[#cfae80] rounded-full flex items-center justify-center mx-auto border border-[#cfae80]/30">
-              <Sparkles className="w-6 h-6" />
-            </div>
-            
-            <div>
-              <h3 className="text-lg font-editorial italic text-white">Export Google Sheets Berhasil!</h3>
-              <p className="text-slate-400 text-xs mt-1">
-                {exportSuccessModal.message}
-              </p>
-            </div>
+        (() => {
+          const isCloud = exportSuccessModal.kind === 'cloud';
+          const link = isCloud ? (exportSuccessModal.url || '') : (exportSuccessModal.downloadUrl || '');
+          const count = exportSuccessModal.count || 0;
+          const title = isCloud ? 'Export Google Sheets Berhasil!' : (exportSuccessModal.kind === 'full' ? 'Export Full (CSV) Siap!' : 'Export CSV Siap!');
+          const subtitle = isCloud
+            ? `${count} storyboard diekspor ke spreadsheet BARU (akses editor). Buka atau salin link-nya.`
+            : `${count} storyboard${exportSuccessModal.kind === 'full' ? ' — lengkap per-scene' : ''}. File CSV siap diunduh.`;
+          const closeModal = () => { setExportSuccessModal(null); setExportLinkCopied(false); };
+          const copyLink = async () => {
+            try { await navigator.clipboard.writeText(link); } catch (e) { try { navigator.clipboard.writeText(link); } catch (e2) {} }
+            setExportLinkCopied(true);
+            toast.success('Link disalin ke clipboard.');
+            setTimeout(() => setExportLinkCopied(false), 2500);
+          };
+          return (
+            <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fadeIn" onClick={closeModal}>
+              <div className="bg-[#1a1918] border border-[#2a2725] rounded-3xl p-6 max-w-md w-full text-center space-y-4 shadow-2xl relative" onClick={(e) => e.stopPropagation()}>
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto border ${isCloud ? 'bg-[#cfae80]/15 text-[#cfae80] border-[#cfae80]/30' : 'bg-[#22c55e]/15 text-[#22c55e] border-[#22c55e]/30'}`}>
+                  {isCloud ? <Sparkles className="w-6 h-6" /> : <FileText className="w-6 h-6" />}
+                </div>
 
-            <div className="bg-[#131211] border border-[#2a2725] p-3 rounded-2xl text-[11px] font-mono text-[#cfae80] break-all select-all text-left">
-              {exportSuccessModal.url}
-            </div>
+                <div>
+                  <h3 className="text-lg font-editorial italic text-white">{title}</h3>
+                  <p className="text-slate-400 text-xs mt-1">{subtitle}</p>
+                </div>
 
-            <div className="flex gap-3 pt-2">
-              <button
-                onClick={() => setExportSuccessModal(null)}
-                className="flex-1 bg-[#131211] hover:bg-[#1f1d1b] text-slate-300 font-bold py-2.5 px-4 rounded-xl border border-[#2a2725] text-xs uppercase tracking-wider transition-all"
-              >
-                Tutup
-              </button>
-              <a
-                href={exportSuccessModal.url}
-                target="_blank"
-                rel="noreferrer"
-                onClick={() => setExportSuccessModal(null)}
-                className="flex-1 bg-[#cfae80] hover:bg-[#c5a880] text-black font-extrabold py-2.5 px-4 rounded-xl text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 shadow-lg"
-              >
-                <ExternalLink className="w-4 h-4" /> Buka Sheet
-              </a>
+                {isCloud ? (
+                  <div className="bg-[#131211] border border-[#2a2725] p-3 rounded-2xl text-[11px] font-mono text-[#cfae80] break-all select-all text-left">
+                    {link || '—'}
+                  </div>
+                ) : (
+                  <div className="bg-[#131211] border border-[#2a2725] p-3 rounded-2xl text-[11px] text-slate-400 text-left flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-slate-500 shrink-0" /> File CSV siap — klik Download, atau Salin link untuk dipakai di tempat lain.
+                  </div>
+                )}
+
+                <div className="flex flex-wrap gap-2 pt-2">
+                  <button
+                    onClick={closeModal}
+                    className="flex-1 min-w-[80px] bg-[#131211] hover:bg-[#1f1d1b] text-slate-300 font-bold py-2.5 px-3 rounded-xl border border-[#2a2725] text-xs uppercase tracking-wider transition-all"
+                  >
+                    Tutup
+                  </button>
+                  <button
+                    onClick={copyLink}
+                    disabled={!link}
+                    className="flex-1 min-w-[110px] bg-[#131211] hover:bg-[#1f1d1b] text-slate-200 font-bold py-2.5 px-3 rounded-xl border border-[#2a2725] text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 disabled:opacity-40"
+                  >
+                    {exportLinkCopied ? <><Check className="w-4 h-4 text-[#22c55e]" /> Tersalin</> : <><Copy className="w-4 h-4" /> Salin Link</>}
+                  </button>
+                  {isCloud ? (
+                    <a
+                      href={link || '#'}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={() => { if (link) closeModal(); }}
+                      className="flex-1 min-w-[110px] bg-[#cfae80] hover:bg-[#c5a880] text-black font-extrabold py-2.5 px-3 rounded-xl text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 shadow-lg"
+                    >
+                      <ExternalLink className="w-4 h-4" /> Buka Sheet
+                    </a>
+                  ) : (
+                    <a
+                      href={link || '#'}
+                      download
+                      onClick={() => { if (link) setTimeout(closeModal, 300); }}
+                      className="flex-1 min-w-[110px] bg-[#22c55e] hover:bg-[#16a34a] text-black font-extrabold py-2.5 px-3 rounded-xl text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 shadow-lg"
+                    >
+                      <Download className="w-4 h-4" /> Download
+                    </a>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
-        </div>,
+          );
+        })(),
         document.body
       )}
     </div>
