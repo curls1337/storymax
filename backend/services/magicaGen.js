@@ -30,6 +30,61 @@ function toPublicUrl(p) {
   return `${base}/${rel}`;
 }
 
+// Magica can ONLY fetch a reference image from a PUBLIC http(s) URL — verified against the
+// live API: data-URIs/base64 are rejected with HTTP_URL_REQUIRED, and there is no public
+// REST upload endpoint. So the reference image's reachability depends on PUBLIC_URL being a
+// real internet-reachable domain. These helpers PRE-CHECK that BEFORE a run so a bad
+// PUBLIC_URL surfaces as a clear, actionable error instead of a silently "melenceng" video.
+function isNonPublicHost(u) {
+  try {
+    const h = new URL(u).hostname;
+    if (!h || h === 'localhost' || !h.includes('.')) return true;      // bare host / no TLD
+    if (/^127\./.test(h) || h === '0.0.0.0' || h === '::1') return true; // loopback
+    if (/^10\./.test(h) || /^192\.168\./.test(h) || /^169\.254\./.test(h)) return true; // private
+    if (/^172\.(1[6-9]|2\d|3[01])\./.test(h)) return true;             // private 172.16-31
+    return false;
+  } catch (e) { return true; }
+}
+
+// Throws with a clear message when the reference image URL is not a public, reachable
+// http(s) URL. Definitive problems (non-http, private host, or a 4xx/5xx response) HARD-fail;
+// an ambiguous network/timeout error on OUR side only warns and proceeds (Magica will try),
+// so a transient blip never blocks an otherwise-working setup.
+async function assertPublicImageReachable(url, onLog) {
+  const log = typeof onLog === 'function' ? onLog : () => {};
+  if (!/^https?:\/\//i.test(String(url || ''))) {
+    throw new Error('URL gambar referensi bukan http(s) publik. Magica hanya menerima URL publik (bukan base64/lokal) — set PUBLIC_URL server ke domain yang dapat diakses internet.');
+  }
+  if (isNonPublicHost(url)) {
+    throw new Error(`URL gambar referensi tidak publik: ${url}. Magica tidak bisa mengambilnya. Set PUBLIC_URL ke domain publik (mis. https://story.devcurl.me), jangan localhost/IP privat.`);
+  }
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    let res;
+    try {
+      res = await fetch(url, { method: 'HEAD', signal: controller.signal });
+      if (res.status === 403 || res.status === 405) {
+        // Some hosts disallow HEAD — retry a 1-byte ranged GET before judging.
+        res = await fetch(url, { method: 'GET', headers: { Range: 'bytes=0-0' }, signal: controller.signal });
+      }
+    } finally { clearTimeout(timer); }
+    if (res && res.status >= 400) {
+      throw new Error(`Gambar referensi tidak bisa diakses publik (HTTP ${res.status}): ${url}. Pastikan PUBLIC_URL benar dan folder /uploads dapat diakses dari internet.`);
+    }
+    // A 200 that returns the app's HTML page (SPA fallback) means the file is missing or
+    // PUBLIC_URL points at the app, not the asset — Magica would get HTML, not an image.
+    const ct = ((res && res.headers && res.headers.get('content-type')) || '').toLowerCase();
+    if (ct.includes('text/html')) {
+      throw new Error(`URL gambar mengembalikan halaman HTML, bukan file gambar: ${url}. Kemungkinan file tidak ada atau PUBLIC_URL salah — Magica tidak akan bisa membaca gambar ini (hasil akan melenceng).`);
+    }
+    log(`[Magica] Pra-cek gambar OK (dapat diakses publik${ct ? ', ' + ct : ''}).`);
+  } catch (e) {
+    if (e && /tidak bisa diakses publik|tidak publik|bukan http|mengembalikan halaman HTML/.test(String(e.message))) throw e; // our definitive errors
+    log(`[Magica] Peringatan: gagal pra-cek jangkauan gambar (${e.message}). Melanjutkan; bila Magica gagal mengambil gambar, hasil bisa melenceng.`);
+  }
+}
+
 // Map an aspect ratio to a gpt_image_2 `size` value (its size enum is WxH strings).
 function sizeFromAspect(ar) {
   switch (String(ar || '')) {
@@ -353,6 +408,8 @@ async function generateOneImageMagica(apiKey, prompt, opts = {}) {
   const nodeType = opts.nodeType || 'gpt_image_2';
   const refUrl = toPublicUrl(opts.refUrl);
   const category = refUrl ? 'image-to-image' : 'text-to-image';
+  // Same public-URL requirement applies to image-to-image reference photos.
+  if (refUrl) await assertPublicImageReachable(refUrl, onLog);
   const models = await getModelsCached(apiKey);
   const subModelId = resolveSubModel(models, nodeType, category);
 
@@ -407,6 +464,11 @@ async function generateVideoMagica(apiKey, params = {}) {
   // instead of silently generating a video that ignores the storyboard (the "melenceng" bug).
   if (category !== 'text-to-video' && hasImageField && !imgUrl) {
     throw new Error('Gambar panel tidak punya URL publik untuk Magica (set PUBLIC_URL di server, atau pakai storyboard hasil Magica). Tanpa gambar, video akan melenceng dari storyboard.');
+  }
+  // Reachability preflight: Magica needs a PUBLIC url it can actually fetch. Verify before
+  // the run so a bad PUBLIC_URL fails clearly here rather than producing a melenceng video.
+  if (category !== 'text-to-video' && hasImageField && imgUrl) {
+    await assertPublicImageReachable(imgUrl, onLog);
   }
 
   const input = buildInput(fields, {
@@ -573,6 +635,8 @@ async function generateMeshy3D(apiKey, opts = {}) {
   if (isImage && (!input.image_urls || !input.image_urls.length)) {
     throw new Error('Gambar untuk 3D tidak punya URL publik (set PUBLIC_URL, atau pakai gambar hasil Magica).');
   }
+  // image-to-3D shares the public-URL requirement — preflight the first image.
+  if (isImage && input.image_urls && input.image_urls[0]) await assertPublicImageReachable(input.image_urls[0], onLog);
   if (!isImage && !input.prompt) throw new Error('Prompt teks untuk 3D wajib diisi.');
 
   // Pre-flight cost check (same as video) — fail fast if the key cannot afford it.
