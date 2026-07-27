@@ -645,21 +645,12 @@ export default function Dashboard({ setTab }) {
       const isTextMethod = userProvider === 'magica'
         ? (magicaVideoMethod === 'text-to-video')
         : (videoGenType === 'text');
-      let basePrompt = isTextMethod ? (t2v || '') : (i2v || '');
-      
-      if (videoGenerateAudio && narration) {
-        let lang = 'Bahasa Indonesia';
-        if (selectedStoryboard.generation_params) {
-          try {
-            const params = JSON.parse(selectedStoryboard.generation_params);
-            if (params.voLanguage) lang = params.voLanguage;
-          } catch (e) {}
-        }
-        basePrompt += `\n\nAudio — voiceover: an off-screen narrator speaks this line in ${lang}, paced evenly across the whole clip and synced to the on-screen action — begin as the shot starts and finish about one second before it ends, natural and unhurried, clear articulation, no rushing and no dead air. No on-screen text or subtitles, and no other voices. Voiceover line: "${narration}"`;
-      }
+      const basePrompt = isTextMethod ? (t2v || '') : (i2v || '');
+      // NOTE: Voice Over is NO LONGER appended here. VO is configured at storyboard
+      // creation and attached server-side at generation time (single source of truth).
       setVideoStudioPrompt(basePrompt);
     }
-  }, [modalCarouselIdx, selectedStoryboard, videoGenType, videoGenerateAudio, userProvider, magicaVideoMethod]);
+  }, [modalCarouselIdx, selectedStoryboard, videoGenType, userProvider, magicaVideoMethod]);
 
   useEffect(() => {
     if (selectedStoryboard) {
@@ -738,7 +729,7 @@ export default function Dashboard({ setTab }) {
         aspectRatio: videoAspectRatio,
         duration: videoDuration === 'auto' ? undefined : Number(videoDuration),
         resolution: videoResolution,
-        generateAudio: videoGenerateAudio,
+        // VO removed from Video Studio — attached server-side from the storyboard setting
         backsound: videoBacksound,
         apiKeyId: selectedApiKeyId || 'auto',
         magicaModel: userProvider === 'magica' ? magicaVideoModel : undefined,
@@ -772,7 +763,7 @@ export default function Dashboard({ setTab }) {
         aspectRatio: videoAspectRatio,
         duration: videoDuration === 'auto' ? undefined : Number(videoDuration),
         resolution: videoResolution,
-        generateAudio: videoGenerateAudio,
+        // VO removed from Video Studio — attached server-side from the storyboard setting
         backsound: videoBacksound,
         apiKeyId: selectedApiKeyId || 'auto',
         magicaModel: userProvider === 'magica' ? magicaVideoModel : undefined,
@@ -2502,26 +2493,14 @@ export default function Dashboard({ setTab }) {
                           </div>
                         </div>
 
-                        {(() => {
-                          if (userProvider === 'magica') {
-                            const mm = (magicaCatalog?.videoModels || []).find(x => x.nodeType === magicaVideoModel);
-                            const mt = mm && (mm.methods || []).find(x => x.category === magicaVideoMethod);
-                            if (mt && mt.hasAudio === false) return null;
-                          }
-                          return (
-                        <label className="flex items-center gap-2 cursor-pointer select-none border-t border-[#2a2725]/40 pt-2 pb-1">
-                          <input
-                            type="checkbox"
-                            checked={videoGenerateAudio}
-                            onChange={(e) => setVideoGenerateAudio(e.target.checked)}
-                            className="rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5"
-                          />
-                          <span className="text-[9px] font-bold uppercase tracking-wider text-slate-350">
-                            Hasilkan Audio / Sound Effect (Voiceover)
-                          </span>
-                        </label>
-                          );
-                        })()}
+                        {/* Voice Over is configured at STORYBOARD creation (single source of truth).
+                            The Video Studio no longer toggles VO — it's attached server-side at
+                            generation from the storyboard's VO setting. */}
+                        <div className="border-t border-[#2a2725]/40 pt-2 pb-1">
+                          <p className="text-[8.5px] text-slate-500 leading-relaxed">
+                            🎙️ Voice Over diatur saat <span className="text-slate-300 font-semibold">membuat storyboard</span>. Jika storyboard-nya VO aktif, narasinya otomatis dipakai di video ini (tak perlu diatur di sini).
+                          </p>
+                        </div>
 
                         <label className="flex items-center gap-2 cursor-pointer select-none pb-1">
                           <input
