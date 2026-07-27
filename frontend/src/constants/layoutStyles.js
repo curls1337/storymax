@@ -37,4 +37,7 @@ export default [
   { value: 'bts_practical_fx', label: 'Behind-the-Scenes Efek Praktis', desc: 'Ala "making of" film: miniatur lokasi di soundstage + kru & blue screen, lalu efek praktis (banjir/gelombang/ledakan) menerjang miniatur. Subjek ikut referensi.', category: 'Viral & Kreatif', faceMode: 'faceless', icon: 'Clapperboard' },
   { value: 'mini_restoration_asmr', label: 'Restorasi / Rakit Miniatur (ASMR)', desc: 'Tangan + alat presisi merakit/merestorasi miniatur super-detail dari objek, studio bersih, macro ASMR, berakhir model mulus. Ikut referensi.', category: 'Viral & Kreatif', faceMode: 'faceless', icon: 'Wrench' },
   { value: 'jelly_character_asmr', label: 'Jelly Character ASMR', desc: 'Figurin jeli transparan dari karakter digenggam telapak tangan; tubuh tembus pandang terisi gelembung, ASMR menggemaskan. Ikut referensi.', category: 'Viral & Kreatif', faceMode: 'faceless', icon: 'Baby' },
+  // Caption / Edukasi Anak
+  { value: 'tiktok_text_ad', label: 'TikTok Text Ad (Caption)', desc: 'Iklan vertikal dengan caption teks on-screen besar tiap scene: hook → fitur → bukti → CTA. Foto produk bersih ala TikTok/Reels.', category: 'UGC & Social', faceMode: 'chin_max', icon: 'Type' },
+  { value: 'kids_education', label: 'Edukasi Anak (Playful)', desc: 'Ceria & warna cerah, karakter kartun + ikon belajar (buku, bintang, topi wisuda). Cocok konten/produk anak.', category: 'Proses & Edukasi', faceMode: 'full', icon: 'GraduationCap' },
 ];
