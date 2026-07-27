@@ -14,6 +14,7 @@ RULES:
 4. Number every scene starting at PARAMS.sceneStart and give each a short timecode derived from PARAMS.duration / PARAMS.panelCount. Use PARAMS.duration and PARAMS.aspectRatio verbatim; never invent other durations or ratios.
 5. Progress the panels along STYLE_SPEC.arc and this page's CONCEPT. If PARAMS.totalPages > 1, CONTINUE the sequence for THIS page only (page 1 = the beginning; later pages continue and must NOT restart the opening).
 6. Include a compact header banner + badges (from STYLE_SPEC.header) and tiny per-panel tags (CAM, LIGHT + a duration chip). Keep ALL on-sheet text short, minimal and correctly spelled — no paragraphs inside panels, no garbled text.
+6b. TEXT ON SCREEN — if PARAMS.textOnScreen is TRUE, ALSO burn ONE punchy on-screen caption INTO each panel (a few words up to a short 1–2 line phrase, in the subject's language, e.g. "Upgrade ke Novilla", "3 SAIZ · KEDAP", "Lagi Flash Sale!", "WOW!") as BOLD high-contrast social-video lettering with a clean outline/shadow — VARY the font, color, accent word and placement per panel to fit the mood and this style, always correctly spelled (like viral TikTok captions). If PARAMS.textOnScreen is FALSE, do NOT add any decorative captions.
 7. Apply FACE_RULE exactly, and end with ONE line starting "NEGATIVE:" built from STYLE_SPEC.negatives + FACE_NEGATIVE + "garbled text". When PARAMS.hasReferenceImage is true AND PARAMS.stylizedReference is FALSE, also lead the NEGATIVE with "different or redesigned product, altered or garbled logo, changed colors, shape or proportions". When PARAMS.stylizedReference is TRUE, do NOT add those exact-copy negatives (they forbid the intended transformation) — instead lead with "unrecognizable subject, wrong identity or colors vs the reference, a flat 1:1 copy that ignores the style's form".
 8. Keep the ENTIRE prompt under 1900 characters. Output ONLY the final prompt text — no explanation, no markdown fences.`;
 
@@ -22,7 +23,7 @@ async function generateMasterPromptWithAI(spec, ctx, db) {
     const {
       subject = 'the product', concept = '', faceMode = spec.faceMode || 'faceless',
       gridCount = 6, startScene = 1, totalDuration = 15, aspectRatio, model,
-      pageNum = 1, pageCount = 1, hasRefImage = false,
+      pageNum = 1, pageCount = 1, hasRefImage = false, textOnScreen = false,
     } = ctx;
 
     const photoreal = isPhotoreal(spec.id);
@@ -58,6 +59,7 @@ async function generateMasterPromptWithAI(spec, ctx, db) {
         totalPages: pageCount,
         hasReferenceImage: !!hasRefImage,
         stylizedReference: stylized,
+        textOnScreen: !!textOnScreen,
       },
     };
 

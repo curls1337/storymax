@@ -84,6 +84,7 @@ export default function Generator({ setTab }) {
   const [enableVo, setEnableVo] = useState(false);
   const [voLanguage, setVoLanguage] = useState('Bahasa Indonesia');
   const [voTone, setVoTone] = useState('casual');
+  const [textOnScreen, setTextOnScreen] = useState(false); // burn stylized on-screen captions into each storyboard panel
   
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
@@ -422,6 +423,7 @@ export default function Generator({ setTab }) {
         voTone: enableVo ? voTone : undefined,
         videoEngine,
         containerShape,
+        textOnScreen,
         magicaModel: userProvider === 'magica' ? magicaImageModel : undefined,
         magicaKeyId: userProvider === 'magica' ? magicaKeyId : undefined
       });
@@ -1026,6 +1028,25 @@ export default function Generator({ setTab }) {
                   </select>
                 </div>
               </div>
+            )}
+          </div>
+
+          {/* Text On Screen — AI burns a stylized caption into each storyboard panel */}
+          <div className="bg-[#131211]/30 border border-[#2a2725] rounded-xl p-3 space-y-1.5">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={textOnScreen}
+                onChange={(e) => setTextOnScreen(e.target.checked)}
+                className="rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5"
+                disabled={generating}
+              />
+              <span className="text-[9px] font-bold uppercase tracking-wider text-slate-300">Text On Screen (caption di gambar)</span>
+            </label>
+            {textOnScreen && (
+              <p className="text-[9px] text-slate-500 leading-relaxed animate-fadeIn">
+                AI menambahkan caption bergaya (bold, warna &amp; font bervariasi) di tiap panel, menyesuaikan gaya layout — cocok untuk iklan/edukasi ala TikTok. Berlaku untuk Freebeat &amp; Magica.
+              </p>
             )}
           </div>
 

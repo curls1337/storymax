@@ -95,6 +95,7 @@ function buildMasterPrompt(spec, ctx = {}) {
     pageCount = 1,
     hasRefImage = false,
     secondsPerPage,
+    textOnScreen = false,
   } = ctx;
 
   const gc = Number(gridCount) || 6;
@@ -202,7 +203,14 @@ NEGATIVE: ${negatives}.`;
   // ── Fixed structural lines (content is fixed; always present) ──
   const L1 = `A professional ${spec.name} storyboard sheet — ONE printed poster, ${ratio} layout, ${bgClause(spec.bg)}.${realNote}${looseRef ? " The reference is ONLY inspiration — re-form the subject into THIS style's own shape (recognizable, same colors), do NOT copy it 1:1." : ''}`;
   const L2 = `HEADER: banner '${spec.header}${partLabel}' + product name + badges 'DURATION ${dur}'${windowBadge} 'SCENES ${gc}' 'RATIO ${ratio}'.`;
-  const L4 = `Layout: ${layout}, numbered SCENE ${startScene}–${endScene}; each panel: a short SCENE TITLE, one-line action, tiny 'CAM'/'LIGHT' tags + a duration chip. Keep on-sheet text short & correctly spelled; vary the camera per scene; keep card layout, palette & background identical.`;
+  // Opt-in ON-SCREEN TEXT: when enabled, each panel also carries ONE short punchy
+  // caption/callout drawn INTO the scene (comic/kinetic social-video style), with the
+  // font, color & placement VARIED per panel to fit the mood and this layout's vibe.
+  // Kept short (1–4 words) so the image model renders it cleanly (no garble).
+  const textClause = textOnScreen
+    ? " ALSO burn ONE punchy ON-SCREEN CAPTION into each panel (a few words up to a short 1–2 line phrase, in the storyboard's language, e.g. 'Upgrade ke Novilla', '3 SAIZ · KEDAP', 'Lagi Flash Sale!', 'WOW!') as BOLD high-contrast social-video lettering with a clean outline/shadow for legibility — VARY the font, color, accent word & placement per panel to fit the mood/this style, correctly spelled, like viral TikTok captions (not a plain label)."
+    : '';
+  const L4 = `Layout: ${layout}, numbered SCENE ${startScene}–${endScene}; each panel: a short SCENE TITLE, one-line action, tiny 'CAM'/'LIGHT' tags + a duration chip. Keep on-sheet text short & correctly spelled; vary the camera per scene; keep card layout, palette & background identical.${textClause}`;
   const L5 = `Base camera: ${spec.camera}; light: ${spec.lighting}.`;
 
   // ── Variable lines (content shrinks to fit) ──
