@@ -82,11 +82,37 @@ function enforceNoVoiceover(text) {
 // the delivery to the clip timeline (spoken evenly across the shot, synced to the
 // on-screen action, off-screen narrator, no subtitles) so the model places the
 // voiceover correctly instead of guessing when to speak. Returns '' when empty.
-function buildVoiceoverDirective(narration, lang) {
-  const line = String(narration || '').trim();
+// Map a storyboard VO tone key to a short English delivery style for the directive.
+function voToneLabel(tone) {
+  const m = {
+    casual: 'casual and friendly', comedy: 'light and comedic', excited: 'energetic and excited',
+    formal: 'formal and serious', emotional: 'warm and emotional', storytelling: 'storytelling',
+    dramatic: 'dramatic and suspenseful', soft_spoken: 'soft-spoken ASMR', luxury_premium: 'luxurious and premium',
+    poetic_aesthetic: 'poetic and aesthetic', news_anchor: 'news-anchor', motivator_inspirational: 'inspirational and motivating',
+    review_honest: 'honest and matter-of-fact', cinematic_trailer: 'epic cinematic-trailer', sarcastic_witty: 'witty and sarcastic',
+    kids_playful: 'playful and cheerful',
+  };
+  return m[String(tone || '').trim()] || '';
+}
+
+function buildVoiceoverDirective(narration, lang, tone, durationSec) {
+  let line = String(narration || '').trim();
   if (!line) return '';
   const language = lang || 'Bahasa Indonesia';
-  return `\n\nAudio — voiceover: an off-screen narrator speaks this line in ${language}, paced evenly across the whole clip and synced to the on-screen action — begin as the shot starts and finish about one second before it ends, natural and unhurried, clear articulation, no rushing and no dead air. No on-screen text or subtitles, and no other voices. Voiceover line: "${line}"`;
+  // Fit the line to the CHOSEN clip length (~1.5 words/sec) so it never rushes or leaves
+  // dead air — this is what keeps the VO in sync with the scene.
+  const sec = Number(durationSec);
+  if (Number.isFinite(sec) && sec > 0) {
+    const maxWords = Math.max(4, Math.min(40, Math.round(sec * 1.5)));
+    const words = line.split(/\s+/);
+    if (words.length > maxWords) {
+      line = words.slice(0, maxWords).join(' ');
+      if (!/[.!?]$/.test(line)) line += '.';
+    }
+  }
+  const toneLbl = voToneLabel(tone);
+  const delivery = toneLbl ? ` with a ${toneLbl} delivery` : '';
+  return `\n\nAudio — voiceover: an off-screen narrator speaks this line in ${language}${delivery}, paced evenly across the whole clip and synced to the on-screen action — begin as the shot starts and finish about one second before it ends, natural and unhurried, clear articulation, no rushing and no dead air. No on-screen text or subtitles, and no other voices. Voiceover line: "${line}"`;
 }
 
 // When "backsound" (background music) is OFF, forbid any BGM/soundtrack so the video
@@ -94,6 +120,49 @@ function buildVoiceoverDirective(narration, lang) {
 // music cue in the prompt.
 function applyNoBacksound(text) {
   return `${String(text || '')}\n\nBACKGROUND MUSIC: none — do NOT add any background music, soundtrack, score or BGM. Use only natural/diegetic ambient sound (real environment SFX / ASMR).`;
+}
+
+// Remove any appended voiceover block from a prompt WITHOUT adding a no-speech rule
+// (used to normalize a client-supplied prompt before the server re-decides VO).
+function stripVoiceover(text) {
+  let t = String(text || '');
+  t = t.replace(/\n*\s*Voiceover\s*\([^)]*\)\s*:[\s\S]*$/i, '');
+  t = t.replace(/\n*\s*Audio\s*[—-]\s*voiceover\s*:[\s\S]*$/i, '');
+  return t.trim();
+}
+
+// VO is configured ONCE at storyboard creation (generation_params) — the single source
+// of truth. The Video Studio no longer has a VO toggle; the server derives VO from the
+// storyboard here and auto-attaches the directive at generation time.
+function resolveVoConfig(storyboard) {
+  try {
+    const gp = storyboard && storyboard.generation_params ? JSON.parse(storyboard.generation_params) : {};
+    return { enableVo: !!gp.enableVo, voLanguage: gp.voLanguage || 'Bahasa Indonesia', voTone: gp.voTone || 'casual' };
+  } catch (e) { return { enableVo: false, voLanguage: 'Bahasa Indonesia', voTone: 'casual' }; }
+}
+
+// Pull the stored narration for one scene from the storyboard's saved video_prompts.
+function getSceneNarration(storyboard, sceneIdx) {
+  try {
+    const vp = storyboard && storyboard.video_prompts ? JSON.parse(storyboard.video_prompts) : null;
+    const scenes = vp && Array.isArray(vp.scenes) ? vp.scenes : (Array.isArray(vp) ? vp : []);
+    const s = scenes.find((x) => Number(x.scene_idx) === Number(sceneIdx)) || scenes[sceneIdx];
+    return s && s.narration ? String(s.narration).trim() : '';
+  } catch (e) { return ''; }
+}
+
+// Single place that finalizes a video prompt's AUDIO: attaches the storyboard-derived VO
+// directive (line + tone/gaya bahasa + timing, trimmed to the chosen duration) when VO is
+// on & narration exists; otherwise enforces no-speech. Then applies the backsound toggle.
+function applyAudioDirectives(basePrompt, { hasVo, narration, voLanguage, voTone, durationSec, backsound }) {
+  let t;
+  if (hasVo && narration) {
+    t = stripVoiceover(basePrompt) + buildVoiceoverDirective(narration, voLanguage, voTone, durationSec);
+  } else {
+    t = enforceNoVoiceover(basePrompt); // strips any VO cues + adds a hard no-speech rule
+  }
+  if (!backsound) t = applyNoBacksound(t);
+  return t;
 }
 
 async function generateVideo(req, res) {
@@ -143,6 +212,12 @@ async function generateVideo(req, res) {
       return res.status(400).json({ message: 'Gambar scene tidak ditemukan.' });
     }
 
+    // VO source of truth = the storyboard's setting + its stored per-scene narration.
+    // (No Video Studio VO toggle anymore — it's derived here and auto-attached below.)
+    const voCfg = resolveVoConfig(storyboard);
+    const sceneNarration = getSceneNarration(storyboard, sceneIdx);
+    const hasVo = voCfg.enableVo && !!sceneNarration;
+
     // Provider routing (Bagian 2): Magica single-video generation — bypasses the
     // Freebeat key requirement + inline CLI spawn entirely.
     if (await magicaGen.isMagicaForStoryboard(db, storyboardId)) {
@@ -161,16 +236,12 @@ async function generateVideo(req, res) {
       res.json({ taskId, videoId: videoRecordId, status: 'processing' });
       (async () => {
         const onLog = (m) => { if (activeTasks[taskId]) activeTasks[taskId].logs += m + '\n'; };
-        // Audio & Backsound as INDEPENDENT toggles (like Freebeat), mapped onto Magica's
-        // single native-audio switch (generate_audio):
-        //   • generate_audio (API) = ON if EITHER voiceover OR backsound is wanted; else OFF → silent.
-        //   • Backsound is removed via PROMPT (applyNoBacksound) — same technique as Freebeat.
-        //   • Voiceover is removed via PROMPT (enforceNoVoiceover) when audio is off.
-        // Matrix → audio+music: both · audio only: VO no music · music only: music no VO · neither: silent.
-        let magicaPrompt = prompt;
-        if (!generateAudio) magicaPrompt = enforceNoVoiceover(magicaPrompt);
-        if (!backsound) magicaPrompt = applyNoBacksound(magicaPrompt);
-        const nativeAudio = !!(generateAudio || backsound);
+        // VO now comes from the STORYBOARD setting (single source of truth), not a Video
+        // Studio toggle: attach the VO directive (line + tone + timing, trimmed to duration)
+        // when the storyboard has VO on & this scene has narration. Backsound stays a per-
+        // video toggle. generate_audio (Magica) = ON if VO OR backsound is wanted, else silent.
+        const magicaPrompt = applyAudioDirectives(prompt, { hasVo, narration: sceneNarration, voLanguage: voCfg.voLanguage, voTone: voCfg.voTone, durationSec: duration, backsound });
+        const nativeAudio = !!(hasVo || backsound);
         try {
           const { url, credit } = await magicaGen.generateVideoMagica(mk.key_value, { prompt: magicaPrompt, sceneImage, generationType, duration, resolution, aspectRatio, generateAudio: nativeAudio, nodeType: magicaModel, method: magicaMethod, onLog, webhook: magicaGen.buildWebhook('video', videoRecordId, whToken), onRunStart: (rid) => db.run('UPDATE generated_videos SET magica_run_id = ? WHERE id = ?', [rid, videoRecordId]).catch(() => {}) });
           await db.run('UPDATE generated_videos SET video_url = ?, status = ?, used_credits = ?, logs = ? WHERE id = ?', [url, 'success', credit || 0, activeTasks[taskId]?.logs || '', videoRecordId]);
@@ -252,20 +323,10 @@ async function generateVideo(req, res) {
     // Run submission in background
     (async () => {
       try {
-        let finalPrompt = prompt;
-        // The voiceover directive is already built into `prompt` by the client (Video
-        // Studio) — the single source of truth for single-video generation. We do NOT
-        // re-append it here; doing so previously DOUBLED the voiceover (client tail +
-        // this block) in the Freebeat path. generate-all builds the VO server-side.
-
-        // VO toggle is authoritative: if audio/VO is off, ensure the model does not speak.
-        if (!generateAudio) {
-          finalPrompt = enforceNoVoiceover(finalPrompt);
-        }
-        // Backsound toggle (independent of VO): if off, forbid background music.
-        if (!backsound) {
-          finalPrompt = applyNoBacksound(finalPrompt);
-        }
+        // VO is server-authoritative from the storyboard setting (single source of truth):
+        // attach the VO directive when the storyboard has VO on & this scene has narration,
+        // else enforce no-speech. Backsound stays a per-video toggle.
+        const finalPrompt = applyAudioDirectives(prompt, { hasVo, narration: sceneNarration, voLanguage: voCfg.voLanguage, voTone: voCfg.voTone, durationSec: duration, backsound });
 
         const spawnCmd = 'node';
         const cliPath = localCliPath; // B3: shared resolution (services/freebeat/cli.js)
@@ -291,7 +352,7 @@ async function generateVideo(req, res) {
         if (duration) spawnArgs.push('--duration', String(duration));
         if (resolution) spawnArgs.push('--resolution', resolution);
         if (aspectRatio && aspectRatio !== 'auto') spawnArgs.push('--aspect-ratio', aspectRatio);
-        if (generateAudio && /pixverse/i.test(model || '')) spawnArgs.push('--generate-audio'); // Freebeat: only Pixverse C1/V6 accept --generate-audio
+        if ((hasVo || backsound) && /pixverse/i.test(model || '')) spawnArgs.push('--generate-audio'); // Freebeat: only Pixverse C1/V6 accept --generate-audio
 
         const child = spawn(spawnCmd, spawnArgs);
 
@@ -1162,40 +1223,24 @@ async function generateAllVideos(req, res) {
           continue;
         }
 
-        // Resolve scene-specific prompt
+        // Resolve scene-specific prompt (visual only; VO handled below from the storyboard)
         let promptText = '';
         const matchingPrompt = scenePrompts.find(p => p.scene_idx === sceneIdx);
         if (matchingPrompt) {
-          promptText = generationType !== 'text' 
+          promptText = generationType !== 'text'
             ? (matchingPrompt.imageToVideoPrompt || matchingPrompt.textToVideoPrompt)
             : (matchingPrompt.textToVideoPrompt || matchingPrompt.imageToVideoPrompt);
-
-          if (generateAudio && matchingPrompt.narration) {
-            let lang = 'Bahasa Indonesia';
-            let tone = 'casual';
-            if (storyboard.generation_params) {
-              try {
-                const params = JSON.parse(storyboard.generation_params);
-                if (params.voLanguage) lang = params.voLanguage;
-                if (params.voTone) tone = params.voTone;
-              } catch (e) {}
-            }
-            promptText += buildVoiceoverDirective(matchingPrompt.narration, lang);
-          }
         }
-        
         if (!promptText) {
           promptText = storyboard.prompt || storyboard.title;
         }
 
-        // VO toggle is authoritative: if audio/VO is off, ensure the model does not speak.
-        if (!generateAudio) {
-          promptText = enforceNoVoiceover(promptText);
-        }
-        // Backsound toggle (independent of VO): if off, forbid background music.
-        if (!backsound) {
-          promptText = applyNoBacksound(promptText);
-        }
+        // VO from the STORYBOARD setting (single source of truth), auto-attached here —
+        // no Video Studio VO toggle. Backsound stays a per-video toggle.
+        const voCfg = resolveVoConfig(storyboard);
+        const sceneNarration = (matchingPrompt && matchingPrompt.narration) ? String(matchingPrompt.narration).trim() : '';
+        const hasVo = voCfg.enableVo && !!sceneNarration;
+        promptText = applyAudioDirectives(promptText, { hasVo, narration: sceneNarration, voLanguage: voCfg.voLanguage, voTone: voCfg.voTone, durationSec: duration, backsound });
 
         // Resolve scene image
         const pageIdx = sceneIdx;
@@ -1222,7 +1267,7 @@ async function generateAllVideos(req, res) {
           try {
             // generate_audio (native audio) ON if EITHER voiceover OR backsound is wanted;
             // the prompt above already forbids whichever is off (parity with the single path).
-            const nativeAudio = !!(generateAudio || backsound);
+            const nativeAudio = !!(hasVo || backsound);
             const { url, credit } = await magicaGen.generateVideoMagica(mk.key_value, { prompt: promptText, sceneImage, generationType, duration, resolution, aspectRatio, generateAudio: nativeAudio, nodeType: magicaModel, method: magicaMethod, onLog, webhook: magicaGen.buildWebhook('video', mRecId, mWhToken), onRunStart: (rid) => db.run('UPDATE generated_videos SET magica_run_id = ? WHERE id = ?', [rid, mRecId]).catch(() => {}) });
             await db.run('UPDATE generated_videos SET video_url = ?, status = ?, used_credits = ?, logs = ? WHERE id = ?', [url, 'success', credit || 0, activeTasks[mTaskId].logs, mRecId]);
             activeTasks[mTaskId].status = 'success'; activeTasks[mTaskId].logs += '[Magica] Video selesai.\n';
@@ -1302,14 +1347,14 @@ async function generateAllVideos(req, res) {
                 `Duration         : ${duration ? duration + 's' : 'Default'}\n` +
                 `Resolution       : ${resolution || 'Default'}\n` +
                 `Aspect Ratio     : ${aspectRatio || 'Default'}\n` +
-                `Audio            : ${generateAudio ? 'Yes' : 'No'}\n\n` +
+                `Audio            : ${hasVo ? 'VO' : 'No VO'}${backsound ? ' + Backsound' : ''}\n\n` +
                 `[1/3] Mengirimkan perintah generasi ke Freebeat...\n`,
           result: null,
           error: null
         };
 
         // Spawn execution
-        runSingleVideoSpawn(videoRecordId, taskId, keyRecord, promptText, sceneImage, model, generationType, duration, resolution, aspectRatio, generateAudio, storyboardId);
+        runSingleVideoSpawn(videoRecordId, taskId, keyRecord, promptText, sceneImage, model, generationType, duration, resolution, aspectRatio, (hasVo || backsound), storyboardId);
 
         // Small courtesy stagger so parallel AUTO starts don't hit the API at the exact
         // same instant. This does NOT serialize — the free-key gate controls parallelism.
