@@ -302,7 +302,11 @@ function buildInput(fields, vals) {
         if (v === undefined) v = f.default;
       }
     } else if ((dt === 'boolean') && lname.includes('audio')) {
-      if (vals.generateAudio != null) v = !!vals.generateAudio;
+      // ALWAYS set audio booleans explicitly, defaulting to OFF. If this field is omitted,
+      // native audio-visual models (e.g. Seedance) default to audio ON → the video gets
+      // backsound/ambient even when the user did NOT enable audio. Verified against the live
+      // API: generate_audio:false → 0 audio streams; omitted → 1 audio stream.
+      v = vals.generateAudio != null ? !!vals.generateAudio : false;
     } else if (lname === 'n' || lname === 'num_images') {
       v = 1;
     }
@@ -476,7 +480,7 @@ async function generateVideoMagica(apiKey, params = {}) {
     aspect: params.aspectRatio,
     resolution: params.resolution,
     duration: params.duration,
-    generateAudio: params.generateAudio,
+    generateAudio: params.generateAudio === true, // explicit boolean — never let it be undefined
     imageUrls: imgUrl ? [imgUrl] : [],
   });
   if (!('prompt' in input) && params.prompt) input.prompt = String(params.prompt);
