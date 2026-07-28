@@ -112,14 +112,13 @@ function buildVoiceoverDirective(narration, lang, tone, durationSec) {
   }
   const toneLbl = voToneLabel(tone);
   const delivery = toneLbl ? ` with a ${toneLbl} delivery` : '';
-  return `\n\nAudio — voiceover: an off-screen narrator speaks this line in ${language}${delivery}, paced evenly across the whole clip and synced to the on-screen action — begin as the shot starts and finish about one second before it ends, natural and unhurried, clear articulation, no rushing and no dead air. No on-screen text or subtitles, and no other voices. Voiceover line: "${line}"`;
+  return `\n\nAudio — voiceover: an off-screen narrator speaks this line in ${language}${delivery}, paced evenly across the whole clip and synced to the on-screen action — begin as the shot starts and finish about one second before it ends, natural and unhurried, clear articulation, no rushing and no dead air. Voiceover line: "${line}"`;
 }
 
 // When "backsound" (background music) is OFF, forbid any BGM/soundtrack so the video
-// keeps only natural / ASMR / diegetic sound. Appended last so it dominates any earlier
-// music cue in the prompt.
+// keeps only natural diegetic audio. Does NOT trigger ASMR keyword.
 function applyNoBacksound(text) {
-  return `${String(text || '')}\n\nBACKGROUND MUSIC: none — do NOT add any background music, soundtrack, score or BGM. Use only natural/diegetic ambient sound (real environment SFX / ASMR).`;
+  return `${String(text || '')}\n\nBACKGROUND MUSIC: none — do NOT add any background music, soundtrack, score or BGM. Keep clear voiceover speech and clean diegetic ambient audio.`;
 }
 
 // Remove any appended voiceover block from a prompt WITHOUT adding a no-speech rule
@@ -147,17 +146,30 @@ function getSceneNarration(storyboard, sceneIdx) {
     const vp = storyboard && storyboard.video_prompts ? JSON.parse(storyboard.video_prompts) : null;
     const scenes = vp && Array.isArray(vp.scenes) ? vp.scenes : (Array.isArray(vp) ? vp : []);
     const s = scenes.find((x) => Number(x.scene_idx) === Number(sceneIdx)) || scenes[sceneIdx];
-    return s && s.narration ? String(s.narration).trim() : '';
-  } catch (e) { return ''; }
+    if (s && s.narration && String(s.narration).trim()) return String(s.narration).trim();
+  } catch (e) {}
+  try {
+    const at = storyboard && storyboard.active_task_data ? JSON.parse(storyboard.active_task_data) : null;
+    if (at && at.subPrompts && at.subPrompts[sceneIdx]) {
+      const matchVo = String(at.subPrompts[sceneIdx]).match(/VO\s*:\s*([^.\n]+[.!?]?)/i);
+      if (matchVo) return matchVo[1].trim();
+    }
+  } catch (e) {}
+  return '';
 }
 
 // Finalizes a video prompt's AUDIO. When hasVo is true, keep audio enabled and attach
 // narration directive if present. If hasVo is false, enforce no-speech. Apply backsound toggle.
 function applyAudioDirectives(basePrompt, { hasVo, narration, voLanguage, voTone, durationSec, backsound }) {
   let t = stripVoiceover(basePrompt);
+  let effectiveNarration = narration;
+  if (hasVo && !effectiveNarration) {
+    const matchVo = basePrompt.match(/VO\s*:\s*([^.\n]+[.!?]?)/i) || basePrompt.match(/Voiceover[^:]*:\s*"?([^"\n]+)"?/i);
+    if (matchVo) effectiveNarration = matchVo[1].trim();
+  }
   if (hasVo) {
-    if (narration) {
-      t += buildVoiceoverDirective(narration, voLanguage, voTone, durationSec);
+    if (effectiveNarration) {
+      t += buildVoiceoverDirective(effectiveNarration, voLanguage, voTone, durationSec);
     }
   } else {
     t = enforceNoVoiceover(t);
