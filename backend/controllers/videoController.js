@@ -151,16 +151,13 @@ function getSceneNarration(storyboard, sceneIdx) {
   } catch (e) { return ''; }
 }
 
-// Single place that finalizes a video prompt's AUDIO: attaches the storyboard-derived VO
-// directive (line + tone/gaya bahasa + timing, trimmed to the chosen duration) when VO is
-// on & narration exists; otherwise enforces no-speech. Then applies the backsound toggle.
-function applyAudioDirectives(basePrompt, { hasVo, narration, voLanguage, voTone, durationSec, backsound }) {
-  let t;
-  if (hasVo && narration) {
-    t = stripVoiceover(basePrompt) + buildVoiceoverDirective(narration, voLanguage, voTone, durationSec);
-  } else {
-    t = enforceNoVoiceover(basePrompt); // strips any VO cues + adds a hard no-speech rule
-  }
+// Finalizes a video prompt's AUDIO. Per user preference, the VO script is NEVER auto-inserted
+// into the video prompt — VO lives on the storyboard (nota "VO:") and is shown in the panel,
+// not force-fed to the model here. So we only: (a) strip any stray VO block from the prompt,
+// (b) if audio/VO is OFF for this video, hard-forbid speech, and (c) apply the backsound toggle.
+function applyAudioDirectives(basePrompt, { hasVo, backsound }) {
+  let t = stripVoiceover(basePrompt); // never carry a VO line into the prompt (no auto-VO)
+  if (!hasVo) t = enforceNoVoiceover(t); // audio/VO off for this video → keep the model silent
   if (!backsound) t = applyNoBacksound(t);
   return t;
 }
