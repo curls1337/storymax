@@ -265,6 +265,7 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
           totalDuration: task.totalDuration, aspectRatio: task.aspectRatio, model: task.selectedModel,
           pageNum, pageCount: task.pageCount, hasRefImage: !!pageRefPath, secondsPerPage: task.secondsPerPage,
           textOnScreen: !!task.textOnScreen,
+          voiceOver: !!task.enableVo, voLanguage: task.voLanguage || 'Bahasa Indonesia',
         };
         // Try the LLM generator first; it returns null on ANY failure (no AI key,
         // timeout, bad output) so we always fall back to the deterministic builder.
@@ -787,6 +788,7 @@ async function regenerateStoryboardPage(req, res) {
           totalDuration: genParams.duration || (pageCount * secondsPerPage),
           aspectRatio, model, pageNum: pageIdx + 1, pageCount, hasRefImage: !!finalRefImagePath, secondsPerPage,
           textOnScreen: !!genParams.textOnScreen,
+          voiceOver: !!genParams.enableVo, voLanguage: genParams.voLanguage || 'Bahasa Indonesia',
         };
         // Try the LLM generator first; it falls back to the deterministic builder
         // (returns null on any failure) so generation never breaks.
