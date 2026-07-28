@@ -96,6 +96,8 @@ function buildMasterPrompt(spec, ctx = {}) {
     hasRefImage = false,
     secondsPerPage,
     textOnScreen = false,
+    voiceOver = false,
+    voLanguage = 'Bahasa Indonesia',
   } = ctx;
 
   const gc = Number(gridCount) || 6;
@@ -210,7 +212,13 @@ NEGATIVE: ${negatives}.`;
   const textClause = textOnScreen
     ? " ALSO burn ONE punchy ON-SCREEN CAPTION into each panel (a few words up to a short 1–2 line phrase, in the storyboard's language, e.g. 'Upgrade ke Novilla', '3 SAIZ · KEDAP', 'Lagi Flash Sale!', 'WOW!') as BOLD high-contrast social-video lettering with a clean outline/shadow for legibility — VARY the font, color, accent word & placement per panel to fit the mood/this style, correctly spelled, like viral TikTok captions (not a plain label)."
     : '';
-  const L4 = `Layout: ${layout}, numbered SCENE ${startScene}–${endScene}; each panel: a short SCENE TITLE, one-line action, tiny 'CAM'/'LIGHT' tags + a duration chip. Keep on-sheet text short & correctly spelled; vary the camera per scene; keep card layout, palette & background identical.${textClause}`;
+  // Opt-in VOICE OVER note: when the storyboard has VO on, print a small 'VO' cue under
+  // each panel (a SHORT one-line narration cue in the VO language) so the storyboard itself
+  // carries the voice-over instruction. Kept short so the image model renders it cleanly.
+  const voClause = voiceOver
+    ? ` Also print a small 'VO:' note under each panel — a SHORT one-line voice-over cue for that scene in ${voLanguage} (a few words, correctly spelled, caption-style, NOT a paragraph).`
+    : '';
+  const L4 = `Layout: ${layout}, numbered SCENE ${startScene}–${endScene}; each panel: a short SCENE TITLE, one-line action, tiny 'CAM'/'LIGHT' tags + a duration chip. Keep on-sheet text short & correctly spelled; vary the camera per scene; keep card layout, palette & background identical.${textClause}${voClause}`;
   const L5 = `Base camera: ${spec.camera}; light: ${spec.lighting}.`;
 
   // ── Variable lines (content shrinks to fit) ──
