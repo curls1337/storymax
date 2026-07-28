@@ -4,6 +4,8 @@ const { open } = require('sqlite');
 const bcrypt = require('bcryptjs');
 const path = require('path');
 
+const fs = require('fs');
+
 const dbPath = process.env.SQLITE_DB_PATH 
   ? path.resolve(process.env.SQLITE_DB_PATH) 
   : path.resolve(__dirname, 'database.sqlite');
@@ -11,6 +13,15 @@ const dbPath = process.env.SQLITE_DB_PATH
 let db;
 
 async function initDb() {
+  const dbDir = path.dirname(dbPath);
+  try {
+    if (!fs.existsSync(dbDir)) {
+      fs.mkdirSync(dbDir, { recursive: true });
+    }
+  } catch (dirErr) {
+    console.warn(`[initDb] Warning: Could not create directory ${dbDir}: ${dirErr.message}`);
+  }
+
   db = await open({
     filename: dbPath,
     driver: sqlite3.Database
