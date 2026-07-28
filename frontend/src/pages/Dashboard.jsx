@@ -729,7 +729,7 @@ export default function Dashboard({ setTab }) {
         aspectRatio: videoAspectRatio,
         duration: videoDuration === 'auto' ? undefined : Number(videoDuration),
         resolution: videoResolution,
-        // VO removed from Video Studio — attached server-side from the storyboard setting
+        generateAudio: videoGenerateAudio,
         backsound: videoBacksound,
         apiKeyId: selectedApiKeyId || 'auto',
         magicaModel: userProvider === 'magica' ? magicaVideoModel : undefined,
@@ -763,7 +763,7 @@ export default function Dashboard({ setTab }) {
         aspectRatio: videoAspectRatio,
         duration: videoDuration === 'auto' ? undefined : Number(videoDuration),
         resolution: videoResolution,
-        // VO removed from Video Studio — attached server-side from the storyboard setting
+        generateAudio: videoGenerateAudio,
         backsound: videoBacksound,
         apiKeyId: selectedApiKeyId || 'auto',
         magicaModel: userProvider === 'magica' ? magicaVideoModel : undefined,
@@ -847,9 +847,16 @@ export default function Dashboard({ setTab }) {
     setGeneratingType(promptType);
     setVideoPromptError('');
     try {
-      const useVo = promptType === 'text-to-video' ? enableVoT2v : enableVoI2v;
-      const lang = promptType === 'text-to-video' ? voLanguageT2v : voLanguageI2v;
-      const tone = promptType === 'text-to-video' ? voToneT2v : voToneI2v;
+      // VO comes from the STORYBOARD setting (single source of truth) — no prompt-panel VO
+      // toggle anymore. Rewrite regenerates the narration using the storyboard's language/tone.
+      let sbVo = { enableVo: false, voLanguage: 'Bahasa Indonesia', voTone: 'casual' };
+      try {
+        const gp = selectedStoryboard.generation_params ? JSON.parse(selectedStoryboard.generation_params) : {};
+        sbVo = { enableVo: !!gp.enableVo, voLanguage: gp.voLanguage || 'Bahasa Indonesia', voTone: gp.voTone || 'casual' };
+      } catch (e) {}
+      const useVo = sbVo.enableVo;
+      const lang = sbVo.voLanguage;
+      const tone = sbVo.voTone;
       const durationVal = promptType === 'text-to-video' ? videoDurationT2v : videoDurationI2v;
 
       const res = await api.post('/ai/video-prompts', { 
@@ -1548,15 +1555,7 @@ export default function Dashboard({ setTab }) {
                             </select>
                           </div>
 
-                          <label className="flex items-center gap-2 cursor-pointer select-none border-t border-[#2a2725]/40 pt-2">
-                            <input 
-                              type="checkbox" 
-                              checked={enableVoI2v} 
-                              onChange={(e) => setEnableVoI2v(e.target.checked)} 
-                              className="rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5"
-                            />
-                            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-300">Sertakan Voice Over (VO)</span>
-                          </label>
+                          {/* VO checkbox removed — Voice Over follows the STORYBOARD setting */}
                           
                           {enableVoI2v && (
                             <div className="space-y-1 animate-fadeIn">
@@ -1658,15 +1657,7 @@ export default function Dashboard({ setTab }) {
                               </select>
                             </div>
 
-                            <label className="flex items-center gap-2 cursor-pointer select-none border-t border-[#2a2725]/40 pt-2.5">
-                              <input 
-                                type="checkbox" 
-                                checked={enableVoI2v} 
-                                onChange={(e) => setEnableVoI2v(e.target.checked)} 
-                                className="rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5"
-                              />
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300">Sertakan Voice Over (VO)</span>
-                            </label>
+                            {/* VO checkbox removed — Voice Over follows the STORYBOARD setting */}
                             
                             {enableVoI2v && (
                               <div className="space-y-1.5 animate-fadeIn">
@@ -1784,15 +1775,7 @@ export default function Dashboard({ setTab }) {
                             </select>
                           </div>
 
-                          <label className="flex items-center gap-2 cursor-pointer select-none border-t border-[#2a2725]/40 pt-2">
-                            <input 
-                              type="checkbox" 
-                              checked={enableVoT2v} 
-                              onChange={(e) => setEnableVoT2v(e.target.checked)} 
-                              className="rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5"
-                            />
-                            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-300">Sertakan Voice Over (VO)</span>
-                          </label>
+                          {/* VO checkbox removed — Voice Over follows the STORYBOARD setting */}
                           
                           {enableVoT2v && (
                             <div className="space-y-1 animate-fadeIn">
@@ -1891,15 +1874,7 @@ export default function Dashboard({ setTab }) {
                               </select>
                             </div>
 
-                            <label className="flex items-center gap-2 cursor-pointer select-none border-t border-[#2a2725]/40 pt-2.5">
-                              <input 
-                                type="checkbox" 
-                                checked={enableVoT2v} 
-                                onChange={(e) => setEnableVoT2v(e.target.checked)} 
-                                className="rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5"
-                              />
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300">Sertakan Voice Over (VO)</span>
-                            </label>
+                            {/* VO checkbox removed — Voice Over follows the STORYBOARD setting */}
                             
                             {enableVoT2v && (
                               <div className="space-y-1.5 animate-fadeIn">
@@ -2493,14 +2468,28 @@ export default function Dashboard({ setTab }) {
                           </div>
                         </div>
 
-                        {/* Voice Over is configured at STORYBOARD creation (single source of truth).
-                            The Video Studio no longer toggles VO — it's attached server-side at
-                            generation from the storyboard's VO setting. */}
-                        <div className="border-t border-[#2a2725]/40 pt-2 pb-1">
-                          <p className="text-[8.5px] text-slate-500 leading-relaxed">
-                            🎙️ Voice Over diatur saat <span className="text-slate-300 font-semibold">membuat storyboard</span>. Jika storyboard-nya VO aktif, narasinya otomatis dipakai di video ini (tak perlu diatur di sini).
-                          </p>
-                        </div>
+                        {/* Per-video audio switch (Magica/Freebeat). The VO SCRIPT itself comes from
+                            the storyboard; this toggle just decides whether THIS video speaks it. */}
+                        {(() => {
+                          if (userProvider === 'magica') {
+                            const mm = (magicaCatalog?.videoModels || []).find(x => x.nodeType === magicaVideoModel);
+                            const mt = mm && (mm.methods || []).find(x => x.category === magicaVideoMethod);
+                            if (mt && mt.hasAudio === false) return null;
+                          }
+                          return (
+                        <label className="flex items-center gap-2 cursor-pointer select-none border-t border-[#2a2725]/40 pt-2 pb-1">
+                          <input
+                            type="checkbox"
+                            checked={videoGenerateAudio}
+                            onChange={(e) => setVideoGenerateAudio(e.target.checked)}
+                            className="rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5"
+                          />
+                          <span className="text-[9px] font-bold uppercase tracking-wider text-slate-350">
+                            Hasilkan Audio / Voice Over <span className="text-slate-500 normal-case font-normal">(narasi dari storyboard)</span>
+                          </span>
+                        </label>
+                          );
+                        })()}
 
                         <label className="flex items-center gap-2 cursor-pointer select-none pb-1">
                           <input
