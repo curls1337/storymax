@@ -538,7 +538,10 @@ const PRESET_AI_MODELS = [
 
     setRestoreLoading(true);
     try {
-      const res = await api.post('/admin/restore', backup);
+      const res = await api.post('/admin/restore', backup, {
+        maxBodyLength: Infinity,
+        maxContentLength: Infinity,
+      });
       const r = res.data.restored || {};
       setMessage('Restore berhasil (' + Object.entries(r).map(([k, v]) => `${k} ${v}`).join(', ') + '). Muat ulang halaman / login kembali bila perlu.');
       loadData();
