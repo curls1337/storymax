@@ -289,8 +289,8 @@ Anda harus mengembalikan respon hanya dalam format JSON mentah dengan key 'title
       return res.status(500).json({ message: 'Gagal menghubungi server AI.', error: response.body });
     }
 
-    const resJson = JSON.parse(response.body);
-    const content = resJson.choices?.[0]?.message?.content || '';
+    const { parseAiContent } = require('../prompts/aiClient');
+    const content = parseAiContent(response.body);
     
     // Parse response content robustly
     let cleanText = content.trim();
@@ -321,7 +321,7 @@ Anda harus mengembalikan respon hanya dalam format JSON mentah dengan key 'title
 }
 
 // Core internal function to generate video prompts using vision model (can be called by controller endpoints or background task)
-async function generateVideoPromptsInternal({ storyboardId, promptType, regenerate, enableVo, voLanguage, voTone, videoDuration }) {
+async function generateVideoPromptsInternal({ storyboardId, promptType, regenerate, enableVo, voMaxWords, voLanguage, voTone, videoDuration }) {
   const db = getDb();
   
   // Retrieve storyboard
@@ -451,12 +451,14 @@ async function generateVideoPromptsInternal({ storyboardId, promptType, regenera
     else if (gridCount === 12) gridDescText = "exactly 12 panels arranged in a 4x3 grid (4 columns, 3 rows)";
   }
 
+  const maxWordsAllowed = voMaxWords ? Math.min(Math.max(Number(voMaxWords), 8), 15) : 10;
+
   let durationClause = '';
   const durVal = videoDuration || 'auto';
   const _durTxt = durVal === 'auto'
     ? (targetType === 'image-to-video' ? 'Kling/SeedDance: 15s, Omni: 10s, Gemini: 8s' : '15 seconds')
     : `${Number(durVal)} seconds`;
-  durationClause = `Each individual scene/panel video has a target duration of: ${_durTxt}. If Voiceover (VO) is enabled, keep the narration SHORT — about 6-10 words per scene, HARD MAX 10 words — one punchy line at a natural pace, not rushed.`;
+  durationClause = `Each individual scene/panel video has a target duration of: ${_durTxt}. If Voiceover (VO) is enabled, keep the narration SHORT — about 6 to ${maxWordsAllowed} words per scene, HARD MAX ${maxWordsAllowed} words — one punchy line at a natural pace, not rushed.`;
 
   let toneClause = '';
   if (enableVo && voTone) {
@@ -725,8 +727,8 @@ Please analyze the provided image sheet(s) carefully. Generate the requested JSO
     throw new Error(`Vision API Error (status ${response.statusCode}): ${response.body}`);
   }
 
-  const resJson = JSON.parse(response.body);
-  const content = resJson.choices?.[0]?.message?.content || '';
+  const { parseAiContent } = require('../prompts/aiClient');
+  const content = parseAiContent(response.body);
   
   let cleanText = content.trim();
   if (cleanText.startsWith('```')) {
@@ -735,7 +737,7 @@ Please analyze the provided image sheet(s) carefully. Generate the requested JSO
   cleanText = cleanText.trim();
 
   if (!cleanText) {
-    console.error('[AI Video Prompts Debug] Empty response content. Full response:', JSON.stringify(resJson, null, 2));
+    console.error('[AI Video Prompts Debug] Empty response content. Raw body:', response.body);
     throw new Error('Respon dari AI kosong. Hal ini biasanya terjadi jika gambar referensi atau teks prompt terdeteksi sensitif/diblokir oleh filter keamanan (safety filter) AI model. Silakan coba ganti dengan gambar lain.');
   }
 
@@ -744,8 +746,7 @@ Please analyze the provided image sheet(s) carefully. Generate the requested JSO
   try {
     const parsed = JSON.parse(cleanText);
     if (parsed && Array.isArray(parsed.scenes)) {
-      // Hard cap: VO narration per scene must be SHORT — max 10 words (user request).
-      const maxWordsAllowed = 10;
+      // Hard cap: VO narration per scene must be SHORT (configurable max 8-15 words).
 
       const { stripSpeechLeak } = require('../prompts/sanitizeVideoPrompt');
       parsed.scenes = parsed.scenes.map(s => {
@@ -810,16 +811,16 @@ Please analyze the provided image sheet(s) carefully. Generate the requested JSO
 }
 
 async function generateVideoPrompts(req, res) {
-  const { storyboardId, promptType, regenerate, enableVo, voLanguage, voTone, videoDuration } = req.body;
+  const { storyboardId, promptType, regenerate, enableVo, voMaxWords, voLanguage, voTone, videoDuration } = req.body;
   if (!storyboardId) {
     console.error('[AI Video Prompts] Missing storyboardId in request');
     return res.status(400).json({ message: 'Storyboard ID harus diisi.' });
   }
 
-  console.log(`[AI Video Prompts] Processing request for storyboard ID: ${storyboardId} (type: ${promptType}, regenerate: ${!!regenerate}, enableVo: ${!!enableVo}, voLanguage: ${voLanguage || 'N/A'}, voTone: ${voTone || 'N/A'}, videoDuration: ${videoDuration})`);
+  console.log(`[AI Video Prompts] Processing request for storyboard ID: ${storyboardId} (type: ${promptType}, regenerate: ${!!regenerate}, enableVo: ${!!enableVo}, voMaxWords: ${voMaxWords || 10}, voLanguage: ${voLanguage || 'N/A'}, voTone: ${voTone || 'N/A'}, videoDuration: ${videoDuration})`);
 
   try {
-    const finalJsonStr = await generateVideoPromptsInternal({ storyboardId, promptType, regenerate, enableVo, voLanguage, voTone, videoDuration });
+    const finalJsonStr = await generateVideoPromptsInternal({ storyboardId, promptType, regenerate, enableVo, voMaxWords, voLanguage, voTone, videoDuration });
     return res.json({ videoPrompts: finalJsonStr });
   } catch (error) {
     console.error('[AI Video Prompts Critical Error]:', error);

@@ -42,7 +42,7 @@ async function getUserStoryboards(req, res) {
 }
 
 async function generateStoryboard(req, res) {
-  const { title, prompt, style, apiKeyId, refImageBase64, refImageUrl, refImages, gridCount, model, duration, showFace, faceMode, aspectRatio, enableVo, voLanguage, voTone, videoEngine, containerShape, magicaModel, magicaKeyId, textOnScreen } = req.body;
+  const { title, prompt, style, apiKeyId, refImageBase64, refImageUrl, refImages, gridCount, model, duration, showFace, faceMode, aspectRatio, enableVo, enableVoScript, enableVoImage, voMaxWords, voLanguage, voTone, videoEngine, containerShape, magicaModel, magicaKeyId, textOnScreen } = req.body;
 
   if (!title || !prompt || !style || !apiKeyId) {
     return res.status(400).json({ message: 'Title, prompt, style, and API Key ID are required.' });
@@ -98,6 +98,11 @@ async function generateStoryboard(req, res) {
 
   const pageCount = Math.max(1, Math.min(8, Math.ceil(totalDuration / secondsPerPage)));
 
+  const isVoScript = enableVoScript !== undefined ? !!enableVoScript : !!enableVo;
+  const isVoImage = enableVoImage !== undefined ? !!enableVoImage : !!enableVo;
+  const isVoActive = isVoScript || isVoImage;
+  const maxWordsVal = voMaxWords ? Math.min(Math.max(Number(voMaxWords), 8), 15) : 10;
+
   const generationParams = JSON.stringify({
     style,
     gridCount: gridCount || 6,
@@ -106,7 +111,10 @@ async function generateStoryboard(req, res) {
     showFace: !!showFace,
     faceMode: faceMode || (showFace ? 'full' : 'faceless'),
     duration: totalDuration,
-    enableVo: !!enableVo,
+    enableVo: isVoActive,
+    enableVoScript: isVoScript,
+    enableVoImage: isVoImage,
+    voMaxWords: maxWordsVal,
     voLanguage: voLanguage || 'Bahasa Indonesia',
     voTone: voTone || 'casual',
     videoEngine: selectedEngine,
@@ -152,7 +160,10 @@ async function generateStoryboard(req, res) {
     textOnScreen: !!textOnScreen,
     prompt,
     title,
-    enableVo: !!enableVo,
+    enableVo: isVoActive,
+    enableVoScript: isVoScript,
+    enableVoImage: isVoImage,
+    voMaxWords: maxWordsVal,
     voLanguage: voLanguage || 'Bahasa Indonesia',
     voTone: voTone || 'casual',
     videoEngine: selectedEngine,

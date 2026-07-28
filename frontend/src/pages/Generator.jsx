@@ -82,7 +82,8 @@ export default function Generator({ setTab }) {
   const [currentTaskId, setCurrentTaskId] = useState(null);
   const [taskLogs, setTaskLogs] = useState('');
   const [showLogModal, setShowLogModal] = useState(true);
-  const [enableVo, setEnableVo] = useState(false);
+  const [voMode, setVoMode] = useState('off'); // 'off' | 'script' | 'image'
+  const [voMaxWords, setVoMaxWords] = useState(10);
   const [voLanguage, setVoLanguage] = useState('Bahasa Indonesia');
   const [voTone, setVoTone] = useState('casual');
   const [textOnScreen, setTextOnScreen] = useState(false); // burn stylized on-screen captions into each storyboard panel
@@ -419,9 +420,12 @@ export default function Generator({ setTab }) {
         showFace,
         faceMode,
         aspectRatio,
-        enableVo,
-        voLanguage: enableVo ? voLanguage : undefined,
-        voTone: enableVo ? voTone : undefined,
+        enableVo: voMode !== 'off',
+        enableVoScript: voMode === 'script',
+        enableVoImage: voMode === 'image',
+        voMaxWords,
+        voLanguage: voMode !== 'off' ? voLanguage : undefined,
+        voTone: voMode !== 'off' ? voTone : undefined,
         videoEngine,
         containerShape,
         textOnScreen,
@@ -992,19 +996,66 @@ export default function Generator({ setTab }) {
 
           {/* Voice Over settings */}
           <div className="bg-[#131211]/30 border border-[#2a2725] rounded-xl p-3 space-y-2.5">
-            <label className="flex items-center gap-2 cursor-pointer select-none">
-              <input 
-                type="checkbox" 
-                checked={enableVo} 
-                onChange={(e) => setEnableVo(e.target.checked)} 
-                className="rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5"
-                disabled={generating}
-              />
-              <span className="text-[9px] font-bold uppercase tracking-wider text-slate-300">Sertakan Voice Over (VO)</span>
-            </label>
+            <div className="text-[9px] font-bold uppercase tracking-wider text-slate-300">Pengaturan Voice Over (VO)</div>
             
-            {enableVo && (
-              <div className="space-y-2.5 animate-fadeIn">
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input 
+                  type="radio" 
+                  name="voMode"
+                  value="off"
+                  checked={voMode === 'off'} 
+                  onChange={() => setVoMode('off')} 
+                  className="border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5"
+                  disabled={generating}
+                />
+                <span className="text-xs text-slate-400 font-medium">Tanpa Voiceover (Nonaktif)</span>
+              </label>
+
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input 
+                  type="radio" 
+                  name="voMode"
+                  value="script"
+                  checked={voMode === 'script'} 
+                  onChange={() => setVoMode('script')} 
+                  className="border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5"
+                  disabled={generating}
+                />
+                <span className="text-xs text-slate-200 font-medium">Voiceover Storyboard (Naskah / Skrip Video)</span>
+              </label>
+
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input 
+                  type="radio" 
+                  name="voMode"
+                  value="image"
+                  checked={voMode === 'image'} 
+                  onChange={() => setVoMode('image')} 
+                  className="border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5"
+                  disabled={generating}
+                />
+                <span className="text-xs text-slate-200 font-medium">Voiceover Gambar Storyboard (Teks VO di Panel Gambar)</span>
+              </label>
+            </div>
+
+            {voMode !== 'off' && (
+              <div className="space-y-2.5 pt-2 border-t border-[#2a2725]/50 animate-fadeIn">
+                {voMode === 'script' && (
+                  <div className="space-y-1">
+                    <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest">Batas Maksimal Kata per Narasi (Scene)</label>
+                    <select 
+                      value={voMaxWords} 
+                      onChange={(e) => setVoMaxWords(Number(e.target.value))} 
+                      className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs font-semibold"
+                      disabled={generating}
+                    >
+                      {[8, 9, 10, 11, 12, 13, 14, 15].map(w => (
+                        <option key={w} value={w}>{w} Kata Maksimal</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 <div className="space-y-1">
                   <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest">Pilih Bahasa Narasi</label>
                   <select 

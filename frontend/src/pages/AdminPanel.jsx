@@ -53,10 +53,20 @@ export default function AdminPanel() {
   const [editPassword, setEditPassword] = useState('');
   const [editRole, setEditRole] = useState('user');
 
+const PRESET_AI_MODELS = [
+  { id: 'gemini-3-flash', label: 'Gemini 3 Flash (Default/Cepat)' },
+  { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
+  { id: 'gemini-3.1-pro-high', label: 'Gemini 3.1 Pro High (Pintar/Akurat)' },
+  { id: 'gemini-2.5-flash-thinking', label: 'Gemini 2.5 Flash Thinking (Penalaran Mendalam)' },
+  { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
+  { id: 'gpt-oss-120b-medium', label: 'GPT OSS 120B Medium' },
+];
+
   // AI settings state
   const [aiEndpoint, setAiEndpoint] = useState('');
   const [aiApiKey, setAiApiKey] = useState('');
   const [aiModel, setAiModel] = useState('gemini-3-flash');
+  const [isCustomModel, setIsCustomModel] = useState(false);
   const [aiLlmProvider, setAiLlmProvider] = useState('default');
   const [aiMagicaLlmModel, setAiMagicaLlmModel] = useState('gemini_3_5_flash');
   const [magicaLlmModels, setMagicaLlmModels] = useState([]);
@@ -101,7 +111,10 @@ export default function AdminPanel() {
       const res = await api.get('/admin/ai-settings');
       setAiEndpoint(res.data.endpoint || '');
       setAiApiKey(res.data.api_key || '');
-      setAiModel(res.data.model || 'gemini-3-flash');
+      const loadedModel = res.data.model || 'gemini-3-flash';
+      setAiModel(loadedModel);
+      const isPreset = PRESET_AI_MODELS.some(m => m.id === loadedModel);
+      setIsCustomModel(!isPreset);
       setAiLlmProvider(res.data.llm_provider || 'default');
       setAiMagicaLlmModel(res.data.magica_llm_model || 'gemini_3_5_flash');
       try {
@@ -951,72 +964,104 @@ export default function AdminPanel() {
 
           <form onSubmit={handleSaveAiSettings} className="space-y-4 max-w-2xl">
             <div>
-              <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Provider LLM</label>
+              <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Provider LLM Utama</label>
               <select
                 value={aiLlmProvider}
                 onChange={(e) => setAiLlmProvider(e.target.value)}
                 className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white text-xs font-semibold focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all"
               >
-                <option value="default">Default (Endpoint di bawah)</option>
-                <option value="magica">Magica (kolam key — key dipilih acak)</option>
+                <option value="default">Default Proxy (Endpoint OpenAI-Compatible / Antigravity)</option>
+                <option value="magica">Magica (Kolam Key Magica — acak)</option>
               </select>
-              <p className="text-[8px] text-slate-500 mt-1">Magica dipakai untuk LLM teks (generate prompt). Analisa gambar (vision) tetap memakai Endpoint default karena Magica butuh URL publik, bukan base64.</p>
+              <p className="text-[8px] text-slate-500 mt-1">Provider terpilih akan otomatis menjadi jalur utama generasi prompt teks.</p>
             </div>
 
             {aiLlmProvider === 'magica' && (
-              <div>
-                <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Model LLM Magica</label>
-                <select
-                  value={aiMagicaLlmModel}
-                  onChange={(e) => setAiMagicaLlmModel(e.target.value)}
-                  className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white text-xs font-semibold focus:outline-none focus:border-[#a855f7] transition-all"
-                >
-                  {magicaLlmModels.length
-                    ? magicaLlmModels.map((m) => (<option key={m.nodeType} value={m.nodeType}>{m.name}</option>))
-                    : <option value={aiMagicaLlmModel}>{aiMagicaLlmModel} (tambah API Key Magica untuk daftar penuh)</option>}
-                </select>
-                <p className="text-[8px] text-slate-500 mt-1">Key Magica dipilih acak dari kolam aktif setiap panggilan. Endpoint default di bawah tetap dipakai untuk analisa gambar.</p>
+              <div className="bg-[#a855f7]/10 border border-[#a855f7]/30 rounded-xl p-3.5 space-y-3 animate-fadeIn">
+                <div className="text-[9.5px] font-bold uppercase tracking-wider text-[#d8b4fe] border-b border-[#a855f7]/20 pb-1.5">
+                  Pengaturan Terpilih: Provider Magica
+                </div>
+                <div>
+                  <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Model LLM Magica</label>
+                  <select
+                    value={aiMagicaLlmModel}
+                    onChange={(e) => setAiMagicaLlmModel(e.target.value)}
+                    className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white text-xs font-semibold focus:outline-none focus:border-[#a855f7] transition-all"
+                  >
+                    {magicaLlmModels.length
+                      ? magicaLlmModels.map((m) => (<option key={m.nodeType} value={m.nodeType}>{m.name}</option>))
+                      : <option value={aiMagicaLlmModel}>{aiMagicaLlmModel} (tambah API Key Magica untuk daftar penuh)</option>}
+                  </select>
+                  <p className="text-[8px] text-slate-400 mt-1">API Key Magica dipilih acak dari kolam aktif setiap kali prompt di-generate.</p>
+                </div>
               </div>
             )}
 
-            <div>
-              <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Model AI Antigravity</label>
-              <select 
-                value={aiModel}
-                onChange={(e) => setAiModel(e.target.value)}
-                className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white text-xs font-semibold focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all"
-              >
-                <option value="gemini-3-flash">Gemini 3 Flash (Default/Cepat)</option>
-                <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-                <option value="gemini-3.1-pro-high">Gemini 3.1 Pro High (Pintar/Akurat)</option>
-                <option value="gemini-2.5-flash-thinking">Gemini 2.5 Flash Thinking (Penalaran Mendalam)</option>
-                <option value="claude-sonnet-4-6">Claude Sonnet 4.6</option>
-                <option value="gpt-oss-120b-medium">GPT OSS 120B Medium</option>
-              </select>
-            </div>
+            <div className={`rounded-xl p-3.5 space-y-3 transition-all ${aiLlmProvider === 'default' ? 'bg-[#cfae80]/5 border border-[#cfae80]/30' : 'bg-[#131211]/40 border border-[#2a2725]'}`}>
+              <div className="text-[9.5px] font-bold uppercase tracking-wider text-[#cfae80] border-b border-[#2a2725] pb-1.5">
+                {aiLlmProvider === 'default' ? 'Pengaturan Terpilih: Proxy Endpoint & Model Antigravity' : 'Endpoint Fallback & Analisa Gambar (Vision)'}
+              </div>
 
-            <div>
-              <label className="block text-slate-355 text-[9px] font-bold uppercase tracking-widest mb-1">Local Proxy Endpoint</label>
-              <input 
-                type="text" 
-                value={aiEndpoint}
-                onChange={(e) => setAiEndpoint(e.target.value)}
-                placeholder="http://localhost:8045/v1"
-                className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white placeholder-slate-700 focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs font-mono"
-                required
-              />
-            </div>
+              <div>
+                <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Model AI Antigravity / Proxy</label>
+                <select 
+                  value={isCustomModel ? 'custom' : aiModel}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === 'custom') {
+                      setIsCustomModel(true);
+                    } else {
+                      setIsCustomModel(false);
+                      setAiModel(val);
+                    }
+                  }}
+                  className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white text-xs font-semibold focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all"
+                >
+                  {PRESET_AI_MODELS.map(m => (
+                    <option key={m.id} value={m.id}>{m.label}</option>
+                  ))}
+                  <option value="custom">⚙️ Model Kustom (Tulis Manual / Custom Model ID)</option>
+                </select>
 
-            <div>
-              <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Proxy API Key</label>
-              <input 
-                type="password" 
-                value={aiApiKey}
-                onChange={(e) => setAiApiKey(e.target.value)}
-                placeholder="Masukkan API Key Proxy..."
-                className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white placeholder-slate-700 focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs font-mono"
-                required
-              />
+                {isCustomModel && (
+                  <div className="mt-2 animate-fadeIn">
+                    <label className="block text-slate-400 text-[8.5px] font-bold uppercase tracking-wider mb-1">ID / Nama Model Kustom (Manual Input)</label>
+                    <input
+                      type="text"
+                      value={aiModel}
+                      onChange={(e) => setAiModel(e.target.value)}
+                      placeholder="Masukkan nama/ID model kustom, misal: gpt-4o, claude-3-5-sonnet, gemini-1.5-pro"
+                      className="w-full bg-black/60 border border-[#cfae80] rounded-xl px-3 py-2 text-white placeholder-slate-600 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-[#cfae80]/30"
+                      required
+                    />
+                    <p className="text-[8px] text-[#cfae80] mt-1">Model ID kustom ini akan dikirim langsung ke endpoint proxy sesuai pemetaan proxy Anda.</p>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Local Proxy Endpoint</label>
+                <input 
+                  type="text" 
+                  value={aiEndpoint}
+                  onChange={(e) => setAiEndpoint(e.target.value)}
+                  placeholder="http://localhost:8045/v1"
+                  className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white placeholder-slate-700 focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs font-mono"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Proxy API Key</label>
+                <input 
+                  type="password" 
+                  value={aiApiKey}
+                  onChange={(e) => setAiApiKey(e.target.value)}
+                  placeholder="Masukkan API Key Proxy..."
+                  className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white placeholder-slate-700 focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs font-mono"
+                  required
+                />
+              </div>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-2 pt-3 border-t border-[#2a2725]">

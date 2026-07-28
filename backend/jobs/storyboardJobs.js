@@ -265,7 +265,8 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
           totalDuration: task.totalDuration, aspectRatio: task.aspectRatio, model: task.selectedModel,
           pageNum, pageCount: task.pageCount, hasRefImage: !!pageRefPath, secondsPerPage: task.secondsPerPage,
           textOnScreen: !!task.textOnScreen,
-          voiceOver: !!task.enableVo, voLanguage: task.voLanguage || 'Bahasa Indonesia',
+          voiceOver: task.enableVoImage !== undefined ? !!task.enableVoImage : !!task.enableVo,
+          voLanguage: task.voLanguage || 'Bahasa Indonesia',
         };
         // Try the LLM generator first; it returns null on ANY failure (no AI key,
         // timeout, bad output) so we always fall back to the deterministic builder.
@@ -633,7 +634,8 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
       [dbPathString, task.totalCreditsUsed, 'success', storyboardId]
     );
     
-    task.logs += `[AI Video Prompts] Men-generate otomatis prompt video Image-to-Video ${task.enableVo ? 'dan voiceover ' : ''}di latar belakang...\n`;
+    const isVoScriptActive = task.enableVoScript !== undefined ? !!task.enableVoScript : !!task.enableVo;
+    task.logs += `[AI Video Prompts] Men-generate otomatis prompt video Image-to-Video ${isVoScriptActive ? 'dan voiceover ' : ''}di latar belakang...\n`;
     await saveTaskState(db, storyboardId, task);
     try {
       const { generateVideoPromptsInternal } = require('../controllers/aiController');
@@ -641,9 +643,10 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
         storyboardId: storyboardId,
         promptType: 'image-to-video',
         regenerate: true,
-        enableVo: !!task.enableVo,
-        voLanguage: task.enableVo ? task.voLanguage : undefined,
-        voTone: task.enableVo ? task.voTone : undefined,
+        enableVo: isVoScriptActive,
+        voMaxWords: task.voMaxWords || 10,
+        voLanguage: isVoScriptActive ? task.voLanguage : undefined,
+        voTone: isVoScriptActive ? task.voTone : undefined,
         videoDuration: task.totalDuration
       });
       task.logs += `[AI Video Prompts] Prompt video berhasil di-generate secara otomatis.\n`;

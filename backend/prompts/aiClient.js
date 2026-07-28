@@ -57,6 +57,43 @@ function postJson(url, headers, body, timeoutMs) {
   });
 }
 
+// Helper function to extract assistant text content from both standard JSON and SSE stream responses
+function parseAiContent(body) {
+  if (!body) return '';
+  if (typeof body !== 'string') {
+    if (typeof body === 'object') {
+      return body.choices?.[0]?.message?.content || body.choices?.[0]?.delta?.content || '';
+    }
+    return '';
+  }
+
+  const trimmed = body.trim();
+  // 1. Try standard JSON parse
+  if (trimmed.startsWith('{')) {
+    try {
+      const json = JSON.parse(trimmed);
+      const content = json.choices?.[0]?.message?.content || json.choices?.[0]?.delta?.content || '';
+      if (content) return String(content).trim();
+    } catch (e) {}
+  }
+
+  // 2. Parse SSE lines (data: {...}) if proxy streams chunks
+  let fullContent = '';
+  const lines = trimmed.split('\n');
+  for (const line of lines) {
+    const l = line.trim();
+    if (l.startsWith('data: ') && l !== 'data: [DONE]') {
+      try {
+        const json = JSON.parse(l.substring(6));
+        const chunk = json.choices?.[0]?.delta?.content || json.choices?.[0]?.message?.content || '';
+        if (chunk) fullContent += chunk;
+      } catch (e) {}
+    }
+  }
+
+  return fullContent.trim();
+}
+
 // messages: OpenAI-compatible array. Returns assistant text, or throws.
 async function chatCompletion(messages, opts = {}) {
   const { db, temperature = 0.6, timeoutMs } = opts;
@@ -81,11 +118,10 @@ async function chatCompletion(messages, opts = {}) {
     { model: cfg.model, messages, temperature },
     timeoutMs
   );
-  if (res.statusCode !== 200) throw new Error(`AI HTTP ${res.statusCode}`);
-  const json = JSON.parse(res.body);
-  const content = json.choices && json.choices[0] && json.choices[0].message && json.choices[0].message.content;
+  if (res.statusCode !== 200) throw new Error(`AI HTTP ${res.statusCode}: ${res.body}`);
+  const content = parseAiContent(res.body);
   if (!content) throw new Error('Empty AI response');
-  return String(content).trim();
+  return content;
 }
 
 // Drop-in for existing callers that build their own OpenAI payload and parse the raw
@@ -119,4 +155,4 @@ async function llmChatViaSettings(payload, opts = {}) {
   );
 }
 
-module.exports = { getAiConfig, chatCompletion, llmChatViaSettings, messagesHaveImage };
+module.exports = { getAiConfig, chatCompletion, llmChatViaSettings, messagesHaveImage, parseAiContent };

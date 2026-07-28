@@ -175,10 +175,12 @@ export default function Dashboard({ setTab }) {
   const [generatingType, setGeneratingType] = useState(null); // 'image-to-video', 'text-to-video', or null
   const [videoPromptError, setVideoPromptError] = useState('');
   const [enableVoI2v, setEnableVoI2v] = useState(false);
+  const [voMaxWordsI2v, setVoMaxWordsI2v] = useState(10);
   const [voLanguageI2v, setVoLanguageI2v] = useState('Bahasa Indonesia');
   const [voToneI2v, setVoToneI2v] = useState('casual');
   const [videoDurationI2v, setVideoDurationI2v] = useState('auto');
   const [enableVoT2v, setEnableVoT2v] = useState(false);
+  const [voMaxWordsT2v, setVoMaxWordsT2v] = useState(10);
   const [voLanguageT2v, setVoLanguageT2v] = useState('Bahasa Indonesia');
   const [voToneT2v, setVoToneT2v] = useState('casual');
   const [videoDurationT2v, setVideoDurationT2v] = useState('auto');
@@ -645,12 +647,15 @@ export default function Dashboard({ setTab }) {
       const isTextMethod = userProvider === 'magica'
         ? (magicaVideoMethod === 'text-to-video')
         : (videoGenType === 'text');
-      const basePrompt = isTextMethod ? (t2v || '') : (i2v || '');
-      // NOTE: Voice Over is NO LONGER appended here. VO is configured at storyboard
-      // creation and attached server-side at generation time (single source of truth).
+      let basePrompt = isTextMethod ? (t2v || '') : (i2v || '');
+      if (videoGenerateAudio && narration) {
+        if (!basePrompt.includes(narration)) {
+          basePrompt += `\n\n[Voiceover Narration]:\n"${narration}"`;
+        }
+      }
       setVideoStudioPrompt(basePrompt);
     }
-  }, [modalCarouselIdx, selectedStoryboard, videoGenType, userProvider, magicaVideoMethod]);
+  }, [modalCarouselIdx, selectedStoryboard, videoGenType, userProvider, magicaVideoMethod, videoGenerateAudio]);
 
   useEffect(() => {
     if (selectedStoryboard) {
@@ -850,6 +855,7 @@ export default function Dashboard({ setTab }) {
       // VO on rewrite is driven by the prompt-panel "Sertakan Voice Over" checkbox again, so
       // ticking it and clicking "Tulis Ulang" regenerates the narration → the NASKAH box shows.
       const useVo = promptType === 'text-to-video' ? enableVoT2v : enableVoI2v;
+      const maxWords = promptType === 'text-to-video' ? voMaxWordsT2v : voMaxWordsI2v;
       const lang = promptType === 'text-to-video' ? voLanguageT2v : voLanguageI2v;
       const tone = promptType === 'text-to-video' ? voToneT2v : voToneI2v;
       const durationVal = promptType === 'text-to-video' ? videoDurationT2v : videoDurationI2v;
@@ -859,6 +865,7 @@ export default function Dashboard({ setTab }) {
         promptType,
         regenerate: forceRegenerate,
         enableVo: useVo,
+        voMaxWords: maxWords,
         voLanguage: useVo ? lang : undefined,
         voTone: useVo ? tone : undefined,
         videoDuration: durationVal
@@ -1562,6 +1569,16 @@ export default function Dashboard({ setTab }) {
 
                           {enableVoI2v && (
                             <div className="space-y-1 animate-fadeIn">
+                              <span className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80] block">Batas Maksimal Kata (Scene)</span>
+                              <select 
+                                value={voMaxWordsI2v} 
+                                onChange={(e) => setVoMaxWordsI2v(Number(e.target.value))} 
+                                className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[11px] focus:outline-none focus:border-[#cfae80] transition-all font-semibold mb-1"
+                              >
+                                {[8, 9, 10, 11, 12, 13, 14, 15].map(w => (
+                                  <option key={w} value={w}>{w} Kata Maksimal</option>
+                                ))}
+                              </select>
                               <span className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80] block">Pilih Bahasa Narasi</span>
                               <select 
                                 value={voLanguageI2v} 
@@ -1798,6 +1815,16 @@ export default function Dashboard({ setTab }) {
 
                           {enableVoT2v && (
                             <div className="space-y-1 animate-fadeIn">
+                              <span className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80] block">Batas Maksimal Kata (Scene)</span>
+                              <select 
+                                value={voMaxWordsT2v} 
+                                onChange={(e) => setVoMaxWordsT2v(Number(e.target.value))} 
+                                className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[11px] focus:outline-none focus:border-[#cfae80] transition-all font-semibold mb-1"
+                              >
+                                {[8, 9, 10, 11, 12, 13, 14, 15].map(w => (
+                                  <option key={w} value={w}>{w} Kata Maksimal</option>
+                                ))}
+                              </select>
                               <span className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80] block">Pilih Bahasa Narasi</span>
                               <select 
                                 value={voLanguageT2v} 
