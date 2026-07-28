@@ -151,14 +151,15 @@ function getSceneNarration(storyboard, sceneIdx) {
   } catch (e) { return ''; }
 }
 
-// Finalizes a video prompt's AUDIO. When hasVo is true and narration exists, attach
-// the voiceover directive (line + language + tone + duration timing). If hasVo is false,
-// enforce no-speech. Apply backsound toggle.
+// Finalizes a video prompt's AUDIO. When hasVo is true, keep audio enabled and attach
+// narration directive if present. If hasVo is false, enforce no-speech. Apply backsound toggle.
 function applyAudioDirectives(basePrompt, { hasVo, narration, voLanguage, voTone, durationSec, backsound }) {
   let t = stripVoiceover(basePrompt);
-  if (hasVo && narration) {
-    t += buildVoiceoverDirective(narration, voLanguage, voTone, durationSec);
-  } else if (!hasVo) {
+  if (hasVo) {
+    if (narration) {
+      t += buildVoiceoverDirective(narration, voLanguage, voTone, durationSec);
+    }
+  } else {
     t = enforceNoVoiceover(t);
   }
   if (!backsound) t = applyNoBacksound(t);
@@ -216,7 +217,7 @@ async function generateVideo(req, res) {
     // Video Studio "Hasilkan Audio (VO)" toggle gates whether THIS video speaks it.
     const voCfg = resolveVoConfig(storyboard);
     const sceneNarration = getSceneNarration(storyboard, sceneIdx);
-    const hasVo = !!generateAudio && !!sceneNarration;
+    const hasVo = !!generateAudio;
 
     // Provider routing (Bagian 2): Magica single-video generation — bypasses the
     // Freebeat key requirement + inline CLI spawn entirely.
@@ -352,7 +353,7 @@ async function generateVideo(req, res) {
         if (duration) spawnArgs.push('--duration', String(duration));
         if (resolution) spawnArgs.push('--resolution', resolution);
         if (aspectRatio && aspectRatio !== 'auto') spawnArgs.push('--aspect-ratio', aspectRatio);
-        if ((hasVo || backsound) && /pixverse/i.test(model || '')) spawnArgs.push('--generate-audio'); // Freebeat: only Pixverse C1/V6 accept --generate-audio
+        if (generateAudio || hasVo || backsound) spawnArgs.push('--generate-audio');
 
         const child = spawn(spawnCmd, spawnArgs);
 
@@ -970,7 +971,7 @@ async function runSingleVideoSpawn(vRecId, tId, kRec, pText, scImg, model, gener
       if (duration) spawnArgs.push('--duration', String(duration));
       if (resolution) spawnArgs.push('--resolution', resolution);
       if (aspectRatio && aspectRatio !== 'auto') spawnArgs.push('--aspect-ratio', aspectRatio);
-      if (generateAudio && /pixverse/i.test(model || '')) spawnArgs.push('--generate-audio'); // Freebeat: only Pixverse C1/V6 accept --generate-audio
+      if (generateAudio) spawnArgs.push('--generate-audio');
 
       await new Promise((resolve, reject) => {
         const child = spawn(spawnCmd, spawnArgs);
