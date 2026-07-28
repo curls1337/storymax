@@ -134,30 +134,40 @@ async function writePrompt(req, res) {
     return res.status(400).json({ message: 'Ide kasar (concept) harus diisi.' });
   }
 
-  // Predefined diverse commercial themes to prevent LLM selection bias for random ideas
-  const RANDOM_THEMES = [
-    "Iklan parfum mewah aroma alam dengan suasana hutan berkabut pagi hari yang misterius dan premium.",
-    "Iklan sepatu lari futuristik ultra-ringan dengan kilatan listrik neon dinamis di landasan pacu.",
-    "Iklan lipstik merah ceri glossy dengan nuansa fashion moodboard retro dan transisi cepat ala reels.",
-    "Iklan jam tangan mekanik mewah dengan detail roda gigi kuningan berputar lambat dan presisi tinggi.",
-    "Iklan smartwatch olahraga tangguh yang sedang diuji di bawah cipratan air ekstrem dan lumpur.",
-    "Iklan cokelat cair premium meleleh yang dituangkan perlahan ke atas kue tart stroberi segar.",
-    "Iklan kopi espresso susu hangat (latte art) yang diracik barista di kafe estetik berkayu hangat.",
-    "Iklan mainan action figure robot mecha futuristik yang sedang dirakit secara detail di meja kerja.",
-    "Iklan keyboard mekanikal RGB kustom dengan keycaps warna pastel retro bergaya komik/pop-art.",
-    "Iklan tas ransel petualangan outdoor anti-air yang dibawa mendaki menembus hujan di puncak gunung.",
-    "Iklan lilin aromaterapi menenangkan dengan kepulan asap tipis di samping buku grimoire mistis hangat.",
-    "Iklan minuman kaleng bersoda dingin yang menyegarkan dengan ledakan gelembung and es batu pecah.",
-    "Iklan casing smartphone estetik dengan coretan tangan bergaya seni jalanan perkotaan (cyberpunk/pop-art).",
-    "Iklan perhiasan kalung emas berlian elegan yang berkilau di leher model di galeri seni beton modern.",
-    "Iklan kue kering kering mentega (cookies) yang baru matang diangkat dari oven dapur kayu pedesaan.",
-    "Iklan paket perkakas kayu vintage (palu, penggaris logam) di atas meja tukang kayu berdebu estetik."
+  // Dynamic AI Creative Matrix pools to generate infinite, non-repetitive commercial ideas
+  const CREATIVE_NICHES = [
+    "Skincare & Beauty Luxury (serum kristal bening, krim herbal, botol pipet)",
+    "Cyberpunk Streetwear & Sneakers (sepatu lari neon, jaket techwear, lampu jalanan)",
+    "Gourmet Culinary & Beverage ASMR (espresso latte hangat, soda dingin es batu pecah, cookies oven)",
+    "Automotive & Motor Racing (helm karbon matte, mobil sport di jalanan kota berkilat basah)",
+    "Luxury Jewelry & Horology (jam tangan mekanis roda gigi kuningan, kalung berlian)",
+    "High-Tech Wearable Gadgets (headphone wireless kulit, smartwatch titanium)",
+    "Outdoor Adventure & Travel (tas ransel gunung anti-air, puncak gunung bersalju saat fajar)",
+    "Home Decor & Aromatherapy (lilin aromaterapi kayu cendana, wadah keramik estetik)"
   ];
 
-  let selectedConcept = concept;
-  if (concept === 'minta_ide_acak') {
-    const randomIndex = Math.floor(Math.random() * RANDOM_THEMES.length);
-    selectedConcept = RANDOM_THEMES[randomIndex];
+  const VISUAL_AESTHETICS = [
+    "Cinematic Dark & Dramatic Rim-Light Studio (pencahayaan studio gelap dengan sorotan emas/kristal)",
+    "Scandinavian Natural Warm Sunset (suasana hangat kayu, cahaya matahari senja menembus jendela)",
+    "Cyberpunk Neon Rain & Urban Night (lampu kota malam hari dipantulkan permukaan jalan basah)",
+    "Minimalist High-Fashion Editorial (desain bersih, warna pastel netral, kontras tajam)",
+    "Surrealist Floating Elements (elemen melayang di udara dengan nuansa magis & elegan)",
+    "Retro Vintage 90s Film Grain (nuansa sinematik klasik dengan tekstur warna hangat)"
+  ];
+
+  const CAMERA_ACTIONS = [
+    "360-degree smooth orbit tracking shot (kamera berputar melingkari produk secara halus)",
+    "Macro close-up slow-motion liquid/texture splash (percikan cairan/tekstur makro lambat)",
+    "Explode assembly in mid-air (komponen produk terpisah melayang lalu menyatu kembali presisi)",
+    "Dynamic FP-shot fast push-in tracking (kamera meluncur cepat mendekati aksi hero produk)",
+    "Reverse motion tactile ASMR interaction (sentuhan fisik produk dengan gerakan lambat memanjakan mata)"
+  ];
+
+  let rawKeyword = '';
+  let isRandomIdea = false;
+  if (concept && concept.startsWith('minta_ide_acak')) {
+    isRandomIdea = true;
+    rawKeyword = concept.includes(':') ? concept.split(':').slice(1).join(':').trim() : '';
   }
 
   try {
@@ -179,11 +189,11 @@ async function writePrompt(req, res) {
     const styleExists = style && LAYOUT_STYLES.some(s => s.value === style);
     
     if (styleExists) {
-      systemInstruction = `Anda adalah seorang sutradara video iklan komersial profesional dan desainer storyboard.
-Tugas Anda adalah menerima ide kasar dari pengguna, lalu menghasilkan:
-1. Sebuah Judul Proyek yang elegan, padat, dan premium (maksimal 5 kata).
-2. Sebuah Deskripsi Storyboard rinci yang siap digunakan sebagai prompt AI (berisi detail visual, gaya sinematik, sudut kamera, warna, dan pencahayaan) yang secara khusus ditulis agar serasi dan cocok dengan gaya layout storyboard: "${style}".
-3. Key 'layout' harus bernilai "${style}" (karena pengguna telah memilih gaya ini).
+      systemInstruction = `Anda adalah seorang Sutradara Iklan Komersial & Creative Director World-Class.
+Tugas Anda adalah memfasilitasi ideasi storyboard kreatif pengguna dan menghasilkan:
+1. 'title': Judul Proyek yang elegan, padat, dan sinematik (maksimal 5 kata).
+2. 'description': Deskripsi Storyboard rinci yang siap digunakan sebagai prompt AI (berisi detail visual, gaya sinematik, sudut kamera, warna, dan pencahayaan) yang secara khusus diselaraskan dan cocok dengan gaya layout storyboard: "${style}".
+3. 'layout': Wajib bernilai "${style}" (karena pengguna telah memilih gaya ini).
 
 PENTING: Tulis deskripsi secara ringkas, padat, dan sinematik. Total panjang teks untuk nilai 'description' HARUS DI BAWAH 1500 karakter agar muat saat digabung dengan master prompt. Jangan bertele-tele.
 
@@ -194,11 +204,11 @@ Anda harus mengembalikan respon hanya dalam format JSON mentah dengan key 'title
   "layout": "${style}"
 }`;
     } else {
-      systemInstruction = `Anda adalah seorang sutradara video iklan komersial profesional dan desainer storyboard.
-Tugas Anda adalah menerima ide kasar dari pengguna, lalu menghasilkan:
-1. Sebuah Judul Proyek yang elegan, padat, dan premium (maksimal 5 kata).
-2. Sebuah Deskripsi Storyboard rinci yang siap digunakan sebagai prompt AI (berisi detail visual, gaya sinematik, sudut kamera, warna, dan pencahayaan).
-3. Memilih satu Gaya Layout Storyboard yang paling cocok untuk ide/konsep tersebut dari daftar gaya berikut:
+      systemInstruction = `Anda adalah seorang Sutradara Iklan Komersial & Creative Director World-Class.
+Tugas Anda adalah memfasilitasi ideasi storyboard kreatif pengguna dan menghasilkan:
+1. 'title': Judul Proyek yang elegan, padat, dan sinematik (maksimal 5 kata).
+2. 'description': Deskripsi Storyboard rinci yang siap digunakan sebagai prompt AI (berisi detail visual, gaya sinematik, sudut kamera, warna, dan pencahayaan).
+3. 'layout': Memilih satu Gaya Layout Storyboard yang PALING COCK dan paling presisi untuk ide/konsep tersebut dari daftar gaya berikut:
 ${layoutListText}
 
 PENTING: Tulis deskripsi secara ringkas, padat, dan sinematik. Total panjang teks untuk nilai 'description' HARUS DI BAWAH 1500 karakter agar muat saat digabung dengan master prompt. Jangan bertele-tele.
@@ -211,9 +221,26 @@ Anda harus mengembalikan respon hanya dalam format JSON mentah dengan key 'title
 }`;
     }
 
-    let userMessageContent = concept === 'minta_ide_acak'
-      ? `Buatlah konsep ide video komersial lengkap yang menarik berdasarkan tema acak berikut: "${selectedConcept}"`
-      : `Ide Kasar: ${concept}`;
+    let userMessageContent = '';
+    if (isRandomIdea) {
+      const pickNiche = CREATIVE_NICHES[Math.floor(Math.random() * CREATIVE_NICHES.length)];
+      const pickVisual = VISUAL_AESTHETICS[Math.floor(Math.random() * VISUAL_AESTHETICS.length)];
+      const pickAction = CAMERA_ACTIONS[Math.floor(Math.random() * CAMERA_ACTIONS.length)];
+
+      if (rawKeyword) {
+        userMessageContent = `Buatlah konsep ide iklan sinematik yang kreatif dan belum pernah ada sebelumnya berdasarkan kata kunci produk pengguna: "${rawKeyword}".
+Padukan kata kunci produk tersebut secara harmonis dengan pengarahan estetik berikut:
+- Tema Visual & Aesthetic: ${pickVisual}
+- Gerakan Kamera & Aksi Visual: ${pickAction}`;
+      } else {
+        userMessageContent = `Buatlah ide konsep video komersial lengkap yang sangat kreatif, segar, dan sinematik berdasarkan kombinasi matriks ideasi acak berikut:
+- Niche Produk: ${pickNiche}
+- Gaya Visual & Pencahayaan: ${pickVisual}
+- Pergerakan Kamera & Aksi: ${pickAction}`;
+      }
+    } else {
+      userMessageContent = `Ide Kasar Pengguna: ${concept}`;
+    }
 
     // Calculate pageCount and totalPanels based on video engine and duration
     let secondsPerPage = 15;

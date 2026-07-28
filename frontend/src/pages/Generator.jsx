@@ -866,11 +866,11 @@ export default function Generator({ setTab }) {
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleGenerateAiPrompt('minta_ide_acak')}
+                    onClick={() => handleGenerateAiPrompt(aiInput.trim() ? `minta_ide_acak:${aiInput.trim()}` : 'minta_ide_acak')}
                     className="flex-grow bg-[#1a1918] hover:bg-[#2a2725] text-[#cfae80] border border-[#cfae80]/20 font-bold py-1.5 rounded-lg transition-all text-[8.5px] uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer"
                     disabled={aiLoading || generating}
                   >
-                    {aiLoading && aiInput.trim() === '' ? <Loader className="animate-spin w-3 h-3" /> : null}
+                    {aiLoading ? <Loader className="animate-spin w-3 h-3" /> : <Sparkles className="w-3 h-3 text-[#cfae80]" />}
                     Minta Ide
                   </button>
                 </div>
