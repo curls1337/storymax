@@ -605,6 +605,128 @@ async function restoreDatabase(req, res) {
   }
 }
 
+async function executeDatabaseRestoreFromFile(db, tempFilePath) {
+  const readline = require('readline');
+
+  if (!fs.existsSync(tempFilePath)) {
+    throw new Error('File backup temporary tidak ditemukan.');
+  }
+
+  const stats = fs.statSync(tempFilePath);
+  // For files smaller than 15MB, parse directly
+  if (stats.size < 15 * 1024 * 1024) {
+    const rawText = fs.readFileSync(tempFilePath, 'utf8').trim();
+    const payload = JSON.parse(rawText);
+    return await executeDatabaseRestorePayload(db, payload);
+  }
+
+  // For large files (>15MB), stream line-by-line to keep RAM usage under 15MB
+  await db.run('PRAGMA foreign_keys = OFF');
+  await db.run('BEGIN');
+
+  const restored = {};
+  for (const t of BACKUP_TABLES) {
+    restored[t] = 0;
+  }
+
+  const tableSchemas = {};
+  for (const t of BACKUP_TABLES) {
+    const info = await db.all(`PRAGMA table_info(${t})`);
+    tableSchemas[t] = new Set(info.map((c) => c.name));
+  }
+
+  let currentTable = null;
+  let inTablesBlock = false;
+  let objectBuffer = [];
+  let braceDepth = 0;
+  let inObject = false;
+
+  const clearedTables = new Set();
+  const fileStream = fs.createReadStream(tempFilePath, { encoding: 'utf8' });
+  const rl = readline.createInterface({
+    input: fileStream,
+    crlfDelay: Infinity,
+  });
+
+  try {
+    for await (const line of rl) {
+      const trimmed = line.trim();
+
+      if (!inTablesBlock) {
+        if (trimmed.includes('"tables"') || trimmed.includes("'tables'")) {
+          inTablesBlock = true;
+        }
+        continue;
+      }
+
+      for (const t of BACKUP_TABLES) {
+        const tableHeaderRegex = new RegExp(`"${t}"\\s*:\\s*\\[`);
+        if (tableHeaderRegex.test(trimmed)) {
+          currentTable = t;
+          if (!clearedTables.has(currentTable)) {
+            await db.run(`DELETE FROM ${currentTable}`);
+            clearedTables.add(currentTable);
+          }
+          break;
+        }
+      }
+
+      if (!currentTable) continue;
+
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '{') {
+          if (braceDepth === 0) {
+            inObject = true;
+            objectBuffer = [];
+          }
+          braceDepth++;
+        }
+
+        if (inObject) {
+          objectBuffer.push(char);
+        }
+
+        if (char === '}') {
+          braceDepth--;
+          if (braceDepth === 0 && inObject) {
+            inObject = false;
+            const objStr = objectBuffer.join('');
+            try {
+              const cleanObjStr = objStr.replace(/,\s*$/, '');
+              const row = JSON.parse(cleanObjStr);
+
+              const validCols = tableSchemas[currentTable];
+              if (validCols && row && typeof row === 'object') {
+                const cols = Object.keys(row).filter((c) => validCols.has(c));
+                if (cols.length > 0) {
+                  const placeholders = cols.map(() => '?').join(', ');
+                  const values = cols.map((c) => row[c]);
+                  await db.run(
+                    `INSERT INTO ${currentTable} (${cols.map((c) => `"${c}"`).join(', ')}) VALUES (${placeholders})`,
+                    values
+                  );
+                  restored[currentTable]++;
+                }
+              }
+            } catch (e) {}
+            objectBuffer = [];
+          }
+        }
+      }
+    }
+
+    await db.run('COMMIT');
+  } catch (err) {
+    try { await db.run('ROLLBACK'); } catch (e) {}
+    throw err;
+  } finally {
+    await db.run('PRAGMA foreign_keys = ON');
+  }
+
+  return restored;
+}
+
 // Chunked Restore for large files (>10MB) to easily bypass Cloudflare / Nginx / Sevalla 100MB proxy limits
 async function restoreChunkDatabase(req, res) {
   const db = getDb();
@@ -629,18 +751,16 @@ async function restoreChunkDatabase(req, res) {
     fs.appendFileSync(tempFilePath, chunkBuffer);
 
     if (chunkIndex >= totalChunks - 1) {
-      let payload = null;
+      let restored = null;
       try {
-        const fileContent = fs.readFileSync(tempFilePath, 'utf8').trim();
-        payload = JSON.parse(fileContent);
-      } catch (parseErr) {
-        try { fs.unlinkSync(tempFilePath); } catch (e) {}
-        return res.status(400).json({ message: 'Gagal membaca data backup dari chunk (file corrupt atau terpotong).' });
+        restored = await executeDatabaseRestoreFromFile(db, tempFilePath);
+      } catch (restoreErr) {
+        console.error('Execute restore from file error:', restoreErr);
+        return res.status(500).json({ message: 'Gagal memproses data backup: ' + restoreErr.message });
       } finally {
         try { fs.unlinkSync(tempFilePath); } catch (e) {}
       }
 
-      const restored = await executeDatabaseRestorePayload(db, payload);
       return res.status(200).json({
         status: 'complete',
         message: 'Restore database berhasil.',
