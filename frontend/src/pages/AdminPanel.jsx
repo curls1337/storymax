@@ -563,11 +563,35 @@ const PRESET_AI_MODELS = [
         setRestoreProgress(progressPercent);
       }
 
-      const r = (lastRes && lastRes.data && lastRes.data.restored) || {};
+      // Poll background status until completed or failed
+      let isDone = false;
+      let attempts = 0;
+      let finalRestored = null;
+
+      while (!isDone && attempts < 120) { // max 4 minutes
+        attempts++;
+        await new Promise((r) => setTimeout(r, 1500));
+        try {
+          const statusRes = await api.get('/admin/restore-status');
+          const st = statusRes.data || {};
+          if (st.status === 'completed') {
+            isDone = true;
+            finalRestored = st.restored || {};
+          } else if (st.status === 'failed') {
+            isDone = true;
+            throw new Error(st.message || st.error || 'Gagal me-restore database di background.');
+          }
+        } catch (pollErr) {
+          if (pollErr.message && pollErr.message.includes('Gagal me-restore')) throw pollErr;
+          // Ignore transient network glitches during polling
+        }
+      }
+
+      const r = finalRestored || (lastRes && lastRes.data && lastRes.data.restored) || {};
       setMessage('Restore berhasil (' + Object.entries(r).map(([k, v]) => `${k} ${v}`).join(', ') + '). Muat ulang halaman / login kembali bila perlu.');
       loadData();
     } catch (err) {
-      setError(err.response?.data?.message || 'Gagal me-restore database.');
+      setError(err.response?.data?.message || err.message || 'Gagal me-restore database.');
     } finally {
       setRestoreLoading(false);
       setRestoreProgress(0);

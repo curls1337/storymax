@@ -622,6 +622,8 @@ async function executeDatabaseRestoreFromFile(db, tempFilePath) {
 
   // For large files (>15MB), stream line-by-line to keep RAM usage under 15MB
   await db.run('PRAGMA foreign_keys = OFF');
+  await db.run('PRAGMA synchronous = OFF');
+  await db.run('PRAGMA journal_mode = MEMORY');
   await db.run('BEGIN');
 
   const restored = {};
@@ -721,10 +723,24 @@ async function executeDatabaseRestoreFromFile(db, tempFilePath) {
     try { await db.run('ROLLBACK'); } catch (e) {}
     throw err;
   } finally {
-    await db.run('PRAGMA foreign_keys = ON');
+    try { await db.run('PRAGMA synchronous = NORMAL'); } catch (e) {}
+    try { await db.run('PRAGMA journal_mode = WAL'); } catch (e) {}
+    try { await db.run('PRAGMA foreign_keys = ON'); } catch (e) {}
   }
 
   return restored;
+}
+
+let restoreJobStatus = {
+  status: 'idle',
+  progress: 0,
+  message: '',
+  restored: null,
+  error: null,
+};
+
+async function getRestoreStatus(req, res) {
+  res.json(restoreJobStatus);
 }
 
 // Chunked Restore for large files (>10MB) to easily bypass Cloudflare / Nginx / Sevalla 100MB proxy limits
@@ -751,21 +767,41 @@ async function restoreChunkDatabase(req, res) {
     fs.appendFileSync(tempFilePath, chunkBuffer);
 
     if (chunkIndex >= totalChunks - 1) {
-      let restored = null;
-      try {
-        restored = await executeDatabaseRestoreFromFile(db, tempFilePath);
-      } catch (restoreErr) {
-        console.error('Execute restore from file error:', restoreErr);
-        return res.status(500).json({ message: 'Gagal memproses data backup: ' + restoreErr.message });
-      } finally {
-        try { fs.unlinkSync(tempFilePath); } catch (e) {}
-      }
+      restoreJobStatus = {
+        status: 'processing',
+        progress: 0,
+        message: 'File selesai diunggah. Memulihkan database di background...',
+        restored: null,
+        error: null,
+      };
+
+      // Run restore asynchronously in background to finish HTTP request in 0.01 seconds (0 proxy timeouts!)
+      (async () => {
+        try {
+          const restored = await executeDatabaseRestoreFromFile(db, tempFilePath);
+          restoreJobStatus = {
+            status: 'completed',
+            progress: 100,
+            message: 'Restore database berhasil.',
+            restored,
+            error: null,
+          };
+        } catch (restoreErr) {
+          console.error('Execute restore from file error:', restoreErr);
+          restoreJobStatus = {
+            status: 'failed',
+            progress: 0,
+            message: 'Gagal memproses data backup: ' + restoreErr.message,
+            error: restoreErr.message,
+          };
+        } finally {
+          try { fs.unlinkSync(tempFilePath); } catch (e) {}
+        }
+      })();
 
       return res.status(200).json({
-        status: 'complete',
-        message: 'Restore database berhasil.',
-        restored,
-        note: 'Data lama telah diganti. Anda mungkin perlu login ulang.',
+        status: 'processing',
+        message: 'File backup berhasil diunggah. Database sedang dipulihkan di background...',
       });
     } else {
       return res.status(200).json({
@@ -1000,6 +1036,7 @@ module.exports = {
   backupDatabase,
   restoreDatabase,
   restoreChunkDatabase,
+  getRestoreStatus,
   getMagicaKeys,
   addMagicaKey,
   addMagicaKeysBulk,

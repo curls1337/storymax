@@ -47,6 +47,7 @@ router.delete('/files', deleteStorageFile);
 
 // Database Backup & Restore (server migration)
 router.get('/backup', backupDatabase);
+router.get('/restore-status', getRestoreStatus);
 router.post('/restore', express.raw({ type: '*/*', limit: '1000mb' }), restoreDatabase);
 router.post('/restore-chunk', express.raw({ type: '*/*', limit: '50mb' }), restoreChunkDatabase);
 
