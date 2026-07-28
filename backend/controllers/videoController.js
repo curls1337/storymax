@@ -212,11 +212,11 @@ async function generateVideo(req, res) {
       return res.status(400).json({ message: 'Gambar scene tidak ditemukan.' });
     }
 
-    // VO source of truth = the storyboard's setting + its stored per-scene narration.
-    // (No Video Studio VO toggle anymore — it's derived here and auto-attached below.)
+    // VO script + tone/language come from the STORYBOARD (single source of truth); the
+    // Video Studio "Hasilkan Audio (VO)" toggle gates whether THIS video speaks it.
     const voCfg = resolveVoConfig(storyboard);
     const sceneNarration = getSceneNarration(storyboard, sceneIdx);
-    const hasVo = voCfg.enableVo && !!sceneNarration;
+    const hasVo = !!generateAudio && !!sceneNarration;
 
     // Provider routing (Bagian 2): Magica single-video generation — bypasses the
     // Freebeat key requirement + inline CLI spawn entirely.
@@ -1239,7 +1239,7 @@ async function generateAllVideos(req, res) {
         // no Video Studio VO toggle. Backsound stays a per-video toggle.
         const voCfg = resolveVoConfig(storyboard);
         const sceneNarration = (matchingPrompt && matchingPrompt.narration) ? String(matchingPrompt.narration).trim() : '';
-        const hasVo = voCfg.enableVo && !!sceneNarration;
+        const hasVo = !!generateAudio && !!sceneNarration;
         promptText = applyAudioDirectives(promptText, { hasVo, narration: sceneNarration, voLanguage: voCfg.voLanguage, voTone: voCfg.voTone, durationSec: duration, backsound });
 
         // Resolve scene image
