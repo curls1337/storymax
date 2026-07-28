@@ -1524,14 +1524,7 @@ export default function Dashboard({ setTab }) {
                           {imageToVideoPrompt}
                         </div>
                         
-                        {narration && (
-                          <div className="bg-[#cfae80]/10 border border-[#cfae80]/30 rounded-xl p-3 text-[11px] leading-relaxed text-[#cfae80] font-sans animate-fadeIn">
-                            <span className="text-[8.5px] font-bold uppercase tracking-widest text-[#cfae80] flex items-center gap-1 mb-1">
-                              🎙️ Naskah Voice Over (VO)
-                            </span>
-                            "{narration}"
-                          </div>
-                        )}
+                        {/* Naskah Voice Over dihapus dari panel prompt — VO kini tampil di storyboard & otomatis dipakai saat generate */}
                         
                         {/* Options block for rewriting */}
                         <div className="flex flex-col gap-2.5 bg-[#131211]/30 border border-[#2a2725] rounded-xl p-3 mt-1.5">
@@ -1744,14 +1737,7 @@ export default function Dashboard({ setTab }) {
                           {textToVideoPrompt}
                         </div>
                         
-                        {narration && (
-                          <div className="bg-[#cfae80]/10 border border-[#cfae80]/30 rounded-xl p-3 text-[11px] leading-relaxed text-[#cfae80] font-sans animate-fadeIn">
-                            <span className="text-[8.5px] font-bold uppercase tracking-widest text-[#cfae80] flex items-center gap-1 mb-1">
-                              🎙️ Naskah Voice Over (VO)
-                            </span>
-                            "{narration}"
-                          </div>
-                        )}
+                        {/* Naskah Voice Over dihapus dari panel prompt — VO kini tampil di storyboard & otomatis dipakai saat generate */}
                         
                         {/* Options block for rewriting */}
                         <div className="flex flex-col gap-2.5 bg-[#131211]/30 border border-[#2a2725] rounded-xl p-3 mt-1.5">
