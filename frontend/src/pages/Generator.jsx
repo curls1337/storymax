@@ -61,6 +61,7 @@ export default function Generator({ setTab }) {
   
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [hoveredStyle, setHoveredStyle] = useState(null);
+  const [styleSearch, setStyleSearch] = useState(''); // filter for the layout-style dropdown
   const dropdownRef = useRef(null);
   
   const [selectedRefImages, setSelectedRefImages] = useState([]);
@@ -694,29 +695,47 @@ export default function Generator({ setTab }) {
 
           <div className={`relative ${dropdownOpen ? 'z-50' : 'z-10'}`} ref={dropdownRef}>
             <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Gaya Layout Storyboard</label>
-            <button type="button" onClick={() => setDropdownOpen(!dropdownOpen)} className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-[#cfae80] transition-all text-xs text-left flex justify-between items-center" disabled={generating}>
+            <button type="button" onClick={() => { setDropdownOpen(!dropdownOpen); setStyleSearch(''); }} className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-[#cfae80] transition-all text-xs text-left flex justify-between items-center" disabled={generating}>
               <span className="truncate">{LAYOUT_STYLES.find(opt => opt.value === style)?.label || 'Pilih Gaya Layout'}</span>
               <ChevronRight className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${dropdownOpen ? 'rotate-90' : ''}`} />
             </button>
             {dropdownOpen && (
-              <div className="absolute left-0 mt-1.5 w-full bg-[#1a1918] border border-[#2a2725] rounded-xl shadow-2xl z-50 flex max-h-64">
-                <div className="flex-grow overflow-y-auto py-1 divide-y divide-[#2a2725] scrollbar-thin">
-                  {LAYOUT_STYLES.map((opt) => (
-                    <button 
-                      key={opt.value} 
-                      type="button" 
-                      onClick={() => { setStyle(opt.value); setDropdownOpen(false); setHoveredStyle(null); setAiMatchedLayout(null); }} 
-                      onMouseEnter={() => setHoveredStyle(opt.value)}
-                      onMouseLeave={() => setHoveredStyle(null)}
-                      className={`w-full text-left px-3 py-2.5 hover:bg-[#cfae80]/10 text-xs transition-colors flex flex-col gap-0.5 ${style === opt.value ? 'bg-[#cfae80]/20 text-white font-bold' : 'text-slate-350'}`}
-                    >
-                      <span className="truncate">{opt.label}</span>
-                      <span className="text-[9px] text-slate-500 font-normal">{opt.desc}</span>
-                    </button>
-                  ))}
+              <div className="absolute left-0 mt-1.5 w-full bg-[#1a1918] border border-[#2a2725] rounded-xl shadow-2xl z-50 flex flex-col max-h-72">
+                {/* Search box to filter layout styles by name / description / category */}
+                <div className="p-2 border-b border-[#2a2725] shrink-0">
+                  <input
+                    type="text"
+                    autoFocus
+                    value={styleSearch}
+                    onChange={(e) => setStyleSearch(e.target.value)}
+                    placeholder="Cari gaya layout… (mis. edukasi, iklan, ASMR)"
+                    className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[11px] focus:outline-none focus:border-[#cfae80] transition-all"
+                  />
                 </div>
-
-
+                <div className="flex-grow overflow-y-auto py-1 divide-y divide-[#2a2725] scrollbar-thin">
+                  {(() => {
+                    const q = styleSearch.trim().toLowerCase();
+                    const filtered = q
+                      ? LAYOUT_STYLES.filter((o) => `${o.label} ${o.desc} ${o.category || ''}`.toLowerCase().includes(q))
+                      : LAYOUT_STYLES;
+                    if (filtered.length === 0) {
+                      return <div className="px-3 py-4 text-[10px] text-slate-500 text-center">Tidak ada gaya cocok "{styleSearch}"</div>;
+                    }
+                    return filtered.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => { setStyle(opt.value); setDropdownOpen(false); setHoveredStyle(null); setAiMatchedLayout(null); setStyleSearch(''); }}
+                        onMouseEnter={() => setHoveredStyle(opt.value)}
+                        onMouseLeave={() => setHoveredStyle(null)}
+                        className={`w-full text-left px-3 py-2.5 hover:bg-[#cfae80]/10 text-xs transition-colors flex flex-col gap-0.5 ${style === opt.value ? 'bg-[#cfae80]/20 text-white font-bold' : 'text-slate-350'}`}
+                      >
+                        <span className="truncate">{opt.label}</span>
+                        <span className="text-[9px] text-slate-500 font-normal">{opt.desc}</span>
+                      </button>
+                    ));
+                  })()}
+                </div>
               </div>
             )}
             
