@@ -328,7 +328,7 @@ export default function App() {
             <Loader className={`w-4 h-4 text-[#cfae80] ${pullDistance >= 80 ? 'animate-spin' : ''}`} />
           </div>
         )}
-        <div className="w-full min-h-full flex flex-col justify-start px-4 sm:px-6 md:px-8 py-6 md:py-8">
+        <div className="w-full min-h-full flex flex-col justify-start px-2 sm:px-6 md:px-8 py-2 sm:py-6 md:py-8">
           {tab === 'dashboard' && <Dashboard setTab={setTab} />}
           {tab === 'generator' && <Generator setTab={setTab} />}
           {tab === '3d' && <ThreeD />}

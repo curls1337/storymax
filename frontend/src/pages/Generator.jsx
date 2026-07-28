@@ -616,7 +616,7 @@ export default function Generator({ setTab }) {
   );
 
   return (
-    <div className="p-3 sm:p-6 md:p-8 space-y-4 sm:space-y-6 md:space-y-8 animate-fadeIn relative">
+    <div className="p-1 sm:p-4 md:p-6 space-y-3 sm:space-y-6 animate-fadeIn relative">
       <div className="hidden sm:flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[#1a1918]/60 border border-[#2a2725] p-3.5 sm:p-6 rounded-2xl md:rounded-3xl backdrop-blur-md">
         <div>
           <h1 className="text-xl sm:text-2xl md:text-4xl font-editorial italic text-white tracking-tight flex items-center gap-2">
@@ -627,8 +627,8 @@ export default function Generator({ setTab }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        <form onSubmit={handleGenerate} className={`lg:col-span-5 bg-[#1a1918]/60 border border-[#2a2725] rounded-2xl p-3 md:p-5 space-y-3 md:space-y-4.5 backdrop-blur-md relative ${dropdownOpen ? 'z-40' : 'z-10'}`}>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-8 items-start">
+        <form onSubmit={handleGenerate} className={`lg:col-span-5 bg-[#1a1918]/60 border border-[#2a2725] rounded-2xl p-3 sm:p-4 md:p-5 space-y-3 md:space-y-4.5 backdrop-blur-md relative ${dropdownOpen ? 'z-40' : 'z-10'}`}>
           <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#cfae80]/25 to-transparent"></div>
           <div className="flex items-center gap-1.5 border-b border-[#2a2725] pb-2">
             <Sliders className="w-3.5 h-3.5 text-[#cfae80]" />

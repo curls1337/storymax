@@ -1015,7 +1015,7 @@ export default function Dashboard({ setTab }) {
   }
 
   return (
-    <div className="p-3 md:p-8 space-y-5 md:space-y-10 animate-fadeIn font-sans relative">
+    <div className="p-1 sm:p-4 md:p-8 space-y-4 md:space-y-10 animate-fadeIn font-sans relative">
       {/* Header Section */}
       {/* Desktop Header */}
       <div className="hidden md:flex flex-row justify-between items-center gap-6 border-b border-[#2a2725] pb-6">
