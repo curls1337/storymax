@@ -75,18 +75,27 @@ export default function App() {
     const mainEl = mainRef.current;
     if (!mainEl) return;
 
-    const ACTIVATE = 14;   // dead-zone: ignore the first 14px before a drag counts as a pull
-    const MAX = 100;       // indicator travel cap
-    const THRESHOLD = 80;  // must pull at least this far (past the dead-zone) to refresh
+    const ACTIVATE = 30;   // dead-zone: require 30px downward drag before pull activates
+    const MAX = 110;       // indicator travel cap
+    const THRESHOLD = 100; // require 100px intentional downward drag to trigger refresh
 
     const setPull = (d) => { pullDistanceRef.current = d; setPullDistance(d); };
 
     const handleTouchStart = (e) => {
       const t = e.touches[0];
+      // Only eligible if the touch starts at the VERY TOP edge of the screen (top 90px)
+      const isNearTopEdge = t.clientY <= 90;
+      // Ignore touch gestures originating inside scrollable dropdowns, textareas, or form inputs
+      const isInsideScrollable = e.target && e.target.closest && (
+        e.target.closest('.overflow-y-auto') ||
+        e.target.closest('select') ||
+        e.target.closest('textarea')
+      );
+
       gestureRef.current = {
         startY: t.screenY,
         startX: t.screenX,
-        active: mainEl.scrollTop <= 0, // eligible ONLY when the touch starts at the very top
+        active: isNearTopEdge && mainEl.scrollTop <= 0 && !isInsideScrollable,
         pulling: false,
       };
     };
