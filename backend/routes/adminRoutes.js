@@ -47,7 +47,7 @@ router.delete('/files', deleteStorageFile);
 
 // Database Backup & Restore (server migration)
 router.get('/backup', backupDatabase);
-router.post('/restore', express.json({ limit: '1000mb' }), restoreDatabase);
+router.post('/restore', express.raw({ type: '*/*', limit: '1000mb' }), restoreDatabase);
 
 // Magica (multi-provider) API key pool + per-user access
 router.get('/magica/keys', getMagicaKeys);

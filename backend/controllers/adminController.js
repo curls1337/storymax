@@ -537,8 +537,32 @@ async function backupDatabase(req, res) {
 async function restoreDatabase(req, res) {
   const db = getDb();
   try {
-    // Accept either the backup object directly, or wrapped as { backup: {...} }.
-    const payload = req.body && req.body.tables ? req.body : (req.body && req.body.backup);
+    let payload = null;
+
+    if (req.body && Buffer.isBuffer(req.body)) {
+      try {
+        const rawStr = req.body.toString('utf8').trim();
+        payload = JSON.parse(rawStr);
+      } catch (e) {}
+    } else if (req.body && typeof req.body === 'object') {
+      payload = req.body.tables ? req.body : req.body.backup;
+    }
+
+    if (!payload) {
+      const chunks = [];
+      for await (const chunk of req) {
+        chunks.push(chunk);
+      }
+      const rawText = Buffer.concat(chunks).toString('utf8').trim();
+      if (rawText) {
+        try {
+          payload = JSON.parse(rawText);
+        } catch (e) {}
+      }
+    }
+
+    if (payload && payload.backup) payload = payload.backup;
+
     if (!payload || payload.type !== 'db-backup' || !payload.tables || typeof payload.tables !== 'object') {
       return res.status(400).json({ message: 'File backup tidak valid. Pastikan ini file backup StoryMax (.json).' });
     }

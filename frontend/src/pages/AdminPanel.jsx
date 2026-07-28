@@ -538,7 +538,8 @@ const PRESET_AI_MODELS = [
 
     setRestoreLoading(true);
     try {
-      const res = await api.post('/admin/restore', backup, {
+      const res = await api.post('/admin/restore', file, {
+        headers: { 'Content-Type': 'application/octet-stream' },
         maxBodyLength: Infinity,
         maxContentLength: Infinity,
       });
