@@ -4,7 +4,7 @@ const {
   getAllKeys, addKey, addKeysBulk, toggleKeyStatus, deleteKey, deleteKeysBulk,
   getAiSettings, updateAiSettings, testAiSettings,
   getStorageFiles, deleteStorageFile,
-  backupDatabase, restoreDatabase, restoreChunkDatabase,
+  backupDatabase, restoreDatabase, restoreChunkDatabase, getRestoreStatus,
   getMagicaKeys, addMagicaKey, addMagicaKeysBulk, toggleMagicaKey, deleteMagicaKey, deleteMagicaKeysBulk,
   testMagicaConnection, getMagicaBalances, setUserMagicaAccess
 } = require('../controllers/adminController');
