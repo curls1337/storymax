@@ -181,10 +181,98 @@ function absUrl(apiBase, u) {
   return u.startsWith('/') ? `${apiBase}${u}` : `${apiBase}/${u}`;
 }
 
+// Helper to upload a local media file to Google Drive and return its public Drive webViewLink.
+// If Drive auth is null or file is not local, falls back to absUrl(apiBase, u).
+async function resolveMediaLink(u, apiBase, auth, folderIdCache = {}) {
+  u = String(u == null ? '' : u);
+  if (!u) return '';
+  if (!auth) return absUrl(apiBase, u);
+
+  // If already a remote URL (and not local /uploads), return as is
+  if (/^https?:\/\//i.test(u) && !u.includes('/uploads/')) return u;
+
+  try {
+    const relativePath = u.replace(/^https?:\/\/[^\/]+/, '').replace(/^\/?/, '');
+    const cleanRelPath = relativePath.replace(/^uploads\//, '');
+    const localFilePath = path.join(uploadsDir, cleanRelPath);
+    if (!fs.existsSync(localFilePath)) return absUrl(apiBase, u);
+
+    const driveAPI = google.drive({ version: 'v3', auth });
+
+    // 1. Get or create "Storymax Export Assets" folder in Drive once per export run
+    if (!folderIdCache.folderId) {
+      try {
+        const queryRes = await driveAPI.files.list({
+          q: "name = 'Storymax Export Assets' and mimeType = 'application/vnd.google-apps.folder' and trashed = false",
+          fields: 'files(id, name)'
+        });
+        if (queryRes.data.files && queryRes.data.files.length > 0) {
+          folderIdCache.folderId = queryRes.data.files[0].id;
+        } else {
+          const createFolderRes = await driveAPI.files.create({
+            requestBody: {
+              name: 'Storymax Export Assets',
+              mimeType: 'application/vnd.google-apps.folder'
+            },
+            fields: 'id'
+          });
+          folderIdCache.folderId = createFolderRes.data.id;
+        }
+      } catch (e) {
+        console.warn('Failed to resolve Google Drive export folder:', e.message);
+      }
+    }
+
+    const filename = path.basename(localFilePath);
+
+    // 2. Check if file was already uploaded to Drive during this export run
+    if (!folderIdCache.uploadedFiles) folderIdCache.uploadedFiles = {};
+    if (folderIdCache.uploadedFiles[filename]) {
+      return folderIdCache.uploadedFiles[filename];
+    }
+
+    // 3. Upload file to Google Drive
+    const ext = path.extname(filename).toLowerCase();
+    const mimeType = ext === '.mp4' ? 'video/mp4' : (ext === '.webp' ? 'image/webp' : 'image/png');
+
+    const fileMetadata = {
+      name: filename,
+      parents: folderIdCache.folderId ? [folderIdCache.folderId] : []
+    };
+    const media = {
+      mimeType,
+      body: fs.createReadStream(localFilePath)
+    };
+
+    const uploadedFile = await driveAPI.files.create({
+      requestBody: fileMetadata,
+      media: media,
+      fields: 'id, webViewLink'
+    });
+
+    const fileId = uploadedFile.data.id;
+    // Set public view permission so anyone with link can view/download
+    try {
+      await driveAPI.permissions.create({
+        fileId: fileId,
+        requestBody: { role: 'reader', type: 'anyone' }
+      });
+    } catch (e) {}
+
+    const driveLink = uploadedFile.data.webViewLink || `https://drive.google.com/file/d/${fileId}/view?usp=sharing`;
+    folderIdCache.uploadedFiles[filename] = driveLink;
+    return driveLink;
+  } catch (err) {
+    console.warn('Failed to upload file to Google Drive, falling back to server URL:', err.message);
+    return absUrl(apiBase, u);
+  }
+}
+
 // Simple 6-column marketing export (first row = header). Auto-generates marketing copy
 // when missing (via getMarketingCopyForStoryboard).
-async function buildSimpleRows(db, storyboards, apiBase) {
+async function buildSimpleRows(db, storyboards, apiBase, auth = null) {
   const rows = [['Tanggal', 'Judul', 'Caption', 'Link GDrive', 'channel', 'Keyword']];
+  const driveCache = {};
   for (const sb of storyboards) {
     try {
       const createdDate = new Date(sb.created_at || Date.now()).toLocaleDateString('id-ID');
@@ -195,7 +283,8 @@ async function buildSimpleRows(db, storyboards, apiBase) {
         const latestVid = await db.get('SELECT video_url FROM generated_videos WHERE storyboard_id = ? AND status = "success" ORDER BY id DESC LIMIT 1', [sb.id]);
         videoLink = (latestVid && latestVid.video_url) ? latestVid.video_url : (sb.image_path || '');
       }
-      rows.push([createdDate, title, caption, absUrl(apiBase, videoLink), '', '']);
+      const mediaUrl = await resolveMediaLink(videoLink, apiBase, auth, driveCache);
+      rows.push([createdDate, title, caption, mediaUrl, '', '']);
     } catch (e) {
       rows.push([new Date((sb && sb.created_at) || Date.now()).toLocaleDateString('id-ID'), (sb && sb.title) || '', (sb && sb.prompt) || '', '', '', '']);
     }
@@ -205,12 +294,13 @@ async function buildSimpleRows(db, storyboards, apiBase) {
 
 // FULL per-scene export (16 columns): storyboard prompt + per-scene image/video links,
 // i2v/t2v prompts, narration, credits, marketing copy, merged video.
-async function buildFullRows(db, storyboards, apiBase) {
+async function buildFullRows(db, storyboards, apiBase, auth = null) {
   const rows = [[
     'Storyboard ID', 'Tanggal', 'Judul', 'Gaya', 'Provider', 'Status', 'Scene',
     'Prompt Storyboard', 'Link Gambar', 'Prompt Image-to-Video', 'Prompt Text-to-Video',
     'Narasi (VO)', 'Link Video', 'Kredit Video', 'Caption Marketing', 'Link Video Gabungan',
   ]];
+  const driveCache = {};
   for (const sb of storyboards) {
     try {
       const createdDate = new Date(sb.created_at || Date.now()).toLocaleDateString('id-ID');
@@ -223,17 +313,22 @@ async function buildFullRows(db, storyboards, apiBase) {
       const vids = await db.all('SELECT scene_idx, video_url, used_credits, status FROM generated_videos WHERE storyboard_id = ? ORDER BY id ASC', [sb.id]);
       const vidByScene = {};
       for (const v of vids) { const cur = vidByScene[v.scene_idx]; if (!cur || v.status === 'success') vidByScene[v.scene_idx] = v; }
-      const mergedVideo = absUrl(apiBase, sb.merged_video_url);
+      
+      const mergedVideoUrl = await resolveMediaLink(sb.merged_video_url, apiBase, auth, driveCache);
       const sceneCount = Math.max(images.length, scenes.length, ...vids.map((v) => (Number(v.scene_idx) || 0) + 1), 1);
+      
       for (let i = 0; i < sceneCount; i++) {
         const sc = scenes.find((s) => s.scene_idx === i) || scenes[i] || {};
         const vid = vidByScene[i] || {};
+        const imgUrl = await resolveMediaLink(images[i], apiBase, auth, driveCache);
+        const vidUrl = await resolveMediaLink(vid.video_url, apiBase, auth, driveCache);
+
         rows.push([
           sb.id, createdDate, title, sb.style || '', provider, sb.status || '', String(i + 1),
-          i === 0 ? (sb.prompt || '') : '', absUrl(apiBase, images[i]),
+          i === 0 ? (sb.prompt || '') : '', imgUrl,
           sc.imageToVideoPrompt || '', sc.textToVideoPrompt || '', sc.narration || '',
-          absUrl(apiBase, vid.video_url), vid.used_credits != null ? String(vid.used_credits) : '',
-          i === 0 ? (caption || '') : '', i === 0 ? mergedVideo : '',
+          vidUrl, vid.used_credits != null ? String(vid.used_credits) : '',
+          i === 0 ? (caption || '') : '', i === 0 ? mergedVideoUrl : '',
         ]);
       }
     } catch (e) {
@@ -301,7 +396,7 @@ async function exportToGoogleSheets(req, res) {
         const spreadsheetId = createRes.data.spreadsheetId;
         const spreadsheetUrl = createRes.data.spreadsheetUrl;
         try { await driveAPI.permissions.create({ fileId: spreadsheetId, requestBody: { role: 'writer', type: 'anyone' } }); } catch (e) {}
-        const rows = await buildSimpleRows(db, storyboards, apiBase);
+        const rows = await buildSimpleRows(db, storyboards, apiBase, auth);
         await sheetsAPI.spreadsheets.values.append({ spreadsheetId, range: 'Storyboard List!A1', valueInputOption: 'USER_ENTERED', requestBody: { values: rows } });
         await db.run('UPDATE user_google_exports SET status = ?, spreadsheet_id = ?, spreadsheet_url = ?, item_count = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', ['success', spreadsheetId, spreadsheetUrl, storyboards.length, jobId]);
       } catch (e) {
@@ -322,6 +417,17 @@ async function exportCsvJob(req, res, kind) {
       return res.status(400).json({ message: 'Pilih minimal 1 storyboard untuk diekspor.' });
     }
     const db = getDb();
+    const googleConf = (await db.get('SELECT * FROM google_settings LIMIT 1')) || {};
+
+    let auth = null;
+    try {
+      const info = await googleOAuth.getAuthorizedClientForUser(db, req.user.id);
+      if (info) auth = info.client;
+    } catch (e) {}
+    if (!auth) {
+      auth = buildGoogleAuth(googleConf);
+    }
+
     const placeholders = storyboardIds.map(() => '?').join(',');
     const storyboards = await db.all(`SELECT * FROM storyboards WHERE id IN (${placeholders}) ORDER BY id DESC`, storyboardIds);
     if (storyboards.length === 0) return res.status(404).json({ message: 'Data storyboard tidak ditemukan.' });
@@ -336,7 +442,7 @@ async function exportCsvJob(req, res, kind) {
 
     (async () => {
       try {
-        const rows = kind === 'full' ? await buildFullRows(db, storyboards, apiBase) : await buildSimpleRows(db, storyboards, apiBase);
+        const rows = kind === 'full' ? await buildFullRows(db, storyboards, apiBase, auth) : await buildSimpleRows(db, storyboards, apiBase, auth);
         const file = saveExportCsv(rowsToCsv(rows), jobId);
         await db.run('UPDATE user_google_exports SET status = ?, file_path = ?, item_count = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', ['success', file, storyboards.length, jobId]);
       } catch (e) {
