@@ -847,16 +847,11 @@ export default function Dashboard({ setTab }) {
     setGeneratingType(promptType);
     setVideoPromptError('');
     try {
-      // VO comes from the STORYBOARD setting (single source of truth) — no prompt-panel VO
-      // toggle anymore. Rewrite regenerates the narration using the storyboard's language/tone.
-      let sbVo = { enableVo: false, voLanguage: 'Bahasa Indonesia', voTone: 'casual' };
-      try {
-        const gp = selectedStoryboard.generation_params ? JSON.parse(selectedStoryboard.generation_params) : {};
-        sbVo = { enableVo: !!gp.enableVo, voLanguage: gp.voLanguage || 'Bahasa Indonesia', voTone: gp.voTone || 'casual' };
-      } catch (e) {}
-      const useVo = sbVo.enableVo;
-      const lang = sbVo.voLanguage;
-      const tone = sbVo.voTone;
+      // VO on rewrite is driven by the prompt-panel "Sertakan Voice Over" checkbox again, so
+      // ticking it and clicking "Tulis Ulang" regenerates the narration → the NASKAH box shows.
+      const useVo = promptType === 'text-to-video' ? enableVoT2v : enableVoI2v;
+      const lang = promptType === 'text-to-video' ? voLanguageT2v : voLanguageI2v;
+      const tone = promptType === 'text-to-video' ? voToneT2v : voToneI2v;
       const durationVal = promptType === 'text-to-video' ? videoDurationT2v : videoDurationI2v;
 
       const res = await api.post('/ai/video-prompts', { 
@@ -1555,8 +1550,16 @@ export default function Dashboard({ setTab }) {
                             </select>
                           </div>
 
-                          {/* VO checkbox removed — Voice Over follows the STORYBOARD setting */}
-                          
+                          <label className="flex items-center gap-2 cursor-pointer select-none border-t border-[#2a2725]/40 pt-2">
+                            <input
+                              type="checkbox"
+                              checked={enableVoI2v}
+                              onChange={(e) => setEnableVoI2v(e.target.checked)}
+                              className="rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5"
+                            />
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-300">Sertakan Voice Over (VO)</span>
+                          </label>
+
                           {enableVoI2v && (
                             <div className="space-y-1 animate-fadeIn">
                               <span className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80] block">Pilih Bahasa Narasi</span>
@@ -1657,8 +1660,16 @@ export default function Dashboard({ setTab }) {
                               </select>
                             </div>
 
-                            {/* VO checkbox removed — Voice Over follows the STORYBOARD setting */}
-                            
+                            <label className="flex items-center gap-2 cursor-pointer select-none border-t border-[#2a2725]/40 pt-2.5">
+                              <input
+                                type="checkbox"
+                                checked={enableVoI2v}
+                                onChange={(e) => setEnableVoI2v(e.target.checked)}
+                                className="rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5"
+                              />
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300">Sertakan Voice Over (VO)</span>
+                            </label>
+
                             {enableVoI2v && (
                               <div className="space-y-1.5 animate-fadeIn">
                                 <span className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80] block">Pilih Bahasa Narasi</span>
@@ -1775,8 +1786,16 @@ export default function Dashboard({ setTab }) {
                             </select>
                           </div>
 
-                          {/* VO checkbox removed — Voice Over follows the STORYBOARD setting */}
-                          
+                          <label className="flex items-center gap-2 cursor-pointer select-none border-t border-[#2a2725]/40 pt-2">
+                            <input
+                              type="checkbox"
+                              checked={enableVoT2v}
+                              onChange={(e) => setEnableVoT2v(e.target.checked)}
+                              className="rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5"
+                            />
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-300">Sertakan Voice Over (VO)</span>
+                          </label>
+
                           {enableVoT2v && (
                             <div className="space-y-1 animate-fadeIn">
                               <span className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80] block">Pilih Bahasa Narasi</span>
@@ -1874,8 +1893,16 @@ export default function Dashboard({ setTab }) {
                               </select>
                             </div>
 
-                            {/* VO checkbox removed — Voice Over follows the STORYBOARD setting */}
-                            
+                            <label className="flex items-center gap-2 cursor-pointer select-none border-t border-[#2a2725]/40 pt-2.5">
+                              <input
+                                type="checkbox"
+                                checked={enableVoT2v}
+                                onChange={(e) => setEnableVoT2v(e.target.checked)}
+                                className="rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5"
+                              />
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300">Sertakan Voice Over (VO)</span>
+                            </label>
+
                             {enableVoT2v && (
                               <div className="space-y-1.5 animate-fadeIn">
                                 <span className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80] block">Pilih Bahasa Narasi</span>
