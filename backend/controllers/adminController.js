@@ -12,17 +12,19 @@ const https = require('https');
 async function getAllUsers(req, res) {
   try {
     const db = getDb();
-    // total_credits = existing "Kredit Terpakai" (all storyboards, unchanged).
-    // magica_credits_micro = Magica-only usage across the 3 Magica record types:
-    //   storyboards flagged Magica (generationParams carries magicaKeyId/magicaModel)
-    //   + Magica videos (model like 'magica:%') + all 3D (Meshy is Magica-only).
-    // Values are microcredits; the UI divides by 1e6 to show credits.
+    // total_credits = Freebeat-only usage (storyboards + videos generated via Freebeat).
+    // magica_credits_micro = Magica-only usage across 3 Magica record types:
+    //   storyboards flagged Magica + Magica videos + Meshy 3D.
+    // Values are microcredits; the UI divides by 1e6 to show Magica credits.
     const users = await db.all(`
       SELECT u.id, u.username, u.role, u.can_use_magica, u.preferred_provider,
-        COALESCE((SELECT SUM(s.used_credits) FROM storyboards s WHERE s.user_id = u.id), 0) AS total_credits,
+        (
+          COALESCE((SELECT SUM(s.used_credits) FROM storyboards s WHERE s.user_id = u.id AND (s.generation_params NOT LIKE '%magica%' OR s.generation_params IS NULL) AND s.api_key_id IS NOT NULL), 0)
+          + COALESCE((SELECT SUM(gv.used_credits) FROM generated_videos gv JOIN storyboards s2 ON s2.id = gv.storyboard_id WHERE s2.user_id = u.id AND gv.api_key_id IS NOT NULL AND (gv.model NOT LIKE 'magica:%' OR gv.model IS NULL)), 0)
+        ) AS total_credits,
         (
           COALESCE((SELECT SUM(s.used_credits) FROM storyboards s WHERE s.user_id = u.id AND s.generation_params LIKE '%magica%'), 0)
-          + COALESCE((SELECT SUM(gv.used_credits) FROM generated_videos gv JOIN storyboards s2 ON s2.id = gv.storyboard_id WHERE s2.user_id = u.id AND gv.model LIKE 'magica:%'), 0)
+          + COALESCE((SELECT SUM(gv.used_credits) FROM generated_videos gv JOIN storyboards s2 ON s2.id = gv.storyboard_id WHERE s2.user_id = u.id AND (gv.magica_key_id IS NOT NULL OR gv.model LIKE 'magica:%')), 0)
           + COALESCE((SELECT SUM(g3.credit_used) FROM generated_3d g3 WHERE g3.user_id = u.id), 0)
         ) AS magica_credits_micro
       FROM users u
