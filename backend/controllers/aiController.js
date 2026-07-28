@@ -453,18 +453,10 @@ async function generateVideoPromptsInternal({ storyboardId, promptType, regenera
 
   let durationClause = '';
   const durVal = videoDuration || 'auto';
-  if (durVal === 'auto') {
-    if (targetType === 'image-to-video') {
-      durationClause = `Each individual scene/panel video has a target duration of: Kling/SeedDance/Luma: 15 seconds, Omni: 10 seconds, Gemini: 8 seconds. Size each scene's narration to FILL most of the scene at a natural ~1.5 words/second pace (clear, not rushed, but no long silent gaps): about 9-12 words for 8s, 12-15 for 10s, and 18-23 for 15s (hard max 23).`;
-    } else {
-      durationClause = `Each individual scene/panel video has a target duration of: 15 seconds. If Voiceover (VO) is enabled, size the narration to FILL most of the ~15s scene at a natural pace — about 18-23 words (hard max 23) — not rushed and not sparse.`;
-    }
-  } else {
-    const seconds = Number(durVal);
-    const maxWords = Math.min(23, Math.round(seconds * 1.5));
-    const minWords = Math.max(4, Math.round(seconds * 1.1));
-    durationClause = `Each individual scene/panel video has a target duration of: ${seconds} seconds. If Voiceover (VO) is enabled, size the narration to FILL most of the scene at a natural pace — about ${minWords}-${maxWords} words (hard max ${maxWords}) — not rushed and not sparse.`;
-  }
+  const _durTxt = durVal === 'auto'
+    ? (targetType === 'image-to-video' ? 'Kling/SeedDance: 15s, Omni: 10s, Gemini: 8s' : '15 seconds')
+    : `${Number(durVal)} seconds`;
+  durationClause = `Each individual scene/panel video has a target duration of: ${_durTxt}. If Voiceover (VO) is enabled, keep the narration SHORT — about 6-10 words per scene, HARD MAX 10 words — one punchy line at a natural pace, not rushed.`;
 
   let toneClause = '';
   if (enableVo && voTone) {
@@ -631,12 +623,8 @@ For each page (scene):
 
 CRITICAL SPEECH PACING, TEMPO & WORD COUNT RULES (Strictly prevents fast, rushed, garbled, or mismatched voiceover):
 - TEMPO & PACING: Write narration to be spoken at a clear, relaxed, natural conversational pace (about 1.5 words per second) that FILLS most of the scene — continuous enough to avoid long silent gaps, but never rushed or crammed. Insert commas & periods between short phrases for natural breathing pauses.
-- WORD COUNT PER SCENE (fill most of the scene — not too few, not too many):
-  * For ~5-second scene: about 6 to 8 words TOTAL.
-  * For ~8-second scene: about 9 to 12 words TOTAL.
-  * For ~10-second scene: about 12 to 15 words TOTAL.
-  * For ~15-second scene: about 18 to 23 words TOTAL (hard max 23).
-- Fill most of the scene and finish about 1-2 seconds before it ends — do NOT leave long silent gaps, and never cram or rush. Keep phrases short, rhythmic, and well-spaced.
+- WORD COUNT PER SCENE — keep it SHORT: about 6 to 10 words TOTAL, HARD MAX 10 words. One punchy line, never more.
+- Keep phrases short, rhythmic and well-spaced; finish about 1 second before the scene ends. Do NOT cram or rush.
 
 CRITICAL NARRATION FLOW & STRUCTURE:
 The voiceover narrations across all the ${totalScenes} pages must combine to form one single, continuously flowing script from the first page to the last. Do not treat each page as a standalone video!
@@ -756,16 +744,8 @@ Please analyze the provided image sheet(s) carefully. Generate the requested JSO
   try {
     const parsed = JSON.parse(cleanText);
     if (parsed && Array.isArray(parsed.scenes)) {
-      // Calculate max words allowed per scene based on video duration
-      let maxWordsAllowed = 23; // default (auto ≈ 15s scenes): fill the scene, cap at 23
-      if (videoDuration && videoDuration !== 'auto') {
-        const sec = Number(videoDuration);
-        if (sec <= 5) maxWordsAllowed = 8;
-        else if (sec <= 8) maxWordsAllowed = 12;
-        else if (sec <= 10) maxWordsAllowed = 15;
-        else if (sec <= 15) maxWordsAllowed = 23;
-        else maxWordsAllowed = Math.round(sec * 1.5);
-      }
+      // Hard cap: VO narration per scene must be SHORT — max 10 words (user request).
+      const maxWordsAllowed = 10;
 
       const { stripSpeechLeak } = require('../prompts/sanitizeVideoPrompt');
       parsed.scenes = parsed.scenes.map(s => {
