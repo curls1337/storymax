@@ -4,7 +4,7 @@ const {
   getAllKeys, addKey, addKeysBulk, toggleKeyStatus, deleteKey, deleteKeysBulk,
   getAiSettings, updateAiSettings, testAiSettings,
   getStorageFiles, deleteStorageFile,
-  backupDatabase, restoreDatabase,
+  backupDatabase, restoreDatabase, restoreChunkDatabase,
   getMagicaKeys, addMagicaKey, addMagicaKeysBulk, toggleMagicaKey, deleteMagicaKey, deleteMagicaKeysBulk,
   testMagicaConnection, getMagicaBalances, setUserMagicaAccess
 } = require('../controllers/adminController');
@@ -48,6 +48,7 @@ router.delete('/files', deleteStorageFile);
 // Database Backup & Restore (server migration)
 router.get('/backup', backupDatabase);
 router.post('/restore', express.raw({ type: '*/*', limit: '1000mb' }), restoreDatabase);
+router.post('/restore-chunk', express.raw({ type: '*/*', limit: '50mb' }), restoreChunkDatabase);
 
 // Magica (multi-provider) API key pool + per-user access
 router.get('/magica/keys', getMagicaKeys);

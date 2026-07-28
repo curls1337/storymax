@@ -26,6 +26,7 @@ export default function AdminPanel() {
   const [loading, setLoading] = useState(true);
   const [backupLoading, setBackupLoading] = useState(false);
   const [restoreLoading, setRestoreLoading] = useState(false);
+  const [restoreProgress, setRestoreProgress] = useState(0);
 
   const getFullFileUrl = (filePath) => {
     if (!filePath) return '';
@@ -537,19 +538,39 @@ const PRESET_AI_MODELS = [
     if (!ok) return;
 
     setRestoreLoading(true);
+    setRestoreProgress(0);
     try {
-      const res = await api.post('/admin/restore', file, {
-        headers: { 'Content-Type': 'application/octet-stream' },
-        maxBodyLength: Infinity,
-        maxContentLength: Infinity,
-      });
-      const r = res.data.restored || {};
+      const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB per chunk (safely passes Cloudflare 100MB & proxy limits!)
+      const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+      const sessionId = 'rst_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+      let lastRes = null;
+
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * CHUNK_SIZE;
+        const end = Math.min(file.size, start + CHUNK_SIZE);
+        const chunk = file.slice(start, end);
+
+        lastRes = await api.post('/admin/restore-chunk', chunk, {
+          headers: {
+            'Content-Type': 'application/octet-stream',
+            'x-chunk-index': String(i),
+            'x-total-chunks': String(totalChunks),
+            'x-restore-session': sessionId,
+          },
+        });
+
+        const progressPercent = Math.round(((i + 1) / totalChunks) * 100);
+        setRestoreProgress(progressPercent);
+      }
+
+      const r = (lastRes && lastRes.data && lastRes.data.restored) || {};
       setMessage('Restore berhasil (' + Object.entries(r).map(([k, v]) => `${k} ${v}`).join(', ') + '). Muat ulang halaman / login kembali bila perlu.');
       loadData();
     } catch (err) {
       setError(err.response?.data?.message || 'Gagal me-restore database.');
     } finally {
       setRestoreLoading(false);
+      setRestoreProgress(0);
     }
   };
 
@@ -1425,7 +1446,7 @@ const PRESET_AI_MODELS = [
               </p>
               <label className={`mt-3 ${restoreLoading || backupLoading ? 'opacity-50 pointer-events-none' : 'cursor-pointer'} bg-red-500/10 hover:bg-red-500 hover:text-white text-red-300 border border-red-500/30 font-bold py-2.5 px-4 rounded-xl transition-all text-[9.5px] uppercase tracking-wider flex items-center justify-center gap-1.5`}>
                 {restoreLoading ? <Loader className="animate-spin w-3.5 h-3.5" /> : <Database className="w-3.5 h-3.5" />}
-                {restoreLoading ? 'Memulihkan...' : 'Pilih File Backup & Restore'}
+                {restoreLoading ? `Memulihkan (${restoreProgress}%)...` : 'Pilih File Backup & Restore'}
                 <input
                   type="file"
                   accept="application/json,.json"

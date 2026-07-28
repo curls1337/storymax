@@ -530,78 +530,70 @@ async function backupDatabase(req, res) {
     res.status(200).send(JSON.stringify(backup, null, 2));
   } catch (err) {
     console.error('Backup error:', err);
-    res.status(500).json({ message: 'Gagal membuat backup database.', error: err.message });
+    res.status(500).json({ message: 'Gagal membuat backup database.', error: error.message });
   }
+}
+
+async function executeDatabaseRestorePayload(db, payload) {
+  if (payload && payload.backup) payload = payload.backup;
+  if (!payload || payload.type !== 'db-backup' || !payload.tables || typeof payload.tables !== 'object') {
+    throw new Error('File backup tidak valid. Pastikan ini file backup StoryMax (.json).');
+  }
+
+  const restored = {};
+  await db.run('PRAGMA foreign_keys = OFF');
+  await db.run('BEGIN');
+  try {
+    for (const t of BACKUP_TABLES) {
+      const rows = Array.isArray(payload.tables[t]) ? payload.tables[t] : null;
+      if (rows === null) continue;
+      await db.run(`DELETE FROM ${t}`);
+      const info = await db.all(`PRAGMA table_info(${t})`);
+      const validCols = new Set(info.map((c) => c.name));
+      let inserted = 0;
+      for (const row of rows) {
+        const cols = Object.keys(row).filter((c) => validCols.has(c));
+        if (cols.length === 0) continue;
+        const placeholders = cols.map(() => '?').join(', ');
+        const values = cols.map((c) => row[c]);
+        await db.run(
+          `INSERT INTO ${t} (${cols.map((c) => `"${c}"`).join(', ')}) VALUES (${placeholders})`,
+          values
+        );
+        inserted++;
+      }
+      restored[t] = inserted;
+    }
+    await db.run('COMMIT');
+  } catch (inner) {
+    try { await db.run('ROLLBACK'); } catch (e) {}
+    throw inner;
+  } finally {
+    await db.run('PRAGMA foreign_keys = ON');
+  }
+  return restored;
 }
 
 async function restoreDatabase(req, res) {
   const db = getDb();
   try {
     let payload = null;
-
     if (req.body && Buffer.isBuffer(req.body)) {
-      try {
-        const rawStr = req.body.toString('utf8').trim();
-        payload = JSON.parse(rawStr);
-      } catch (e) {}
+      try { payload = JSON.parse(req.body.toString('utf8').trim()); } catch (e) {}
     } else if (req.body && typeof req.body === 'object') {
       payload = req.body.tables ? req.body : req.body.backup;
     }
 
     if (!payload) {
       const chunks = [];
-      for await (const chunk of req) {
-        chunks.push(chunk);
-      }
+      for await (const chunk of req) chunks.push(chunk);
       const rawText = Buffer.concat(chunks).toString('utf8').trim();
       if (rawText) {
-        try {
-          payload = JSON.parse(rawText);
-        } catch (e) {}
+        try { payload = JSON.parse(rawText); } catch (e) {}
       }
     }
 
-    if (payload && payload.backup) payload = payload.backup;
-
-    if (!payload || payload.type !== 'db-backup' || !payload.tables || typeof payload.tables !== 'object') {
-      return res.status(400).json({ message: 'File backup tidak valid. Pastikan ini file backup StoryMax (.json).' });
-    }
-
-    const restored = {};
-    // FK enforcement must be toggled OUTSIDE a transaction; turning it off lets us
-    // wipe + re-insert in any order without cascade surprises.
-    await db.run('PRAGMA foreign_keys = OFF');
-    await db.run('BEGIN');
-    try {
-      for (const t of BACKUP_TABLES) {
-        const rows = Array.isArray(payload.tables[t]) ? payload.tables[t] : null;
-        if (rows === null) continue; // table absent in backup → leave current data untouched
-        await db.run(`DELETE FROM ${t}`);
-        // Intersect backup columns with the CURRENT schema (defensive vs schema drift).
-        const info = await db.all(`PRAGMA table_info(${t})`);
-        const validCols = new Set(info.map((c) => c.name));
-        let inserted = 0;
-        for (const row of rows) {
-          const cols = Object.keys(row).filter((c) => validCols.has(c));
-          if (cols.length === 0) continue;
-          const placeholders = cols.map(() => '?').join(', ');
-          const values = cols.map((c) => row[c]);
-          await db.run(
-            `INSERT INTO ${t} (${cols.map((c) => `"${c}"`).join(', ')}) VALUES (${placeholders})`,
-            values
-          );
-          inserted++;
-        }
-        restored[t] = inserted;
-      }
-      await db.run('COMMIT');
-    } catch (inner) {
-      try { await db.run('ROLLBACK'); } catch (e) {}
-      throw inner;
-    } finally {
-      await db.run('PRAGMA foreign_keys = ON');
-    }
-
+    const restored = await executeDatabaseRestorePayload(db, payload);
     res.status(200).json({
       message: 'Restore database berhasil.',
       restored,
@@ -609,8 +601,62 @@ async function restoreDatabase(req, res) {
     });
   } catch (err) {
     console.error('Restore error:', err);
-    try { await getDb().run('PRAGMA foreign_keys = ON'); } catch (e) {}
-    res.status(500).json({ message: 'Gagal me-restore database. Tidak ada perubahan yang disimpan (rollback).', error: err.message });
+    res.status(500).json({ message: err.message || 'Gagal me-restore database.', error: err.message });
+  }
+}
+
+// Chunked Restore for large files (>10MB) to easily bypass Cloudflare / Nginx / Sevalla 100MB proxy limits
+async function restoreChunkDatabase(req, res) {
+  const db = getDb();
+  try {
+    const chunkIndex = parseInt(req.headers['x-chunk-index'] || req.query.chunkIndex || '0', 10);
+    const totalChunks = parseInt(req.headers['x-total-chunks'] || req.query.totalChunks || '1', 10);
+    const sessionId = (req.headers['x-restore-session'] || req.query.sessionId || 'default').replace(/[^a-zA-Z0-9_-]/g, '');
+
+    const tempDir = path.join(uploadsDir, 'temp_restore');
+    try { fs.mkdirSync(tempDir, { recursive: true }); } catch (e) {}
+    const tempFilePath = path.join(tempDir, `restore_${sessionId}.json`);
+
+    let chunkBuffer = null;
+    if (Buffer.isBuffer(req.body)) {
+      chunkBuffer = req.body;
+    } else {
+      const chunks = [];
+      for await (const c of req) chunks.push(c);
+      chunkBuffer = Buffer.concat(chunks);
+    }
+
+    fs.appendFileSync(tempFilePath, chunkBuffer);
+
+    if (chunkIndex >= totalChunks - 1) {
+      let payload = null;
+      try {
+        const fileContent = fs.readFileSync(tempFilePath, 'utf8').trim();
+        payload = JSON.parse(fileContent);
+      } catch (parseErr) {
+        try { fs.unlinkSync(tempFilePath); } catch (e) {}
+        return res.status(400).json({ message: 'Gagal membaca data backup dari chunk (file corrupt atau terpotong).' });
+      } finally {
+        try { fs.unlinkSync(tempFilePath); } catch (e) {}
+      }
+
+      const restored = await executeDatabaseRestorePayload(db, payload);
+      return res.status(200).json({
+        status: 'complete',
+        message: 'Restore database berhasil.',
+        restored,
+        note: 'Data lama telah diganti. Anda mungkin perlu login ulang.',
+      });
+    } else {
+      return res.status(200).json({
+        status: 'chunk_received',
+        chunkIndex,
+        totalChunks,
+      });
+    }
+  } catch (err) {
+    console.error('Restore chunk error:', err);
+    return res.status(500).json({ message: err.message || 'Gagal me-restore database.', error: err.message });
   }
 }
 
@@ -833,6 +879,7 @@ module.exports = {
   deleteStorageFile,
   backupDatabase,
   restoreDatabase,
+  restoreChunkDatabase,
   getMagicaKeys,
   addMagicaKey,
   addMagicaKeysBulk,
