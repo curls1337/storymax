@@ -195,7 +195,10 @@ Tugas Anda adalah memfasilitasi ideasi storyboard kreatif pengguna dan menghasil
 2. 'description': Deskripsi Storyboard rinci yang siap digunakan sebagai prompt AI (berisi detail visual, gaya sinematik, sudut kamera, warna, dan pencahayaan) yang secara khusus diselaraskan dan cocok dengan gaya layout storyboard: "${style}".
 3. 'layout': Wajib bernilai "${style}" (karena pengguna telah memilih gaya ini).
 
-PENTING: Tulis deskripsi secara ringkas, padat, dan sinematik. Total panjang teks untuk nilai 'description' HARUS DI BAWAH 1500 karakter agar muat saat digabung dengan master prompt. Jangan bertele-tele.
+PENTING & LARANGAN KERAS:
+- Tulis deskripsi MURNI berisi alur visual sinematik per panel (Panel 1, Panel 2, dst.).
+- DILARANG KERAS menyertakan awalan meta-header teknis seperti "storyboard seedance...", "1 halaman/12 panel...", "cube_box_transform:", atau nama layout di dalam teks 'description'.
+- Total panjang teks 'description' HARUS DI BAWAH 1500 karakter. Jangan bertele-tele.
 
 Anda harus mengembalikan respon hanya dalam format JSON mentah dengan key 'title', 'description', dan 'layout'. Jangan bungkus dalam markdown (jangan pakai \`\`\`json). Contoh output:
 {
@@ -211,7 +214,10 @@ Tugas Anda adalah memfasilitasi ideasi storyboard kreatif pengguna dan menghasil
 3. 'layout': Memilih satu Gaya Layout Storyboard yang PALING COCK dan paling presisi untuk ide/konsep tersebut dari daftar gaya berikut:
 ${layoutListText}
 
-PENTING: Tulis deskripsi secara ringkas, padat, dan sinematik. Total panjang teks untuk nilai 'description' HARUS DI BAWAH 1500 karakter agar muat saat digabung dengan master prompt. Jangan bertele-tele.
+PENTING & LARANGAN KERAS:
+- Tulis deskripsi MURNI berisi alur visual sinematik per panel (Panel 1, Panel 2, dst.).
+- DILARANG KERAS menyertakan awalan meta-header teknis seperti "storyboard seedance...", "1 halaman/12 panel...", "cube_box_transform:", atau nama layout di dalam teks 'description'.
+- Total panjang teks 'description' HARUS DI BAWAH 1500 karakter. Jangan bertele-tele.
 
 Anda harus mengembalikan respon hanya dalam format JSON mentah dengan key 'title', 'description', dan 'layout' (diisi dengan value/kode dari layout yang Anda pilih). Jangan bungkus dalam markdown (jangan pakai \`\`\`json). Contoh output:
 {
@@ -329,15 +335,26 @@ Padukan kata kunci produk tersebut secara harmonis dengan pengarahan estetik ber
       const parsed = JSON.parse(cleanText.trim());
       // Ensure selected layout is valid, fallback to 'premium_vertical_row'
       const selectedLayout = LAYOUT_STYLES.some(s => s.value === parsed.layout) ? parsed.layout : 'premium_vertical_row';
+      
+      // Clean up any stray technical metadata headers (e.g. "storyboard seedance 15 detik, 1 halaman/12 panel, cube_box_transform:")
+      let cleanDesc = String(parsed.description || concept).trim();
+      cleanDesc = cleanDesc.replace(/^storyboard\s+[^:\n]+:\s*/i, '').trim();
+      cleanDesc = cleanDesc.replace(/^storyboard\s+.*?\d+\s*panel[^\n:]*:\s*/i, '').trim();
+      cleanDesc = cleanDesc.replace(/^[a-z0-9_-]+:\s*(panel\s+terasa|panel\s+1|halaman)/i, '$1').trim();
+
       return res.json({
         title: parsed.title || 'Untitled AI Project',
-        description: parsed.description || concept,
+        description: cleanDesc,
         layout: selectedLayout
       });
     } catch (parseErr) {
+      let cleanDesc = cleanText.trim();
+      cleanDesc = cleanDesc.replace(/^storyboard\s+[^:\n]+:\s*/i, '').trim();
+      cleanDesc = cleanDesc.replace(/^storyboard\s+.*?\d+\s*panel[^\n:]*:\s*/i, '').trim();
+
       return res.json({
         title: concept.substring(0, 20) + '...',
-        description: cleanText,
+        description: cleanDesc,
         layout: 'premium_vertical_row'
       });
     }
