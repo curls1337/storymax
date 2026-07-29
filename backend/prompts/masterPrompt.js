@@ -154,7 +154,7 @@ function buildMasterPrompt(spec, ctx = {}) {
   const fidelityNeg = hasRefImage
     ? (looseRef
         ? ['unrecognizable subject or wrong identity/colors vs the reference', "a flat 1:1 photo copy of the reference that ignores this style's form"]
-        : ['different or redesigned product', 'altered or garbled logo/brand text', 'changed colors, shape or proportions'])
+        : ['different or redesigned product', 'altered or generic button shape', 'circular power icon button instead of original button', 'altered or garbled logo/brand text', 'changed colors, shape or proportions', 'inconsistent product features across panels/pages'])
     : ['the main product looking different between panels'];
 
   // Merge + de-dupe every negative source so the tail never repeats phrases, then

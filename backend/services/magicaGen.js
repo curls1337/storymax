@@ -19,15 +19,26 @@ function publicBase() {
 }
 
 // Turn a stored image path/URL into a PUBLIC url Magica can fetch.
-function toPublicUrl(p) {
-  if (!p) return null;
-  const s = String(p);
+function toPublicUrl(p, cdnFallback) {
+  if (!p && !cdnFallback) return null;
+  const s = String(p || '');
   if (/^https?:\/\//i.test(s)) return s;
   const base = publicBase();
-  if (!base) return null;
-  const idx = s.indexOf('uploads/');
-  const rel = idx >= 0 ? s.slice(idx) : ('uploads/' + path.basename(s));
-  return `${base}/${rel}`;
+  if (base && !isNonPublicHost(base)) {
+    const idx = s.indexOf('uploads/');
+    const rel = idx >= 0 ? s.slice(idx) : ('uploads/' + path.basename(s));
+    return `${base}/${rel}`;
+  }
+  // Localhost / non-public base -> fallback to original CDN URL if available & public
+  if (cdnFallback && /^https?:\/\//i.test(String(cdnFallback))) {
+    return String(cdnFallback);
+  }
+  if (base) {
+    const idx = s.indexOf('uploads/');
+    const rel = idx >= 0 ? s.slice(idx) : ('uploads/' + path.basename(s));
+    return `${base}/${rel}`;
+  }
+  return null;
 }
 
 // Magica can ONLY fetch a reference image from a PUBLIC http(s) URL — verified against the
@@ -110,9 +121,8 @@ async function pickMagicaKey(db, preferredId) {
   return pickActiveMagicaKey(db);
 }
 
-// Minimum balance (microcredits) a key must have to be used for IMAGE/VIDEO. Keys
-// below this are reserved for LLM only (admin rule: cheap keys -> LLM; funded -> media).
-const MEDIA_MIN_MICRO = 5000000; // 5 credits
+// Minimum balance (microcredits) a key must have to be used for IMAGE/MEDIA.
+const MEDIA_MIN_MICRO = 1000000; // 1 credit (enough for image generation)
 
 // Cached per-key balances (~60s) so key selection does not hammer the balance API.
 let _balCache = { at: 0, keys: null };
@@ -526,7 +536,7 @@ async function generateVideoMagica(apiKey, params = {}) {
   let fields = [];
   try { fields = ((await getSchemaCached(apiKey, subModelId || nodeType)) || {}).fields || []; } catch (e) {}
 
-  const imgUrl = toPublicUrl(params.sceneImage);
+  const imgUrl = toPublicUrl(params.sceneImage, params.originalCdnUrl);
   const hasImageField = fields.some((f) => isSingleImageField(f) || isImageArrayField(f));
   // Guard: an image/reference method MUST resolve to a submodel that actually declares an
   // image field. If it doesn't, the (model, method) pair is mismatched — e.g. a non-reference

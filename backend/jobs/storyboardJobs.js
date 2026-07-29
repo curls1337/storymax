@@ -308,14 +308,19 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
             } catch (dlErr) {
               task.logs += `[WARNING][Halaman ${pageNum}] Gagal simpan lokal (${dlErr.message}); memakai URL CDN Magica (bisa kadaluarsa).\n`;
             }
+            if (!task.originalCdnUrls) task.originalCdnUrls = [];
+            task.originalCdnUrls.push(url);
             task.imagePaths.push(magicaStored);
             task.totalCreditsUsed = (task.totalCreditsUsed || 0) + credit;
             task.currentTaskInfo = null;
             task.logs += `[Halaman ${pageNum}] Selesai (Magica).\n`;
             await saveTaskState(db, storyboardId, task);
           } catch (mErr) {
-            currentError = `Magica gagal (Halaman ${pageNum}): ${mErr.message}`;
-            break;
+            task.logs += `[WARNING][Halaman ${pageNum}] Magica gagal (${mErr.message}). Melanjutkan ke halaman berikutnya...\n`;
+            if (!task.imagePaths) task.imagePaths = [];
+            task.imagePaths[pageIdx] = null;
+            task.currentTaskInfo = null;
+            await saveTaskState(db, storyboardId, task);
           }
           continue;
         }
@@ -591,6 +596,8 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
                     } catch (dlErr) {
                       task.logs += `[WARNING][Halaman ${pageNum}] Gagal menyimpan lokal (${dlErr.message}); memakai URL remote.\n`;
                     }
+                    if (!task.originalCdnUrls) task.originalCdnUrls = [];
+                    task.originalCdnUrls[pageIdx] = remoteUrl;
                     task.imagePaths[pageIdx] = storedPath;
                     resolve(credits);
                   } else if (renderStatus === 'FAILED' || renderStatus === 'ERROR' || renderStatus === 'failed') {
@@ -619,25 +626,32 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
         await saveTaskState(db, storyboardId, task);
 
       } catch (pollErr) {
-        currentError = pollErr.message;
-        break;
+        task.logs += `[WARNING][Halaman ${pageNum}] Freebeat gagal (${pollErr.message}). Melanjutkan ke halaman berikutnya...\n`;
+        if (!task.imagePaths) task.imagePaths = [];
+        task.imagePaths[pageIdx] = null;
+        task.currentTaskInfo = null;
+        await saveTaskState(db, storyboardId, task);
       }
     }
 
-    if (currentError) {
+    const validPaths = (task.imagePaths || []).filter(p => p && p !== 'null' && p !== 'failed');
+
+    if (validPaths.length === 0) {
       task.status = 'failed';
-      task.error = currentError;
-      task.logs += `[ERROR] Kesalahan fatal dalam proses generasi: ${currentError}\n`;
+      task.error = 'Seluruh halaman gagal digenerasi.';
+      task.logs += `[ERROR] Kesalahan fatal: Seluruh halaman gagal digenerasi.\n`;
       await db.run('UPDATE storyboards SET status = ? WHERE id = ?', ['failed', storyboardId]);
       await saveTaskState(db, storyboardId, task);
       return;
     }
 
-    // Success! Update DB
+    // Success or Partial Success! Update DB
+    task.status = 'success';
     const dbPathString = JSON.stringify(task.imagePaths);
+    const originalCdnString = JSON.stringify(task.originalCdnUrls || []);
     await db.run(
-      'UPDATE storyboards SET image_path = ?, used_credits = ?, status = ? WHERE id = ?',
-      [dbPathString, task.totalCreditsUsed, 'success', storyboardId]
+      'UPDATE storyboards SET image_path = ?, original_cdn_urls = ?, used_credits = ?, status = ? WHERE id = ?',
+      [dbPathString, originalCdnString, task.totalCreditsUsed, 'success', storyboardId]
     );
     
     const isVoScriptActive = task.enableVoScript !== undefined ? !!task.enableVoScript : !!task.enableVo;
@@ -805,6 +819,52 @@ async function regenerateStoryboardPage(req, res) {
         const promptSource = pagePrompt ? 'LLM' : 'deterministik';
         if (!pagePrompt) pagePrompt = buildMasterPrompt(spec, genCtx);
         pagePrompt = pagePrompt.replace(/"/g, "'");
+
+        if (await magicaGen.isMagicaForStoryboard(db, storyboard.id)) {
+          activeTasks[taskId].logs += `[2/3] Memproses regenerasi Halaman ${pageIdx + 1} via Magica...\n`;
+          try {
+            const { result: magicaRes } = await magicaGen.executeWithMagicaFailover(
+              db,
+              genParams.magicaKeyId || null,
+              async (keyRec) => {
+                return await magicaGen.generateOneImageMagica(keyRec.key_value, pagePrompt, {
+                  aspectRatio,
+                  refUrl: finalRefImagePath,
+                  nodeType: genParams.magicaModel || 'gpt_image_2',
+                  onLog: (m) => { activeTasks[taskId].logs += m + '\n'; }
+                });
+              },
+              (msg) => { activeTasks[taskId].logs += msg + '\n'; }
+            );
+            const { url } = magicaRes;
+            let storedPath = url;
+            try {
+              const ext = ((String(url).split('?')[0].match(/\.(png|jpe?g|webp)$/i) || [])[1] || 'png').toLowerCase();
+              const fname = `storyboard_${storyboard.id}_page_${pageIdx}_regen_${Date.now()}.${ext}`;
+              await downloadFile(url, path.join(uploadsDir, fname));
+              storedPath = `/uploads/${fname}`;
+            } catch (dlErr) {}
+
+            imagePaths[pageIdx] = storedPath;
+            let origCdn = [];
+            try { if (storyboard.original_cdn_urls) origCdn = JSON.parse(storyboard.original_cdn_urls); } catch (e) {}
+            origCdn[pageIdx] = url;
+
+            const updatedPathsString = JSON.stringify(imagePaths);
+            const updatedCdnString = JSON.stringify(origCdn);
+            await db.run('UPDATE storyboards SET image_path = ?, original_cdn_urls = ? WHERE id = ?', [updatedPathsString, updatedCdnString, storyboard.id]);
+
+            activeTasks[taskId].status = 'success';
+            activeTasks[taskId].logs += `=== REGENERASI MAGICA SELESAI ===\nHalaman ${pageIdx + 1} berhasil diperbarui!\n`;
+            activeTasks[taskId].result = { id: storyboard.id, image_path: updatedPathsString };
+            return;
+          } catch (mErr) {
+            activeTasks[taskId].status = 'failed';
+            activeTasks[taskId].error = mErr.message;
+            activeTasks[taskId].logs += `[ERROR] Gagal regenerasi Magica: ${mErr.message}\n`;
+            return;
+          }
+        }
 
         activeTasks[taskId].logs += `[2/3] Mengirimkan perintah generate ke Freebeat (${promptSource})...\n` +
                                      `Prompt Halaman: ${pagePrompt}\n\n`;

@@ -178,6 +178,11 @@ async function initDb() {
 
   // Ensure merged_video_history column exists if table was already created (migration support)
   try {
+    await db.exec('ALTER TABLE storyboards ADD COLUMN original_cdn_urls TEXT');
+  } catch (e) {
+    // Column already exists, safe to ignore
+  }
+  try {
     await db.exec('ALTER TABLE storyboards ADD COLUMN merged_video_history TEXT');
   } catch (e) {
     // Column already exists, safe to ignore

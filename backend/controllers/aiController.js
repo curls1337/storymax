@@ -9,6 +9,24 @@ const https = require('https');
 const { getDb } = require('../db');
 const { uploadsDir } = require('../config');
 
+async function resolveImageDataUrl(refImage) {
+  if (!refImage || typeof refImage !== 'string') return null;
+  const str = refImage.trim();
+  if (str.startsWith('data:image/')) return str;
+  if (str.startsWith('http://') || str.startsWith('https://')) return str;
+  if (str.startsWith('/uploads/') || str.startsWith('uploads/')) {
+    const filename = path.basename(str);
+    const localPath = path.join(uploadsDir, filename);
+    if (fs.existsSync(localPath)) {
+      const ext = path.extname(filename).replace('.', '') || 'jpeg';
+      const mime = ext === 'png' ? 'image/png' : (ext === 'webp' ? 'image/webp' : 'image/jpeg');
+      const b64 = fs.readFileSync(localPath).toString('base64');
+      return `data:${mime};base64,${b64}`;
+    }
+  }
+  return null;
+}
+
 const LAYOUT_STYLES = require('../constants/layoutStyles');
 const { resolveStyleId, getStyleSpec } = require('../prompts/styleLibrary');
 const { llmChatViaSettings } = require('../prompts/aiClient');
@@ -232,47 +250,60 @@ async function writePrompt(req, res) {
     }
 
     const layoutListText = LAYOUT_STYLES.map(s => `- "${s.value}": ${s.label}`).join('\n');
-
-    let systemInstruction = '';
     const styleExists = style && LAYOUT_STYLES.some(s => s.value === style);
-    
+    let systemInstruction = '';
+
+    const strictRules = `
+PENTING & LARANGAN KERAS:
+1. FORMAT PENOMORAN PANEL WAJIB STANDAR:
+   - Wajib menggunakan format tegas: "Panel 1: [deskripsi]", "Panel 2: [deskripsi]", "Panel 3: [deskripsi]", dst. Sesuai jumlah panel.
+   - DILARANG KERAS menggunakan format gabungan seperti "P1-3:", "P4-6:", atau penomoran berjarak. Setiap panel HARUS berdiri sendiri!
+2. REALISME PENJUALAN PRODUK E-COMMERCE (REAL USE-CASE):
+   - Untuk produk dapur, elektronik, atau barang komersial, WAJIB menampilkan DEMONSTRASI FUNGSI NYATA PRODUK (contoh: Hand Blender memblender buah segar/smoothie/bumbu dapur asli, bukan elemen surealis abstrak melayang seperti emas/sihir).
+   - Tunjukkan manfaat nyata produk yang membuat orang ingin membeli!
+3. KONSISTENSI FIZIK PRODUK & SUBJEK (SUBJECT LOCKING):
+   - Warna, bentuk, bodi, aksen material produk, serta model/presenter (jika ada) WAJIB DISATUKAN & DIKUNCI SAMA 100% dari Panel 1 sampai Panel terakhir. DILARANG berubah warna atau beda orang!
+4. VARIASI AKSI & KAMERA (TIDAK BOLEH ADEGAN SAMA):
+   - Panel 1: Opening Hook & Pengenalan Produk / Masalah.
+   - Panel Tengah: Demonstrasi Aksi Nyata 1 & Demonstrasi Fitur Utama 2 (gunakan sudut kamera berbeda: Wide Shot, Medium Shot, Macro Close-Up).
+   - Panel Terakhir: Hasil Akhir Sempurna + Call To Action (CTA) Menjual.
+   - DILARANG KERAS mengulang sudut kamera atau aksi visual yang sama di antar panel!
+5. PEMBERSIHAN TEKS SAMPAH TOKO (NOISE STRIPPING):
+   - DILARANG KERAS memasukkan teks garansi, syarat video unboxing, nomor WhatsApp, alamat pengiriman, atau kebijakan retur toko.
+6. HANYA TEKS VISUAL MURNI:
+   - DILARANG KERAS menyertakan awalan meta-header teknis seperti "storyboard seedance...", "cube_box_transform:", atau nama layout di dalam teks 'description'.
+7. PANJANG TEKS: Total panjang 'description' HARUS DI BAWAH 1500 karakter. Jangan bertele-tele.
+`;
+
     if (styleExists) {
       systemInstruction = `Anda adalah seorang Sutradara Iklan Komersial & Creative Director World-Class.
 Tugas Anda adalah memfasilitasi ideasi storyboard kreatif pengguna dan menghasilkan:
-1. 'title': Judul Proyek yang elegan, padat, dan sinematik (maksimal 5 kata).
-2. 'description': Deskripsi Storyboard rinci yang siap digunakan sebagai prompt AI (berisi detail visual, gaya sinematik, sudut kamera, warna, dan pencahayaan) yang secara khusus diselaraskan dan cocok dengan gaya layout storyboard: "${style}".
+1. 'title': Judul Proyek Iklan yang menjual, padat, dan sinematik (contoh: "Sonifer 5-in-1 Hand Blender Pro", maksimal 5 kata).
+2. 'description': Deskripsi Storyboard rinci yang siap digunakan sebagai prompt AI (berisi detail visual, alur aksi, sudut kamera) yang secara khusus diselaraskan dan cocok dengan gaya layout storyboard: "${style}".
 3. 'layout': Wajib bernilai "${style}" (karena pengguna telah memilih gaya ini).
 
-PENTING & LARANGAN KERAS:
-- DILARANG KERAS MEMASUKKAN TEKS SAMPAH E-COMMERCE / TOKO SEPERTI: syarat video unboxing, catatan komplain/retur, nomor telepon/WhatsApp, alamat pengiriman, atau promosi toko. HANYA FOKUS pada fitur visual murni produk & keunggulan utamanya!
-- Tulis deskripsi MURNI berisi alur visual sinematik per panel (Panel 1, Panel 2, dst.).
-- DILARANG KERAS menyertakan awalan meta-header teknis seperti "storyboard seedance...", "1 halaman/12 panel...", "cube_box_transform:", atau nama layout di dalam teks 'description'.
-- Total panjang teks 'description' HARUS DI BAWAH 1500 karakter. Jangan bertele-tele.
+${strictRules}
 
 Anda harus mengembalikan respon hanya dalam format JSON mentah dengan key 'title', 'description', dan 'layout'. Jangan bungkus dalam markdown (jangan pakai \`\`\`json). Contoh output:
 {
   "title": "Judul Elegan",
-  "description": "Deskripsi visual rinci...",
+  "description": "Panel 1: ...\nPanel 2: ...\nPanel 3: ...\nPanel 4: ...",
   "layout": "${style}"
 }`;
     } else {
       systemInstruction = `Anda adalah seorang Sutradara Iklan Komersial & Creative Director World-Class.
 Tugas Anda adalah memfasilitasi ideasi storyboard kreatif pengguna dan menghasilkan:
-1. 'title': Judul Proyek yang elegan, padat, dan sinematik (maksimal 5 kata).
-2. 'description': Deskripsi Storyboard rinci yang siap digunakan sebagai prompt AI (berisi detail visual, gaya sinematik, sudut kamera, warna, dan pencahayaan).
+1. 'title': Judul Proyek Iklan yang menjual, padat, dan sinematik (contoh: "Sonifer 5-in-1 Hand Blender Pro", maksimal 5 kata).
+2. 'description': Deskripsi Storyboard rinci yang siap digunakan sebagai prompt AI (berisi detail visual, alur aksi, sudut kamera).
 3. 'layout': Memilih satu Gaya Layout Storyboard yang PALING COCOK dan paling presisi untuk ide/konsep tersebut dari daftar gaya berikut:
 ${layoutListText}
 
-PENTING & LARANGAN KERAS:
-- DILARANG KERAS MEMASUKKAN TEKS SAMPAH E-COMMERCE / TOKO SEPERTI: syarat video unboxing, catatan komplain/retur, nomor telepon/WhatsApp, alamat pengiriman, atau promosi toko. HANYA FOKUS pada fitur visual murni produk & keunggulan utamanya!
-- Tulis deskripsi MURNI berisi alur visual sinematik per panel (Panel 1, Panel 2, dst.).
-- DILARANG KERAS menyertakan awalan meta-header teknis seperti "storyboard seedance...", "1 halaman/12 panel...", "cube_box_transform:", atau nama layout di dalam teks 'description'.
-- Total panjang teks 'description' HARUS DI BAWAH 1500 karakter. Jangan bertele-tele.
+${strictRules}
 
 Anda harus mengembalikan respon hanya dalam format JSON mentah dengan key 'title', 'description', dan 'layout' (diisi dengan value/kode dari layout yang Anda pilih). Jangan bungkus dalam markdown (jangan pakai \`\`\`json). Contoh output:
 {
   "title": "Judul Elegan",
-  "description": "Deskripsi visual rinci...",
+  "description": "Panel 1: ...\nPanel 2: ...\nPanel 3: ...\nPanel 4: ...",
   "layout": "premium_vertical_row"
 }`;
     }
@@ -416,26 +447,7 @@ Gunakan kombinasi pengarahan matriks ideasi acak berikut:
 
     userMessageContent += contextClause;
 
-    let userMessagePayload = [];
-    const refDataUrl = (hasRefImage && refImage) ? await resolveImageDataUrl(refImage) : null;
-    if (refDataUrl) {
-      userMessagePayload = [
-        {
-          type: 'text',
-          text: userMessageContent
-        },
-        {
-          type: 'image_url',
-          image_url: {
-            url: refDataUrl
-          }
-        }
-      ];
-    } else {
-      // No usable reference image -> text-only (avoids sending an invalid path as base64).
-      userMessagePayload = userMessageContent;
-    }
-
+    // Use text-only payload for prompt synthesis so it routes fast & 100% reliably across all providers (Magica & Default).
     const payload = {
       model: settings?.model || 'gemini-3-flash',
       messages: [
@@ -445,7 +457,7 @@ Gunakan kombinasi pengarahan matriks ideasi acak berikut:
         },
         {
           role: 'user',
-          content: userMessagePayload
+          content: userMessageContent
         }
       ],
       temperature: 0.7
@@ -459,24 +471,51 @@ Gunakan kombinasi pengarahan matriks ideasi acak berikut:
     const response = await llmChatViaSettings(payload, { db });
 
     if (response.statusCode !== 200) {
+      console.error('[writePrompt API Non-200 Error]:', response.statusCode, response.body);
       return res.status(500).json({ message: 'Gagal menghubungi server AI.', error: response.body });
     }
 
     const { parseAiContent } = require('../prompts/aiClient');
     const content = parseAiContent(response.body);
     
-    // Parse response content robustly
-    let cleanText = content.trim();
-    if (cleanText.startsWith('```')) {
-      cleanText = cleanText.replace(/^```[a-zA-Z]*\n?/, '').replace(/\n?```$/, '');
+    function parseAiJson(raw) {
+      let str = String(raw || '').trim();
+      if (str.startsWith('```')) {
+        str = str.replace(/^```[a-zA-Z]*\n?/, '').replace(/\n?```$/, '').trim();
+      }
+      const jsonMatch = str.match(/\{[\s\S]*\}/);
+      if (jsonMatch) str = jsonMatch[0];
+
+      // Tier 1: Direct JSON.parse
+      try { return JSON.parse(str); } catch (e) {}
+
+      // Tier 2: Escape unescaped newlines in JSON string values
+      try {
+        const sanitized = str.replace(/"description"\s*:\s*"([\s\S]*?)"\s*,\s*"layout"/i, (m, desc) => {
+          const escapedDesc = desc.replace(/\r?\n/g, '\\n');
+          return `"description": "${escapedDesc}", "layout"`;
+        });
+        return JSON.parse(sanitized);
+      } catch (e) {}
+
+      // Tier 3: Regex extraction
+      const titleMatch = str.match(/"title"\s*:\s*"([^"]+)"/i);
+      const descMatch = str.match(/"description"\s*:\s*"([\s\S]*?)"\s*,\s*"(?:layout|title)"/i) || str.match(/"description"\s*:\s*"([\s\S]*?)"\s*\}/i);
+      const layoutMatch = str.match(/"layout"\s*:\s*"([^"]+)"/i);
+
+      if (titleMatch || descMatch) {
+        return {
+          title: titleMatch ? titleMatch[1] : null,
+          description: descMatch ? descMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"') : null,
+          layout: layoutMatch ? layoutMatch[1] : null
+        };
+      }
+      return null;
     }
 
-    try {
-      const parsed = JSON.parse(cleanText.trim());
-      // Ensure selected layout is valid, fallback to 'premium_vertical_row'
+    const parsed = parseAiJson(content);
+    if (parsed && (parsed.title || parsed.description)) {
       const selectedLayout = LAYOUT_STYLES.some(s => s.value === parsed.layout) ? parsed.layout : 'premium_vertical_row';
-      
-      // Clean up any stray technical metadata headers (e.g. "storyboard seedance 15 detik, 1 halaman/12 panel, cube_box_transform:")
       let cleanDesc = String(parsed.description || concept).trim();
       cleanDesc = cleanDesc.replace(/^storyboard\s+[^:\n]+:\s*/i, '').trim();
       cleanDesc = cleanDesc.replace(/^storyboard\s+.*?\d+\s*panel[^\n:]*:\s*/i, '').trim();
@@ -487,19 +526,21 @@ Gunakan kombinasi pengarahan matriks ideasi acak berikut:
         description: cleanDesc,
         layout: selectedLayout
       });
-    } catch (parseErr) {
-      let cleanDesc = cleanText.trim();
+    } else {
+      console.warn('[writePrompt Fallback]: LLM returned plain text:', content.substring(0, 100));
+      let cleanDesc = content.trim();
       cleanDesc = cleanDesc.replace(/^storyboard\s+[^:\n]+:\s*/i, '').trim();
       cleanDesc = cleanDesc.replace(/^storyboard\s+.*?\d+\s*panel[^\n:]*:\s*/i, '').trim();
 
       return res.json({
-        title: concept.substring(0, 20) + '...',
-        description: cleanDesc,
+        title: String(concept || 'Project').substring(0, 25).trim(),
+        description: cleanDesc || concept,
         layout: 'premium_vertical_row'
       });
     }
 
   } catch (error) {
+    console.error('[writePrompt Fatal Error]:', error);
     return res.status(500).json({ message: 'Terjadi kesalahan sistem saat memproses AI.', error: error.message });
   }
 }

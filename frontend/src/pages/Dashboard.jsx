@@ -2332,7 +2332,7 @@ export default function Dashboard({ setTab }) {
                             <select value={magicaKeyId} onChange={(e) => setMagicaKeyId(e.target.value)} className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] focus:outline-none focus:border-[#a855f7] transition-all font-semibold">
                               <option value="auto">Pilih Otomatis (Auto-detect)</option>
                               {(((magicaCatalog && magicaCatalog.keys) || []).length)
-                                ? magicaCatalog.keys.map(k => { const low = k.balance != null && k.balance < 5000000; return (<option key={k.id} value={k.id} disabled={low}>{k.label}{k.formatted != null ? ` (⚡ ${k.formatted} kredit)` : ''}{low ? ' — LLM saja' : ''}</option>); })
+                                ? magicaCatalog.keys.map(k => { const low = k.balance != null && k.balance < 1000000; return (<option key={k.id} value={k.id} disabled={low}>{k.label}{k.formatted != null ? ` (⚡ ${k.formatted} kredit)` : ''}{low ? ' — Saldo tipis (< 1 kredit)' : ''}</option>); })
                                 : <option value="" disabled>Belum ada API Key Magica aktif</option>}
                             </select>
                           </div>

@@ -9,16 +9,16 @@ const fsp = require('fs').promises;
 const { chatCompletion } = require('./aiClient');
 
 const SYS = [
-  'You are a meticulous product-identification assistant for a storyboard generator.',
-  'Describe the ONE main product/subject in the image so it can be reproduced IDENTICALLY across many panels.',
+  'You are a meticulous product-identification assistant for a commercial storyboard generator.',
+  'Describe the ONE main product/subject in the image so it can be reproduced IDENTICALLY across ALL panels and pages.',
   'Be literal and factual — never creative, never invent details that are not visible.',
   'Order the description so the most identity-critical facts come FIRST:',
   '(1) product type/category;',
-  '(2) any visible BRAND NAME, LOGO or TEXT — transcribe it VERBATIM inside double quotes and say where it appears (critical: exact spelling);',
-  '(3) exact colors (name them precisely) plus finish and materials;',
-  '(4) shape, proportions and key structural parts;',
+  '(2) any visible BRAND NAME, LOGO or TEXT — transcribe it VERBATIM inside double quotes and say where it appears (e.g. "NINJA" logo on base);',
+  '(3) exact control buttons and shape — e.g. square illuminated START/STOP LED button vs round power icon, dial, or switch;',
+  '(4) exact colors, finish, materials, vessel shape, lid style and base proportions;',
   '(5) distinctive features or markings.',
-  'Write 1-3 dense sentences, front-loaded with the type + brand. Output ONLY the description.',
+  'Write 1-3 dense sentences, front-loaded with type + brand + control button style. Output ONLY the description.',
 ].join(' ');
 
 async function toDataUrl(imagePath) {

@@ -1279,6 +1279,13 @@ async function generateAllVideos(req, res) {
         // Resolve scene image
         const pageIdx = sceneIdx;
         const sceneImage = panelImages[pageIdx];
+        let originalCdnUrl = null;
+        if (storyboard.original_cdn_urls) {
+          try {
+            const parsedCdn = JSON.parse(storyboard.original_cdn_urls);
+            if (Array.isArray(parsedCdn) && parsedCdn[pageIdx]) originalCdnUrl = parsedCdn[pageIdx];
+          } catch (e) {}
+        }
 
         // Magica batch scene — sequential, bypasses the Freebeat key gate below.
         if (isMagica) {
@@ -1302,7 +1309,7 @@ async function generateAllVideos(req, res) {
             // generate_audio (native audio) ON if EITHER voiceover OR backsound is wanted;
             // the prompt above already forbids whichever is off (parity with the single path).
             const nativeAudio = !!(hasVo || backsound);
-            const { url, credit } = await magicaGen.generateVideoMagica(mk.key_value, { prompt: promptText, sceneImage, generationType, duration, resolution, aspectRatio, generateAudio: nativeAudio, nodeType: magicaModel, method: magicaMethod, onLog, webhook: magicaGen.buildWebhook('video', mRecId, mWhToken), onRunStart: (rid) => db.run('UPDATE generated_videos SET magica_run_id = ? WHERE id = ?', [rid, mRecId]).catch(() => {}) });
+            const { url, credit } = await magicaGen.generateVideoMagica(mk.key_value, { prompt: promptText, sceneImage, originalCdnUrl, generationType, duration, resolution, aspectRatio, generateAudio: nativeAudio, nodeType: magicaModel, method: magicaMethod, onLog, webhook: magicaGen.buildWebhook('video', mRecId, mWhToken), onRunStart: (rid) => db.run('UPDATE generated_videos SET magica_run_id = ? WHERE id = ?', [rid, mRecId]).catch(() => {}) });
             await db.run('UPDATE generated_videos SET video_url = ?, status = ?, used_credits = ?, logs = ? WHERE id = ?', [url, 'success', credit || 0, activeTasks[mTaskId].logs, mRecId]);
             activeTasks[mTaskId].status = 'success'; activeTasks[mTaskId].logs += '[Magica] Video selesai.\n';
             try { await db.run('UPDATE magica_api_keys SET last_status = ? WHERE id = ?', ['OK - ' + new Date().toLocaleString('id-ID'), mk.id]); } catch (e) {}

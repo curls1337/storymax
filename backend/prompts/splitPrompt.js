@@ -21,8 +21,48 @@ function fallbackSplit(concept, pageCount, secondsPerPage = 15) {
   });
 }
 
+function splitByExplicitPanels(concept, pageCount) {
+  if (!concept || typeof concept !== 'string' || pageCount <= 1) return null;
+  const hasPanels = /Panel\s*1\s*[:\-]/i.test(concept);
+  if (!hasPanels) return null;
+
+  const panelRegex = /Panel\s*(\d+)\s*[:\-]\s*([\s\S]*?)(?=(?:Panel\s*\d+\s*[:\-])|$)/gi;
+  const panels = [];
+  let match;
+  while ((match = panelRegex.exec(concept)) !== null) {
+    const num = parseInt(match[1], 10);
+    const desc = match[2].trim();
+    if (desc) {
+      panels.push({ num, text: `Panel ${num}: ${desc}` });
+    }
+  }
+
+  if (panels.length < 2) return null;
+
+  const pages = [];
+  const perPage = Math.ceil(panels.length / pageCount);
+  for (let i = 0; i < pageCount; i++) {
+    const pagePanels = panels.slice(i * perPage, (i + 1) * perPage);
+    if (pagePanels.length > 0) {
+      pages.push(pagePanels.map(p => p.text).join('\n\n'));
+    }
+  }
+
+  if (pages.length === pageCount) {
+    console.log(`[Explicit Panel Splitter] Successfully sliced ${panels.length} panels across ${pageCount} pages (${perPage} panels/page).`);
+    return pages;
+  }
+  return null;
+}
+
 async function splitStoryboardPromptWithAI(concept, pageCount, db, secondsPerPage = 15, styleId = null) {
   try {
+    // 0. Check if concept already contains explicit Panel 1:, Panel 2: ... definitions
+    const explicitPages = splitByExplicitPanels(concept, pageCount);
+    if (explicitPages) {
+      return explicitPages;
+    }
+
     const settings = await db.get('SELECT * FROM ai_settings LIMIT 1');
     if (!settings || !settings.api_key) {
       console.log('[AI Split] No AI key configured. Using raw prompt fallback.');
