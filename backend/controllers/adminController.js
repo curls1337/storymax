@@ -565,6 +565,7 @@ async function executeDatabaseRestorePayload(db, payload) {
       restored[t] = inserted;
     }
     await db.run('COMMIT');
+    try { await db.run('PRAGMA wal_checkpoint(FULL)'); } catch (e) {}
   } catch (inner) {
     try { await db.run('ROLLBACK'); } catch (e) {}
     throw inner;
@@ -620,10 +621,8 @@ async function executeDatabaseRestoreFromFile(db, tempFilePath) {
     return await executeDatabaseRestorePayload(db, payload);
   }
 
-  // For large files (>15MB), stream line-by-line to keep RAM usage under 15MB
+  // For large files (>15MB), stream line-by-line using line-demarcated object boundaries to keep RAM < 15MB
   await db.run('PRAGMA foreign_keys = OFF');
-  await db.run('PRAGMA synchronous = OFF');
-  await db.run('PRAGMA journal_mode = MEMORY');
   await db.run('BEGIN');
 
   const restored = {};
@@ -639,9 +638,8 @@ async function executeDatabaseRestoreFromFile(db, tempFilePath) {
 
   let currentTable = null;
   let inTablesBlock = false;
-  let objectBuffer = [];
-  let braceDepth = 0;
-  let inObject = false;
+  let insideRow = false;
+  let rowLines = [];
 
   const clearedTables = new Set();
   const fileStream = fs.createReadStream(tempFilePath, { encoding: 'utf8' });
@@ -661,6 +659,7 @@ async function executeDatabaseRestoreFromFile(db, tempFilePath) {
         continue;
       }
 
+      // Check for table header e.g. "storyboards": [
       for (const t of BACKUP_TABLES) {
         const tableHeaderRegex = new RegExp(`"${t}"\\s*:\\s*\\[`);
         if (tableHeaderRegex.test(trimmed)) {
@@ -675,56 +674,60 @@ async function executeDatabaseRestoreFromFile(db, tempFilePath) {
 
       if (!currentTable) continue;
 
-      for (let i = 0; i < line.length; i++) {
-        const char = line[i];
-        if (char === '{') {
-          if (braceDepth === 0) {
-            inObject = true;
-            objectBuffer = [];
-          }
-          braceDepth++;
-        }
+      // Detect start of object e.g. line is exactly "{"
+      if (!insideRow && trimmed === '{') {
+        insideRow = true;
+        rowLines = ['{'];
+        continue;
+      }
 
-        if (inObject) {
-          objectBuffer.push(char);
-        }
-
-        if (char === '}') {
-          braceDepth--;
-          if (braceDepth === 0 && inObject) {
-            inObject = false;
-            const objStr = objectBuffer.join('');
-            try {
-              const cleanObjStr = objStr.replace(/,\s*$/, '');
-              const row = JSON.parse(cleanObjStr);
-
-              const validCols = tableSchemas[currentTable];
-              if (validCols && row && typeof row === 'object') {
-                const cols = Object.keys(row).filter((c) => validCols.has(c));
-                if (cols.length > 0) {
-                  const placeholders = cols.map(() => '?').join(', ');
-                  const values = cols.map((c) => row[c]);
-                  await db.run(
-                    `INSERT INTO ${currentTable} (${cols.map((c) => `"${c}"`).join(', ')}) VALUES (${placeholders})`,
-                    values
-                  );
-                  restored[currentTable]++;
-                }
+      if (insideRow) {
+        // Detect end of object e.g. line is "}" or "},"
+        if (trimmed === '}' || trimmed === '},') {
+          rowLines.push('}');
+          insideRow = false;
+          try {
+            const jsonStr = rowLines.join('\n');
+            const row = JSON.parse(jsonStr);
+            const validCols = tableSchemas[currentTable];
+            if (validCols && row && typeof row === 'object') {
+              const cols = Object.keys(row).filter((c) => validCols.has(c));
+              if (cols.length > 0) {
+                const placeholders = cols.map(() => '?').join(', ');
+                const values = cols.map((c) => row[c]);
+                await db.run(
+                  `INSERT INTO ${currentTable} (${cols.map((c) => `"${c}"`).join(', ')}) VALUES (${placeholders})`,
+                  values
+                );
+                restored[currentTable]++;
               }
-            } catch (e) {}
-            objectBuffer = [];
+            }
+          } catch (parseErr) {
+            // Ignore single malformed row if any
           }
+          rowLines = [];
+        } else {
+          rowLines.push(line);
         }
       }
     }
 
+    // Fallback: If streaming line boundaries yielded 0 restored rows across all tables
+    // (e.g. minified JSON file on single line), fallback to standard execution
+    const totalRestored = Object.values(restored).reduce((a, b) => a + b, 0);
+    if (totalRestored === 0) {
+      await db.run('ROLLBACK');
+      const rawText = fs.readFileSync(tempFilePath, 'utf8').trim();
+      const payload = JSON.parse(rawText);
+      return await executeDatabaseRestorePayload(db, payload);
+    }
+
     await db.run('COMMIT');
+    try { await db.run('PRAGMA wal_checkpoint(FULL)'); } catch (e) {}
   } catch (err) {
     try { await db.run('ROLLBACK'); } catch (e) {}
     throw err;
   } finally {
-    try { await db.run('PRAGMA synchronous = NORMAL'); } catch (e) {}
-    try { await db.run('PRAGMA journal_mode = WAL'); } catch (e) {}
     try { await db.run('PRAGMA foreign_keys = ON'); } catch (e) {}
   }
 

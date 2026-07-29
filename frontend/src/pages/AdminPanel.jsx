@@ -588,8 +588,16 @@ const PRESET_AI_MODELS = [
       }
 
       const r = finalRestored || (lastRes && lastRes.data && lastRes.data.restored) || {};
-      setMessage('Restore berhasil (' + Object.entries(r).map(([k, v]) => `${k} ${v}`).join(', ') + '). Muat ulang halaman / login kembali bila perlu.');
+      const restoredSummary = Object.entries(r)
+        .filter(([, v]) => v > 0)
+        .map(([k, v]) => `${v} ${k}`)
+        .join(', ') || 'Semua data';
+
+      setMessage(`Restore berhasil (${restoredSummary})! Halaman akan otomatis dimuat ulang dalam 2 detik untuk menerapkan data baru...`);
       loadData();
+      setTimeout(() => {
+        window.location.reload();
+      }, 2500);
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'Gagal me-restore database.');
     } finally {
