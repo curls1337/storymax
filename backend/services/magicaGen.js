@@ -116,6 +116,15 @@ const MEDIA_MIN_MICRO = 5000000; // 5 credits
 
 // Cached per-key balances (~60s) so key selection does not hammer the balance API.
 let _balCache = { at: 0, keys: null };
+
+async function disableMagicaKey(db, keyId, reason) {
+  try {
+    const statusMsg = `Saldo Habis (Auto Off)${reason ? ' - ' + String(reason).slice(0, 60) : ''}`;
+    await db.run('UPDATE magica_api_keys SET is_active = 0, last_status = ? WHERE id = ?', [statusMsg, keyId]);
+    invalidateBalanceCache();
+  } catch (e) {}
+}
+
 async function getKeyBalances(db) {
   const now = Date.now();
   if (_balCache.keys && (now - _balCache.at) < 60000) return _balCache.keys;
@@ -124,11 +133,18 @@ async function getKeyBalances(db) {
   await Promise.all((rows || []).map(async (k) => {
     let balance = 0;
     try { balance = Number((await magica.getCreditBalance(k.key_value)).availableBalance) || 0; } catch (e) { balance = 0; }
-    keys.push({ id: k.id, key_value: k.key_value, balance });
+    
+    // Auto-disable keys with balance < 0.1 credit (< 100,000 microcredits)
+    if (balance < 100000) {
+      await disableMagicaKey(db, k.id, `Saldo tinggal ${(balance / 1e6).toFixed(2)} kredit`);
+    } else {
+      keys.push({ id: k.id, key_value: k.key_value, balance });
+    }
   }));
   _balCache = { at: now, keys };
   return keys;
 }
+
 function invalidateBalanceCache() { _balCache = { at: 0, keys: null }; }
 
 // LLM key: prefer CHEAP (<5 credit) keys so funded keys stay free for media; fall back
@@ -161,6 +177,61 @@ async function pickMediaMagicaKey(db, preferredId) {
   }
   qualifying.sort((a, b) => b.balance - a.balance);
   return qualifying[0];
+}
+
+// Return all qualifying media keys ordered with preferred/highest balance first for auto-failover
+async function getAllMediaMagicaKeys(db, preferredId) {
+  let keys = [];
+  try { keys = await getKeyBalances(db); } catch (e) {}
+  const qualifying = keys.filter((k) => k.balance >= MEDIA_MIN_MICRO);
+  if (!qualifying.length) return [];
+  qualifying.sort((a, b) => b.balance - a.balance);
+  const idNum = parseInt(preferredId, 10);
+  if (preferredId != null && String(preferredId) !== 'auto' && Number.isFinite(idNum)) {
+    const hitIndex = qualifying.findIndex((k) => k.id === idNum);
+    if (hitIndex > 0) {
+      const [hit] = qualifying.splice(hitIndex, 1);
+      qualifying.unshift(hit);
+    }
+  }
+  return qualifying;
+}
+
+// Robust Failover Execution Loop: Tries Magica keys one by one if one encounters an error/insufficient credit
+async function executeWithMagicaFailover(db, preferredId, renderFn, onLog) {
+  const keys = await getAllMediaMagicaKeys(db, preferredId);
+  if (!keys || !keys.length) {
+    throw new Error('Tidak ada API Key Magica dengan saldo cukup (>= 5 kredit). Silakan isi ulang atau tambah API Key baru.');
+  }
+
+  let lastError = null;
+  for (let i = 0; i < keys.length; i++) {
+    const keyRecord = keys[i];
+    if (onLog) onLog(`[Magica] Mencoba render via Key #${keyRecord.id} (Saldo: ${(keyRecord.balance / 1e6).toFixed(2)} kredit)...`);
+    try {
+      const result = await renderFn(keyRecord);
+      try {
+        await db.run('UPDATE magica_api_keys SET last_status = ? WHERE id = ?', ['OK - ' + new Date().toLocaleString('id-ID'), keyRecord.id]);
+      } catch (e) {}
+      return { result, keyRecord };
+    } catch (err) {
+      lastError = err;
+      const errStr = String(err.message || err);
+      const isBalanceErr = /insufficient|balance|credit|quota|400|402|429/i.test(errStr);
+      if (isBalanceErr) {
+        await disableMagicaKey(db, keyRecord.id, errStr);
+        if (onLog) onLog(`[Magica Auto-Switch ⚠️] Key #${keyRecord.id} saldo habis / error (${errStr}). Key telah dinonaktifkan otomatis.`);
+      } else {
+        if (onLog) onLog(`[Magica Auto-Switch ⚠️] Key #${keyRecord.id} gagal: ${errStr}.`);
+      }
+
+      if (i < keys.length - 1) {
+        if (onLog) onLog(`[Magica Auto-Switch 🔄] Otomatis beralih ke Key #${keys[i + 1].id} (Saldo: ${(keys[i + 1].balance / 1e6).toFixed(2)} kredit)...`);
+      }
+    }
+  }
+
+  throw lastError || new Error('Semua API Key Magica di kolam gagal digunakan.');
 }
 
 // Estimate a node run's cost in microcredits (no side effects). 0 on any failure.
@@ -672,6 +743,9 @@ module.exports = {
   pickMagicaKey,
   pickRandomMagicaKey,
   pickMediaMagicaKey,
+  getAllMediaMagicaKeys,
+  disableMagicaKey,
+  executeWithMagicaFailover,
   getKeyBalances,
   estimateNodeCost,
   MEDIA_MIN_MICRO,

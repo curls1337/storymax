@@ -279,19 +279,25 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
         task.logs += `[Halaman ${pageNum}] Prompt (${promptSource}): ${pagePrompt.substring(0, 120)}...\n`;
         await saveTaskState(db, storyboardId, task);
 
-        // Magica render for this page — skips the Freebeat spawn/poll block below.
+        // Magica render for this page — uses failover loop to retry next key if one is empty/error
         if (isMagica) {
           try {
-            const { url, credit } = await magicaGen.generateOneImageMagica(magicaApiKey, pagePrompt, {
-              aspectRatio: task.aspectRatio,
-              refUrl: pageRefPath,
-              nodeType: task.magicaModel,
-              onLog: (m) => { task.logs += m + '\n'; },
-            });
-            // B2 parity with Freebeat: download the Magica image to /uploads so pages
-            // survive Magica CDN link expiry (and stay uniform). Best-effort — on ANY
-            // download failure we keep the public Magica CDN URL as fallback, so this is
-            // never worse than before.
+            const { result: magicaRes } = await magicaGen.executeWithMagicaFailover(
+              db,
+              task.magicaKeyId,
+              async (keyRec) => {
+                return await magicaGen.generateOneImageMagica(keyRec.key_value, pagePrompt, {
+                  aspectRatio: task.aspectRatio,
+                  refUrl: pageRefPath,
+                  nodeType: task.magicaModel,
+                  onLog: (m) => { task.logs += m + '\n'; },
+                });
+              },
+              (msg) => { task.logs += msg + '\n'; }
+            );
+
+            const { url, credit } = magicaRes;
+
             let magicaStored = url;
             try {
               const ext = ((String(url).split('?')[0].match(/\.(png|jpe?g|webp)$/i) || [])[1] || 'png').toLowerCase();

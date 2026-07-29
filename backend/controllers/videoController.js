@@ -234,37 +234,58 @@ async function generateVideo(req, res) {
     // Provider routing (Bagian 2): Magica single-video generation — bypasses the
     // Freebeat key requirement + inline CLI spawn entirely.
     if (await magicaGen.isMagicaForStoryboard(db, storyboardId)) {
-      const mk = await magicaGen.pickMediaMagicaKey(db, magicaKeyId);
-      if (!mk) return res.status(400).json({ message: 'Tidak ada API Key Magica dengan saldo cukup (>= 5 kredit) untuk video. Key di bawah 5 kredit hanya untuk LLM — isi ulang atau tambah key.' });
+      const keys = await magicaGen.getAllMediaMagicaKeys(db, magicaKeyId);
+      if (!keys || !keys.length) return res.status(400).json({ message: 'Tidak ada API Key Magica dengan saldo cukup (>= 5 kredit) untuk video. Key di bawah 5 kredit hanya untuk LLM — isi ulang atau tambah key.' });
+      
+      const initialKey = keys[0];
       const taskId = 'video_task_' + Date.now();
       const whToken = require('crypto').randomBytes(16).toString('hex');
       const insertResult = await db.run(
         `INSERT INTO generated_videos
          (storyboard_id, scene_idx, prompt, model, aspect_ratio, duration, resolution, status, task_id, api_key_id, magica_key_id, webhook_token)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [storyboardId, sceneIdx, prompt, 'magica:seedance', aspectRatio || null, duration || null, resolution || null, 'processing', taskId, null, mk.id, whToken]
+        [storyboardId, sceneIdx, prompt, 'magica:seedance', aspectRatio || null, duration || null, resolution || null, 'processing', taskId, null, initialKey.id, whToken]
       );
       const videoRecordId = insertResult.lastID;
       activeTasks[taskId] = { status: 'processing', apiKeyId: null, logs: '=== VIDEO STUDIO (MAGICA) ===\n\n[1/2] Mengirim perintah ke Magica (Seedance)...\n', result: null, error: null };
       res.json({ taskId, videoId: videoRecordId, status: 'processing' });
+      
       (async () => {
         const onLog = (m) => { if (activeTasks[taskId]) activeTasks[taskId].logs += m + '\n'; };
-        // VO now comes from the STORYBOARD setting (single source of truth), not a Video
-        // Studio toggle: attach the VO directive (line + tone + timing, trimmed to duration)
-        // when the storyboard has VO on & this scene has narration. Backsound stays a per-
-        // video toggle. generate_audio (Magica) = ON if VO OR backsound is wanted, else silent.
         const magicaPrompt = applyAudioDirectives(prompt, { hasVo, narration: sceneNarration, voLanguage: voCfg.voLanguage, voTone: voCfg.voTone, durationSec: duration, backsound });
         const nativeAudio = !!(hasVo || backsound);
+        
         try {
-          const { url, credit } = await magicaGen.generateVideoMagica(mk.key_value, { prompt: magicaPrompt, sceneImage, generationType, duration, resolution, aspectRatio, generateAudio: nativeAudio, nodeType: magicaModel, method: magicaMethod, onLog, webhook: magicaGen.buildWebhook('video', videoRecordId, whToken), onRunStart: (rid) => db.run('UPDATE generated_videos SET magica_run_id = ? WHERE id = ?', [rid, videoRecordId]).catch(() => {}) });
+          const { result: magicaRes, keyRecord: usedKey } = await magicaGen.executeWithMagicaFailover(
+            db,
+            magicaKeyId,
+            async (keyRec) => {
+              await db.run('UPDATE generated_videos SET magica_key_id = ? WHERE id = ?', [keyRec.id, videoRecordId]).catch(() => {});
+              return await magicaGen.generateVideoMagica(keyRec.key_value, {
+                prompt: magicaPrompt,
+                sceneImage,
+                generationType,
+                duration,
+                resolution,
+                aspectRatio,
+                generateAudio: nativeAudio,
+                nodeType: magicaModel,
+                method: magicaMethod,
+                onLog,
+                webhook: magicaGen.buildWebhook('video', videoRecordId, whToken),
+                onRunStart: (rid) => db.run('UPDATE generated_videos SET magica_run_id = ? WHERE id = ?', [rid, videoRecordId]).catch(() => {})
+              });
+            },
+            onLog
+          );
+
+          const { url, credit } = magicaRes;
           await db.run('UPDATE generated_videos SET video_url = ?, status = ?, used_credits = ?, logs = ? WHERE id = ?', [url, 'success', credit || 0, activeTasks[taskId]?.logs || '', videoRecordId]);
           if (activeTasks[taskId]) { activeTasks[taskId].status = 'success'; activeTasks[taskId].logs += '[Magica] Video selesai.\n'; }
-          try { await db.run('UPDATE magica_api_keys SET last_status = ? WHERE id = ?', ['OK - ' + new Date().toLocaleString('id-ID'), mk.id]); } catch (e) {}
         } catch (mErr) {
           onLog('[ERROR] Magica gagal: ' + mErr.message);
           if (activeTasks[taskId]) { activeTasks[taskId].status = 'failed'; activeTasks[taskId].error = mErr.message; }
           await db.run('UPDATE generated_videos SET status = ?, error_message = ?, logs = ? WHERE id = ?', ['failed', mErr.message, activeTasks[taskId]?.logs || '', videoRecordId]);
-          try { await db.run('UPDATE magica_api_keys SET last_status = ? WHERE id = ?', ['Error: ' + String(mErr.message).slice(0, 120), mk.id]); } catch (e) {}
         }
       })();
       return;
