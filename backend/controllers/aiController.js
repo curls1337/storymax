@@ -275,32 +275,116 @@ Anda harus mengembalikan respon hanya dalam format JSON mentah dengan key 'title
 }`;
     }
 
-    let userMessageContent = '';
-    if (isRandomIdea) {
-      const pickNiche = CREATIVE_NICHES[Math.floor(Math.random() * CREATIVE_NICHES.length)];
-      const pickVisual = VISUAL_AESTHETICS[Math.floor(Math.random() * VISUAL_AESTHETICS.length)];
-      const pickAction = CAMERA_ACTIONS[Math.floor(Math.random() * CAMERA_ACTIONS.length)];
-      const pickAngle = RANDOM_CREATIVE_ANGLES[Math.floor(Math.random() * RANDOM_CREATIVE_ANGLES.length)];
+  // Specialized Layout-to-Niche Matching Map to guarantee perfect soulmate products per layout
+  const LAYOUT_MATCHING_NICHES = {
+    asmr_satisfying: [
+      "Perakitan Miniatur Kayu Presisi (tekstur kayu hangat, pinset makro, detail fitting presisi)",
+      "Tetesan Serum Kristal Bening di Kaca (efek makro cairan kental berkilat, embun halus)",
+      "Es Batu Kristal Jatuh ke Kopi Espresso Artisan (dentingan es, buih milk latte hangat)",
+      "Pemotongan Roti Sourdough Renyah (tekstur renyah roti hangat, tepung terigu halus)",
+      "Lilin Aromaterapi Kayu Cendana (lelehan lilin hangat, sumbu kayu terbakar halus)",
+      "Sapuan Kuas Cat Minyak Bertekstur di Kanvas (tekstur warna cat tebal & memanjakan mata)",
+      "Potongan Cokelat Leleh Artisan di Biskuit (lelehan cokelat kental)"
+    ],
+    asmr_toy_transform: [
+      "Mainan Miniatur Die-Cast Logam Premium (logam presisi berkilat, cat halus, detail mekanis)",
+      "Model Pesawat/Mobil Miniatur Kayu Presisi (detail komponen kayu kecil)",
+      "Model Jam Tangan Mekanis Miniatur (roda gigi kuningan berputar halus)"
+    ],
+    recipe_cooking: [
+      "Kopi Espresso & Cold Brew Artisan (es batu transparan, foam susu, cangkir porselen)",
+      "Croissant Mentega & Pastry Oven (permukaan roti hangat berkilau, taburan gula halus)",
+      "Steak Panggang & Saus Barbekyu (asap tipis, lelehan mentega di daging panggang)",
+      "Soda Buah Segar Berbusa (gelembung soda, potongan buah segar, es batu pecah)"
+    ],
+    diy_build: [
+      "Kerajinan Miniatur Rumah Kayu & Diorama (pemotongan presisi, lem kayu, komponen kecil)",
+      "Dompet & Aksesori Kulit Grain Handcrafted (jahitan benang emas, pemotongan kulit halus)",
+      "Perakitan Keyboard Mekanikal Custom (lubrikasi switch, keycaps PBT bertekstur)"
+    ],
+    cube_box_transform: [
+      "Gadget Smartwatch Titanium & Earbuds (material logam brushed, mekar presisi)",
+      "Sepatu Running Neon Futuristik (sol karbon flex, kain rajut breathability)",
+      "Kamera Drone Lipat 4K Compact (lensa kine, bodi karbon matte)",
+      "Botol Parfum Mewah Berukir (kaca tebal kristal, atomizer emas)"
+    ],
+    shape_morph_transform: [
+      "Headphone Nirkabel Premium (bantalan kulit empuk, headband aluminium)",
+      "Powerbank Panel Surya Portable (desain lipat presisi, indikator LED)",
+      "Mouse Gaming Nirkabel Ultralight (cangkang berlubang honeycomb, sensor presisi)"
+    ],
+    product_assembly: [
+      "Jam Tangan Otomatis Tourbillon (komponen roda gigi melayang lalu menyatu)",
+      "Sepatu Sneakers Techwear (komponen sol, kain, & tali melayang menyatu presisi)",
+      "Kamera Aksi Waterproof (lensa, pelindung casing, & baterai menyatu)"
+    ],
+    liquid_splash: [
+      "Botol Serum Skincare Vitamin C (percikan cairan bening oranye berkuasa)",
+      "Kaleng Soda Buah Dingin (cipratan es batu & bulir air embun)",
+      "Botol Parfum Kristal (kabut uap parfum melayang di udara)"
+    ],
+    luxury_mood: [
+      "Parfum Eksklusif & Fragrance Mewah (botol kaca gelap, aksen emas matte)",
+      "Jam Tangan Mewah Emas & Titanium (pencahayaan rim studio gelap)",
+      "Koper Aluminium Hardshell (permukaan logam bergaris, roda spinner)",
+      "Perhiasan Cincin Berlian Platinum (sorotan cahaya kristal kontras tinggi)"
+    ],
+    fashion_lookbook: [
+      "Jaket Techwear & Streetwear Cyberpunk (kain anti-air matte, zippers perak)",
+      "Kacamata Fashion Titanium (lensa anti-reflektif, pose editorial)",
+      "Tas Kerja Kulit Grain Premium (desain minimalis modern)"
+    ],
+    ugc_review: [
+      "Skincare Moisturizer & Sunscreen (aplikasi di wajah, tekstur krim ringan)",
+      "Vacuum Cleaner Robotik Pintar (demo pembersihan lantai, kontrol aplikasi HP)",
+      "Sikat Gigi Elektrik Sonic (demo pembersihan mikro, bulu sikat halus)"
+    ],
+    tiktok_text_ad: [
+      "Earbuds Wireless Noise-Cancelling (buka casing, koneksi instan)",
+      "Pengkilap Bodi Mobil Ceramic Coating (sebelum kusam vs sesudah mengkilap)",
+      "Keripik Kentang Renyah Premium (kemasan berbunyi renyah, potongan tebal)"
+    ],
+    tiny_world: [
+      "Pekerja Miniatur Memperbaiki Produk Sepatu (karakter kecil membawa peralatan)",
+      "Karakter Miniatur Merakit Kue Tart Cokelat (karakter mini mengoles krim)",
+      "Pekerja Miniatur Membersihkan Kamera Lensa (karakter mini mengelap kaca lensa)"
+    ]
+  };
 
-      if (rawKeyword) {
-        userMessageContent = `Buatlah konsep ide iklan sinematik yang sangat unik, segar, dan belum pernah ada sebelumnya berdasarkan kata kunci produk pengguna: "${rawKeyword}".
+  let userMessageContent = '';
+  if (isRandomIdea) {
+    let pickNiche = '';
+    // If user selected a specific layout style, pick a niche that is a PERFECT MATCH for that layout!
+    if (styleExists && LAYOUT_MATCHING_NICHES[style]) {
+      const matchedPool = LAYOUT_MATCHING_NICHES[style];
+      pickNiche = matchedPool[Math.floor(Math.random() * matchedPool.length)];
+    } else {
+      pickNiche = CREATIVE_NICHES[Math.floor(Math.random() * CREATIVE_NICHES.length)];
+    }
+
+    const pickVisual = VISUAL_AESTHETICS[Math.floor(Math.random() * VISUAL_AESTHETICS.length)];
+    const pickAction = CAMERA_ACTIONS[Math.floor(Math.random() * CAMERA_ACTIONS.length)];
+    const pickAngle = RANDOM_CREATIVE_ANGLES[Math.floor(Math.random() * RANDOM_CREATIVE_ANGLES.length)];
+
+    if (rawKeyword) {
+      userMessageContent = `Buatlah konsep ide iklan sinematik yang sangat unik, segar, dan belum pernah ada sebelumnya berdasarkan kata kunci produk pengguna: "${rawKeyword}".
 Padukan kata kunci produk tersebut secara harmonis dengan pengarahan estetik berikut:
 - Pendekatan Ideasi: ${pickAngle}
 - Tema Visual & Aesthetic: ${pickVisual}
 - Gerakan Kamera & Aksi Visual: ${pickAction}`;
-      } else {
-        userMessageContent = `Buatlah ide konsep video komersial lengkap yang SANGAT KREATIF, BARU, DAN BERBEDA DARI SEBELUMNYA.
-DILARANG KERAS mengulang ide pasaran seperti helm atau lilin, melainkan buatlah ideasi komersial yang segar, out-of-the-box, dan sangat beragam!
+    } else {
+      userMessageContent = `Buatlah ide konsep video komersial lengkap yang SANGAT KREATIF, BARU, DAN BERBEDA DARI SEBELUMNYA.
+${styleExists ? `PENTING: Pengguna telah memilih gaya layout "${style}". Pilihlah subjek/objek produk (${pickNiche}) yang SECARA ALAMI & LOGIS PALING COCOK DAN TERBAIK untuk gaya layout tersebut (DILARANG memilih objek yang tidak cocok seperti kendaraan besar atau robot untuk gaya ASMR/detail).` : 'DILARANG KERAS mengulang ide pasaran, melainkan buatlah ideasi komersial yang segar, out-of-the-box, dan sangat beragam!'}
 
 Gunakan kombinasi pengarahan matriks ideasi acak berikut:
-- Kategori / Niche Produk: ${pickNiche}
+- Kategori / Niche Produk Terpilih: ${pickNiche}
 - Pendekatan Ideasi: ${pickAngle}
 - Gaya Visual & Pencahayaan: ${pickVisual}
 - Pergerakan Kamera & Aksi: ${pickAction}`;
-      }
-    } else {
-      userMessageContent = `Ide Kasar Pengguna: ${concept}`;
     }
+  } else {
+    userMessageContent = `Ide Kasar Pengguna: ${concept}`;
+  }
 
     // Calculate pageCount and totalPanels based on video engine and duration
     let secondsPerPage = 15;
