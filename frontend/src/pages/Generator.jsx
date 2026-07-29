@@ -854,52 +854,54 @@ export default function Generator({ setTab }) {
             </select>
           </div>
 
-          {/* Manual Mode only: AI Prompt Assistant (Moved below Aspect Ratio) */}
-          {mode === 'manual' && (
-            <div className="bg-[#131211]/50 border border-[#2a2725]/60 hover:border-[#cfae80]/20 rounded-xl p-3 space-y-2.5 transition-colors relative animate-fadeIn">
+          {/* AI Prompt Assistant (Available in both Manual & Tokopedia mode) */}
+          <div className="bg-[#131211]/50 border border-[#2a2725]/60 hover:border-[#cfae80]/20 rounded-xl p-3 space-y-2.5 transition-colors relative animate-fadeIn">
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-[#cfae80]" />
                 <span className="text-[9px] font-bold uppercase tracking-widest text-[#cfae80]">AI Prompt Assistant</span>
               </div>
-              
-              <div className="flex flex-col gap-2">
-                <input
-                  type="text"
-                  value={aiInput}
-                  onChange={(e) => setAiInput(e.target.value)}
-                  placeholder="Tulis ide kasar (misal: iklan parfum mewah)"
-                  className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-xs text-white placeholder-slate-700 focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all"
-                  disabled={aiLoading || generating}
-                />
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleGenerateAiPrompt()}
-                    className="flex-grow bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-1.5 rounded-lg transition-all text-[8.5px] uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer"
-                    disabled={aiLoading || generating || !aiInput.trim()}
-                  >
-                    {aiLoading && aiInput.trim() !== '' ? <Loader className="animate-spin w-3 h-3" /> : <Sparkles className="w-3 h-3" />}
-                    Tulis AI
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleGenerateAiPrompt(aiInput.trim() ? `minta_ide_acak:${aiInput.trim()}` : 'minta_ide_acak')}
-                    className="flex-grow bg-[#1a1918] hover:bg-[#2a2725] text-[#cfae80] border border-[#cfae80]/20 font-bold py-1.5 rounded-lg transition-all text-[8.5px] uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer"
-                    disabled={aiLoading || generating}
-                  >
-                    {aiLoading ? <Loader className="animate-spin w-3 h-3" /> : <Sparkles className="w-3 h-3 text-[#cfae80]" />}
-                    Minta Ide
-                  </button>
-                </div>
-              </div>
-              
-              {aiError && (
-                <p className="text-[9px] text-red-400 mt-1 font-medium">{aiError}</p>
-              )}
+              <span className="text-[8px] text-slate-500 font-mono">Pembersih Teks & Auto Layout</span>
             </div>
-          )}
+            
+            <div className="flex flex-col gap-2">
+              <input
+                type="text"
+                value={aiInput}
+                onChange={(e) => setAiInput(e.target.value)}
+                placeholder={mode === 'tokopedia' ? "Opsional: ide tambahan (misal: buat nuansa hujan malam)" : "Tulis ide kasar (misal: iklan parfum mewah)"}
+                className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-xs text-white placeholder-slate-700 focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all"
+                disabled={aiLoading || generating}
+              />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleGenerateAiPrompt()}
+                  className="flex-grow bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-1.5 rounded-lg transition-all text-[8.5px] uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40"
+                  disabled={aiLoading || generating || (!aiInput.trim() && !prompt.trim())}
+                  title="Merangkum teks produk, membuang aturan unboxing/garansi, dan membuat prompt sinematik"
+                >
+                  {aiLoading ? <Loader className="animate-spin w-3 h-3" /> : <Sparkles className="w-3 h-3" />}
+                  {mode === 'tokopedia' && prompt.trim() ? '✨ Rapikan Deskripsi dengan AI' : 'Tulis AI'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleGenerateAiPrompt(aiInput.trim() ? `minta_ide_acak:${aiInput.trim()}` : (prompt.trim() ? `minta_ide_acak:${prompt.slice(0, 100)}` : 'minta_ide_acak'))}
+                  className="flex-grow bg-[#1a1918] hover:bg-[#2a2725] text-[#cfae80] border border-[#cfae80]/20 font-bold py-1.5 rounded-lg transition-all text-[8.5px] uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer"
+                  disabled={aiLoading || generating}
+                >
+                  {aiLoading ? <Loader className="animate-spin w-3 h-3" /> : <Sparkles className="w-3 h-3 text-[#cfae80]" />}
+                  Minta Ide
+                </button>
+              </div>
+            </div>
+            
+            {aiError && (
+              <p className="text-[9px] text-red-400 mt-1 font-medium">{aiError}</p>
+            )}
+          </div>
 
-          {/* Manual Mode only: Prompt (Moved below AI Prompt Assistant) */}
+          {/* Manual Mode only: Prompt */}
           {mode === 'manual' && (
             <div>
               <div className="flex justify-between items-center mb-1">
