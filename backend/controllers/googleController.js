@@ -39,7 +39,10 @@ async function getGoogleSettings(req, res) {
       service_account_configured: hasSA,
       service_account_email: saEmail,
       mode: hasSA ? 'service_account' : (hasOAuth ? 'oauth' : 'none'),
-      configured: hasSA || hasOAuth
+      configured: hasSA || hasOAuth,
+      auto_backup_enabled: Number(settings.auto_backup_enabled || 0),
+      auto_backup_time: settings.auto_backup_time || '06:00',
+      last_auto_backup: settings.last_auto_backup || null
     });
   } catch (err) {
     console.error('Error fetching Google settings:', err);
@@ -49,7 +52,7 @@ async function getGoogleSettings(req, res) {
 
 async function saveGoogleSettings(req, res) {
   try {
-    const { client_id, client_secret, refresh_token, spreadsheet_id, spreadsheet_url, service_account_json, redirect_uri } = req.body;
+    const { client_id, client_secret, refresh_token, spreadsheet_id, spreadsheet_url, service_account_json, redirect_uri, auto_backup_enabled, auto_backup_time } = req.body;
     const db = getDb();
 
     const existing = await db.get('SELECT * FROM google_settings LIMIT 1');
@@ -75,15 +78,18 @@ async function saveGoogleSettings(req, res) {
       }
     }
 
+    const backupEnabledVal = auto_backup_enabled ? 1 : 0;
+    const backupTimeVal = auto_backup_time || '06:00';
+
     if (existing) {
       await db.run(
-        `UPDATE google_settings SET client_id = ?, client_secret = ?, refresh_token = ?, spreadsheet_id = ?, spreadsheet_url = ?, service_account_json = ?, redirect_uri = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-        [client_id || null, finalSecret || null, finalRefresh || null, spreadsheet_id || null, spreadsheet_url || null, finalSA || null, redirect_uri || null, existing.id]
+        `UPDATE google_settings SET client_id = ?, client_secret = ?, refresh_token = ?, spreadsheet_id = ?, spreadsheet_url = ?, service_account_json = ?, redirect_uri = ?, auto_backup_enabled = ?, auto_backup_time = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+        [client_id || null, finalSecret || null, finalRefresh || null, spreadsheet_id || null, spreadsheet_url || null, finalSA || null, redirect_uri || null, backupEnabledVal, backupTimeVal, existing.id]
       );
     } else {
       await db.run(
-        `INSERT INTO google_settings (client_id, client_secret, refresh_token, spreadsheet_id, spreadsheet_url, service_account_json, redirect_uri) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [client_id || null, finalSecret || null, finalRefresh || null, spreadsheet_id || null, spreadsheet_url || null, finalSA || null, redirect_uri || null]
+        `INSERT INTO google_settings (client_id, client_secret, refresh_token, spreadsheet_id, spreadsheet_url, service_account_json, redirect_uri, auto_backup_enabled, auto_backup_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [client_id || null, finalSecret || null, finalRefresh || null, spreadsheet_id || null, spreadsheet_url || null, finalSA || null, redirect_uri || null, backupEnabledVal, backupTimeVal]
       );
     }
 
@@ -478,10 +484,123 @@ async function exportCsvJob(req, res, kind) {
 async function exportToCSV(req, res) { return exportCsvJob(req, res, 'simple'); }
 async function exportFullCSV(req, res) { return exportCsvJob(req, res, 'full'); }
 
+async function performAutoDriveBackup(db) {
+  const { generateDatabaseBackupPayload } = require('./adminController');
+  const settings = await db.get('SELECT * FROM google_settings LIMIT 1');
+  if (!settings) throw new Error('Pengaturan Google Drive belum dikonfigurasi.');
+
+  const auth = buildGoogleAuth(settings);
+  if (!auth) throw new Error('Kredensial Google Drive (Service Account / OAuth2) belum disetting.');
+
+  const driveAPI = google.drive({ version: 'v3', auth });
+
+  // 1. Get or create "Storymax Database Backups" folder in Google Drive
+  let folderId = null;
+  const queryRes = await driveAPI.files.list({
+    q: "name = 'Storymax Database Backups' and mimeType = 'application/vnd.google-apps.folder' and trashed = false",
+    fields: 'files(id, name)'
+  });
+  if (queryRes.data.files && queryRes.data.files.length > 0) {
+    folderId = queryRes.data.files[0].id;
+  } else {
+    const createFolderRes = await driveAPI.files.create({
+      requestBody: {
+        name: 'Storymax Database Backups',
+        mimeType: 'application/vnd.google-apps.folder'
+      },
+      fields: 'id'
+    });
+    folderId = createFolderRes.data.id;
+  }
+
+  // 2. Generate backup JSON payload
+  const backupPayload = await generateDatabaseBackupPayload(db);
+  const jsonContent = JSON.stringify(backupPayload, null, 2);
+  const now = new Date();
+  const dateStamp = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const filename = `storymax-db-backup-${dateStamp}.json`;
+
+  const { Readable } = require('stream');
+  const mediaStream = Readable.from(Buffer.from(jsonContent, 'utf8'));
+
+  const fileMetadata = {
+    name: filename,
+    parents: folderId ? [folderId] : []
+  };
+  const media = {
+    mimeType: 'application/json',
+    body: mediaStream
+  };
+
+  const uploadedFile = await driveAPI.files.create({
+    requestBody: fileMetadata,
+    media: media,
+    fields: 'id, webViewLink'
+  });
+
+  const fileId = uploadedFile.data.id;
+  try {
+    await driveAPI.permissions.create({
+      fileId: fileId,
+      requestBody: { role: 'reader', type: 'anyone' }
+    });
+  } catch (e) {}
+
+  const driveLink = uploadedFile.data.webViewLink || `https://drive.google.com/file/d/${fileId}/view?usp=sharing`;
+  const lastBackupStamp = new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'medium' });
+
+  await db.run('UPDATE google_settings SET last_auto_backup = ? WHERE id = ?', [lastBackupStamp, settings.id]);
+
+  return { filename, driveLink, time: lastBackupStamp };
+}
+
+async function testAutoDriveBackup(req, res) {
+  try {
+    const db = getDb();
+    const result = await performAutoDriveBackup(db);
+    res.json({
+      message: `Auto Backup berhasil diunggah ke Google Drive! (${result.filename})`,
+      driveLink: result.driveLink,
+      time: result.time
+    });
+  } catch (err) {
+    console.error('Test Auto Backup Error:', err);
+    res.status(500).json({ message: err.message || 'Gagal menjalankan Uji Auto Backup ke Google Drive.' });
+  }
+}
+
+function startAutoBackupCronJob(db) {
+  setInterval(async () => {
+    try {
+      const settings = await db.get('SELECT * FROM google_settings LIMIT 1');
+      if (!settings || !settings.auto_backup_enabled) return;
+
+      const targetTime = (settings.auto_backup_time || '06:00').trim();
+      const now = new Date();
+      const currentHours = String(now.getHours()).padStart(2, '0');
+      const currentMinutes = String(now.getMinutes()).padStart(2, '0');
+      const currentTimeStr = `${currentHours}:${currentMinutes}`;
+
+      const currentDateStr = now.toISOString().slice(0, 10);
+      const lastBackupDate = (settings.last_auto_backup || '').slice(0, 10);
+
+      if (currentTimeStr === targetTime && lastBackupDate !== currentDateStr) {
+        console.log(`[Auto Backup] Scheduled trigger at ${currentTimeStr}. Starting database backup to Google Drive...`);
+        const res = await performAutoDriveBackup(db);
+        console.log(`[Auto Backup SUCCESS] Database backed up to Google Drive: ${res.filename} (${res.driveLink})`);
+      }
+    } catch (err) {
+      console.error('[Auto Backup Error]', err.message);
+    }
+  }, 60000);
+}
+
 module.exports = {
   getGoogleSettings,
   saveGoogleSettings,
   exportToGoogleSheets,
   exportToCSV,
-  exportFullCSV
+  exportFullCSV,
+  testAutoDriveBackup,
+  startAutoBackupCronJob
 };

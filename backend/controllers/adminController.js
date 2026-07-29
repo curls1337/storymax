@@ -506,31 +506,35 @@ const BACKUP_TABLES = [
   'downloaded_files', // download tracking metadata
 ];
 
+async function generateDatabaseBackupPayload(db) {
+  const tables = {};
+  const counts = {};
+  for (const t of BACKUP_TABLES) {
+    const rows = await db.all(`SELECT * FROM ${t}`);
+    tables[t] = rows;
+    counts[t] = rows.length;
+  }
+  return {
+    app: 'storymax',
+    type: 'db-backup',
+    version: 2,
+    exportedAt: new Date().toISOString(),
+    counts,
+    tables,
+  };
+}
+
 async function backupDatabase(req, res) {
   try {
     const db = getDb();
-    const tables = {};
-    const counts = {};
-    for (const t of BACKUP_TABLES) {
-      const rows = await db.all(`SELECT * FROM ${t}`);
-      tables[t] = rows;
-      counts[t] = rows.length;
-    }
-    const backup = {
-      app: 'storymax',
-      type: 'db-backup',
-      version: 2,
-      exportedAt: new Date().toISOString(),
-      counts,
-      tables,
-    };
+    const backup = await generateDatabaseBackupPayload(db);
     const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="storymax-db-backup-${stamp}.json"`);
     res.status(200).send(JSON.stringify(backup, null, 2));
   } catch (err) {
     console.error('Backup error:', err);
-    res.status(500).json({ message: 'Gagal membuat backup database.', error: error.message });
+    res.status(500).json({ message: 'Gagal membuat backup database.', error: err.message });
   }
 }
 
@@ -1037,6 +1041,7 @@ module.exports = {
   getStorageFiles,
   deleteStorageFile,
   backupDatabase,
+  generateDatabaseBackupPayload,
   restoreDatabase,
   restoreChunkDatabase,
   getRestoreStatus,

@@ -85,6 +85,10 @@ const PRESET_AI_MODELS = [
   const [googleServiceConfigured, setGoogleServiceConfigured] = useState(false);
   const [googleServiceEmail, setGoogleServiceEmail] = useState('');
   const [googleSaveLoading, setGoogleSaveLoading] = useState(false);
+  const [autoBackupEnabled, setAutoBackupEnabled] = useState(false);
+  const [autoBackupTime, setAutoBackupTime] = useState('06:00');
+  const [lastAutoBackup, setLastAutoBackup] = useState(null);
+  const [testBackupLoading, setTestBackupLoading] = useState(false);
 
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -138,6 +142,9 @@ const PRESET_AI_MODELS = [
       setGoogleConfigured(res.data.configured || false);
       setGoogleServiceConfigured(res.data.service_account_configured || false);
       setGoogleServiceEmail(res.data.service_account_email || '');
+      setAutoBackupEnabled(res.data.auto_backup_enabled === 1);
+      setAutoBackupTime(res.data.auto_backup_time || '06:00');
+      setLastAutoBackup(res.data.last_auto_backup || null);
       setGoogleServiceJson('');
     } catch (err) {
       console.error('Gagal mengambil pengaturan Google:', err);
@@ -156,14 +163,31 @@ const PRESET_AI_MODELS = [
         refresh_token: googleRefreshToken,
         spreadsheet_id: googleSpreadsheetId,
         redirect_uri: googleRedirectUri || undefined,
-        service_account_json: googleServiceJson || undefined
+        service_account_json: googleServiceJson || undefined,
+        auto_backup_enabled: autoBackupEnabled ? 1 : 0,
+        auto_backup_time: autoBackupTime || '06:00'
       });
-      setMessage('Pengaturan Google Drive & Sheets berhasil disimpan!');
+      setMessage('Pengaturan Google Drive & Auto Backup berhasil disimpan!');
       fetchGoogleSettings();
     } catch (err) {
       setError(err.response?.data?.message || 'Gagal menyimpan pengaturan Google Drive.');
     } finally {
       setGoogleSaveLoading(false);
+    }
+  };
+
+  const handleTestAutoBackup = async () => {
+    setTestBackupLoading(true);
+    setError('');
+    setMessage('');
+    try {
+      const res = await api.post('/admin/google-settings/test-backup');
+      setMessage(res.data.message || 'Auto Backup berhasil diunggah ke Google Drive!');
+      if (res.data.time) setLastAutoBackup(res.data.time);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Gagal menjalankan Uji Auto Backup ke Google Drive.');
+    } finally {
+      setTestBackupLoading(false);
     }
   };
 
@@ -829,6 +853,76 @@ const PRESET_AI_MODELS = [
               </button>
             </div>
           </form>
+
+          {/* Auto Backup Database to Google Drive Section */}
+          <div className="mt-8 pt-6 border-t border-[#2a2725] space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                  <Database className="w-4 h-4 text-[#cfae80]" />
+                  Auto Backup Database Harian ke Google Drive
+                </h4>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  File backup dikirim langsung dari RAM ke Google Drive tanpa menumpuk file di disk server (0 MB disk terpakai).
+                </p>
+              </div>
+              {lastAutoBackup && (
+                <span className="text-[9px] font-mono bg-emerald-950/40 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-full">
+                  Backup Terakhir: {lastAutoBackup}
+                </span>
+              )}
+            </div>
+
+            <div className="bg-black/30 border border-[#2a2725] rounded-xl p-4 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <label className="flex items-center gap-3 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={autoBackupEnabled}
+                    onChange={(e) => setAutoBackupEnabled(e.target.checked)}
+                    className="w-4 h-4 accent-[#cfae80] rounded cursor-pointer"
+                  />
+                  <div>
+                    <span className="text-xs font-bold text-white">Aktifkan Auto Backup Harian</span>
+                    <p className="text-[9.5px] text-slate-400">Otomatis membuat backup database dan mengunggah ke folder &apos;Storymax Database Backups&apos; di Google Drive.</p>
+                  </div>
+                </label>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <label className="text-[10px] font-bold text-slate-350 uppercase tracking-wider whitespace-nowrap">Waktu Backup:</label>
+                  <input
+                    type="time"
+                    value={autoBackupTime}
+                    onChange={(e) => setAutoBackupTime(e.target.value)}
+                    className="bg-black/60 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-[#cfae80]"
+                  />
+                  <span className="text-[10px] text-slate-400 font-mono">WIB</span>
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center justify-between border-t border-[#2a2725]/60">
+                <button
+                  type="button"
+                  onClick={handleSaveGoogleSettings}
+                  disabled={googleSaveLoading}
+                  className="bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-1.5 px-3 rounded-lg text-[9px] uppercase tracking-wider transition-all cursor-pointer"
+                >
+                  Simpan Jadwal Backup
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleTestAutoBackup}
+                  disabled={testBackupLoading || !googleConfigured}
+                  className="bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 font-bold py-1.5 px-3 rounded-lg text-[9px] uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-40"
+                  title="Jalankan backup langsung sekarang untuk menguji koneksi ke Google Drive"
+                >
+                  {testBackupLoading ? <Loader className="animate-spin w-3 h-3" /> : <RefreshCw className="w-3 h-3" />}
+                  Uji Auto Backup Ke Google Drive Sekarang
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
       {activeTab === 'users' && (

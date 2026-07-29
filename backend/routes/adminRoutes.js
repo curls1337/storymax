@@ -30,7 +30,7 @@ router.post('/keys/bulk-delete', deleteKeysBulk);
 router.put('/keys/:id/toggle', toggleKeyStatus);
 router.delete('/keys/:id', deleteKey);
 
-const { getGoogleSettings, saveGoogleSettings } = require('../controllers/googleController');
+const { getGoogleSettings, saveGoogleSettings, testAutoDriveBackup } = require('../controllers/googleController');
 
 // AI Settings Management
 router.get('/ai-settings', getAiSettings);
@@ -40,6 +40,7 @@ router.post('/ai-settings/test', testAiSettings);
 // Google Drive & Sheets Settings
 router.get('/google-settings', getGoogleSettings);
 router.put('/google-settings', saveGoogleSettings);
+router.post('/google-settings/test-backup', testAutoDriveBackup);
 
 // File Manager / Storage Management
 router.get('/files', getStorageFiles);

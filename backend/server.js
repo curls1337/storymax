@@ -76,10 +76,13 @@ initDb()
     try {
       const { resumeProcessingVideos } = require('./controllers/videoController');
       const { resumeProcessingStoryboardsOnStartup } = require('./controllers/storyboardController');
+      const { startAutoBackupCronJob } = require('./controllers/googleController');
+      const { getDb } = require('./db');
       resumeProcessingVideos();
       resumeProcessingStoryboardsOnStartup();
+      startAutoBackupCronJob(getDb());
     } catch (e) {
-      console.error('Error starting video or storyboard recovery:', e);
+      console.error('Error starting video, storyboard recovery, or auto backup cron:', e);
     }
   })
   .catch((err) => {

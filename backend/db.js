@@ -224,7 +224,16 @@ async function initDb() {
     await db.exec("ALTER TABLE ai_settings ADD COLUMN magica_llm_model TEXT NOT NULL DEFAULT 'gemini_3_5_flash'");
   } catch (e) { /* column exists */ }
 
-  // Create Google Settings Table
+  // Auto Backup to Google Drive settings
+  try {
+    await db.exec("ALTER TABLE google_settings ADD COLUMN auto_backup_enabled INTEGER DEFAULT 0");
+  } catch (e) { /* column exists */ }
+  try {
+    await db.exec("ALTER TABLE google_settings ADD COLUMN auto_backup_time TEXT DEFAULT '06:00'");
+  } catch (e) { /* column exists */ }
+  try {
+    await db.exec("ALTER TABLE google_settings ADD COLUMN last_auto_backup TEXT");
+  } catch (e) { /* column exists */ }
   await db.exec(`
     CREATE TABLE IF NOT EXISTS google_settings (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
