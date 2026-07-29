@@ -234,6 +234,15 @@ async function initDb() {
   try {
     await db.exec("ALTER TABLE google_settings ADD COLUMN last_auto_backup TEXT");
   } catch (e) { /* column exists */ }
+  try {
+    await db.exec("ALTER TABLE google_settings ADD COLUMN last_auto_backup_link TEXT");
+  } catch (e) { /* column exists */ }
+  try {
+    await db.exec("ALTER TABLE google_settings ADD COLUMN last_auto_backup_filename TEXT");
+  } catch (e) { /* column exists */ }
+  try {
+    await db.exec("ALTER TABLE google_settings ADD COLUMN auto_backup_status TEXT DEFAULT 'idle'");
+  } catch (e) { /* column exists */ }
   await db.exec(`
     CREATE TABLE IF NOT EXISTS google_settings (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

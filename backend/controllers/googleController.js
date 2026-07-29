@@ -42,7 +42,10 @@ async function getGoogleSettings(req, res) {
       configured: hasSA || hasOAuth,
       auto_backup_enabled: Number(settings.auto_backup_enabled || 0),
       auto_backup_time: settings.auto_backup_time || '06:00',
-      last_auto_backup: settings.last_auto_backup || null
+      last_auto_backup: settings.last_auto_backup || null,
+      last_auto_backup_link: settings.last_auto_backup_link || null,
+      last_auto_backup_filename: settings.last_auto_backup_filename || null,
+      auto_backup_status: settings.auto_backup_status || 'idle'
     });
   } catch (err) {
     console.error('Error fetching Google settings:', err);
@@ -489,80 +492,104 @@ async function performAutoDriveBackup(db) {
   const settings = await db.get('SELECT * FROM google_settings LIMIT 1');
   if (!settings) throw new Error('Pengaturan Google Drive belum dikonfigurasi.');
 
-  const auth = buildGoogleAuth(settings);
-  if (!auth) throw new Error('Kredensial Google Drive (Service Account / OAuth2) belum disetting.');
+  await db.run("UPDATE google_settings SET auto_backup_status = 'processing' WHERE id = ?", [settings.id]);
 
-  const driveAPI = google.drive({ version: 'v3', auth });
-
-  // 1. Get or create "Storymax Database Backups" folder in Google Drive
-  let folderId = null;
-  const queryRes = await driveAPI.files.list({
-    q: "name = 'Storymax Database Backups' and mimeType = 'application/vnd.google-apps.folder' and trashed = false",
-    fields: 'files(id, name)'
-  });
-  if (queryRes.data.files && queryRes.data.files.length > 0) {
-    folderId = queryRes.data.files[0].id;
-  } else {
-    const createFolderRes = await driveAPI.files.create({
-      requestBody: {
-        name: 'Storymax Database Backups',
-        mimeType: 'application/vnd.google-apps.folder'
-      },
-      fields: 'id'
-    });
-    folderId = createFolderRes.data.id;
-  }
-
-  // 2. Generate backup JSON payload
-  const backupPayload = await generateDatabaseBackupPayload(db);
-  const jsonContent = JSON.stringify(backupPayload, null, 2);
-  const now = new Date();
-  const dateStamp = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const filename = `storymax-db-backup-${dateStamp}.json`;
-
-  const { Readable } = require('stream');
-  const mediaStream = Readable.from(Buffer.from(jsonContent, 'utf8'));
-
-  const fileMetadata = {
-    name: filename,
-    parents: folderId ? [folderId] : []
-  };
-  const media = {
-    mimeType: 'application/json',
-    body: mediaStream
-  };
-
-  const uploadedFile = await driveAPI.files.create({
-    requestBody: fileMetadata,
-    media: media,
-    fields: 'id, webViewLink'
-  });
-
-  const fileId = uploadedFile.data.id;
   try {
-    await driveAPI.permissions.create({
-      fileId: fileId,
-      requestBody: { role: 'reader', type: 'anyone' }
+    const auth = buildGoogleAuth(settings);
+    if (!auth) throw new Error('Kredensial Google Drive (Service Account / OAuth2) belum disetting.');
+
+    const driveAPI = google.drive({ version: 'v3', auth });
+
+    // 1. Get or create "Storymax Database Backups" folder in Google Drive
+    let folderId = null;
+    const queryRes = await driveAPI.files.list({
+      q: "name = 'Storymax Database Backups' and mimeType = 'application/vnd.google-apps.folder' and trashed = false",
+      fields: 'files(id, name)'
     });
-  } catch (e) {}
+    if (queryRes.data.files && queryRes.data.files.length > 0) {
+      folderId = queryRes.data.files[0].id;
+    } else {
+      const createFolderRes = await driveAPI.files.create({
+        requestBody: {
+          name: 'Storymax Database Backups',
+          mimeType: 'application/vnd.google-apps.folder'
+        },
+        fields: 'id'
+      });
+      folderId = createFolderRes.data.id;
+    }
 
-  const driveLink = uploadedFile.data.webViewLink || `https://drive.google.com/file/d/${fileId}/view?usp=sharing`;
-  const lastBackupStamp = new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'medium' });
+    // 2. Generate backup JSON payload
+    const backupPayload = await generateDatabaseBackupPayload(db);
+    const jsonContent = JSON.stringify(backupPayload, null, 2);
+    const now = new Date();
+    const dateStamp = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const filename = `storymax-db-backup-${dateStamp}.json`;
 
-  await db.run('UPDATE google_settings SET last_auto_backup = ? WHERE id = ?', [lastBackupStamp, settings.id]);
+    const { Readable } = require('stream');
+    const mediaStream = Readable.from(Buffer.from(jsonContent, 'utf8'));
 
-  return { filename, driveLink, time: lastBackupStamp };
+    const fileMetadata = {
+      name: filename,
+      parents: folderId ? [folderId] : []
+    };
+    const media = {
+      mimeType: 'application/json',
+      body: mediaStream
+    };
+
+    const uploadedFile = await driveAPI.files.create({
+      requestBody: fileMetadata,
+      media: media,
+      fields: 'id, webViewLink'
+    });
+
+    const fileId = uploadedFile.data.id;
+    try {
+      await driveAPI.permissions.create({
+        fileId: fileId,
+        requestBody: { role: 'reader', type: 'anyone' }
+      });
+    } catch (e) {}
+
+    const driveLink = uploadedFile.data.webViewLink || `https://drive.google.com/file/d/${fileId}/view?usp=sharing`;
+    const lastBackupStamp = new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'medium' });
+
+    await db.run(
+      "UPDATE google_settings SET last_auto_backup = ?, last_auto_backup_link = ?, last_auto_backup_filename = ?, auto_backup_status = 'success' WHERE id = ?",
+      [lastBackupStamp, driveLink, filename, settings.id]
+    );
+
+    return { filename, driveLink, time: lastBackupStamp };
+  } catch (err) {
+    try {
+      await db.run("UPDATE google_settings SET auto_backup_status = 'failed' WHERE id = ?", [settings.id]);
+    } catch (e2) {}
+    throw err;
+  }
 }
 
 async function testAutoDriveBackup(req, res) {
   try {
     const db = getDb();
-    const result = await performAutoDriveBackup(db);
+    const settings = await db.get('SELECT * FROM google_settings LIMIT 1');
+    if (!settings) return res.status(400).json({ message: 'Pengaturan Google Drive belum disetting.' });
+
+    await db.run("UPDATE google_settings SET auto_backup_status = 'processing' WHERE id = ?", [settings.id]);
+
     res.json({
-      message: `Auto Backup berhasil diunggah ke Google Drive! (${result.filename})`,
-      driveLink: result.driveLink,
-      time: result.time
+      message: 'Uji Auto Backup sedang berjalan di background...',
+      status: 'processing'
     });
+
+    // Execute in background so client gets instant response and polls status
+    (async () => {
+      try {
+        await performAutoDriveBackup(db);
+      } catch (e) {
+        console.error('Background testAutoDriveBackup failed:', e.message);
+      }
+    })();
   } catch (err) {
     console.error('Test Auto Backup Error:', err);
     res.status(500).json({ message: err.message || 'Gagal menjalankan Uji Auto Backup ke Google Drive.' });

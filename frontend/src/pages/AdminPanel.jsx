@@ -88,6 +88,9 @@ const PRESET_AI_MODELS = [
   const [autoBackupEnabled, setAutoBackupEnabled] = useState(false);
   const [autoBackupTime, setAutoBackupTime] = useState('06:00');
   const [lastAutoBackup, setLastAutoBackup] = useState(null);
+  const [lastAutoBackupLink, setLastAutoBackupLink] = useState(null);
+  const [lastAutoBackupFilename, setLastAutoBackupFilename] = useState(null);
+  const [autoBackupStatus, setAutoBackupStatus] = useState('idle');
   const [testBackupLoading, setTestBackupLoading] = useState(false);
 
   const [error, setError] = useState('');
@@ -145,11 +148,27 @@ const PRESET_AI_MODELS = [
       setAutoBackupEnabled(res.data.auto_backup_enabled === 1);
       setAutoBackupTime(res.data.auto_backup_time || '06:00');
       setLastAutoBackup(res.data.last_auto_backup || null);
+      setLastAutoBackupLink(res.data.last_auto_backup_link || null);
+      setLastAutoBackupFilename(res.data.last_auto_backup_filename || null);
+      setAutoBackupStatus(res.data.auto_backup_status || 'idle');
       setGoogleServiceJson('');
     } catch (err) {
       console.error('Gagal mengambil pengaturan Google:', err);
     }
   };
+
+  // Poll Google settings status every 3 seconds if background auto backup is processing
+  useEffect(() => {
+    let timer;
+    if (autoBackupStatus === 'processing' || testBackupLoading) {
+      timer = setInterval(() => {
+        fetchGoogleSettings();
+      }, 3000);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [autoBackupStatus, testBackupLoading]);
 
   const handleSaveGoogleSettings = async (e) => {
     e.preventDefault();
@@ -178,15 +197,17 @@ const PRESET_AI_MODELS = [
 
   const handleTestAutoBackup = async () => {
     setTestBackupLoading(true);
+    setAutoBackupStatus('processing');
     setError('');
-    setMessage('');
+    setMessage('Proses Auto Backup ke Google Drive sedang berjalan di background...');
     try {
       const res = await api.post('/admin/google-settings/test-backup');
-      setMessage(res.data.message || 'Auto Backup berhasil diunggah ke Google Drive!');
-      if (res.data.time) setLastAutoBackup(res.data.time);
+      if (res.data.status === 'processing') {
+        setAutoBackupStatus('processing');
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Gagal menjalankan Uji Auto Backup ke Google Drive.');
-    } finally {
+      setAutoBackupStatus('failed');
       setTestBackupLoading(false);
     }
   };
@@ -874,6 +895,43 @@ const PRESET_AI_MODELS = [
             </div>
 
             <div className="bg-black/30 border border-[#2a2725] rounded-xl p-4 space-y-4">
+              {/* Processing Loader Banner */}
+              {(autoBackupStatus === 'processing' || testBackupLoading) && (
+                <div className="bg-amber-950/25 border border-amber-500/40 rounded-xl p-3.5 flex items-center justify-between animate-pulse">
+                  <div className="flex items-center gap-3">
+                    <Loader className="w-5 h-5 text-amber-400 animate-spin shrink-0" />
+                    <div>
+                      <span className="text-xs font-bold text-amber-300">Sedang Membuat & Mengunggah Backup Database ke Google Drive...</span>
+                      <p className="text-[10px] text-amber-200/70 mt-0.5">Proses berjalan di background. Anda bebas berpindah tab — status akan terus diperbarui secara otomatis.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Direct Google Drive Backup Link Card */}
+              {lastAutoBackupLink && autoBackupStatus !== 'processing' && (
+                <div className="bg-[#1c1b18] border border-emerald-500/30 rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                      <span className="text-xs font-bold text-white">File Backup Terakhir di Google Drive</span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 font-mono">
+                      {lastAutoBackupFilename || 'storymax-db-backup.json'} {lastAutoBackup ? `(${lastAutoBackup})` : ''}
+                    </p>
+                  </div>
+                  <a
+                    href={lastAutoBackupLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="bg-emerald-500 hover:bg-emerald-400 text-black font-bold py-2 px-4 rounded-xl text-[9.5px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 shrink-0 shadow-lg cursor-pointer"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    Buka File di Google Drive
+                  </a>
+                </div>
+              )}
+
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <label className="flex items-center gap-3 cursor-pointer select-none">
                   <input
@@ -913,11 +971,11 @@ const PRESET_AI_MODELS = [
                 <button
                   type="button"
                   onClick={handleTestAutoBackup}
-                  disabled={testBackupLoading || !googleConfigured}
+                  disabled={testBackupLoading || autoBackupStatus === 'processing' || !googleConfigured}
                   className="bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 font-bold py-1.5 px-3 rounded-lg text-[9px] uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-40"
                   title="Jalankan backup langsung sekarang untuk menguji koneksi ke Google Drive"
                 >
-                  {testBackupLoading ? <Loader className="animate-spin w-3 h-3" /> : <RefreshCw className="w-3 h-3" />}
+                  {(testBackupLoading || autoBackupStatus === 'processing') ? <Loader className="animate-spin w-3 h-3" /> : <RefreshCw className="w-3 h-3" />}
                   Uji Auto Backup Ke Google Drive Sekarang
                 </button>
               </div>
