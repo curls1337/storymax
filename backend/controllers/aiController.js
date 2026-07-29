@@ -807,7 +807,11 @@ For each page (scene):
 
 3. "narration": A voiceover narration script paragraph in the language: "${voLanguage || 'Bahasa Indonesia'}". ${toneClause} The narration must fit the page duration and align with the chronological visual action of that page.
 
-CRITICAL SPEECH PACING, TEMPO & WORD COUNT RULES (Strictly prevents fast, rushed, garbled, or mismatched voiceover):
+CRITICAL SPEECH PACING, TEMPO & PRONUNCIATION RULES (Strictly prevents fast, rushed, garbled, or mispronounced voiceover):
+- EJAAN NALAR & PHONETIC (HINDARI BELAPOTAN): Tulis narasi 100% dalam BAHASA PERCAKAPAN MANUSIA YANG ALAMI. DILARANG KERAS menggunakan singkatan, simbol, atau istilah teknis yang membuat TTS membaca belepotan:
+  * Tulis kata secara UTUH (contoh: "kilogram" BUKAN "kg", "sentimeter" BUKAN "cm", "seratus persen" BUKAN "100%", "berat badan" BUKAN "BB", "Rupiah" BUKAN "Rp").
+  * DILARANG memakai simbol atau karakter khusus seperti %, &, +, /, #, ( ), atau tanda minus (-).
+  * Terjemahkan istilah asing ke kata bahasa Indonesia percakapan yang halus (contoh: "tahan air" BUKAN "waterproof", "tas ransel" BUKAN "backpack").
 - TEMPO & PACING: Write narration to be spoken at a clear, relaxed, natural conversational pace (about 1.5 words per second) that FILLS most of the scene — continuous enough to avoid long silent gaps, but never rushed or crammed. Insert commas & periods between short phrases for natural breathing pauses.
 - WORD COUNT PER SCENE — keep it SHORT: about 6 to 10 words TOTAL, HARD MAX 10 words. One punchy line, never more.
 - Keep phrases short, rhythmic and well-spaced; finish about 1 second before the scene ends. Do NOT cram or rush.
