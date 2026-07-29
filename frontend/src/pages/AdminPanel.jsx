@@ -346,6 +346,14 @@ const PRESET_AI_MODELS = [
     } catch (err) { setError(err.response?.data?.message || 'Gagal mengubah izin Magica user.'); }
   };
 
+  const handleToggleUserHd = async (u) => {
+    setError(''); setMessage('');
+    try {
+      await api.put(`/admin/users/${u.id}/hd-access`, { allow_hd_resolutions: u.allow_hd_resolutions ? 0 : 1 });
+      fetchUsers();
+    } catch (err) { setError(err.response?.data?.message || 'Gagal mengubah izin HD user.'); }
+  };
+
   const magicaSelectAll = () => {
     setSelectedMagicaKeyIds(selectedMagicaKeyIds.length === magicaKeys.length ? [] : magicaKeys.map((k) => k.id));
   };
@@ -1037,6 +1045,13 @@ const PRESET_AI_MODELS = [
                         className={`py-1 px-2 rounded-md text-[9px] font-bold uppercase tracking-wider transition-all cursor-pointer border ${u.can_use_magica ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/25' : 'bg-black/40 text-slate-500 border-[#2a2725] hover:text-slate-300'}`}
                       >
                         Magica: {u.can_use_magica ? 'ON' : 'OFF'}
+                      </button>
+                      <button
+                        onClick={() => handleToggleUserHd(u)}
+                        title="Izin memakai resolusi HD (1080p & 4K)"
+                        className={`py-1 px-2 rounded-md text-[9px] font-bold uppercase tracking-wider transition-all cursor-pointer border ${u.allow_hd_resolutions ? 'bg-blue-500/15 text-blue-300 border-blue-500/30 hover:bg-blue-500/25' : 'bg-black/40 text-slate-500 border-[#2a2725] hover:text-slate-300'}`}
+                      >
+                        HD (1080p/4K): {u.allow_hd_resolutions ? 'ON' : 'OFF'}
                       </button>
                       <button
                         onClick={() => {

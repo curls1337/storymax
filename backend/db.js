@@ -157,6 +157,11 @@ async function initDb() {
     // Column already exists, safe to ignore
   }
   try {
+    await db.exec("ALTER TABLE users ADD COLUMN allow_hd_resolutions INTEGER DEFAULT 0");
+  } catch (e) {
+    // Column already exists, safe to ignore
+  }
+  try {
     await db.exec("ALTER TABLE users ADD COLUMN preferred_provider TEXT DEFAULT 'freebeat'");
   } catch (e) {
     // Column already exists, safe to ignore

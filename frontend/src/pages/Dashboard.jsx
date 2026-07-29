@@ -22,6 +22,7 @@ const fmtCredit = (v) => { const n = Number(v) || 0; return n >= 10000 ? (n / 1e
 
 export default function Dashboard({ setTab }) {
   const [storyboards, setStoryboards] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedStoryboard, setSelectedStoryboard] = useState(null);
@@ -58,6 +59,7 @@ export default function Dashboard({ setTab }) {
 
   useEffect(() => {
     api.get('/auth/me').then((r) => {
+      setCurrentUser(r.data);
       const pp = r.data.preferred_provider || 'freebeat';
       setUserProvider(pp);
       if (pp === 'magica') {
@@ -2482,18 +2484,27 @@ export default function Dashboard({ setTab }) {
                               className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-1.5 py-1 text-white text-[9px] focus:outline-none focus:border-[#cfae80] font-semibold"
                             >
                               {(() => {
+                                const isHdAllowed = currentUser && Number(currentUser.allow_hd_resolutions) === 1;
                                 if (userProvider === 'magica') {
                                   const mm = (magicaCatalog?.videoModels || []).find(x => x.nodeType === magicaVideoModel);
                                   const mt = mm && (mm.methods || []).find(x => x.category === magicaVideoMethod);
-                                  const res = (mt && mt.resolutions) || [];
+                                  let res = (mt && mt.resolutions) || [];
+                                  if (!isHdAllowed) {
+                                    res = res.filter(r => !/1080|4k|2160/i.test(String(r)));
+                                  }
                                   return res.length
                                     ? res.map(r => (<option key={r} value={r}>{r}</option>))
-                                    : (<option value="">— (default model)</option>);
+                                    : (<option value="">— (bawaan model)</option>);
                                 }
                                 const m = VIDEO_MODELS.find(x => x.value === videoModel);
-                                return m?.resolutions.map(r => (
+                                let res = m?.resolutions || ['720p'];
+                                if (!isHdAllowed) {
+                                  res = res.filter(r => !/1080|4k|2160/i.test(String(r)));
+                                }
+                                if (res.length === 0) res = ['720p'];
+                                return res.map(r => (
                                   <option key={r} value={r}>{r}</option>
-                                )) || <option value="720p">720p</option>;
+                                ));
                               })()}
                             </select>
                           </div>

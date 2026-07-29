@@ -215,6 +215,14 @@ async function generateVideo(req, res) {
       return res.status(404).json({ message: 'Storyboard tidak ditemukan.' });
     }
 
+    // Restrict HD 1080p / 4K if user does not have allow_hd_resolutions permission
+    const userRec = await db.get('SELECT role, allow_hd_resolutions FROM users WHERE id = ?', [req.user.id]);
+    const isHdAllowed = userRec && (userRec.role === 'admin' || userRec.allow_hd_resolutions === 1);
+    let finalResolution = resolution;
+    if (!isHdAllowed && /1080|4k|2160/i.test(String(finalResolution || ''))) {
+      finalResolution = '720p';
+    }
+
     let panelImages = [];
     try {
       if (storyboard.image_path && storyboard.image_path.startsWith('[')) {
@@ -1209,6 +1217,13 @@ async function generateAllVideos(req, res) {
       }
     } catch (e) {
       panelImages = storyboard.image_path ? [storyboard.image_path] : [];
+    }
+
+    const userRecAll = await db.get('SELECT role, allow_hd_resolutions FROM users WHERE id = ?', [req.user.id]);
+    const isHdAllowedAll = userRecAll && (userRecAll.role === 'admin' || userRecAll.allow_hd_resolutions === 1);
+    let finalBatchResolution = resolution;
+    if (!isHdAllowedAll && /1080|4k|2160/i.test(String(finalBatchResolution || ''))) {
+      finalBatchResolution = '720p';
     }
 
     const totalScenes = panelImages.length;
