@@ -346,6 +346,8 @@ export default function Generator({ setTab }) {
     }
   };
 
+  const [autoLayout, setAutoLayout] = useState(true);
+
   const handleGenerateAiPrompt = async (conceptText) => {
     const targetConcept = conceptText || aiInput.trim();
     if (!targetConcept) return;
@@ -355,7 +357,7 @@ export default function Generator({ setTab }) {
     try {
       const res = await api.post('/ai/write-prompt', { 
         concept: targetConcept, 
-        style,
+        style: autoLayout ? 'auto' : style,
         videoEngine,
         gridCount,
         duration,
@@ -698,9 +700,24 @@ export default function Generator({ setTab }) {
           )}
 
           <div className={`relative ${dropdownOpen ? 'z-50' : 'z-10'}`} ref={dropdownRef}>
-            <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Gaya Layout Storyboard</label>
-            <button type="button" onClick={() => { setDropdownOpen(!dropdownOpen); setStyleSearch(''); }} className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-[#cfae80] transition-all text-xs text-left flex justify-between items-center" disabled={generating}>
-              <span className="truncate">{LAYOUT_STYLES.find(opt => opt.value === style)?.label || 'Pilih Gaya Layout'}</span>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest">Gaya Layout Storyboard</label>
+              <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={autoLayout}
+                  onChange={(e) => setAutoLayout(e.target.checked)}
+                  className="w-3 h-3 accent-[#cfae80] rounded cursor-pointer"
+                />
+                <span className="text-[9px] font-bold text-[#cfae80] uppercase tracking-wider">Auto Pilih (AI)</span>
+              </label>
+            </div>
+            <button type="button" onClick={() => { setDropdownOpen(!dropdownOpen); setStyleSearch(''); }} className={`w-full bg-black/40 border rounded-xl px-3.5 py-2.5 text-white focus:outline-none transition-all text-xs text-left flex justify-between items-center ${autoLayout ? 'border-[#cfae80]/40 bg-[#cfae80]/5' : 'border-[#2a2725] focus:border-[#cfae80]'}`} disabled={generating}>
+              <span className="truncate flex items-center gap-1.5">
+                {autoLayout && <Sparkles className="w-3 h-3 text-[#cfae80] inline shrink-0" />}
+                {LAYOUT_STYLES.find(opt => opt.value === style)?.label || 'Pilih Gaya Layout'}
+                {autoLayout && <span className="text-[9px] text-[#cfae80] font-normal italic">(Dipilih Otomatis AI)</span>}
+              </span>
               <ChevronRight className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${dropdownOpen ? 'rotate-90' : ''}`} />
             </button>
             {dropdownOpen && (
@@ -729,7 +746,7 @@ export default function Generator({ setTab }) {
                       <button
                         key={opt.value}
                         type="button"
-                        onClick={() => { setStyle(opt.value); setDropdownOpen(false); setHoveredStyle(null); setAiMatchedLayout(null); setStyleSearch(''); }}
+                        onClick={() => { setStyle(opt.value); setAutoLayout(false); setDropdownOpen(false); setHoveredStyle(null); setAiMatchedLayout(null); setStyleSearch(''); }}
                         onMouseEnter={() => setHoveredStyle(opt.value)}
                         onMouseLeave={() => setHoveredStyle(null)}
                         className={`w-full text-left px-3 py-2.5 hover:bg-[#cfae80]/10 text-xs transition-colors flex flex-col gap-0.5 ${style === opt.value ? 'bg-[#cfae80]/20 text-white font-bold' : 'text-slate-350'}`}

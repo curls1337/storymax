@@ -244,6 +244,7 @@ Tugas Anda adalah memfasilitasi ideasi storyboard kreatif pengguna dan menghasil
 3. 'layout': Wajib bernilai "${style}" (karena pengguna telah memilih gaya ini).
 
 PENTING & LARANGAN KERAS:
+- DILARANG KERAS MEMASUKKAN TEKS SAMPAH E-COMMERCE / TOKO SEPERTI: syarat video unboxing, catatan komplain/retur, nomor telepon/WhatsApp, alamat pengiriman, atau promosi toko. HANYA FOKUS pada fitur visual murni produk & keunggulan utamanya!
 - Tulis deskripsi MURNI berisi alur visual sinematik per panel (Panel 1, Panel 2, dst.).
 - DILARANG KERAS menyertakan awalan meta-header teknis seperti "storyboard seedance...", "1 halaman/12 panel...", "cube_box_transform:", atau nama layout di dalam teks 'description'.
 - Total panjang teks 'description' HARUS DI BAWAH 1500 karakter. Jangan bertele-tele.
@@ -259,10 +260,11 @@ Anda harus mengembalikan respon hanya dalam format JSON mentah dengan key 'title
 Tugas Anda adalah memfasilitasi ideasi storyboard kreatif pengguna dan menghasilkan:
 1. 'title': Judul Proyek yang elegan, padat, dan sinematik (maksimal 5 kata).
 2. 'description': Deskripsi Storyboard rinci yang siap digunakan sebagai prompt AI (berisi detail visual, gaya sinematik, sudut kamera, warna, dan pencahayaan).
-3. 'layout': Memilih satu Gaya Layout Storyboard yang PALING COCK dan paling presisi untuk ide/konsep tersebut dari daftar gaya berikut:
+3. 'layout': Memilih satu Gaya Layout Storyboard yang PALING COCOK dan paling presisi untuk ide/konsep tersebut dari daftar gaya berikut:
 ${layoutListText}
 
 PENTING & LARANGAN KERAS:
+- DILARANG KERAS MEMASUKKAN TEKS SAMPAH E-COMMERCE / TOKO SEPERTI: syarat video unboxing, catatan komplain/retur, nomor telepon/WhatsApp, alamat pengiriman, atau promosi toko. HANYA FOKUS pada fitur visual murni produk & keunggulan utamanya!
 - Tulis deskripsi MURNI berisi alur visual sinematik per panel (Panel 1, Panel 2, dst.).
 - DILARANG KERAS menyertakan awalan meta-header teknis seperti "storyboard seedance...", "1 halaman/12 panel...", "cube_box_transform:", atau nama layout di dalam teks 'description'.
 - Total panjang teks 'description' HARUS DI BAWAH 1500 karakter. Jangan bertele-tele.
