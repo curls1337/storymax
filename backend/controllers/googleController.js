@@ -181,22 +181,23 @@ function absUrl(apiBase, u) {
   return u.startsWith('/') ? `${apiBase}${u}` : `${apiBase}/${u}`;
 }
 
-// Helper to upload a local media file to Google Drive and return its public Drive webViewLink.
-// If Drive auth is null or file is not local, falls back to absUrl(apiBase, u).
+// Helper to upload a local or remote media file to Google Drive and return its public Drive webViewLink.
+// If Drive auth is null or upload fails, falls back to absUrl(apiBase, u).
 async function resolveMediaLink(u, apiBase, auth, folderIdCache = {}) {
+  const { Readable } = require('stream');
   u = String(u == null ? '' : u);
   if (!u) return '';
   if (!auth) return absUrl(apiBase, u);
 
-  // If already a remote URL (and not local /uploads), return as is
-  if (/^https?:\/\//i.test(u) && !u.includes('/uploads/')) return u;
+  // If already a Google Drive link, return directly
+  if (u.includes('drive.google.com')) return u;
+
+  if (!folderIdCache.uploadedFiles) folderIdCache.uploadedFiles = {};
+  if (folderIdCache.uploadedFiles[u]) {
+    return folderIdCache.uploadedFiles[u];
+  }
 
   try {
-    const relativePath = u.replace(/^https?:\/\/[^\/]+/, '').replace(/^\/?/, '');
-    const cleanRelPath = relativePath.replace(/^uploads\//, '');
-    const localFilePath = path.join(uploadsDir, cleanRelPath);
-    if (!fs.existsSync(localFilePath)) return absUrl(apiBase, u);
-
     const driveAPI = google.drive({ version: 'v3', auth });
 
     // 1. Get or create "Storymax Export Assets" folder in Drive once per export run
@@ -223,17 +224,35 @@ async function resolveMediaLink(u, apiBase, auth, folderIdCache = {}) {
       }
     }
 
-    const filename = path.basename(localFilePath);
+    let mediaStream = null;
+    let filename = 'media_file';
+    let mimeType = 'video/mp4';
 
-    // 2. Check if file was already uploaded to Drive during this export run
-    if (!folderIdCache.uploadedFiles) folderIdCache.uploadedFiles = {};
-    if (folderIdCache.uploadedFiles[filename]) {
-      return folderIdCache.uploadedFiles[filename];
+    const isRemote = /^https?:\/\//i.test(u) && !u.includes('/uploads/');
+
+    if (isRemote) {
+      // Remote CDN video/image URL e.g. https://galaxy-prod.tlcdn.com/gen/...mp4
+      const remoteRes = await fetch(u);
+      if (!remoteRes.ok) throw new Error(`HTTP fetch failed with status ${remoteRes.status}`);
+      const arrayBuf = await remoteRes.arrayBuffer();
+      mediaStream = Readable.from(Buffer.from(arrayBuf));
+
+      const urlPath = new URL(u).pathname;
+      filename = path.basename(urlPath) || `asset_${Date.now()}.mp4`;
+      const ext = path.extname(filename).toLowerCase();
+      mimeType = ext === '.png' ? 'image/png' : (ext === '.webp' ? 'image/webp' : (ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : 'video/mp4'));
+    } else {
+      // Local file in /uploads/
+      const relativePath = u.replace(/^https?:\/\/[^\/]+/, '').replace(/^\/?/, '');
+      const cleanRelPath = relativePath.replace(/^uploads\//, '');
+      const localFilePath = path.join(uploadsDir, cleanRelPath);
+      if (!fs.existsSync(localFilePath)) return absUrl(apiBase, u);
+
+      filename = path.basename(localFilePath);
+      const ext = path.extname(filename).toLowerCase();
+      mimeType = ext === '.mp4' ? 'video/mp4' : (ext === '.webp' ? 'image/webp' : 'image/png');
+      mediaStream = fs.createReadStream(localFilePath);
     }
-
-    // 3. Upload file to Google Drive
-    const ext = path.extname(filename).toLowerCase();
-    const mimeType = ext === '.mp4' ? 'video/mp4' : (ext === '.webp' ? 'image/webp' : 'image/png');
 
     const fileMetadata = {
       name: filename,
@@ -241,7 +260,7 @@ async function resolveMediaLink(u, apiBase, auth, folderIdCache = {}) {
     };
     const media = {
       mimeType,
-      body: fs.createReadStream(localFilePath)
+      body: mediaStream
     };
 
     const uploadedFile = await driveAPI.files.create({
@@ -260,10 +279,10 @@ async function resolveMediaLink(u, apiBase, auth, folderIdCache = {}) {
     } catch (e) {}
 
     const driveLink = uploadedFile.data.webViewLink || `https://drive.google.com/file/d/${fileId}/view?usp=sharing`;
-    folderIdCache.uploadedFiles[filename] = driveLink;
+    folderIdCache.uploadedFiles[u] = driveLink;
     return driveLink;
   } catch (err) {
-    console.warn('Failed to upload file to Google Drive, falling back to server URL:', err.message);
+    console.warn('Failed to upload media to Google Drive, falling back to original URL:', err.message);
     return absUrl(apiBase, u);
   }
 }
