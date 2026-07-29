@@ -134,16 +134,48 @@ async function writePrompt(req, res) {
     return res.status(400).json({ message: 'Ide kasar (concept) harus diisi.' });
   }
 
-  // Dynamic AI Creative Matrix pools to generate infinite, non-repetitive commercial ideas
+  // Dynamic AI Creative Matrix pools to generate infinite, ultra-broad commercial concepts
   const CREATIVE_NICHES = [
-    "Skincare & Beauty Luxury (serum kristal bening, krim herbal, botol pipet)",
-    "Cyberpunk Streetwear & Sneakers (sepatu lari neon, jaket techwear, lampu jalanan)",
-    "Gourmet Culinary & Beverage ASMR (espresso latte hangat, soda dingin es batu pecah, cookies oven)",
-    "Automotive & Motor Racing (helm karbon matte, mobil sport di jalanan kota berkilat basah)",
-    "Luxury Jewelry & Horology (jam tangan mekanis roda gigi kuningan, kalung berlian)",
-    "High-Tech Wearable Gadgets (headphone wireless kulit, smartwatch titanium)",
-    "Outdoor Adventure & Travel (tas ransel gunung anti-air, puncak gunung bersalju saat fajar)",
-    "Home Decor & Aromatherapy (lilin aromaterapi kayu cendana, wadah keramik estetik)"
+    "Gaming Gear & Esports (keyboard mekanikal RGB, mouse nirkabel ultralight, headset gaming)",
+    "Smart Home & Robotics (vacuum cleaner robotik presisi, lampu pintar ambient, speaker pintar)",
+    "Niche Artisan Coffee & Espresso (biji kopi roasted, mesin espresso manual, foam milk latte art)",
+    "Electric Vehicles & Supercars (hypercar listrik, ban serat karbon, lampu LED futuristik)",
+    "High-End Audio & Headphones (headphone kayu profesional, vinyl record player, tabung amplifier)",
+    "Luxury Perfumerie & Fragrance (botol parfum kaca berukir, tetesan esensial lavender & mawar)",
+    "Fitness & High-Performance Sports (sepatu marathon karbon, botol minum stainless, smartwatch fitness)",
+    "Skincare & Organic Beauty (serum vitamin C, krim herbal bening, botol pipet kaca)",
+    "Gourmet Culinary & Patisserie (croissant mentega renyah, cokelat leleh artisan, kue tart buah segar)",
+    "Cyberpunk Streetwear & Fashion (jaket techwear matte, sneaker neon, aksesori perak)",
+    "Horology & Mechanical Watches (jam tangan tourbillon kuningan, strap kulit buaya)",
+    "Outdoor & Extreme Adventure (tas ransel gunung waterproof, tenda camping bersalju, kompas kuningan)",
+    "Home Decor & Interior Design (vas keramik buatan tangan, lampu meja hangat, tanaman monstera)",
+    "Luxury Eyewear & Sunglasses (kacamata titanium, lensa anti-reflektif, case kulit halus)",
+    "Artisan Leather Goods (dompet kulit buatan tangan, tas kerja kulit grain, jahitan benang emas)",
+    "Pet Luxury & Accessories (harness kucing/anjing premium, tempat tidur hewan berbahan beludru)",
+    "Baby & Maternity Premium (stroller bayi aluminium ringan, botol bayi bebas BPA, selimut organik)",
+    "Craft Beverages & Refreshment (soda buah alami berbusa, es batu kristal transparan, kaleng alumunium matte)",
+    "Art Supplies & Creative Tools (kuas cat minyak, pensil sketsa grafit, kanvas bertekstur)",
+    "Action Cameras & Drones (drone lipat 4K, kamera aksi waterproof, gimbal stabilizer)",
+    "Sustainable Eco Fashion (pakaian katun organik, pewarna alami pewarna tanaman, serat bambu)",
+    "Musical Instruments & Gear (gitar akustik kayu murni, saksofon kuningan berkilat, pedal efek)",
+    "Aromatherapy & Wellness (lilin minyak esensial organik, diffuser mist halus, batu spa hangat)",
+    "Automotive Detail & Car Care (pengkilap bodi mobil ceramic coating, busa pembersih makro)",
+    "Fine Jewelry & Diamonds (cincin platinum berlian cut, kalung mutiara air tawar)",
+    "Modern Stationery & Journaling (pulpen fountain pen tinta emas, buku catatan jilid kulit)",
+    "Smart Lighting & Studio Optics (lampu RGB neon tube, lensa kamera kine 85mm)",
+    "Organic Specialty Tea (daun teh hijau segar, cangkir porselen tradisional, uap air panas)",
+    "High-End Dental & Personal Care (sikat gigi elektrik sonic, pembersih wajah mikro)",
+    "Architectural Concepts & Tiny Homes (makiet rumah kayu minimalis, struktur kaca modern)",
+    "Snacks & Premium Confectionery (keripik kentang renyah, permen jelly warna-warni)",
+    "Cycling & Urban Commute (sepeda lipat titanium, helm sepeda urban, lampu keselamatan LED)",
+    "Solar Power & Portable Energy (powerbank panel surya, baterai lithium portabel)",
+    "Tactical & Survival Gear (senter LED ultra-terang, pisau lipat serbaguna, jam tahan banting)",
+    "Footwear & Ergonomic Shoes (sepatu kerja kulit fleksibel, sandal outdoor sol karet cengkeram)",
+    "Premium Kitchenware & Cutlery (pisau dapur baja Damascus, wajan cast iron)",
+    "Virtual Reality & Mixed Reality (headset VR futuristik, pengontrol gerak haptic)",
+    "Fresh Tropical Fruits & Juices (potongan mangga manis, siraman air kelapa segar)",
+    "Luggage & Travel Cases (koper aluminium hardshell, roda spinner 360 derajat)",
+    "Artisan Bakery & Sourdough (roti sourdough renyah, taburan tepung terigu, permukaan roti hangat)"
   ];
 
   const VISUAL_AESTHETICS = [
@@ -152,7 +184,11 @@ async function writePrompt(req, res) {
     "Cyberpunk Neon Rain & Urban Night (lampu kota malam hari dipantulkan permukaan jalan basah)",
     "Minimalist High-Fashion Editorial (desain bersih, warna pastel netral, kontras tajam)",
     "Surrealist Floating Elements (elemen melayang di udara dengan nuansa magis & elegan)",
-    "Retro Vintage 90s Film Grain (nuansa sinematik klasik dengan tekstur warna hangat)"
+    "Retro Vintage 90s Film Grain (nuansa sinematik klasik dengan tekstur warna hangat)",
+    "High-Tech Industrial Futuristic (struktur logam brushed, LED cyan/magenta, garis presisi)",
+    "Organic Biophilic Botanical (tanaman hijau segar, pencahayaan alami embun pagi, elemen bumi)",
+    "Monochrome Ultra-Luxury Minimal (palet hitam-putih kontras tinggi dengan aksen metallic gold)",
+    "Vibrant Pop Creative Studio (latar belakang warna solid energik dengan pencahayaan pop tajam)"
   ];
 
   const CAMERA_ACTIONS = [
@@ -160,7 +196,19 @@ async function writePrompt(req, res) {
     "Macro close-up slow-motion liquid/texture splash (percikan cairan/tekstur makro lambat)",
     "Explode assembly in mid-air (komponen produk terpisah melayang lalu menyatu kembali presisi)",
     "Dynamic FP-shot fast push-in tracking (kamera meluncur cepat mendekati aksi hero produk)",
-    "Reverse motion tactile ASMR interaction (sentuhan fisik produk dengan gerakan lambat memanjakan mata)"
+    "Reverse motion tactile ASMR interaction (sentuhan fisik produk dengan gerakan lambat memanjakan mata)",
+    "Ultra slow-motion floating particles macro (butiran partikel melayang dalam pencahayaan rim-light)",
+    "Cinematic whip-pan transition between panels (transisi pergerakan kamera cepat antar sudut pandang)",
+    "Vertical top-down flatlay tilt & rise (sudut kamera dari atas secara tegak lurus melayang naik)"
+  ];
+
+  const RANDOM_CREATIVE_ANGLES = [
+    "Ciptakan konsep yang berfokus pada teknologi canggih, presisi tinggi, dan inovasi masa depan.",
+    "Ciptakan konsep dengan kehangatan alami, rasa tenang (mindfulness), dan estetika organik.",
+    "Ciptakan konsep komersial berenergi tinggi, cepat, bergaya urban, dan penuh adrenalin.",
+    "Ciptakan konsep sinematik super mewah (high-end luxury) dengan detail tekstur mikro yang memukau.",
+    "Ciptakan konsep bertema gaya hidup modern yang bersih, efisien, dan bergaya editorial majalah.",
+    "Ciptakan konsep eksperimental dengan permainan bayangan dramatis, refleksi kaca, dan pencahayaan kontras tinggi."
   ];
 
   let rawKeyword = '';
@@ -232,15 +280,21 @@ Anda harus mengembalikan respon hanya dalam format JSON mentah dengan key 'title
       const pickNiche = CREATIVE_NICHES[Math.floor(Math.random() * CREATIVE_NICHES.length)];
       const pickVisual = VISUAL_AESTHETICS[Math.floor(Math.random() * VISUAL_AESTHETICS.length)];
       const pickAction = CAMERA_ACTIONS[Math.floor(Math.random() * CAMERA_ACTIONS.length)];
+      const pickAngle = RANDOM_CREATIVE_ANGLES[Math.floor(Math.random() * RANDOM_CREATIVE_ANGLES.length)];
 
       if (rawKeyword) {
-        userMessageContent = `Buatlah konsep ide iklan sinematik yang kreatif dan belum pernah ada sebelumnya berdasarkan kata kunci produk pengguna: "${rawKeyword}".
+        userMessageContent = `Buatlah konsep ide iklan sinematik yang sangat unik, segar, dan belum pernah ada sebelumnya berdasarkan kata kunci produk pengguna: "${rawKeyword}".
 Padukan kata kunci produk tersebut secara harmonis dengan pengarahan estetik berikut:
+- Pendekatan Ideasi: ${pickAngle}
 - Tema Visual & Aesthetic: ${pickVisual}
 - Gerakan Kamera & Aksi Visual: ${pickAction}`;
       } else {
-        userMessageContent = `Buatlah ide konsep video komersial lengkap yang sangat kreatif, segar, dan sinematik berdasarkan kombinasi matriks ideasi acak berikut:
-- Niche Produk: ${pickNiche}
+        userMessageContent = `Buatlah ide konsep video komersial lengkap yang SANGAT KREATIF, BARU, DAN BERBEDA DARI SEBELUMNYA.
+DILARANG KERAS mengulang ide pasaran seperti helm atau lilin, melainkan buatlah ideasi komersial yang segar, out-of-the-box, dan sangat beragam!
+
+Gunakan kombinasi pengarahan matriks ideasi acak berikut:
+- Kategori / Niche Produk: ${pickNiche}
+- Pendekatan Ideasi: ${pickAngle}
 - Gaya Visual & Pencahayaan: ${pickVisual}
 - Pergerakan Kamera & Aksi: ${pickAction}`;
       }
