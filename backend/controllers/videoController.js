@@ -98,6 +98,12 @@ function voToneLabel(tone) {
 function buildVoiceoverDirective(narration, lang, tone, durationSec) {
   let line = String(narration || '').trim();
   if (!line) return '';
+  // Sanitize text for clear TTS & video models: strip quotes, brackets, and convert 'x' to 'dan'
+  line = line.replace(/^['"\s]+|['"\s]+$/g, '');
+  line = line.replace(/(\w+)\s*x\s*(\w+)/gi, '$1 dan $2');
+  line = line.replace(/#/g, '');
+  if (!line) return '';
+
   const language = lang || 'Bahasa Indonesia';
   // Fit the line to the CHOSEN clip length (~1.5 words/sec) so it never rushes or leaves
   // dead air — this is what keeps the VO in sync with the scene.
