@@ -180,7 +180,15 @@ function applyAudioDirectives(basePrompt, { hasVo, narration, voLanguage, voTone
   } else {
     t = enforceNoVoiceover(t);
   }
-  if (!backsound) t = applyNoBacksound(t);
+  if (!backsound) {
+    t = applyNoBacksound(t);
+  } else if (hasVo && effectiveNarration) {
+    // When BOTH Voiceover AND Backsound are checked, enforce audio mix balance:
+    // keep background music soft/subtle and elevate the voiceover narration speech above it.
+    t += '\n\nAUDIO MIX DIRECTIVE: Include BOTH clear off-screen voiceover narration AND soft background music. Ensure the voiceover speech is prominent, loud, crystal-clear, and unmasked above the gentle background music.';
+  } else if (backsound) {
+    t += '\n\nBACKGROUND MUSIC: Include energetic, fitting background music / soundtrack without voiceover speech.';
+  }
   return t;
 }
 
