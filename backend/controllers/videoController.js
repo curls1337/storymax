@@ -152,12 +152,26 @@ function getSceneNarration(storyboard, sceneIdx) {
     const vp = storyboard && storyboard.video_prompts ? JSON.parse(storyboard.video_prompts) : null;
     const scenes = vp && Array.isArray(vp.scenes) ? vp.scenes : (Array.isArray(vp) ? vp : []);
     const s = scenes.find((x) => Number(x.scene_idx) === Number(sceneIdx)) || scenes[sceneIdx];
-    if (s && s.narration && String(s.narration).trim()) return String(s.narration).trim();
+    if (s) {
+      if (typeof s === 'string') {
+        const m = s.match(/VO\s*:\s*([^.\n]+[.!?]?)/i) || s.match(/Voiceover[^:]*:\s*"?([^"\n]+)"?/i);
+        if (m) return m[1].trim();
+      } else {
+        const txt = s.narration || s.vo || s.voiceOver || s.script || '';
+        if (txt && String(txt).trim()) return String(txt).trim();
+        if (s.imageToVideoPrompt || s.prompt) {
+          const p = String(s.imageToVideoPrompt || s.prompt);
+          const m = p.match(/VO\s*:\s*([^.\n]+[.!?]?)/i) || p.match(/Voiceover[^:]*:\s*"?([^"\n]+)"?/i);
+          if (m) return m[1].trim();
+        }
+      }
+    }
   } catch (e) {}
   try {
     const at = storyboard && storyboard.active_task_data ? JSON.parse(storyboard.active_task_data) : null;
     if (at && at.subPrompts && at.subPrompts[sceneIdx]) {
-      const matchVo = String(at.subPrompts[sceneIdx]).match(/VO\s*:\s*([^.\n]+[.!?]?)/i);
+      const matchVo = String(at.subPrompts[sceneIdx]).match(/VO\s*:\s*([^.\n]+[.!?]?)/i)
+                   || String(at.subPrompts[sceneIdx]).match(/Voiceover[^:]*:\s*"?([^"\n]+)"?/i);
       if (matchVo) return matchVo[1].trim();
     }
   } catch (e) {}
@@ -170,23 +184,31 @@ function applyAudioDirectives(basePrompt, { hasVo, narration, voLanguage, voTone
   let t = stripVoiceover(basePrompt);
   let effectiveNarration = narration;
   if (hasVo && !effectiveNarration) {
-    const matchVo = basePrompt.match(/VO\s*:\s*([^.\n]+[.!?]?)/i) || basePrompt.match(/Voiceover[^:]*:\s*"?([^"\n]+)"?/i);
+    const matchVo = basePrompt.match(/VO\s*:\s*([^.\n]+[.!?]?)/i)
+                 || basePrompt.match(/Voiceover[^:]*:\s*"?([^"\n]+)"?/i)
+                 || basePrompt.match(/Naskah\s*Voice\s*Over[^:]*:\s*"?([^"\n]+)"?/i)
+                 || basePrompt.match(/\[Voiceover\s*Narration\]\s*:\s*"?([^"\n]+)"?/i);
     if (matchVo) effectiveNarration = matchVo[1].trim();
   }
+
   if (hasVo) {
     if (effectiveNarration) {
       t += buildVoiceoverDirective(effectiveNarration, voLanguage, voTone, durationSec);
+    } else {
+      const lang = voLanguage || 'Bahasa Indonesia';
+      t += `\n\nAudio — voiceover: an off-screen narrator speaks clear voiceover narration in ${lang} matching the scene action. Spoken voiceover narration MUST be active and clearly audible.`;
     }
   } else {
     t = enforceNoVoiceover(t);
   }
+
   if (!backsound) {
     t = applyNoBacksound(t);
-  } else if (hasVo && effectiveNarration) {
+  } else if (hasVo) {
     // When BOTH Voiceover AND Backsound are checked, enforce audio mix balance:
     // keep background music soft/subtle and elevate the voiceover narration speech above it.
-    t += '\n\nAUDIO MIX DIRECTIVE: Include BOTH clear off-screen voiceover narration AND soft background music. Ensure the voiceover speech is prominent, loud, crystal-clear, and unmasked above the gentle background music.';
-  } else if (backsound) {
+    t += '\n\nAUDIO MIX DIRECTIVE: Produce BOTH clear spoken voiceover narration AND soft background music. The spoken voiceover narrator MUST be clearly audible and prominent above the gentle background music.';
+  } else {
     t += '\n\nBACKGROUND MUSIC: Include energetic, fitting background music / soundtrack without voiceover speech.';
   }
   return t;
