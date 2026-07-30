@@ -30,6 +30,8 @@ export default function Dashboard({ setTab }) {
   const [activeMergedIdx, setActiveMergedIdx] = useState(0);
   const [activeSceneIdx, setActiveSceneIdx] = useState(0);
   const [activeMobileTab, setActiveMobileTab] = useState('image'); // 'image' | 'prompt' | 'video'
+  const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
+  const [isGeneratingAllVideos, setIsGeneratingAllVideos] = useState(false);
 
   const fetchStoryboards = async () => {
     try {
@@ -725,7 +727,8 @@ export default function Dashboard({ setTab }) {
   }, [modalCarouselIdx, selectedStoryboard, videos]);
 
   const handleGenerateVideo = async () => {
-    if (!selectedStoryboard) return;
+    if (!selectedStoryboard || isGeneratingVideo || isGeneratingAllVideos) return;
+    setIsGeneratingVideo(true);
     try {
       const res = await api.post('/videos/generate', {
         storyboardId: selectedStoryboard.id,
@@ -754,14 +757,17 @@ export default function Dashboard({ setTab }) {
     } catch (err) {
       console.error("Error creating video:", err);
       toast.error(err.response?.data?.message || 'Gagal memulai pembuatan video.');
+    } finally {
+      setIsGeneratingVideo(false);
     }
   };
 
   const handleGenerateAllVideos = async () => {
-    if (!selectedStoryboard) return;
+    if (!selectedStoryboard || isGeneratingVideo || isGeneratingAllVideos) return;
     const confirmAll = await confirm({ title: 'Generate video untuk semua halaman?', message: '• Mode Auto: tiap halaman memakai API key Freebeat aktif yang berbeda & sedang bebas (paralel sebanyak key yang tersedia).\n• Mode Manual (pilih 1 key): dikerjakan 1 halaman per waktu — menunggu tiap halaman selesai dulu.', confirmText: 'Ya, buat semua' });
     if (!confirmAll) return;
 
+    setIsGeneratingAllVideos(true);
     try {
       const res = await api.post('/videos/generate-all', {
         storyboardId: selectedStoryboard.id,
@@ -787,6 +793,8 @@ export default function Dashboard({ setTab }) {
     } catch (err) {
       console.error("Error creating all videos:", err);
       toast.error(err.response?.data?.message || 'Gagal memulai batch video generation.');
+    } finally {
+      setIsGeneratingAllVideos(false);
     }
   };
 
@@ -2580,15 +2588,33 @@ export default function Dashboard({ setTab }) {
                         <div className="flex gap-2 mt-2">
                           <button
                             onClick={handleGenerateVideo}
-                            className="flex-1 bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 text-[8.5px] uppercase tracking-wider transition-all"
+                            disabled={isGeneratingVideo || isGeneratingAllVideos}
+                            className="flex-1 bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 text-[8.5px] uppercase tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none"
                           >
-                            <Play className="w-3.5 h-3.5 fill-black" /> Buat Video
+                            {isGeneratingVideo ? (
+                              <>
+                                <Loader className="w-3.5 h-3.5 animate-spin" /> Memproses...
+                              </>
+                            ) : (
+                              <>
+                                <Play className="w-3.5 h-3.5 fill-black" /> Buat Video
+                              </>
+                            )}
                           </button>
                           <button
                             onClick={handleGenerateAllVideos}
-                            className="flex-1 bg-[#cfae80]/10 hover:bg-[#cfae80]/20 text-[#cfae80] border border-[#cfae80]/20 font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 text-[8.5px] uppercase tracking-wider transition-all"
+                            disabled={isGeneratingVideo || isGeneratingAllVideos}
+                            className="flex-1 bg-[#cfae80]/10 hover:bg-[#cfae80]/20 text-[#cfae80] border border-[#cfae80]/20 font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 text-[8.5px] uppercase tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none"
                           >
-                            <Zap className="w-3.5 h-3.5 text-[#cfae80] fill-[#cfae80]/10" /> Buat Semua
+                            {isGeneratingAllVideos ? (
+                              <>
+                                <Loader className="w-3.5 h-3.5 animate-spin" /> Memproses...
+                              </>
+                            ) : (
+                              <>
+                                <Zap className="w-3.5 h-3.5 text-[#cfae80] fill-[#cfae80]/10" /> Buat Semua
+                              </>
+                            )}
                           </button>
                         </div>
                       </div>

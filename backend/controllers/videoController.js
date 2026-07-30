@@ -245,6 +245,21 @@ async function generateVideo(req, res) {
       return res.status(404).json({ message: 'Storyboard tidak ditemukan.' });
     }
 
+    // Safeguard against rapid duplicate requests for the same scene
+    const existingProcessing = await db.get(
+      `SELECT id, task_id FROM generated_videos 
+       WHERE storyboard_id = ? AND scene_idx = ? AND status = 'processing' 
+       ORDER BY id DESC LIMIT 1`,
+      [storyboardId, sceneIdx]
+    );
+    if (existingProcessing) {
+      return res.status(400).json({ 
+        message: 'Pembuatan video untuk halaman ini sedang berjalan. Harap tunggu hingga selesai.',
+        taskId: existingProcessing.task_id,
+        videoId: existingProcessing.id
+      });
+    }
+
     // Restrict HD 1080p / 4K if user does not have allow_hd_resolutions permission
     const userRec = await db.get('SELECT role, allow_hd_resolutions FROM users WHERE id = ?', [req.user.id]);
     const isHdAllowed = userRec && (userRec.role === 'admin' || userRec.allow_hd_resolutions === 1);
