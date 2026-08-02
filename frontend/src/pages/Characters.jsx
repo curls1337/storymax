@@ -1063,6 +1063,7 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
                     <p className="text-xs text-slate-400 max-w-md mt-1">
                       Buat lembar gambar poster sinematik lengkap (termasuk foto Turnaround 360°, Close-up, 5 Ekspresi, & Wardrobe) dalam 1 gambar utuh beresolusi tinggi dengan AI.
                     </p>
+                  </div>
                   {/* Reference Photo Status Indicator Badge */}
                   {showSheetViewer.reference_images && showSheetViewer.reference_images.length > 0 && (
                     <div className="w-full max-w-lg bg-[#cfae80]/10 border border-[#cfae80]/30 p-2.5 rounded-xl flex items-center gap-3 text-left">
