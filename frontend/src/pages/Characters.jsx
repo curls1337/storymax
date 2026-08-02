@@ -1063,7 +1063,16 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
                     <p className="text-xs text-slate-400 max-w-md mt-1">
                       Buat lembar gambar poster sinematik lengkap (termasuk foto Turnaround 360°, Close-up, 5 Ekspresi, & Wardrobe) dalam 1 gambar utuh beresolusi tinggi dengan AI.
                     </p>
-                  </div>
+                  {/* Reference Photo Status Indicator Badge */}
+                  {showSheetViewer.reference_images && showSheetViewer.reference_images.length > 0 && (
+                    <div className="w-full max-w-lg bg-[#cfae80]/10 border border-[#cfae80]/30 p-2.5 rounded-xl flex items-center gap-3 text-left">
+                      <img src={getFullImageUrl(showSheetViewer.reference_images[0])} alt="Foto Referensi" className="w-10 h-10 rounded-lg object-cover border border-[#cfae80]/50 shrink-0" />
+                      <div className="text-left text-xs">
+                        <span className="text-[#cfae80] font-bold block">📷 Foto Referensi Asli Terdeteksi</span>
+                        <span className="text-slate-350 text-[10px]">Magica akan menggunakan foto ini sebagai acuan (Image-to-Image) untuk mengunci kemiripan wajah & penampilan.</span>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Provider & Model & API Key Selection inside Modal 3 */}
                   <div className="w-full max-w-lg bg-[#121110]/80 p-3.5 rounded-xl border border-[#3a3633] space-y-2 text-left">
