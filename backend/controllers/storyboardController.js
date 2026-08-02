@@ -42,7 +42,7 @@ async function getUserStoryboards(req, res) {
 }
 
 async function generateStoryboard(req, res) {
-  const { title, prompt, style, apiKeyId, refImageBase64, refImageUrl, refImages, gridCount, model, duration, showFace, faceMode, aspectRatio, enableVo, enableVoScript, enableVoImage, voMaxWords, voLanguage, voTone, videoEngine, containerShape, magicaModel, magicaKeyId, textOnScreen } = req.body;
+  const { title, prompt, style, apiKeyId, refImageBase64, refImageUrl, refImages, gridCount, model, duration, showFace, faceMode, aspectRatio, enableVo, enableVoScript, enableVoImage, voMaxWords, voLanguage, voTone, videoEngine, containerShape, magicaModel, magicaKeyId, textOnScreen, characterId } = req.body;
 
   if (!title || !prompt || !style || !apiKeyId) {
     return res.status(400).json({ message: 'Title, prompt, style, and API Key ID are required.' });
@@ -158,6 +158,7 @@ async function generateStoryboard(req, res) {
     magicaModel: magicaModel || null,
     magicaKeyId: magicaKeyId || null,
     textOnScreen: !!textOnScreen,
+    characterId: characterId || null,
     prompt,
     title,
     enableVo: isVoActive,
@@ -180,8 +181,8 @@ async function generateStoryboard(req, res) {
 
   try {
     const insertResult = await db.run(
-      'INSERT INTO storyboards (user_id, title, prompt, image_path, used_credits, api_key_id, status, generation_params, task_id, active_task_data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [req.user.id, title, prompt, '[]', 0, parsedApiKeyId, 'processing', generationParams, taskId, JSON.stringify(initialTaskState)]
+      'INSERT INTO storyboards (user_id, title, prompt, image_path, used_credits, api_key_id, status, generation_params, task_id, active_task_data, character_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [req.user.id, title, prompt, '[]', 0, parsedApiKeyId, 'processing', generationParams, taskId, JSON.stringify(initialTaskState), characterId || null]
     );
     storyboardId = insertResult.lastID;
     initialTaskState.storyboardId = storyboardId;

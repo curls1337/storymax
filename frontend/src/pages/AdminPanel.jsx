@@ -355,7 +355,13 @@ const PRESET_AI_MODELS = [
   };
 
   const magicaSelectAll = () => {
-    setSelectedMagicaKeyIds(selectedMagicaKeyIds.length === magicaKeys.length ? [] : magicaKeys.map((k) => k.id));
+    setSelectedMagicaKeyIds(selectedMagicaKeyIds.length === magicaKeys.length && magicaKeys.length > 0 ? [] : magicaKeys.map((k) => k.id));
+  };
+
+  const handleToggleMagicaKeySelect = (id) => {
+    setSelectedMagicaKeyIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
   };
 
   const loadData = async () => {
@@ -1677,7 +1683,26 @@ const PRESET_AI_MODELS = [
               </h3>
               <p className="text-slate-400 text-[10px] mt-1 leading-relaxed">Provider alternatif selain Freebeat. Kelola tiap key (aktif/nonaktif, hapus &amp; saldo) langsung di kartu di bawah. Izin per-user diatur di tab <strong className="text-slate-300">Manajemen User</strong>.</p>
             </div>
-            <div className="flex gap-1.5 items-center shrink-0">
+            <div className="flex flex-wrap gap-1.5 items-center shrink-0">
+              {selectedMagicaKeyIds.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleDeleteSelectedMagica}
+                  className="bg-red-950/40 border border-red-500/40 hover:bg-red-600 text-white font-bold py-1.5 px-3 rounded-lg flex items-center transition-all shadow-lg text-[9px] uppercase tracking-wider cursor-pointer animate-fadeIn"
+                >
+                  <Trash2 className="w-3.5 h-3.5 mr-1" />
+                  Hapus Terpilih ({selectedMagicaKeyIds.length})
+                </button>
+              )}
+              {magicaKeys.length > 0 && (
+                <button
+                  type="button"
+                  onClick={magicaSelectAll}
+                  className="bg-black/40 border border-[#2a2725] hover:bg-[#a855f7] hover:text-white text-slate-300 font-bold py-1.5 px-3 rounded-lg flex items-center transition-all text-[9px] uppercase tracking-wider cursor-pointer select-none"
+                >
+                  {selectedMagicaKeyIds.length === magicaKeys.length ? 'Batal Centang' : `Centang Semua (${magicaKeys.length})`}
+                </button>
+              )}
               <button onClick={handleTestMagica} disabled={magicaTestLoading} className="bg-[#a855f7]/10 border border-[#a855f7]/30 hover:bg-[#a855f7] hover:text-white text-[#c99bfb] font-bold py-1.5 px-3 rounded-lg flex items-center gap-1 text-[9px] uppercase tracking-wider cursor-pointer disabled:opacity-50">
                 {magicaTestLoading ? <Loader className="animate-spin w-3.5 h-3.5" /> : <Check className="w-3.5 h-3.5" />} Tes Koneksi
               </button>
@@ -1703,27 +1728,34 @@ const PRESET_AI_MODELS = [
                 {magicaBalLoading ? <Loader className="animate-spin w-3.5 h-3.5" /> : <RefreshCw className="w-3.5 h-3.5" />} Refresh
               </button>
             </div>
-            {/* Per-key management — replaces the old crowded table: label, masked key,
-                balance, last status, active toggle & delete, all in one responsive grid
-                (1 col on mobile/iOS/Android, 2-3 cols on larger screens). */}
+            {/* Per-key management — responsive grid with selection support */}
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2 mt-3">
               {magicaKeys.length === 0 ? (
                 <p className="col-span-full text-center text-slate-500 italic text-[10px] uppercase tracking-wider py-4">Belum ada API Key Magica</p>
               ) : magicaKeys.map((k) => {
                 const bal = ((magicaBalances && magicaBalances.keys) || []).find((b) => b.id === k.id);
+                const isSelected = selectedMagicaKeyIds.includes(k.id);
                 return (
-                  <div key={k.id} className="bg-black/30 border border-[#2a2725] rounded-lg p-2.5 flex flex-col gap-1.5">
+                  <div key={k.id} className={`border rounded-lg p-2.5 flex flex-col gap-1.5 transition-all ${isSelected ? 'bg-[#a855f7]/15 border-[#a855f7]/50 shadow-md' : 'bg-black/30 border-[#2a2725]'}`}>
                     <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-[10px] text-slate-200 font-semibold truncate" title={k.label}>{k.label}</p>
-                        <p className="text-[9px] font-mono text-slate-500 truncate">{String(k.key_value || '').substring(0, 10)}••••</p>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleToggleMagicaKeySelect(k.id)}
+                          className="w-3.5 h-3.5 rounded border-[#2a2725] bg-black text-[#a855f7] focus:ring-0 cursor-pointer accent-[#a855f7] shrink-0"
+                        />
+                        <div className="min-w-0">
+                          <p className="text-[10px] text-slate-200 font-semibold truncate" title={k.label}>{k.label}</p>
+                          <p className="text-[9px] font-mono text-slate-500 truncate">{String(k.key_value || '').substring(0, 10)}••••</p>
+                        </div>
                       </div>
                       <span className="text-[11px] font-bold text-[#c99bfb] whitespace-nowrap shrink-0">
                         {bal && bal.credits != null ? `⚡ ${bal.formatted ?? bal.credits.toFixed(2)}` : (k.is_active !== 1 ? '—' : (bal && bal.error ? '⚠️' : '…'))}
                       </span>
                     </div>
-                    {k.last_status ? <p className="text-[8px] text-slate-500 truncate" title={k.last_status}>📋 {k.last_status}</p> : null}
-                    <div className="flex items-center gap-1.5">
+                    {k.last_status ? <p className="text-[8px] text-slate-500 truncate pl-5.5" title={k.last_status}>📋 {k.last_status}</p> : null}
+                    <div className="flex items-center gap-1.5 pt-1">
                       <button onClick={() => handleToggleMagicaKey(k.id, k.is_active)} className={`flex-1 px-2 py-1.5 rounded-md text-[8px] font-bold tracking-wider uppercase border transition-all cursor-pointer ${k.is_active === 1 ? 'bg-green-950/20 text-green-300 border-green-500/20 hover:bg-green-600 hover:text-white' : 'bg-slate-900/40 text-slate-500 border-slate-800 hover:bg-slate-700 hover:text-white'}`}>{k.is_active === 1 ? 'Aktif' : 'Nonaktif'}</button>
                       <button onClick={() => handleDeleteMagicaKey(k.id)} title="Hapus key" className="px-2.5 py-1.5 rounded-md bg-red-950/15 border border-red-500/20 text-red-400 hover:bg-red-600 hover:text-white transition-all cursor-pointer"><Trash2 className="w-3 h-3" /></button>
                     </div>

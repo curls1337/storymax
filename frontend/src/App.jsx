@@ -3,9 +3,10 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Generator from './pages/Generator';
 import ThreeD from './pages/ThreeD';
+import Characters from './pages/Characters';
 import Settings from './pages/Settings';
 import AdminPanel from './pages/AdminPanel';
-import { Home, Sparkles, Settings as SettingsIcon, ShieldAlert, LogOut, Loader, User, Zap, Menu, X, Box } from 'lucide-react';
+import { Home, Sparkles, Settings as SettingsIcon, ShieldAlert, LogOut, Loader, User, Zap, Menu, X, Box, UserCheck } from 'lucide-react';
 import api from './utils/api';
 
 export default function App() {
@@ -14,6 +15,7 @@ export default function App() {
   const [tab, setTab] = useState('dashboard');
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [selectedCharacter, setSelectedCharacter] = useState(null);
   const mainRef = useRef(null);
 
   const fetchProfile = async () => {
@@ -255,6 +257,21 @@ export default function App() {
             </button>
 
             <button
+              onClick={() => { setTab('characters'); setSidebarOpen(false); }}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-[10px] font-semibold tracking-widest uppercase transition-all duration-350 border ${
+                tab === 'characters'
+                  ? 'text-white bg-[#cfae80]/5 border-[#cfae80]/30'
+                  : 'text-slate-400 hover:text-white border-transparent hover:bg-white/[0.01]'
+              }`}
+            >
+              <span className="flex items-center gap-3">
+                <UserCheck className="w-3.5 h-3.5 text-[#cfae80]" />
+                Karakter
+              </span>
+              {tab === 'characters' && <div className="w-1.5 h-1.5 rounded-full bg-[#cfae80] shadow-sm shadow-[#cfae80]"></div>}
+            </button>
+
+            <button
               onClick={() => { setTab('3d'); setSidebarOpen(false); }}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-[10px] font-semibold tracking-widest uppercase transition-all duration-350 border ${
                 tab === '3d'
@@ -339,7 +356,8 @@ export default function App() {
         )}
         <div className="w-full min-h-full flex flex-col justify-start px-2 sm:px-6 md:px-8 py-2 sm:py-6 md:py-8">
           {tab === 'dashboard' && <Dashboard setTab={setTab} />}
-          {tab === 'generator' && <Generator setTab={setTab} />}
+          {tab === 'generator' && <Generator setTab={setTab} selectedCharacter={selectedCharacter} setSelectedCharacter={setSelectedCharacter} />}
+          {tab === 'characters' && <Characters setTab={setTab} onSelectCharacterForStoryboard={(char) => { setSelectedCharacter(char); setTab('generator'); }} />}
           {tab === '3d' && <ThreeD />}
           {tab === 'settings' && <Settings onLogout={handleLogout} />}
           {tab === 'admin' && user.role === 'admin' && <AdminPanel />}
@@ -365,6 +383,15 @@ export default function App() {
         >
           <Sparkles className="w-4.5 h-4.5" />
           <span className="text-[7.5px] font-bold uppercase tracking-widest mt-0.5">AI Gen</span>
+        </button>
+        <button 
+          onClick={() => setTab('characters')} 
+          className={`flex flex-col items-center justify-center gap-1 w-16 py-1.5 transition-all duration-200 ${
+            tab === 'characters' ? 'text-[#cfae80]' : 'text-slate-400'
+          }`}
+        >
+          <UserCheck className="w-4.5 h-4.5" />
+          <span className="text-[7.5px] font-bold uppercase tracking-widest mt-0.5">Karakter</span>
         </button>
         <button
           onClick={() => setTab('3d')}

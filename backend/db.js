@@ -99,9 +99,40 @@ async function initDb() {
     )
   `);
 
+  // Create Characters Table (Consistent Character Reference Sheets)
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS characters (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      tagline TEXT,
+      concept TEXT,
+      visual_tone TEXT,
+      color_palette TEXT,
+      profile_notes TEXT,
+      turnaround_notes TEXT,
+      expressions TEXT,
+      wardrobe TEXT,
+      production_notes TEXT,
+      trigger_prompt TEXT,
+      reference_images TEXT,
+      sheet_image_url TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+
   // Ensure status column exists if table was already created (migration support)
   try {
     await db.exec('ALTER TABLE storyboards ADD COLUMN status TEXT NOT NULL DEFAULT "success"');
+  } catch (e) {
+    // Column already exists, safe to ignore
+  }
+
+  // Ensure character_id column exists in storyboards (migration support)
+  try {
+    await db.exec('ALTER TABLE storyboards ADD COLUMN character_id INTEGER REFERENCES characters(id)');
   } catch (e) {
     // Column already exists, safe to ignore
   }

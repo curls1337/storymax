@@ -32,10 +32,12 @@ const videoRoutes = require('./routes/videoRoutes');
 const magicaRoutes = require('./routes/magicaRoutes');
 const magicaWebhookRoutes = require('./routes/magicaWebhook');
 const googleAuthRoutes = require('./routes/googleAuthRoutes');
+const characterRoutes = require('./routes/characterRoutes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/storyboards', storyboardRoutes);
+app.use('/api/characters', characterRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/videos', videoRoutes);
 // Public Magica webhook (no JWT) — MUST be mounted before the authenticated /api/magica router.

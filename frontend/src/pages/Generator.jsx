@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import api from '../utils/api';
-import { Sparkles, Loader, Download, ExternalLink, AlertTriangle, Terminal, X, ChevronRight, Upload, Image as ImageIcon, Zap, Sliders, Eye } from 'lucide-react';
+import { Sparkles, Loader, Download, ExternalLink, AlertTriangle, Terminal, X, ChevronRight, Upload, Image as ImageIcon, Zap, Sliders, Eye, UserCheck } from 'lucide-react';
 import LAYOUT_STYLES from '../constants/layoutStyles';
 import { toast } from '../utils/toast';
 import { confirm } from '../utils/confirm';
@@ -41,7 +41,7 @@ function pagesForDuration(engine, durationValue) {
   return (hit && hit.pages) || 1;
 }
 
-export default function Generator({ setTab }) {
+export default function Generator({ setTab, selectedCharacter }) {
   const [mode, setMode] = useState('tokopedia');
   const [title, setTitle] = useState('');
   const [prompt, setPrompt] = useState('');
@@ -100,6 +100,38 @@ export default function Generator({ setTab }) {
   const [regeneratingPages, setRegeneratingPages] = useState({});
   const [regenLogs, setRegenLogs] = useState({});
   
+  const [userCharacters, setUserCharacters] = useState([]);
+  const [chosenCharacter, setChosenCharacter] = useState(selectedCharacter || null);
+
+  useEffect(() => {
+    api.get('/characters').then(res => {
+      setUserCharacters(res.data || []);
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (selectedCharacter) {
+      setChosenCharacter(selectedCharacter);
+    }
+  }, [selectedCharacter]);
+
+  // Automatically inject chosen character's sheet image into selectedRefImages
+  useEffect(() => {
+    if (chosenCharacter) {
+      const charImg = chosenCharacter.sheet_image_url || (chosenCharacter.reference_images && chosenCharacter.reference_images[0]);
+      if (charImg) {
+        setSelectedRefImages(prev => {
+          const exists = prev.some(img => img.url === charImg || img.value === charImg);
+          if (!exists) {
+            return [{ type: 'url', url: charImg, value: charImg, label: `Karakter: ${chosenCharacter.name}`, isCharacter: true }, ...prev];
+          }
+          return prev;
+        });
+        toast.info(`Karakter "${chosenCharacter.name}" aktif! Gambar referensi otomatis ditambahkan.`);
+      }
+    }
+  }, [chosenCharacter]);
+
   const pollIntervalRef = useRef(null);
   const logContainerRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -408,9 +440,13 @@ export default function Generator({ setTab }) {
 
     try {
       const finalTitle = mode === 'manual' ? (prompt.substring(0, 30).trim() || 'Manual Project') + '...' : title;
+      const finalPrompt = chosenCharacter && chosenCharacter.trigger_prompt && !prompt.toLowerCase().includes(chosenCharacter.name.toLowerCase())
+        ? `[Character Appearance & Outfit: ${chosenCharacter.trigger_prompt}] ${prompt}`
+        : prompt;
+
       const res = await api.post('/storyboards/generate', { 
         title: finalTitle, 
-        prompt, 
+        prompt: finalPrompt, 
         style, 
         apiKeyId, 
         refImageBase64: legacyBase64, 
@@ -432,7 +468,8 @@ export default function Generator({ setTab }) {
         containerShape,
         textOnScreen,
         magicaModel: userProvider === 'magica' ? magicaImageModel : undefined,
-        magicaKeyId: userProvider === 'magica' ? magicaKeyId : undefined
+        magicaKeyId: userProvider === 'magica' ? magicaKeyId : undefined,
+        characterId: chosenCharacter ? chosenCharacter.id : undefined
       });
       const { taskId } = res.data;
       setCurrentTaskId(taskId);
@@ -661,6 +698,65 @@ export default function Generator({ setTab }) {
             >
               Manual
             </button>
+          </div>
+
+          {/* CONSISTENT CHARACTER SELECTOR */}
+          <div className="bg-[#131211]/50 border border-[#2a2725] rounded-xl p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-slate-350 text-[9px] font-bold uppercase tracking-widest flex items-center gap-1.5">
+                <UserCheck className="w-3.5 h-3.5 text-[#cfae80]" /> Karakter Konsisten (Opsional)
+              </label>
+              <button
+                type="button"
+                onClick={() => setTab('characters')}
+                className="text-[9px] text-[#cfae80] hover:underline font-semibold"
+              >
+                + Kelola Karakter
+              </button>
+            </div>
+
+            <select
+              value={chosenCharacter ? chosenCharacter.id : ''}
+              onChange={(e) => {
+                const found = userCharacters.find(c => String(c.id) === e.target.value);
+                setChosenCharacter(found || null);
+                if (setSelectedCharacter) setSelectedCharacter(found || null);
+              }}
+              className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#cfae80]"
+            >
+              <option value="">-- Tanpa Karakter Konsisten --</option>
+              {userCharacters.map((char) => (
+                <option key={char.id} value={char.id}>
+                  {char.name} {char.tagline ? `(${char.tagline})` : ''}
+                </option>
+              ))}
+            </select>
+
+            {chosenCharacter && (
+              <div className="p-2.5 bg-[#cfae80]/10 border border-[#cfae80]/30 rounded-lg flex items-center justify-between">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  {chosenCharacter.sheet_image_url ? (
+                    <img src={chosenCharacter.sheet_image_url.startsWith('http') ? chosenCharacter.sheet_image_url : `/uploads/${chosenCharacter.sheet_image_url.replace(/^\/?uploads\//, '')}`} alt={chosenCharacter.name} className="w-8 h-8 rounded-lg object-cover border border-[#cfae80]/40 shrink-0" />
+                  ) : (
+                    <div className="w-8 h-8 rounded-lg bg-[#cfae80]/20 flex items-center justify-center text-[#cfae80] font-bold text-xs shrink-0">
+                      {chosenCharacter.name.charAt(0)}
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-white truncate">{chosenCharacter.name}</p>
+                    <p className="text-[9px] text-[#cfae80] font-mono truncate">{chosenCharacter.visual_tone || 'Aktif'}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setChosenCharacter(null); if (setSelectedCharacter) setSelectedCharacter(null); }}
+                  className="p-1 text-slate-400 hover:text-red-400"
+                  title="Lepas Karakter"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
           </div>
 
           {mode === 'tokopedia' && (

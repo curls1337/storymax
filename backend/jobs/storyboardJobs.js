@@ -46,6 +46,27 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
     const hasLocalCli = fs.existsSync(localCliPath);
     const publicDir = uploadsDir;
 
+    // Load Character details if characterId is specified
+    if (task.characterId && !task.characterLoaded) {
+      try {
+        const char = await db.get('SELECT * FROM characters WHERE id = ?', [task.characterId]);
+        if (char) {
+          task.logs += `[INFO] Menggunakan Karakter Konsisten: "${char.name}"\n`;
+          const charPromptInjection = `[KARAKTER KONSISTEN: ${char.name}. ${char.trigger_prompt || char.profile_notes || ''} | Visual Tone: ${char.visual_tone || ''} | Pakaian: ${char.wardrobe || ''}]`;
+          task.prompt = `${charPromptInjection}\n${task.prompt}`;
+          
+          task.refImages = task.refImages || [];
+          if (char.sheet_image_url) {
+            task.refImages.unshift({ url: char.sheet_image_url });
+          }
+          task.characterLoaded = true;
+          await saveTaskState(db, storyboardId, task);
+        }
+      } catch (charErr) {
+        console.warn('Gagal memuat data karakter konsisten:', charErr.message);
+      }
+    }
+
     // 1. Split the storyboard prompt into chronological parts using AI if starting fresh
     if (task.subPrompts === null) {
       task.logs += `[1.2/4] Menganalisis konsep cerita dan memecah menjadi ${task.pageCount} segmen visual kronologis menggunakan AI...\n`;
