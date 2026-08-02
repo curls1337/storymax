@@ -120,10 +120,11 @@ export default function Generator({ setTab, selectedCharacter }) {
     if (chosenCharacter) {
       const charImg = chosenCharacter.sheet_image_url || (chosenCharacter.reference_images && chosenCharacter.reference_images[0]);
       if (charImg) {
+        const fullPreview = getFullImageUrl(charImg);
         setSelectedRefImages(prev => {
           const exists = prev.some(img => img.url === charImg || img.value === charImg);
           if (!exists) {
-            return [{ type: 'url', url: charImg, value: charImg, label: `Karakter: ${chosenCharacter.name}`, isCharacter: true }, ...prev];
+            return [{ type: 'url', url: charImg, value: charImg, preview: fullPreview, label: `Karakter: ${chosenCharacter.name}`, isCharacter: true }, ...prev];
           }
           return prev;
         });
@@ -484,19 +485,19 @@ export default function Generator({ setTab, selectedCharacter }) {
 
   const getFullImageUrl = (path) => {
     if (!path) return '';
-    if (path.startsWith('http')) return path;
+    if (path.startsWith('http') || path.startsWith('data:')) return path;
 
-    const base = import.meta.env.VITE_API_URL || '/api';
+    const base = import.meta.env.VITE_API_URL || (api && api.defaults ? api.defaults.baseURL : '') || '/api';
     let cleanPath = path;
-    if (path.startsWith('/uploads/')) {
-      cleanPath = path.slice(1);
-    } else if (path.startsWith('uploads/')) {
-      cleanPath = path;
+    if (cleanPath.startsWith('/uploads/')) {
+      cleanPath = cleanPath.slice(1);
+    } else if (cleanPath.startsWith('uploads/')) {
+      cleanPath = cleanPath;
     } else {
-      cleanPath = path.startsWith('/') ? path.slice(1) : path;
+      cleanPath = cleanPath.startsWith('/') ? cleanPath.slice(1) : cleanPath;
     }
 
-    if (base.startsWith('http')) {
+    if (base && base.startsWith('http')) {
       try {
         const origin = new URL(base).origin;
         return `${origin}/${cleanPath}`;
@@ -586,7 +587,7 @@ export default function Generator({ setTab, selectedCharacter }) {
         <div className="grid grid-cols-4 gap-2 pt-1">
           {selectedRefImages.map((img) => (
             <div key={img.id} className="relative aspect-square rounded-lg overflow-hidden border border-[#2a2725] group bg-black/40">
-              <img src={img.preview} alt="Preview" className="w-full h-full object-cover" />
+              <img src={getFullImageUrl(img.preview || img.url || img.value)} alt="Preview" className="w-full h-full object-cover" />
               <button 
                 type="button" 
                 onClick={() => removeSelectedImage(img.id)} 
@@ -735,8 +736,8 @@ export default function Generator({ setTab, selectedCharacter }) {
             {chosenCharacter && (
               <div className="p-2.5 bg-[#cfae80]/10 border border-[#cfae80]/30 rounded-lg flex items-center justify-between">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  {chosenCharacter.sheet_image_url ? (
-                    <img src={chosenCharacter.sheet_image_url.startsWith('http') ? chosenCharacter.sheet_image_url : `/uploads/${chosenCharacter.sheet_image_url.replace(/^\/?uploads\//, '')}`} alt={chosenCharacter.name} className="w-8 h-8 rounded-lg object-cover border border-[#cfae80]/40 shrink-0" />
+                  {(chosenCharacter.sheet_image_url || (chosenCharacter.reference_images && chosenCharacter.reference_images[0])) ? (
+                    <img src={getFullImageUrl(chosenCharacter.sheet_image_url || chosenCharacter.reference_images[0])} alt={chosenCharacter.name} className="w-8 h-8 rounded-lg object-cover border border-[#cfae80]/40 shrink-0" />
                   ) : (
                     <div className="w-8 h-8 rounded-lg bg-[#cfae80]/20 flex items-center justify-center text-[#cfae80] font-bold text-xs shrink-0">
                       {chosenCharacter.name.charAt(0)}
