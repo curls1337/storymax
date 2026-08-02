@@ -119,13 +119,15 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
     setAiStep('Merender Character Design Reference Sheet beresolusi tinggi...');
     try {
       const imagePrompt = spec.sheet_image_prompt || `Official character design reference sheet concept art presentation poster layout for ${spec.name}, featuring full multi-panel graphic composition layout: 1. Profile side view standing, 2. 360 degree turnaround view (front, 3/4 left, back, 3/4 right standing line-up), 3. Cinematic close up portrait, 4. Head study expressions grid with 5 emotions, 5. Wardrobe breakdown of clothing items, 6. Production notes & color palette swatches. Film production concept art sheet, 8k resolution masterwork, sleek studio dark background. Character details: ${spec.trigger_prompt || spec.concept || spec.name}`;
+      const targetRefUrl = aiRefImage || (spec.reference_images && spec.reference_images[0]);
       const res = await api.post('/characters/generate-sheet-image', {
         prompt: imagePrompt,
         aspectRatio: '3:4',
         provider: selectedProvider,
         magicaModel: selectedProvider === 'magica' ? magicaModel : undefined,
         apiKeyId,
-        magicaKeyId
+        magicaKeyId,
+        refUrl: targetRefUrl
       });
 
       if (res.data && res.data.imageUrl) {
@@ -147,13 +149,15 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
     toast.info(`Merender gambar Poster Character Reference Sheet untuk ${char.name}...`);
     try {
       const prompt = char.sheet_image_prompt || `Official character design reference sheet concept art presentation poster layout for ${char.name}, featuring full multi-panel graphic composition layout: 1. Profile side view standing, 2. 360 degree turnaround view (front, 3/4 left, back, 3/4 right standing line-up), 3. Cinematic close up portrait, 4. Head study expressions grid with 5 emotions, 5. Wardrobe breakdown of clothing items, 6. Production notes & color palette swatches. Film production concept art sheet, 8k resolution masterwork, sleek studio dark background. Character details: ${char.trigger_prompt || char.concept || char.name}`;
+      const targetRefUrl = (char.reference_images && char.reference_images[0]) ? char.reference_images[0] : undefined;
       const res = await api.post('/characters/generate-sheet-image', {
         prompt,
         aspectRatio: '3:4',
         provider: selectedProvider,
         magicaModel: selectedProvider === 'magica' ? magicaModel : undefined,
         apiKeyId,
-        magicaKeyId
+        magicaKeyId,
+        refUrl: targetRefUrl
       });
       if (res.data && res.data.imageUrl) {
         await api.put(`/characters/${char.id}`, { sheet_image_url: res.data.imageUrl });
@@ -173,6 +177,10 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
     if (!aiResultSpec) return;
     setSaving(true);
     try {
+      const refImgs = [];
+      if (aiRefImage) refImgs.push(aiRefImage);
+      if (aiSheetImageUrl && !refImgs.includes(aiSheetImageUrl)) refImgs.push(aiSheetImageUrl);
+
       const payload = {
         name: aiResultSpec.name || 'Karakter AI',
         tagline: aiResultSpec.tagline || '',
@@ -185,7 +193,7 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
         wardrobe: aiResultSpec.wardrobe || '',
         production_notes: aiResultSpec.production_notes || '',
         trigger_prompt: aiResultSpec.trigger_prompt || '',
-        reference_images: aiSheetImageUrl ? [aiSheetImageUrl] : [],
+        reference_images: refImgs,
         sheet_image_url: aiSheetImageUrl || ''
       };
 

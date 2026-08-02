@@ -335,7 +335,7 @@ Only output pure JSON. No markdown backticks outside JSON.`;
 // Generate the high-res Character Reference Sheet Image using Image Generator (Freebeat/Magica)
 async function generateCharacterSheetImage(req, res) {
   try {
-    const { prompt, aspectRatio, apiKeyId, magicaModel, magicaKeyId, provider } = req.body;
+    const { prompt, aspectRatio, apiKeyId, magicaModel, magicaKeyId, provider, refUrl, refImageUrl } = req.body;
     if (!prompt) {
       return res.status(400).json({ message: 'Prompt gambar wajib diisi.' });
     }
@@ -345,6 +345,7 @@ async function generateCharacterSheetImage(req, res) {
     
     // Determine primary provider to try
     const wantMagica = provider === 'magica' || (!provider && userRow && userRow.pp === 'magica' && userRow.cum);
+    const targetRefUrl = refUrl || refImageUrl || null;
 
     // Attempt 1: Magica if requested or preferred
     if (wantMagica) {
@@ -354,7 +355,8 @@ async function generateCharacterSheetImage(req, res) {
           const modelToUse = (magicaModel && magicaModel !== 'nano_fast') ? magicaModel : 'gpt_image_2';
           const genRes = await magicaGen.generateOneImageMagica(mk.key_value, prompt, {
             aspectRatio: aspectRatio || '3:4',
-            nodeType: modelToUse
+            nodeType: modelToUse,
+            refUrl: targetRefUrl
           });
 
           if (genRes && genRes.url) {
@@ -430,7 +432,8 @@ async function generateCharacterSheetImage(req, res) {
           const modelToUse = (magicaModel && magicaModel !== 'nano_fast') ? magicaModel : 'gpt_image_2';
           const genRes = await magicaGen.generateOneImageMagica(mk.key_value, prompt, {
             aspectRatio: aspectRatio || '3:4',
-            nodeType: modelToUse
+            nodeType: modelToUse,
+            refUrl: targetRefUrl
           });
 
           if (genRes && genRes.url) {
