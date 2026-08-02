@@ -141,14 +141,21 @@ async function getKeyBalances(db) {
   const rows = await db.all('SELECT id, key_value FROM magica_api_keys WHERE is_active = 1');
   const keys = [];
   await Promise.all((rows || []).map(async (k) => {
-    let balance = 0;
-    try { balance = Number((await magica.getCreditBalance(k.key_value)).availableBalance) || 0; } catch (e) { balance = 0; }
+    let balance = null;
+    try {
+      const balRes = await magica.getCreditBalance(k.key_value);
+      if (balRes && balRes.availableBalance !== undefined) {
+        balance = Number(balRes.availableBalance);
+      }
+    } catch (e) {
+      balance = null;
+    }
     
-    // Auto-disable keys with balance < 0.1 credit (< 100,000 microcredits)
-    if (balance < 100000) {
+    // Auto-disable keys ONLY if balance is confirmed to be less than 0.1 credit (< 100,000 microcredits)
+    if (balance !== null && balance < 100000) {
       await disableMagicaKey(db, k.id, `Saldo tinggal ${(balance / 1e6).toFixed(2)} kredit`);
     } else {
-      keys.push({ id: k.id, key_value: k.key_value, balance });
+      keys.push({ id: k.id, key_value: k.key_value, balance: balance !== null ? balance : 99999999 });
     }
   }));
   _balCache = { at: now, keys };
@@ -179,7 +186,17 @@ async function pickMediaMagicaKey(db, preferredId) {
   let keys = [];
   try { keys = await getKeyBalances(db); } catch (e) {}
   const qualifying = keys.filter((k) => k.balance >= MEDIA_MIN_MICRO);
-  if (!qualifying.length) return null;
+  if (!qualifying.length) {
+    const rows = await db.all('SELECT id, key_value FROM magica_api_keys WHERE is_active = 1');
+    if (!rows || !rows.length) return null;
+    const idNum = parseInt(preferredId, 10);
+    if (preferredId != null && String(preferredId) !== 'auto' && Number.isFinite(idNum)) {
+      const hit = rows.find(k => k.id === idNum);
+      if (hit) return hit;
+    }
+    return rows[Math.floor(Math.random() * rows.length)];
+  }
+
   const idNum = parseInt(preferredId, 10);
   if (preferredId != null && String(preferredId) !== 'auto' && Number.isFinite(idNum)) {
     const hit = qualifying.find((k) => k.id === idNum);

@@ -63,6 +63,11 @@ async function initDb() {
     )
   `);
 
+  // Ensure keys in magica_api_keys remain active
+  try {
+    await db.run("UPDATE magica_api_keys SET is_active = 1 WHERE is_active = 0 AND (last_status LIKE 'Saldo tinggal%' OR last_status LIKE 'Saldo Habis%')");
+  } catch (e) {}
+
   // 3D generations (Meshy V6 via Magica). model_url = .glb, thumb_url = .png preview.
   await db.exec(`
     CREATE TABLE IF NOT EXISTS generated_3d (
