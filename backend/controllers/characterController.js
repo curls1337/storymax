@@ -41,6 +41,29 @@ function _extractImageUrl(json) {
   return null;
 }
 
+// Convert base64 data URLs into /uploads/ files on disk so Magica receives public HTTP URLs
+function saveBase64ToUploads(input) {
+  if (!input || typeof input !== 'string') return null;
+  if (input.startsWith('http://') || input.startsWith('https://')) return input;
+
+  const m = /^data:(image\/(png|jpe?g|webp|gif));base64,(.+)$/i.exec(input);
+  if (m) {
+    const ext = m[2] === 'jpeg' ? 'jpg' : m[2];
+    const fname = `refupload_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${ext}`;
+    const fullPath = path.join(uploadsDir, fname);
+    try {
+      fs.writeFileSync(fullPath, Buffer.from(m[3], 'base64'));
+      return `/uploads/${fname}`;
+    } catch (e) {
+      console.warn('[saveBase64ToUploads] Error writing file:', e.message);
+      return null;
+    }
+  }
+
+  if (input.startsWith('/uploads/') || input.startsWith('uploads/')) return input;
+  return null;
+}
+
 // Get all characters for current user
 async function getUserCharacters(req, res) {
   try {
@@ -322,6 +345,15 @@ Only output pure JSON. No markdown backticks outside JSON.`;
       };
     }
 
+    // Save reference image if uploaded as base64
+    let savedRefUrl = saveBase64ToUploads(refImageBase64 || refImageUrl);
+    if (!savedRefUrl && refImageUrl && (refImageUrl.startsWith('http') || refImageUrl.startsWith('/uploads/'))) {
+      savedRefUrl = refImageUrl;
+    }
+    if (parsedSpec && savedRefUrl) {
+      parsedSpec.reference_images = [savedRefUrl];
+    }
+
     res.json({
       success: true,
       characterSpec: parsedSpec
@@ -335,7 +367,7 @@ Only output pure JSON. No markdown backticks outside JSON.`;
 // Generate the high-res Character Reference Sheet Image using Image Generator (Freebeat/Magica)
 async function generateCharacterSheetImage(req, res) {
   try {
-    const { prompt, aspectRatio, apiKeyId, magicaModel, magicaKeyId, provider, refUrl, refImageUrl } = req.body;
+    const { prompt, aspectRatio, apiKeyId, magicaModel, magicaKeyId, provider, refUrl, refImageUrl, refImageBase64 } = req.body;
     if (!prompt) {
       return res.status(400).json({ message: 'Prompt gambar wajib diisi.' });
     }
@@ -345,7 +377,20 @@ async function generateCharacterSheetImage(req, res) {
     
     // Determine primary provider to try
     const wantMagica = provider === 'magica' || (!provider && userRow && userRow.pp === 'magica' && userRow.cum);
-    const targetRefUrl = refUrl || refImageUrl || null;
+    
+    // Save any base64 image data to /uploads/ file on server disk
+    const rawRef = refUrl || refImageUrl || refImageBase64;
+    let savedPath = saveBase64ToUploads(rawRef);
+    if (!savedPath && typeof rawRef === 'string' && (rawRef.startsWith('http') || rawRef.startsWith('/uploads/'))) {
+      savedPath = rawRef;
+    }
+
+    // Convert local /uploads/... relative path to public HTTP URL for Magica
+    let targetRefUrl = savedPath;
+    if (targetRefUrl && targetRefUrl.startsWith('/uploads/')) {
+      const publicBase = process.env.PUBLIC_URL || (req.protocol + '://' + req.get('host'));
+      targetRefUrl = `${publicBase.replace(/\/$/, '')}${targetRefUrl}`;
+    }
 
     // Attempt 1: Magica if requested or preferred
     if (wantMagica) {
