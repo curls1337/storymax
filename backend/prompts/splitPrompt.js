@@ -1,7 +1,7 @@
 // AI splitter: turns one concept into N sequential per-page prompts.
 const http = require('http');
 const https = require('https');
-const { resolveStyleId } = require('./styleLibrary');
+const { resolveStyleId, getStyleSpec } = require('./styleLibrary');
 
 // A11: when the AI splitter is unavailable, do NOT fill every page with the
 // identical concept (which makes all pages render the same). Annotate each page
@@ -17,8 +17,24 @@ const { resolveStyleId } = require('./styleLibrary');
 // trimmed) by masterPrompt.js's pageScope/CONT lines, so it is not duplicated
 // here anymore — that duplication could also conflict if only one copy survived
 // trimming.
-function fallbackSplit(concept, pageCount, secondsPerPage = 15) {
+//
+// A12: styles with `independentScenes: true` (e.g. "Konten Sosial IG/TikTok/
+// Shorts") are NOT one continuous story — each page is its own standalone
+// everyday moment/activity for the SAME character. Using the old "lanjutan
+// LANGSUNG dari halaman sebelumnya" handoff language for these styles produced
+// mismatched results, since masterPrompt.js already treats independentScenes
+// pages as separate self-contained moments. This fallback (and the AI-split
+// system prompt below) now branch on that flag instead of always assuming a
+// single continuous narrative.
+function fallbackSplit(concept, pageCount, secondsPerPage = 15, independentScenes = false) {
   if (pageCount <= 1) return [concept];
+  if (independentScenes) {
+    return Array.from({ length: pageCount }, (_, i) => {
+      const start = i * secondsPerPage;
+      const end = (i + 1) * secondsPerPage;
+      return `Momen/aktivitas keseharian tersendiri ${i + 1}/${pageCount} (detik ${start}-${end}, karakter yang sama, momen berdiri sendiri, BUKAN lanjutan dari halaman lain): ${concept}`;
+    });
+  }
   return Array.from({ length: pageCount }, (_, i) => {
     const role = i === 0
       ? 'pengenalan / hook & awal penggunaan'
@@ -67,6 +83,12 @@ function splitByExplicitPanels(concept, pageCount) {
 }
 
 async function splitStoryboardPromptWithAI(concept, pageCount, db, secondsPerPage = 15, styleId = null) {
+  // Resolve style-driven flags up front (no DB access needed) so every
+  // fallback path — including the catch block below — can honor them.
+  const resolvedStyle = resolveStyleId(styleId);
+  const styleSpec = getStyleSpec(styleId) || {};
+  const independentScenes = !!styleSpec.independentScenes;
+
   try {
     // 0. Check if concept already contains explicit Panel 1:, Panel 2: ... definitions
     const explicitPages = splitByExplicitPanels(concept, pageCount);
@@ -77,7 +99,7 @@ async function splitStoryboardPromptWithAI(concept, pageCount, db, secondsPerPag
     const settings = await db.get('SELECT * FROM ai_settings LIMIT 1');
     if (!settings || !settings.api_key) {
       console.log('[AI Split] No AI key configured. Using raw prompt fallback.');
-      return fallbackSplit(concept, pageCount, secondsPerPage);
+      return fallbackSplit(concept, pageCount, secondsPerPage, independentScenes);
     }
 
     const apiHost = settings.endpoint || 'http://localhost:8045/v1';
@@ -89,7 +111,6 @@ async function splitStoryboardPromptWithAI(concept, pageCount, db, secondsPerPag
     // Style-aware: ONLY inject the cube-transformation guidance when the cube
     // style is actually selected. Previously this block was sent for EVERY style,
     // which leaked cube scenes into Before-After / UGC / etc. page concepts.
-    const resolvedStyle = resolveStyleId(styleId);
     const isCube = ['cube_box_transform', 'asmr_toy_transform', 'shape_morph_transform'].includes(resolvedStyle);
     const isShapeMorph = resolvedStyle === 'shape_morph_transform';
 
@@ -111,12 +132,29 @@ Aturan Alur Pembukaan & Transformasi (SANGAT KETAT):
     const totalSec = pageCount * secondsPerPage;
     const windows = Array.from({ length: pageCount }, (_, i) => `Hal ${i + 1}=detik ${i * secondsPerPage}-${(i + 1) * secondsPerPage}`).join(', ');
 
-    const payload = {
-      model: model,
-      messages: [
-        {
-          role: 'system',
-          content: `Anda adalah asisten sutradara video komersial. Pecah konsep iklan produk pengguna menjadi ${pageCount} bagian (halaman) storyboard yang BERURUTAN & BERKESINAMBUNGAN — SATU video utuh ${totalSec} detik, tiap halaman ${secondsPerPage} detik. Jendela waktu: ${windows}.
+    // A12: independentScenes styles (e.g. Konten Sosial IG/TikTok/Shorts) get a
+    // dedicated system prompt: SAME character, but each page is its own
+    // standalone everyday moment/activity — never a continuous handoff story.
+    const systemPrompt = independentScenes ? `Anda adalah asisten kreator konten sosial (IG/TikTok/Shorts). Pecah konsep pengguna menjadi ${pageCount} MOMEN/AKTIVITAS KESEHARIAN YANG BERBEDA & BERDIRI SENDIRI (BUKAN satu cerita berkelanjutan) untuk SATU karakter yang sama — total durasi konten ${totalSec} detik, tiap halaman ${secondsPerPage} detik. Jendela waktu: ${windows}.
+
+ATURAN 1 — SATU KARAKTER SAJA (JANGAN MELENCENG):
+Seluruh ${pageCount} halaman WAJIB menampilkan KARAKTER yang SAMA PERSIS dari konsep (wajah, rambut, warna kulit, bentuk tubuh harus tetap konsisten; outfit boleh menyesuaikan aktivitas). DILARANG mengganti identitas karakter di halaman mana pun.
+
+ATURAN 2 — KUNCI ANCHOR IDENTITAS (agar semua halaman tampak 1 orang yang sama):
+Tetapkan di awal lalu TULIS ULANG SAMA PERSIS (verbatim) ciri fisik karakter di SETIAP halaman (mis. "wanita Asia 25th, rambut hitam bergelombang sebahu, kulit sawo matang"). Jangan menulis "wanita itu"/"pria itu" — ulangi deskripsi lengkapnya di tiap halaman.
+
+ATURAN 3 — SETIAP HALAMAN = MOMEN/AKTIVITAS TERSENDIRI (BUKAN LANJUTAN CERITA):
+- Setiap dari ${pageCount} halaman adalah AKTIVITAS/MOMEN KESEHARIAN YANG BERBEDA & BERDIRI SENDIRI (misalnya: lari pagi, belanja, dinner, kerja, santai di kafe — pilih sesuai konsep pengguna), masing-masing dengan lokasi/waktu/aktivitasnya sendiri.
+- DILARANG memakai kata "lanjutan dari halaman sebelumnya" / "waktu berlanjut" / "masih di lokasi yang sama" — setiap halaman adalah potongan momen candid yang TERPISAH.
+- Gaya foto: candid, ala kamera HP asli, bukan studio/CGI yang terlalu sempurna.
+
+ATURAN 4 — PANJANG KALIMAT: Jaga setiap deskripsi halaman ringkas, maksimal kurang lebih 400 karakter, sebutkan aktivitas & lokasi momen tersebut di awal kalimat.
+
+Deskripsi tiap halaman: 1 paragraf ringkas & padat yang SUDAH memuat anchor identitas karakter terkunci di atas + aktivitas/momen unik halaman itu.
+
+Balas HANYA JSON mentah: {"pages": [ ... ]} berisi ${pageCount} string. Tanpa markdown (jangan pakai \`\`\`json).
+Contoh (2 halaman — karakter dikunci sama, TIAP halaman momen berbeda & berdiri sendiri):
+{"pages":["Wanita Asia 25th, rambut hitam bergelombang sebahu, kulit sawo matang, memakai setelan olahraga abu — momen lari pagi candid di trotoar taman kota, cahaya matahari pagi hangat, foto ala kamera HP.","Wanita Asia 25th, rambut hitam bergelombang sebahu, kulit sawo matang (SAMA), kini memakai dress kasual, momen candid duduk santai di kafe sambil memegang cangkir kopi, cahaya siang alami dari jendela, foto ala kamera HP."]}` : `Anda adalah asisten sutradara video komersial. Pecah konsep iklan produk pengguna menjadi ${pageCount} bagian (halaman) storyboard yang BERURUTAN & BERKESINAMBUNGAN — SATU video utuh ${totalSec} detik, tiap halaman ${secondsPerPage} detik. Jendela waktu: ${windows}.
 
 ATURAN 1 — SATU SUBJEK SAJA (JANGAN MELENCENG):
 Seluruh ${pageCount} halaman WAJIB tentang PRODUK/SUBJEK/HIDANGAN yang SAMA PERSIS dari konsep. DILARANG mengganti atau menambah produk/bahan utama/tema lain di halaman mana pun. Contoh: jika Halaman 1-2 memasak MIE, Halaman 3-4 HARUS MIE yang SAMA. Yang boleh berubah antar halaman HANYA tahapan/adegan/sudut kamera — BUKAN subjeknya.
@@ -141,7 +179,14 @@ ${cubeBlock}
 
 Balas HANYA JSON mentah: {"pages": [ ... ]} berisi ${pageCount} string. Tanpa markdown (jangan pakai \`\`\`json).
 Contoh (2 halaman — subjek & setting dikunci sama, ADA handoff DI AWAL kalimat halaman 2):
-{"pages":["Wanita Asia 24th rambut cokelat panjang, kemeja putih, cahaya pagi hangat di meja kayu — unboxing tas ransel kulit hitam minimalis (Bagian 1/2, detik 0-${secondsPerPage}).","Lanjutan langsung dari Bagian 1 (waktu berlanjut, jangan ulangi pembukaan) — Wanita Asia 24th rambut cokelat panjang, kemeja putih (SAMA), cahaya pagi hangat yang sama, kini berdiri memakai tas ransel kulit hitam minimalis di pundak sambil tersenyum ke kamera (Bagian 2/2, detik ${secondsPerPage}-${2 * secondsPerPage})."]}`
+{"pages":["Wanita Asia 24th rambut cokelat panjang, kemeja putih, cahaya pagi hangat di meja kayu — unboxing tas ransel kulit hitam minimalis (Bagian 1/2, detik 0-${secondsPerPage}).","Lanjutan langsung dari Bagian 1 (waktu berlanjut, jangan ulangi pembukaan) — Wanita Asia 24th rambut cokelat panjang, kemeja putih (SAMA), cahaya pagi hangat yang sama, kini berdiri memakai tas ransel kulit hitam minimalis di pundak sambil tersenyum ke kamera (Bagian 2/2, detik ${secondsPerPage}-${2 * secondsPerPage})."]}`;
+
+    const payload = {
+      model: model,
+      messages: [
+        {
+          role: 'system',
+          content: systemPrompt
         },
         {
           role: 'user',
@@ -157,7 +202,7 @@ Contoh (2 halaman — subjek & setting dikunci sama, ADA handoff DI AWAL kalimat
 
     if (response.statusCode !== 200) {
       console.warn('[AI Split] API failed with status:', response.statusCode, response.body);
-      return fallbackSplit(concept, pageCount, secondsPerPage);
+      return fallbackSplit(concept, pageCount, secondsPerPage, independentScenes);
     }
 
     const resJson = JSON.parse(response.body);
@@ -173,10 +218,10 @@ Contoh (2 halaman — subjek & setting dikunci sama, ADA handoff DI AWAL kalimat
       return parsed.pages;
     }
 
-    return fallbackSplit(concept, pageCount, secondsPerPage);
+    return fallbackSplit(concept, pageCount, secondsPerPage, independentScenes);
   } catch (err) {
     console.warn('[AI Split] Error splitting prompt:', err.message);
-    return fallbackSplit(concept, pageCount, secondsPerPage);
+    return fallbackSplit(concept, pageCount, secondsPerPage, independentScenes);
   }
 }
 
