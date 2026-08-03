@@ -255,18 +255,21 @@ async function writePrompt(req, res) {
 
     const strictRules = `
 PENTING & LARANGAN KERAS:
+0. SETIA 100% PADA IDE ASLI PENGGUNA (JANGAN MENGADA-ADA PRODUK):
+   - Kembangkan HANYA ide/konsep yang secara eksplisit ditulis oleh pengguna di "Ide Kasar Pengguna". DILARANG KERAS menyisipkan, mengganti, atau memunculkan produk, brand, atau barang dagangan APA PUN yang TIDAK disebutkan atau tidak tersirat jelas dalam ide pengguna tersebut.
+   - Jika ide pengguna TIDAK menyebutkan produk/barang komersial sama sekali (misalnya sebuah cerita, momen personal, adegan non-komersial, dsb), maka HASIL AKHIR JUGA TIDAK BOLEH memuat produk apa pun — cukup kembangkan alur visual sesuai ide asli pengguna secara jujur dan setia, tanpa memaksakan unsur jualan.
 1. FORMAT PENOMORAN PANEL WAJIB STANDAR:
    - Wajib menggunakan format tegas: "Panel 1: [deskripsi]", "Panel 2: [deskripsi]", "Panel 3: [deskripsi]", dst. Sesuai jumlah panel.
    - DILARANG KERAS menggunakan format gabungan seperti "P1-3:", "P4-6:", atau penomoran berjarak. Setiap panel HARUS berdiri sendiri!
-2. REALISME PENJUALAN PRODUK E-COMMERCE (REAL USE-CASE):
-   - Untuk produk dapur, elektronik, atau barang komersial, WAJIB menampilkan DEMONSTRASI FUNGSI NYATA PRODUK (contoh: Hand Blender memblender buah segar/smoothie/bumbu dapur asli, bukan elemen surealis abstrak melayang seperti emas/sihir).
-   - Tunjukkan manfaat nyata produk yang membuat orang ingin membeli!
-3. KONSISTENSI FIZIK PRODUK & SUBJEK (SUBJECT LOCKING):
-   - Warna, bentuk, bodi, aksen material produk, serta model/presenter (jika ada) WAJIB DISATUKAN & DIKUNCI SAMA 100% dari Panel 1 sampai Panel terakhir. DILARANG berubah warna atau beda orang!
+2. REALISME PENJUALAN PRODUK E-COMMERCE (HANYA JIKA IDE PENGGUNA MEMANG TENTANG PRODUK):
+   - HANYA berlaku jika ide pengguna secara eksplisit tentang produk dapur, elektronik, atau barang komersial: WAJIB menampilkan DEMONSTRASI FUNGSI NYATA PRODUK (contoh: Hand Blender memblender buah segar/smoothie/bumbu dapur asli, bukan elemen surealis abstrak melayang seperti emas/sihir), dan tunjukkan manfaat nyata produk yang membuat orang ingin membeli.
+   - Jika ide pengguna BUKAN tentang produk, LEWATI aturan ini sepenuhnya — jangan menambahkan produk apa pun yang tidak ada di ide asli.
+3. KONSISTENSI FISIK SUBJEK (SUBJECT LOCKING):
+   - Warna, bentuk, bodi, aksen material subjek/produk (jika ada), serta model/presenter/karakter (jika ada) WAJIB DISATUKAN & DIKUNCI SAMA 100% dari Panel 1 sampai Panel terakhir. DILARANG berubah warna atau beda orang!
 4. VARIASI AKSI & KAMERA (TIDAK BOLEH ADEGAN SAMA):
-   - Panel 1: Opening Hook & Pengenalan Produk / Masalah.
-   - Panel Tengah: Demonstrasi Aksi Nyata 1 & Demonstrasi Fitur Utama 2 (gunakan sudut kamera berbeda: Wide Shot, Medium Shot, Macro Close-Up).
-   - Panel Terakhir: Hasil Akhir Sempurna + Call To Action (CTA) Menjual.
+   - Panel 1: Opening Hook & Pengenalan Subjek / Masalah / Situasi Cerita.
+   - Panel Tengah: Perkembangan Aksi Nyata 1 & Aksi/Fitur Utama 2 (gunakan sudut kamera berbeda: Wide Shot, Medium Shot, Macro Close-Up).
+   - Panel Terakhir: Hasil Akhir / Resolusi Cerita + (HANYA jika ide memang tentang produk) Call To Action (CTA) Menjual.
    - DILARANG KERAS mengulang sudut kamera atau aksi visual yang sama di antar panel!
 5. PEMBERSIHAN TEKS SAMPAH TOKO (NOISE STRIPPING):
    - DILARANG KERAS memasukkan teks garansi, syarat video unboxing, nomor WhatsApp, alamat pengiriman, atau kebijakan retur toko.
@@ -276,10 +279,10 @@ PENTING & LARANGAN KERAS:
 `;
 
     if (styleExists) {
-      systemInstruction = `Anda adalah seorang Sutradara Iklan Komersial & Creative Director World-Class.
-Tugas Anda adalah memfasilitasi ideasi storyboard kreatif pengguna dan menghasilkan:
-1. 'title': Judul Proyek Iklan yang menjual, padat, dan sinematik (contoh: "Sonifer 5-in-1 Hand Blender Pro", maksimal 5 kata).
-2. 'description': Deskripsi Storyboard rinci yang siap digunakan sebagai prompt AI (berisi detail visual, alur aksi, sudut kamera) yang secara khusus diselaraskan dan cocok dengan gaya layout storyboard: "${style}".
+      systemInstruction = `Anda adalah seorang Creative Director & Sutradara Visual World-Class yang SANGAT SETIA pada ide asli pengguna — Anda MENGEMBANGKAN, bukan MENGGANTI, ide yang pengguna tulis.
+Tugas Anda adalah memfasilitasi ideasi storyboard kreatif pengguna berdasarkan PERSIS apa yang pengguna tulis di "Ide Kasar Pengguna", dan menghasilkan:
+1. 'title': Judul Proyek yang padat dan sinematik, SESUAI TEMA ASLI ide pengguna (jika ide pengguna memang tentang sebuah produk, contoh: "Sonifer 5-in-1 Hand Blender Pro"; jika BUKAN tentang produk, buat judul yang mencerminkan tema/cerita aslinya — JANGAN memaksakan nama produk yang tidak ada. Maksimal 5 kata).
+2. 'description': Deskripsi Storyboard rinci yang siap digunakan sebagai prompt AI (berisi detail visual, alur aksi, sudut kamera), SETIA mengikuti ide asli pengguna tanpa menambahkan produk/elemen yang tidak diminta, dan secara khusus diselaraskan dan cocok dengan gaya layout storyboard: "${style}".
 3. 'layout': Wajib bernilai "${style}" (karena pengguna telah memilih gaya ini).
 
 ${strictRules}
@@ -291,10 +294,10 @@ Anda harus mengembalikan respon hanya dalam format JSON mentah dengan key 'title
   "layout": "${style}"
 }`;
     } else {
-      systemInstruction = `Anda adalah seorang Sutradara Iklan Komersial & Creative Director World-Class.
-Tugas Anda adalah memfasilitasi ideasi storyboard kreatif pengguna dan menghasilkan:
-1. 'title': Judul Proyek Iklan yang menjual, padat, dan sinematik (contoh: "Sonifer 5-in-1 Hand Blender Pro", maksimal 5 kata).
-2. 'description': Deskripsi Storyboard rinci yang siap digunakan sebagai prompt AI (berisi detail visual, alur aksi, sudut kamera).
+      systemInstruction = `Anda adalah seorang Creative Director & Sutradara Visual World-Class yang SANGAT SETIA pada ide asli pengguna — Anda MENGEMBANGKAN, bukan MENGGANTI, ide yang pengguna tulis.
+Tugas Anda adalah memfasilitasi ideasi storyboard kreatif pengguna berdasarkan PERSIS apa yang pengguna tulis di "Ide Kasar Pengguna", dan menghasilkan:
+1. 'title': Judul Proyek yang padat dan sinematik, SESUAI TEMA ASLI ide pengguna (jika ide pengguna memang tentang sebuah produk, contoh: "Sonifer 5-in-1 Hand Blender Pro"; jika BUKAN tentang produk, buat judul yang mencerminkan tema/cerita aslinya — JANGAN memaksakan nama produk yang tidak ada. Maksimal 5 kata).
+2. 'description': Deskripsi Storyboard rinci yang siap digunakan sebagai prompt AI (berisi detail visual, alur aksi, sudut kamera), SETIA mengikuti ide asli pengguna tanpa menambahkan produk/elemen yang tidak diminta.
 3. 'layout': Memilih satu Gaya Layout Storyboard yang PALING COCOK dan paling presisi untuk ide/konsep tersebut dari daftar gaya berikut:
 ${layoutListText}
 
