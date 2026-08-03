@@ -813,8 +813,13 @@ SUBJECT CONSISTENCY (CRITICAL): every page/scene depicts the SAME product/subjec
   // Universal: the page image is a storyboard PLANNING sheet — never let the video
   // animate the sheet/grid itself (this is what turned the education/infographic
   // storyboard into a video of moving panels). Always render the real scene INSIDE the
-  // panel as one full-frame continuous shot.
-  const noStoryboardChromeClause = `NEVER RENDER THE STORYBOARD SHEET ITSELF: each page image is a storyboard PLANNING layout — a printed poster with a grid of numbered panels, a header/title banner, badges and duration chips. Your prompts must describe ONLY the real scene happening INSIDE the relevant panel, rendered as ONE single, full-frame, continuous live shot. NEVER show, pan across, scroll or animate the sheet or its layout: no grid, no split panels/boxes/cards, no rows or columns, no panel numbers or 'Scene N' labels, no header/badge/duration chips, no on-screen captions or UI text, and NEVER write 'a 3x2 (or NxN) grid of panels', 'top-left to bottom-right' sweeps, or 'panels sliding into focus'. If a page shows several numbered panels/beats, render them as ONE continuous full-frame real-world shot that PROGRESSES through those beats in chronological order (a single flowing long-take / mini-montage of the actual scene, evenly across the clip) — NOT a single frozen moment, and NEVER the grid, split panels, or a sweep across the sheet.`;
+  // panel as one full-frame continuous shot. ALSO: never let the vision model mention,
+  // quote, or paraphrase any of the sheet's PRINTED TEXT (captions, VO cue notes,
+  // CAM/LIGHT tag labels, badges, duration chips) inside the generated prompts — that
+  // printed planning text is not part of the real scene and was the source of a
+  // persistent text "leak" into otherwise purely-visual prompt fields.
+  const noStoryboardChromeClause = `NEVER RENDER THE STORYBOARD SHEET ITSELF: each page image is a storyboard PLANNING layout — a printed poster with a grid of numbered panels, a header/title banner, badges and duration chips. Your prompts must describe ONLY the real scene happening INSIDE the relevant panel, rendered as ONE single, full-frame, continuous live shot. NEVER show, pan across, scroll or animate the sheet or its layout: no grid, no split panels/boxes/cards, no rows or columns, no panel numbers or 'Scene N' labels, no header/badge/duration chips, no on-screen captions or UI text, and NEVER write 'a 3x2 (or NxN) grid of panels', 'top-left to bottom-right' sweeps, or 'panels sliding into focus'. If a page shows several numbered panels/beats, render them as ONE continuous full-frame real-world shot that PROGRESSES through those beats in chronological order (a single flowing long-take / mini-montage of the actual scene, evenly across the clip) — NOT a single frozen moment, and NEVER the grid, split panels, or a sweep across the sheet.
+NEVER QUOTE OR PARAPHRASE THE SHEET'S PRINTED TEXT (critical — this is the #1 source of leaks): the printed header/title text, on-screen caption text, 'VO:' voice-over cue notes, the 'CAM:'/'LIGHT:' tag labels themselves, panel/scene numbers, and duration/badge chip text are PLANNING ANNOTATIONS for the human crew — they are NOT part of the real-world scene and must NEVER appear, be mentioned, quoted, transcribed, translated, or paraphrased inside "imageToVideoPrompt" or "textToVideoPrompt". Do NOT write things like "the caption reads '...'", "a banner displaying '...'", "text on screen says '...'", "the VO note shows '...'", or repeat any of that printed wording (in any language) in quotation marks anywhere in your output. Describe only the real, physical visual scene and its motion — never the sheet's printed planning text.`;
 
   let systemInstruction = '';
   if (enableVo) {
@@ -996,7 +1001,7 @@ Please analyze the provided image sheet(s) carefully. Generate the requested JSO
         }
 
         // Bug C: the image-to-video prompt must be PURELY visual — strip any leaked
-        // narration / VO / timecode text (keep camera + motion + atmosphere only).
+        // narration / VO / timecode / printed-sheet-text text (keep camera + motion + atmosphere only).
         i2v = stripSpeechLeak(i2v);
 
         // Automatic Narration Truncation: ensure voiceover script never exceeds max words

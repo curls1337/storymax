@@ -15,6 +15,16 @@ function stripSpeechLeak(input) {
   // 2) "(the) narrator/voice says/speaks/whispers \"...\"" phrasing.
   t = t.replace(/\b(?:the\s+)?(?:narrator|voice)\s+(?:says?|speaks?|whispers?|narrates?)\b\s*[:,]?\s*(?:["“][^"”]*["”]?|[^.!?\n]*[.!?]?)/gi, ' ');
 
+  // 2b) On-screen caption / banner / badge / header / VO-note text leaks read straight
+  //     off the printed storyboard sheet (e.g. 'the caption reads "Buy now"', 'a banner
+  //     displaying "..."', 'text on screen says "..."', 'the VO note shows "..."'). These
+  //     are storyboard planning annotations, never part of the real motion — strip them.
+  t = t.replace(/\b(?:the\s+)?(?:caption|banner|badge|header|title\s+banner|on[\s-]?screen\s+text|text\s+on\s+screen|vo\s*note|duration\s+chip)\s+(?:reads?|says?|displays?|showing|shows?)\b\s*[:,]?\s*(?:["“][^"”]*["”]?|[^.!?\n]*[.!?]?)/gi, ' ');
+
+  // 2c) Direct quoted snippets immediately preceded by a chrome/label noun without a
+  //     reads/says verb (e.g. 'caption: "Buy now"', 'CAM: push-in tag', 'VO cue "Ayo coba"').
+  t = t.replace(/\b(?:caption|banner|badge|vo\s*cue|vo\s*tag)\b\s*[:\-–—]\s*["“][^"”]*["”]?/gi, ' ');
+
   // 3) Timing cues: (0-3s) [0:00-0:03] "at 0-3s" "from 0–3 seconds" "Timing: ..."
   t = t.replace(/[([]\s*\d{1,2}\s*[:.]?\d{0,2}\s*[-–—]\s*\d{1,2}\s*[:.]?\d{0,2}\s*(?:s|sec|secs|second|seconds)?\s*[)\]]/gi, ' ');
   t = t.replace(/\b(?:at|from)\s+\d{1,2}\s*[:.]?\d{0,2}\s*[-–—]\s*\d{1,2}\s*[:.]?\d{0,2}\s*(?:s|sec|secs|second|seconds)\b/gi, ' ');
