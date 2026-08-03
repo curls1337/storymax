@@ -46,15 +46,19 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
     const hasLocalCli = fs.existsSync(localCliPath);
     const publicDir = uploadsDir;
 
-    // Load Character details if characterId is specified
+    // Load Character details if characterId is specified.
+    // IMPORTANT: the character is used ONLY as an image reference (sheet_image_url) so the
+    // generated panels keep the same face/appearance. We deliberately do NOT inject the
+    // character's name/trigger_prompt/profile_notes/visual_tone/wardrobe as TEXT into the
+    // storyboard prompt anymore — that text used to leak into the split scene descriptions,
+    // the subject descriptor, and the final image prompt (sometimes rendering as garbled
+    // on-panel text). The character's likeness should come from the reference image alone.
     if (task.characterId && !task.characterLoaded) {
       try {
         const char = await db.get('SELECT * FROM characters WHERE id = ?', [task.characterId]);
         if (char) {
-          task.logs += `[INFO] Menggunakan Karakter Konsisten: "${char.name}"\n`;
-          const charPromptInjection = `[KARAKTER KONSISTEN: ${char.name}. ${char.trigger_prompt || char.profile_notes || ''} | Visual Tone: ${char.visual_tone || ''} | Pakaian: ${char.wardrobe || ''}]`;
-          task.prompt = `${charPromptInjection}\n${task.prompt}`;
-          
+          task.logs += `[INFO] Menggunakan Karakter Konsisten: "${char.name}" (hanya sebagai referensi gambar, tanpa teks prompt karakter)\n`;
+
           task.refImages = task.refImages || [];
           if (char.sheet_image_url) {
             task.refImages.unshift({ url: char.sheet_image_url });
