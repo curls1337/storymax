@@ -6,6 +6,17 @@ const { resolveStyleId } = require('./styleLibrary');
 // A11: when the AI splitter is unavailable, do NOT fill every page with the
 // identical concept (which makes all pages render the same). Annotate each page
 // so the model still varies them into a continuous sequence.
+//
+// The page/handoff tag is placed BEFORE the raw concept (not appended after it)
+// so it survives masterPrompt.js's character-budget trimmer, which shortens this
+// string from the END when the total prompt is too long. Previously the handoff
+// clause ('lanjut MULUS tepat dari akhir Bagian N...') was the LAST thing in the
+// string, so a long user concept could push it past the cutoff — making page 2+
+// look like a fresh restart instead of a continuation. The "keep same subject /
+// setting / lighting / palette" instruction is already enforced (and never
+// trimmed) by masterPrompt.js's pageScope/CONT lines, so it is not duplicated
+// here anymore — that duplication could also conflict if only one copy survived
+// trimming.
 function fallbackSplit(concept, pageCount, secondsPerPage = 15) {
   if (pageCount <= 1) return [concept];
   return Array.from({ length: pageCount }, (_, i) => {
@@ -14,10 +25,10 @@ function fallbackSplit(concept, pageCount, secondsPerPage = 15) {
       : (i === pageCount - 1 ? 'hasil akhir & call to action' : 'tahap pengembangan / demo');
     const start = i * secondsPerPage;
     const end = (i + 1) * secondsPerPage;
-    const handoff = i === 0
-      ? 'mulai dari awal cerita'
-      : `lanjut MULUS tepat dari akhir Bagian ${i} (waktu berlanjut, jangan ulang pembukaan)`;
-    return `${concept} (Bagian ${i + 1}/${pageCount}, detik ${start}-${end} — ${role}; ${handoff}; pertahankan subjek, setting, pencahayaan & palet warna yang SAMA).`;
+    const stage = i === 0
+      ? `Bagian ${i + 1}/${pageCount} (detik ${start}-${end}, ${role}):`
+      : `Bagian ${i + 1}/${pageCount} (detik ${start}-${end}, lanjutan LANGSUNG dari akhir Bagian ${i} — waktu berlanjut, JANGAN ulangi pembukaan, ${role}):`;
+    return `${stage} ${concept}`;
   });
 }
 
@@ -123,12 +134,14 @@ ATURAN 3 — SAMBUNGAN ANTAR HALAMAN (HANDOFF, INI KUNCI KESINAMBUNGAN):
 - Halaman ${pageCount}: hasil akhir yang memuaskan + call to action visual.
 Buat peralihan terasa mulus & logis (kelanjutan momen, bukan loncatan).
 
+ATURAN 4 — URUTAN & PANJANG KALIMAT (agar tidak terpotong sistem): MULAI setiap deskripsi halaman (kecuali Halaman 1) dengan tag singkat kesinambungannya, misalnya "Lanjutan langsung dari Halaman ${'${i}'}, ...", SEBELUM detail subjek/anchor — jangan letakkan tag ini di akhir kalimat. Jaga setiap deskripsi halaman ringkas, maksimal kurang lebih 400 karakter.
+
 Deskripsi tiap halaman: 1 paragraf ringkas & padat yang SUDAH memuat semua anchor terkunci di atas.
 ${cubeBlock}
 
 Balas HANYA JSON mentah: {"pages": [ ... ]} berisi ${pageCount} string. Tanpa markdown (jangan pakai \`\`\`json).
-Contoh (2 halaman — subjek & setting dikunci sama, ADA handoff):
-{"pages":["Wanita Asia 24th rambut cokelat panjang, kemeja putih, cahaya pagi hangat di meja kayu — unboxing tas ransel kulit hitam minimalis (Bagian 1/2, detik 0-${secondsPerPage}).","Wanita Asia 24th rambut cokelat panjang, kemeja putih (SAMA), cahaya pagi hangat yang sama — LANJUT dari adegan unboxing tadi, kini berdiri memakai tas ransel kulit hitam minimalis di pundak sambil tersenyum ke kamera (Bagian 2/2, detik ${secondsPerPage}-${2 * secondsPerPage})."]}`
+Contoh (2 halaman — subjek & setting dikunci sama, ADA handoff DI AWAL kalimat halaman 2):
+{"pages":["Wanita Asia 24th rambut cokelat panjang, kemeja putih, cahaya pagi hangat di meja kayu — unboxing tas ransel kulit hitam minimalis (Bagian 1/2, detik 0-${secondsPerPage}).","Lanjutan langsung dari Bagian 1 (waktu berlanjut, jangan ulangi pembukaan) — Wanita Asia 24th rambut cokelat panjang, kemeja putih (SAMA), cahaya pagi hangat yang sama, kini berdiri memakai tas ransel kulit hitam minimalis di pundak sambil tersenyum ke kamera (Bagian 2/2, detik ${secondsPerPage}-${2 * secondsPerPage})."]}`
         },
         {
           role: 'user',

@@ -81,6 +81,16 @@ const ARC_MAX = 460;
 const NEG_MAX = 380;           // cap the NEGATIVE list; product-integrity negatives are placed first
 const LIMIT = 1950;            // stay under Freebeat's 2000 hard cap (builder guarantees total <= LIMIT)
 
+// Word-boundary-safe cap: never cut CONCEPT/SUBJECT mid-word. Used for the
+// initial length cap, mirroring trimTail's boundary logic below.
+function capAtWordBoundary(str, maxLen) {
+  const s = String(str || '');
+  if (s.length <= maxLen) return s;
+  const cut = s.slice(0, maxLen);
+  const sp = cut.lastIndexOf(' ');
+  return sp > maxLen - 120 ? cut.slice(0, sp) : cut;
+}
+
 function buildMasterPrompt(spec, ctx = {}) {
   const {
     subject = 'the product',
@@ -236,8 +246,10 @@ NEGATIVE: ${negatives}.`;
 
   const subjCap = SUBJECT_MAX;
   const subjFloor = SUBJECT_FLOOR;
-  let subj = String(subject || 'the product').slice(0, subjCap);
-  let conceptText = concept ? String(concept).slice(0, CONCEPT_MAX) : '';
+  // Word-boundary-safe initial caps (previously a raw .slice() could cut the
+  // subject descriptor or per-page concept mid-word).
+  let subj = capAtWordBoundary(String(subject || 'the product'), subjCap);
+  let conceptText = concept ? capAtWordBoundary(String(concept), CONCEPT_MAX) : '';
   let refNoteCur = refNote;
 
   const TAIL_RESERVE = tail.length + 1;
@@ -248,12 +260,15 @@ NEGATIVE: ${negatives}.`;
   };
   const overBy = () => (assemble(subj, conceptText, arc, refNoteCur).length + TAIL_RESERVE) - LIMIT;
 
-  // Sacrifice order (least → most important to keep): per-page CONCEPT → style ARC
-  // → the prose reference clause (fidelity is STILL enforced by the leading NEGATIVE
+  // Sacrifice order (least → most important to keep): style ARC (generic, shared
+  // by every page) → per-page CONCEPT (carries the actual page-specific story AND
+  // the handoff/continuity cue — this is what makes page 2+ look like a sequel
+  // instead of a repeat, so it is now trimmed AFTER the arc, not before) → the
+  // prose reference clause (fidelity is STILL enforced by the leading NEGATIVE
   // terms + the rich SUBJECT) → SUBJECT down to its floor. Every structural line —
   // including SCENES and camera — ALWAYS stays present; we never slice a whole line.
-  if (overBy() > 0 && conceptText) conceptText = trimTail(conceptText, overBy());
   if (overBy() > 0 && arc) arc = trimTail(arc, overBy());
+  if (overBy() > 0 && conceptText) conceptText = trimTail(conceptText, overBy());
   // Strict styles: drop the (long) reference clause here — fidelity is still carried
   // by the leading NEGATIVE terms + the rich SUBJECT. Stylized styles KEEP their short
   // "re-form" note as long as possible (it is the core instruction), dropping it only
