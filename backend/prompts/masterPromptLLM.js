@@ -19,6 +19,19 @@ RULES:
 7. Apply FACE_RULE exactly, and end with ONE line starting "NEGATIVE:" built from STYLE_SPEC.negatives + FACE_NEGATIVE + "garbled text". When PARAMS.hasReferenceImage is true AND PARAMS.stylizedReference is FALSE, also lead the NEGATIVE with "different or redesigned product, altered or generic button shape, circular power button icon instead of original button, altered or garbled logo, changed colors, shape or proportions, inconsistent product features across pages". When PARAMS.stylizedReference is TRUE, do NOT add those exact-copy negatives (they forbid the intended transformation) — instead lead with "unrecognizable subject, wrong identity or colors vs the reference, a flat 1:1 copy that ignores the style's form".
 8. Keep the ENTIRE prompt under 1900 characters. Output ONLY the final prompt text — no explanation, no markdown fences.`;
 
+// Word-boundary-safe trim: never cut the CONCEPT text mid-word/mid-sentence,
+// which previously risked mangling the trailing continuity/handoff clause
+// that the splitter appends (e.g. "...lanjut dari akhir Bagian 1" -> cut to
+// "...lanjut dari akhir Bagi"). Falls back to a hard cut only if there is no
+// reasonable space to break on near the limit.
+function trimToWordBoundary(str, maxLen) {
+  const s = String(str || '');
+  if (s.length <= maxLen) return s;
+  const cut = s.slice(0, maxLen);
+  const sp = cut.lastIndexOf(' ');
+  return sp > maxLen - 120 ? cut.slice(0, sp) : cut;
+}
+
 async function generateMasterPromptWithAI(spec, ctx, db) {
   try {
     const {
@@ -34,7 +47,7 @@ async function generateMasterPromptWithAI(spec, ctx, db) {
 
     const payload = {
       SUBJECT_DESCRIPTOR: subject,
-      CONCEPT: String(concept || '').slice(0, 500),
+      CONCEPT: trimToWordBoundary(concept, 500),
       STYLE_SPEC: {
         name: spec.name,
         header: spec.header,
