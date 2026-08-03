@@ -40,4 +40,6 @@ export default [
   // Caption / Edukasi Anak
   { value: 'tiktok_text_ad', label: 'TikTok Text Ad (Caption)', desc: 'Iklan vertikal dengan caption teks on-screen besar tiap scene: hook → fitur → bukti → CTA. Foto produk bersih ala TikTok/Reels.', category: 'UGC & Social', faceMode: 'chin_max', icon: 'Type' },
   { value: 'kids_education', label: 'Edukasi Anak (Playful)', desc: 'Ceria & warna cerah, karakter kartun + ikon belajar (buku, bintang, topi wisuda). Cocok konten/produk anak.', category: 'Proses & Edukasi', faceMode: 'full', icon: 'GraduationCap' },
+  // Konten Sosial (IG/TikTok/Shorts)
+  { value: 'social_lifestyle', label: 'Konten Sosial (IG/TikTok/Shorts)', desc: 'Karakter yang sama tampil di momen keseharian berbeda per halaman (lari pagi, belanja, dinner, dll) — candid ala kamera HP asli, bukan gaya AI yang kelihatan sempurna.', category: 'Konten Sosial (IG/TikTok/Shorts)', faceMode: 'full', icon: 'Instagram' },
 ];

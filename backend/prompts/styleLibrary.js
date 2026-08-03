@@ -298,6 +298,28 @@ const STYLES = {
     ],
     negatives: NEG.concat(['opaque or hard plastic (must be TRANSLUCENT wet jelly/gummy)', 'redesigned character (keep the reference identity & colours, just rendered as jelly)', 'creepy or uncanny realism — keep it cute and toylike', 'harsh studio light or heavy grading']),
   },
+
+  // ── F. Konten Sosial (IG/TikTok/Shorts) ──
+  social_lifestyle: {
+    name: 'Konten Sosial (IG/TikTok/Shorts)', desc: 'Karakter yang SAMA tampil di berbagai momen keseharian yang Anda tentukan sendiri per halaman (misalnya: lari pagi, belanja, dinner, dll) — setiap halaman adalah momen/aktivitas TERSENDIRI, bukan satu cerita berkelanjutan, tapi identitas karakternya tetap 100% konsisten. Difoto candid ala kamera HP asli, BUKAN gaya AI/CGI yang terlalu halus & sempurna.',
+    category: 'Konten Sosial (IG/TikTok/Shorts)', format: '9:16', faceMode: 'full', bg: 'light',
+    independentScenes: true,
+    camera: 'candid handheld smartphone-camera framing (authentic real phone photo/video feel) — natural imperfect composition, amateur angles, slight motion or grain; NEVER a polished studio shot or CGI render',
+    lighting: 'real-world ambient lighting matched to the location and activity of each page (natural daylight outdoors, warm indoor restaurant light, gym or street light, etc.) — never flat studio light or artificial glossy sheen',
+    header: 'STORYBOARD — SOCIAL LIFESTYLE (IG/TIKTOK/SHORTS)',
+    layoutHint: 'a grid of {N} numbered vertical lifestyle photo panels, like an Instagram feed preview — each panel a candid everyday moment from the activity on this page',
+    arc: ['a natural candid opening moment for the activity on this page', 'a mid-action candid moment, unposed and authentic', 'a close-up or detail candid moment (expression, surroundings, or a key object)', 'a relaxed candid closing moment for the activity on this page'],
+    negatives: NEG.concat([
+      'plastic or overly smooth AI-generated skin',
+      'uncanny valley or doll-like symmetric face',
+      'glossy CGI render look',
+      'obvious AI-generated or synthetic influencer look',
+      'stock-photo studio aesthetic',
+      "the character's face or identity changing between panels or pages",
+      'overly staged or posed studio composition',
+      'fake watermarks or platform UI',
+    ]),
+  },
 };
 
 // Old (16) style ids → new ids, so existing storyboards keep resolving.

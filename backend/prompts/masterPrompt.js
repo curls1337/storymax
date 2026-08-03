@@ -113,12 +113,18 @@ function buildMasterPrompt(spec, ctx = {}) {
   const winEnd = winStart + perPage;
   const dur = fmtDuration(pageCount > 1 ? perPage : (totalDuration || perPage));
   const windowBadge = pageCount > 1 ? ` 'TIME ${winStart}-${winEnd}s'` : '';
+  // Independent-scenes styles (e.g. social lifestyle/IG-TikTok-Shorts): each page is
+  // its OWN standalone everyday moment/activity for the SAME character, not a single
+  // continuous narrative — so page-to-page continuity/arc-splitting must NOT apply.
+  const independentScenes = !!spec.independentScenes;
 
   // Distribute the style arc across ALL pages so each page shows a DIFFERENT
   // part of the sequence (fixes multi-page repeating the same beats every page).
+  // Skipped for independent-scenes styles: every page gets the FULL arc, since each
+  // page's own panels progress through that page's own standalone activity.
   const totalScenes = (Number(pageCount) || 1) * gc;
   let pageArc = (spec.arc && spec.arc.length) ? spec.arc.slice() : [];
-  if (pageArc.length && (Number(pageCount) || 1) > 1) {
+  if (pageArc.length && (Number(pageCount) || 1) > 1 && !independentScenes) {
     const M = pageArc.length;
     let bStart = Math.floor(((startScene - 1) / totalScenes) * M);
     let bEnd = Math.ceil((endScene / totalScenes) * M);
@@ -188,11 +194,15 @@ function buildMasterPrompt(spec, ctx = {}) {
   const refNote = (hasRefImage && !looseRef)
     ? ' Every panel shows the SAME product as the reference — identical shape, proportions, colors and logo/text (verbatim); never redesign, rename or replace it.'
     : '';
-  const CONT = 'Keep SAME setting, lighting, wardrobe & palette across all parts.';
+  const CONT = independentScenes
+    ? "Keep the SAME character identity, face, body type & personal style consistent across all pages — but the setting, wardrobe and activity may naturally change per page to match that page's own moment."
+    : 'Keep SAME setting, lighting, wardrobe & palette across all parts.';
   const pageScope = pageCount > 1
-    ? (pageNum === 1
-        ? `IMPORTANT: PAGE 1/${pageCount} (scenes ${startScene}-${endScene}, ${winStart}-${winEnd}s) — show only the BEGINNING; continues on later pages. ${CONT} `
-        : `IMPORTANT: PAGE ${pageNum}/${pageCount} (scenes ${startScene}-${endScene}, ${winStart}-${winEnd}s) — CONTINUE from the end of page ${pageNum - 1} (do NOT restart); show later stages / final result. ${CONT} `)
+    ? (independentScenes
+        ? `IMPORTANT: PAGE ${pageNum}/${pageCount} (scenes ${startScene}-${endScene}, ${winStart}-${winEnd}s) — this page shows its OWN separate everyday moment/activity for the SAME character; do NOT force this page to continue the action from another page. ${CONT} `
+        : (pageNum === 1
+            ? `IMPORTANT: PAGE 1/${pageCount} (scenes ${startScene}-${endScene}, ${winStart}-${winEnd}s) — show only the BEGINNING; continues on later pages. ${CONT} `
+            : `IMPORTANT: PAGE ${pageNum}/${pageCount} (scenes ${startScene}-${endScene}, ${winStart}-${winEnd}s) — CONTINUE from the end of page ${pageNum - 1} (do NOT restart); show later stages / final result. ${CONT} `))
     : '';
 
   // Protected tail: the FOOTER, the face-mode clause, and the NEGATIVE line must
