@@ -176,7 +176,7 @@ function buildMasterPrompt(spec, ctx = {}) {
 
   // A13: when a saved "Consistent Character" is used, explicitly forbid the
   // character's identity from drifting between pages — this is on top of (not
-  // instead of) the CHARACTER anchor line appended in the protected tail below.
+  // instead of) the CHARACTER anchor line appended near the top of the prompt.
   const characterNeg = characterDescriptor
     ? ["the character's face, gender, ethnicity, hair or body type changing between panels or pages", 'a different, unrelated person appearing in any panel or page']
     : [];
@@ -224,31 +224,40 @@ function buildMasterPrompt(spec, ctx = {}) {
             : `IMPORTANT: PAGE ${pageNum}/${pageCount} (scenes ${startScene}-${endScene}, ${winStart}-${winEnd}s) — CONTINUE from the end of page ${pageNum - 1} (do NOT restart); show later stages / final result. ${CONT} `))
     : '';
 
-  // A13: CHARACTER identity anchor — separate from the PRODUCT-only SUBJECT
+  // A13/A15: CHARACTER identity anchor — separate from the PRODUCT-only SUBJECT
   // line below. Previously nothing in the actual image prompt locked the human
   // character's physical appearance across pages (only the reference image +
   // the AI splitter's per-page text carried it, both of which can drift), so a
   // page could render a completely different-looking person while the product
-  // stayed consistent. Kept in the PROTECTED tail (never trimmed) so it survives
-  // on every single page regardless of character-budget pressure.
+  // stayed consistent. This clause is placed IMMEDIATELY after the opening line
+  // (see L1c below) — as early as possible in the prompt — instead of at the
+  // very end, since it is the single highest-priority identity signal and
+  // image-generation models tend to weight earlier instructions more heavily.
+  // This matters most for independent-scenes styles (e.g. "Konten Sosial"),
+  // which deliberately vary wardrobe/setting/activity a lot page to page. Kept
+  // out of the fitter (never trimmed) so it survives on every page regardless
+  // of character-budget pressure.
   const characterClause = characterDescriptor
-    ? `\nCHARACTER (SAME physical identity in EVERY panel & page — face, gender, ethnicity, hair color/style and body type must NEVER change; only wardrobe, setting & activity may vary): ${characterDescriptor}.`
+    ? `CHARACTER (SAME physical identity in EVERY panel & page — face, gender, ethnicity, hair color/style and body type must NEVER change; only wardrobe, setting & activity may vary): ${characterDescriptor}.`
     : '';
 
-  // Protected tail: the FOOTER, the face-mode clause, the CHARACTER anchor (if
-  // any), and the NEGATIVE line must ALWAYS survive — they carry shooting
-  // notes, enforce faceless/chin-crop, lock the character's identity, and
-  // block glow/robot/garbled text. Held out of the fitter and appended last.
+  // Protected tail: the FOOTER, the face-mode clause, and the NEGATIVE line
+  // must ALWAYS survive — they carry shooting notes, enforce faceless/chin-crop,
+  // and block glow/robot/garbled text. Held out of the fitter and appended last.
   const tail = `FOOTER: a slim 'PRODUCTION NOTES' bar (camera, FPS, lighting, audio).
-${face}${characterClause}
+${face}
 NEGATIVE: ${negatives}.`;
 
   // ── Fixed structural lines (content is fixed; always present) ──
   const L1 = `A professional ${spec.name} storyboard sheet — ONE printed poster, ${ratio} layout, ${bgClause(spec.bg)}.${realNote}${looseRef ? " The reference is ONLY inspiration — re-form the subject into THIS style's own shape (recognizable, same colors), do NOT copy it 1:1." : ''}`;
+  // A15: CHARACTER identity anchor placed immediately after the opening line —
+  // as early as possible in the prompt (empty string when no character, so it
+  // is dropped by the assemble()'s filter(Boolean) below).
+  const L1c = characterClause;
   const L2 = `HEADER: banner '${spec.header}${partLabel}' + product name + badges 'DURATION ${dur}'${windowBadge} 'SCENES ${gc}' 'RATIO ${ratio}'.`;
   // Opt-in ON-SCREEN TEXT: when enabled, each panel also carries ONE short punchy
   // caption/callout drawn INTO the scene (comic/kinetic social-video style), with the
-  // font, color & placement VARIED per panel to fit the mood and this layout's vibe.
+  // font, color & placement VARIED per panel to fit the mood & this layout's vibe.
   // Kept short (1–4 words) so the image model renders it cleanly (no garble).
   const textClause = textOnScreen
     ? " ALSO burn ONE punchy ON-SCREEN CAPTION into each panel (a few words up to a short 1–2 line phrase, in the storyboard's language, e.g. 'Upgrade ke Novilla', '3 SAIZ · KEDAP', 'Lagi Flash Sale!', 'WOW!') as BOLD high-contrast social-video lettering with a clean outline/shadow for legibility — VARY the font, color, accent word & placement per panel to fit the mood/this style, correctly spelled, like viral TikTok captions (not a plain label)."
@@ -273,7 +282,7 @@ NEGATIVE: ${negatives}.`;
     return `${pageScope}SCENES ${prog}.`;
   };
 
-  const assemble = (s, ct, ar, rn) => [L1, L2, subjLine(s, rn), L4, L5, scenesLine(ct, ar)].join('\n');
+  const assemble = (s, ct, ar, rn) => [L1, L1c, L2, subjLine(s, rn), L4, L5, scenesLine(ct, ar)].filter(Boolean).join('\n');
 
   const subjCap = SUBJECT_MAX;
   const subjFloor = SUBJECT_FLOOR;
