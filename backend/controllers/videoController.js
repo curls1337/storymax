@@ -118,7 +118,13 @@ function buildVoiceoverDirective(narration, lang, tone, durationSec) {
   }
   const toneLbl = voToneLabel(tone);
   const delivery = toneLbl ? ` with a ${toneLbl} delivery` : '';
-  return `\n\nAudio — voiceover: an off-screen narrator speaks this line in ${language}${delivery}, paced evenly across the whole clip and synced to the on-screen action — begin as the shot starts and finish about one second before it ends, natural and unhurried, clear articulation, no rushing and no dead air. Voiceover line: "${line}"`;
+  // IMPORTANT: the storyboard panel image may itself contain a small printed "VO:" cue
+  // (baked in on purpose so the panel image matches the scene). Some image-to-video
+  // models try to "read"/vocalize any on-screen text they see, which fragments the
+  // speech per-panel with odd pauses (sounds spelled-out). Explicitly tell the model
+  // that on-screen text is silent/visual-only and to speak ONLY this narration line,
+  // as one smooth continuous sentence.
+  return `\n\nAudio — voiceover: an off-screen narrator speaks this line in ${language}${delivery}, paced evenly across the whole clip and synced to the on-screen action — begin as the shot starts and finish about one second before it ends, natural and unhurried, clear articulation, no rushing and no dead air, delivered as ONE smooth continuous sentence — never word-by-word, never spelled out letter-by-letter, never split into separate fragments or paused between individual words. Do NOT read aloud, sound out, or vocalize any on-screen text, caption, subtitle, or small "VO:" label printed in the image itself — that printed text is a silent visual reference note only, not dialogue to perform. Speak ONLY the voiceover line below, exactly once, as natural continuous speech. Voiceover line: "${line}"`;
 }
 
 // When "backsound" (background music) is OFF, forbid any BGM/soundtrack so the video
@@ -196,7 +202,7 @@ function applyAudioDirectives(basePrompt, { hasVo, narration, voLanguage, voTone
       t += buildVoiceoverDirective(effectiveNarration, voLanguage, voTone, durationSec);
     } else {
       const lang = voLanguage || 'Bahasa Indonesia';
-      t += `\n\nAudio — voiceover: an off-screen narrator speaks clear voiceover narration in ${lang} matching the scene action. Spoken voiceover narration MUST be active and clearly audible.`;
+      t += `\n\nAudio — voiceover: an off-screen narrator speaks clear voiceover narration in ${lang} matching the scene action, delivered as one smooth continuous sentence — never word-by-word and never spelled out. Ignore any on-screen text, caption, subtitle, or small "VO:" label printed in the image; it is a silent visual reference note only, not dialogue to read aloud. Spoken voiceover narration MUST be active and clearly audible.`;
     }
   } else {
     t = enforceNoVoiceover(t);
