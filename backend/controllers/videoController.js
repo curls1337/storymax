@@ -211,9 +211,13 @@ function applyAudioDirectives(basePrompt, { hasVo, narration, voLanguage, voTone
   if (!backsound) {
     t = applyNoBacksound(t);
   } else if (hasVo) {
-    // When BOTH Voiceover AND Backsound are checked, enforce audio mix balance:
-    // keep background music soft/subtle and elevate the voiceover narration speech above it.
-    t += '\n\nAUDIO MIX DIRECTIVE: Produce BOTH clear spoken voiceover narration AND soft background music. The spoken voiceover narrator MUST be clearly audible and prominent above the gentle background music.';
+    // When BOTH Voiceover AND Backsound are checked, mix in soft background music WITHOUT
+    // implying a second/separate narration. The earlier wording here ("Produce BOTH clear
+    // spoken voiceover narration AND soft background music... MUST be clearly audible") read
+    // like an ADDITIONAL, separate speech requirement stacked on top of the voiceover
+    // directive above — some models interpreted that as "say it again" and rendered the
+    // narration TWICE (doubled VO). Be explicit that there is only ONE voiceover line total.
+    t += '\n\nAUDIO MIX DIRECTIVE: The ONE voiceover line already specified above is the ONLY spoken narration allowed — do NOT add a second voice, a second narrator, or repeat/duplicate that voiceover line in any way. Simply mix in soft, subtle background music underneath it, kept low enough that the single voiceover stays clearly audible and prominent above the music.';
   } else {
     t += '\n\nBACKGROUND MUSIC: Include energetic, fitting background music / soundtrack without voiceover speech.';
   }
