@@ -9,6 +9,14 @@ const { freebeatSizeArgs } = require('../services/freebeat/cli');
 const { downloadFile } = require('../services/download');
 const { spawn } = require('child_process');
 
+// Item 2: multi-angle reference photos, capped at 3 (matches Freebeat's own reference
+// limit; Magica's true per-model cap is schema-driven via `maxImages` and can be lower,
+// so 3 is used as a safe common ceiling that works for both providers).
+const MAX_REFERENCE_IMAGES = 3;
+// Item 4: how many previous Sheet Image renders to keep in version history before the
+// oldest is pruned (and its local file deleted as an orphan-cleanup side effect).
+const MAX_SHEET_HISTORY = 8;
+
 function _spawnCollect(cmd, args, opts = {}) {
   return new Promise((resolve) => {
     let out = '', err = '';
@@ -64,22 +72,103 @@ function saveBase64ToUploads(input) {
   return null;
 }
 
-// Get all characters for current user
+// Item 3 (orphan cleanup): deletes a locally-stored /uploads/ file. Never throws;
+// silently no-ops for remote CDN URLs or files that are already gone.
+function deleteLocalUpload(refPath) {
+  try {
+    if (!refPath || typeof refPath !== 'string') return;
+    if (!refPath.startsWith('/uploads/') && !refPath.startsWith('uploads/')) return; // remote URL — nothing local to remove
+    const rel = refPath.replace(/^\/?uploads\//, '');
+    const fullPath = path.join(uploadsDir, rel);
+    if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
+  } catch (e) {
+    console.warn('[deleteLocalUpload] Gagal menghapus file lama:', e.message);
+  }
+}
+
+// Item 6 (duplicate/clone): physically copies a locally-stored file to a NEW filename
+// so a cloned character never shares raw file ownership with the original — otherwise
+// deleting one character's files (orphan cleanup) could break the other's images.
+// Remote CDN URLs are safe to share as-is (nothing local to duplicate).
+function duplicateLocalUpload(refPath) {
+  try {
+    if (!refPath || typeof refPath !== 'string') return refPath;
+    if (!refPath.startsWith('/uploads/') && !refPath.startsWith('uploads/')) return refPath;
+    const rel = refPath.replace(/^\/?uploads\//, '');
+    const srcPath = path.join(uploadsDir, rel);
+    if (!fs.existsSync(srcPath)) return refPath;
+    const ext = path.extname(rel) || '.png';
+    const newName = `dup_${Date.now()}_${Math.random().toString(36).slice(2, 7)}${ext}`;
+    const destPath = path.join(uploadsDir, newName);
+    fs.copyFileSync(srcPath, destPath);
+    return `/uploads/${newName}`;
+  } catch (e) {
+    console.warn('[duplicateLocalUpload] Gagal menyalin file:', e.message);
+    return refPath;
+  }
+}
+
+function parseJsonArray(v) {
+  if (!v) return [];
+  if (Array.isArray(v)) return v;
+  try {
+    const p = JSON.parse(v);
+    return Array.isArray(p) ? p : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function normalizeCharacterRow(c) {
+  return {
+    ...c,
+    color_palette: c.color_palette ? JSON.parse(c.color_palette) : [],
+    expressions: c.expressions ? JSON.parse(c.expressions) : [],
+    reference_images: c.reference_images ? JSON.parse(c.reference_images) : [],
+    tags: parseJsonArray(c.tags),
+    sheet_image_history: parseJsonArray(c.sheet_image_history),
+  };
+}
+
+// Get all characters for current user. Item 7: optional q (search) / tag / sort / order
+// query params for advanced search & organization.
 async function getUserCharacters(req, res) {
   try {
     const db = getDb();
-    const characters = await db.all(
-      'SELECT * FROM characters WHERE user_id = ? ORDER BY created_at DESC',
+    const { q, tag, sort, order } = req.query;
+
+    let sql = 'SELECT * FROM characters WHERE user_id = ?';
+    const params = [req.user.id];
+    if (q) {
+      sql += ' AND (name LIKE ? OR concept LIKE ? OR visual_tone LIKE ? OR tagline LIKE ?)';
+      const like = `%${q}%`;
+      params.push(like, like, like, like);
+    }
+    if (tag) {
+      sql += ' AND tags LIKE ?';
+      params.push(`%"${tag}"%`);
+    }
+
+    const sortableCols = { name: 'name', created_at: 'created_at', updated_at: 'updated_at' };
+    const sortCol = sortableCols[sort] || 'created_at';
+    const sortDir = String(order).toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+    sql += ` ORDER BY ${sortCol} ${sortDir}`;
+
+    const characters = await db.all(sql, params);
+
+    // Item 5 groundwork: usage count per character (how many storyboards reference it),
+    // computed in one grouped query so the list stays fast even with many characters.
+    const usageRows = await db.all(
+      `SELECT s.character_id AS character_id, COUNT(*) AS cnt
+       FROM storyboards s
+       WHERE s.character_id IS NOT NULL AND s.user_id = ?
+       GROUP BY s.character_id`,
       [req.user.id]
     );
+    const usageMap = {};
+    usageRows.forEach((r) => { usageMap[r.character_id] = r.cnt; });
 
-    // Parse JSON fields
-    const parsed = characters.map(c => ({
-      ...c,
-      color_palette: c.color_palette ? JSON.parse(c.color_palette) : [],
-      expressions: c.expressions ? JSON.parse(c.expressions) : [],
-      reference_images: c.reference_images ? JSON.parse(c.reference_images) : []
-    }));
+    const parsed = characters.map((c) => ({ ...normalizeCharacterRow(c), usage_count: usageMap[c.id] || 0 }));
 
     res.json(parsed);
   } catch (error) {
@@ -87,7 +176,7 @@ async function getUserCharacters(req, res) {
   }
 }
 
-// Get single character detail
+// Get single character detail (includes usage_count — item 5)
 async function getCharacterById(req, res) {
   try {
     const db = getDb();
@@ -100,11 +189,8 @@ async function getCharacterById(req, res) {
       return res.status(404).json({ message: 'Karakter tidak ditemukan.' });
     }
 
-    character.color_palette = character.color_palette ? JSON.parse(character.color_palette) : [];
-    character.expressions = character.expressions ? JSON.parse(character.expressions) : [];
-    character.reference_images = character.reference_images ? JSON.parse(character.reference_images) : [];
-
-    res.json(character);
+    const usage = await db.get('SELECT COUNT(*) AS cnt FROM storyboards WHERE character_id = ?', [character.id]);
+    res.json({ ...normalizeCharacterRow(character), usage_count: (usage && usage.cnt) || 0 });
   } catch (error) {
     res.status(500).json({ message: 'Gagal mengambil detail karakter.', error: error.message });
   }
@@ -116,20 +202,28 @@ async function createCharacter(req, res) {
     const {
       name, tagline, concept, visual_tone, color_palette,
       profile_notes, turnaround_notes, expressions, wardrobe,
-      production_notes, trigger_prompt, reference_images, sheet_image_url
+      production_notes, trigger_prompt, reference_images, sheet_image_url,
+      gender, skin_tone, attributes_source, voice_gender, voice_tone,
+      voice_language, voice_notes, tags
     } = req.body;
 
     if (!name) {
       return res.status(400).json({ message: 'Nama karakter wajib diisi.' });
     }
 
+    // Item 2: cap stored reference images at MAX_REFERENCE_IMAGES from the very start.
+    const cappedRefImages = Array.isArray(reference_images)
+      ? reference_images.filter(Boolean).slice(0, MAX_REFERENCE_IMAGES)
+      : [];
+
     const db = getDb();
     const result = await db.run(
       `INSERT INTO characters (
         user_id, name, tagline, concept, visual_tone, color_palette,
         profile_notes, turnaround_notes, expressions, wardrobe,
-        production_notes, trigger_prompt, reference_images, sheet_image_url
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        production_notes, trigger_prompt, reference_images, sheet_image_url,
+        gender, skin_tone, attributes_source, voice_gender, voice_tone, voice_language, voice_notes, tags
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         req.user.id,
         name,
@@ -143,17 +237,21 @@ async function createCharacter(req, res) {
         wardrobe || '',
         production_notes || '',
         trigger_prompt || '',
-        JSON.stringify(reference_images || []),
-        sheet_image_url || ''
+        JSON.stringify(cappedRefImages),
+        sheet_image_url || '',
+        gender || '',
+        skin_tone || '',
+        attributes_source || 'manual',
+        voice_gender || '',
+        voice_tone || '',
+        voice_language || '',
+        voice_notes || '',
+        JSON.stringify(Array.isArray(tags) ? tags : [])
       ]
     );
 
     const newChar = await db.get('SELECT * FROM characters WHERE id = ?', [result.lastID]);
-    newChar.color_palette = JSON.parse(newChar.color_palette || '[]');
-    newChar.expressions = JSON.parse(newChar.expressions || '[]');
-    newChar.reference_images = JSON.parse(newChar.reference_images || '[]');
-
-    res.status(201).json(newChar);
+    res.status(201).json(normalizeCharacterRow(newChar));
   } catch (error) {
     res.status(500).json({ message: 'Gagal membuat karakter.', error: error.message });
   }
@@ -166,7 +264,9 @@ async function updateCharacter(req, res) {
     const {
       name, tagline, concept, visual_tone, color_palette,
       profile_notes, turnaround_notes, expressions, wardrobe,
-      production_notes, trigger_prompt, reference_images, sheet_image_url
+      production_notes, trigger_prompt, reference_images, sheet_image_url,
+      gender, skin_tone, attributes_source, voice_gender, voice_tone,
+      voice_language, voice_notes, tags
     } = req.body;
 
     const db = getDb();
@@ -175,11 +275,43 @@ async function updateCharacter(req, res) {
       return res.status(404).json({ message: 'Karakter tidak ditemukan.' });
     }
 
+    // Item 3 (orphan cleanup) + Item 2 (multi-angle cap): when reference_images is
+    // updated, cap it at MAX_REFERENCE_IMAGES and delete any previously-stored local
+    // files that are no longer present in the new list.
+    let finalRefImagesJson = existing.reference_images;
+    if (reference_images !== undefined) {
+      const capped = Array.isArray(reference_images) ? reference_images.filter(Boolean).slice(0, MAX_REFERENCE_IMAGES) : [];
+      const oldRefs = parseJsonArray(existing.reference_images);
+      const removed = oldRefs.filter((r) => !capped.includes(r));
+      removed.forEach(deleteLocalUpload);
+      finalRefImagesJson = JSON.stringify(capped);
+    }
+
+    // Item 4: Sheet Image version history — push the previous sheet_image_url into
+    // history before overwriting so old renders remain browsable. Cap history length
+    // and delete the oldest local file once the cap is exceeded (orphan cleanup — item 3).
+    let finalSheetImageUrl = existing.sheet_image_url;
+    let finalHistoryJson = existing.sheet_image_history;
+    if (sheet_image_url !== undefined && sheet_image_url !== existing.sheet_image_url) {
+      const history = parseJsonArray(existing.sheet_image_history);
+      if (existing.sheet_image_url) {
+        history.push({ url: existing.sheet_image_url, replaced_at: new Date().toISOString() });
+      }
+      while (history.length > MAX_SHEET_HISTORY) {
+        const dropped = history.shift();
+        if (dropped && dropped.url) deleteLocalUpload(dropped.url);
+      }
+      finalHistoryJson = JSON.stringify(history);
+      finalSheetImageUrl = sheet_image_url;
+    }
+
     await db.run(
       `UPDATE characters SET
         name = ?, tagline = ?, concept = ?, visual_tone = ?, color_palette = ?,
         profile_notes = ?, turnaround_notes = ?, expressions = ?, wardrobe = ?,
         production_notes = ?, trigger_prompt = ?, reference_images = ?, sheet_image_url = ?,
+        gender = ?, skin_tone = ?, attributes_source = ?, voice_gender = ?, voice_tone = ?,
+        voice_language = ?, voice_notes = ?, tags = ?, sheet_image_history = ?,
         updated_at = CURRENT_TIMESTAMP
       WHERE id = ? AND user_id = ?`,
       [
@@ -194,26 +326,75 @@ async function updateCharacter(req, res) {
         wardrobe !== undefined ? wardrobe : existing.wardrobe,
         production_notes !== undefined ? production_notes : existing.production_notes,
         trigger_prompt !== undefined ? trigger_prompt : existing.trigger_prompt,
-        reference_images !== undefined ? JSON.stringify(reference_images) : existing.reference_images,
-        sheet_image_url !== undefined ? sheet_image_url : existing.sheet_image_url,
+        finalRefImagesJson,
+        finalSheetImageUrl,
+        gender !== undefined ? gender : existing.gender,
+        skin_tone !== undefined ? skin_tone : existing.skin_tone,
+        attributes_source !== undefined ? attributes_source : existing.attributes_source,
+        voice_gender !== undefined ? voice_gender : existing.voice_gender,
+        voice_tone !== undefined ? voice_tone : existing.voice_tone,
+        voice_language !== undefined ? voice_language : existing.voice_language,
+        voice_notes !== undefined ? voice_notes : existing.voice_notes,
+        tags !== undefined ? JSON.stringify(tags) : existing.tags,
+        finalHistoryJson,
         id,
         req.user.id
       ]
     );
 
     const updated = await db.get('SELECT * FROM characters WHERE id = ?', [id]);
-    updated.color_palette = JSON.parse(updated.color_palette || '[]');
-    updated.expressions = JSON.parse(updated.expressions || '[]');
-    updated.reference_images = JSON.parse(updated.reference_images || '[]');
-
-    res.json(updated);
+    res.json(normalizeCharacterRow(updated));
   } catch (error) {
     res.status(500).json({ message: 'Gagal memperbarui karakter.', error: error.message });
   }
 }
 
-// Delete character
+// Delete character. Item 5: checks storyboard usage before deleting; without
+// ?force=1 (or body force:true) a 409 is returned so the client can confirm.
+// Item 3: cleans up every local file this character owns (orphan cleanup).
 async function deleteCharacter(req, res) {
+  try {
+    const { id } = req.params;
+    const force = req.query.force === '1' || req.query.force === 'true' || req.body?.force === true;
+    const db = getDb();
+    const existing = await db.get('SELECT * FROM characters WHERE id = ? AND user_id = ?', [id, req.user.id]);
+    if (!existing) {
+      return res.status(404).json({ message: 'Karakter tidak ditemukan.' });
+    }
+
+    const usageRows = await db.all('SELECT id, title FROM storyboards WHERE character_id = ?', [id]);
+    if (usageRows.length > 0 && !force) {
+      return res.status(409).json({
+        message: `Karakter "${existing.name}" masih dipakai di ${usageRows.length} storyboard. Konfirmasi untuk tetap menghapus.`,
+        usageCount: usageRows.length,
+        usedIn: usageRows.slice(0, 10).map((r) => ({ id: r.id, title: r.title }))
+      });
+    }
+
+    // Orphan cleanup: remove every local file this character owns — reference images,
+    // the current sheet image, and every historic sheet image render.
+    parseJsonArray(existing.reference_images).forEach(deleteLocalUpload);
+    if (existing.sheet_image_url) deleteLocalUpload(existing.sheet_image_url);
+    parseJsonArray(existing.sheet_image_history).forEach((h) => deleteLocalUpload(h && h.url));
+
+    if (usageRows.length > 0 && force) {
+      // Detach (do not cascade-delete) the storyboards that referenced this character —
+      // the storyboards themselves stay intact, only losing the character link.
+      await db.run('UPDATE storyboards SET character_id = NULL WHERE character_id = ?', [id]);
+    }
+
+    await db.run('DELETE FROM characters WHERE id = ? AND user_id = ?', [id, req.user.id]);
+    res.json({ message: 'Karakter berhasil dihapus.' });
+  } catch (error) {
+    res.status(500).json({ message: 'Gagal menghapus karakter.', error: error.message });
+  }
+}
+
+// Item 6: duplicate/clone an existing character into a new row. Local files (reference
+// images + sheet image) are physically COPIED (never shared by reference) so the clone
+// never breaks — or is broken by — the original's future edits/deletes. Sheet image
+// version history intentionally starts empty on the clone.
+async function duplicateCharacter(req, res) {
   try {
     const { id } = req.params;
     const db = getDb();
@@ -222,10 +403,46 @@ async function deleteCharacter(req, res) {
       return res.status(404).json({ message: 'Karakter tidak ditemukan.' });
     }
 
-    await db.run('DELETE FROM characters WHERE id = ? AND user_id = ?', [id, req.user.id]);
-    res.json({ message: 'Karakter berhasil dihapus.' });
+    const dupRefImages = parseJsonArray(existing.reference_images).map(duplicateLocalUpload);
+    const dupSheetUrl = existing.sheet_image_url ? duplicateLocalUpload(existing.sheet_image_url) : '';
+
+    const result = await db.run(
+      `INSERT INTO characters (
+        user_id, name, tagline, concept, visual_tone, color_palette,
+        profile_notes, turnaround_notes, expressions, wardrobe,
+        production_notes, trigger_prompt, reference_images, sheet_image_url,
+        gender, skin_tone, attributes_source, voice_gender, voice_tone, voice_language, voice_notes, tags
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        req.user.id,
+        `${existing.name} (Salinan)`,
+        existing.tagline,
+        existing.concept,
+        existing.visual_tone,
+        existing.color_palette,
+        existing.profile_notes,
+        existing.turnaround_notes,
+        existing.expressions,
+        existing.wardrobe,
+        existing.production_notes,
+        existing.trigger_prompt,
+        JSON.stringify(dupRefImages),
+        dupSheetUrl,
+        existing.gender || '',
+        existing.skin_tone || '',
+        existing.attributes_source || 'manual',
+        existing.voice_gender || '',
+        existing.voice_tone || '',
+        existing.voice_language || '',
+        existing.voice_notes || '',
+        existing.tags || '[]'
+      ]
+    );
+
+    const newChar = await db.get('SELECT * FROM characters WHERE id = ?', [result.lastID]);
+    res.status(201).json(normalizeCharacterRow(newChar));
   } catch (error) {
-    res.status(500).json({ message: 'Gagal menghapus karakter.', error: error.message });
+    res.status(500).json({ message: 'Gagal menduplikasi karakter.', error: error.message });
   }
 }
 
@@ -261,6 +478,12 @@ Respond strictly with a single valid JSON object with the following fields:
   "wardrobe": "5. WARDROBE BREAKDOWN: Clothing, shoes, fabrics, textures, stickers, watch, bandages, and key accessories",
   "production_notes": "6. PRODUCTION NOTES: Visual tone, color palette theory, lighting, mood reference (e.g. Pulp Fiction, Taxi Driver)",
   "trigger_prompt": "Ultra-detailed consistent physical prompt string containing full facial features, outfit details, skin tone, hair style, build, and aesthetic to maintain 100% consistent character appearance across AI images",
+  "gender": "Gender karakter (e.g. Male, Female, Non-binary) — tebak dari gambar referensi bila ada, kalau tidak ada dari deskripsi teks",
+  "skin_tone": "Deskripsi warna kulit/etnis singkat (e.g. Tan olive skin, Fair skin, Dark brown skin)",
+  "voice_gender": "Male | Female | Neutral — perkiraan gender suara narator yang cocok untuk karakter ini",
+  "voice_tone": "1-3 kata nada suara (e.g. warm and confident, gruff and weary, bright and playful)",
+  "voice_language": "Bahasa yang disarankan untuk voice over (default: Bahasa Indonesia)",
+  "voice_notes": "Catatan tambahan suara khas (aksen, kecepatan bicara, dsb) jika relevan, atau string kosong",
   "sheet_image_prompt": "Official character design reference sheet concept art presentation poster layout for [Character Name], featuring full multi-panel graphic composition layout: 1. Profile side view standing, 2. 360 degree turnaround view (front, 3/4 left, back, 3/4 right standing line-up), 3. Cinematic close up portrait, 4. Head study expressions grid with 5 emotions, 5. Wardrobe breakdown of clothing items, 6. Production notes & color palette swatches. Film production concept art sheet, 8k resolution masterwork, sleek studio dark background."
 }
 Only output pure JSON. No markdown backticks outside JSON.`;
@@ -341,9 +564,20 @@ Only output pure JSON. No markdown backticks outside JSON.`;
         wardrobe: `Rincian pakaian dan aksesoris khas: ${prompt || 'Pakaian sinematik dengan detail tekstur yang konsisten.'}`,
         production_notes: 'Pencahayaan sinematik dramatis, warna moody retro 90s, high contrast studio lighting.',
         trigger_prompt: `${prompt || charName}, highly detailed consistent character design, cinematic lighting, photorealistic 8k`,
+        gender: '',
+        skin_tone: '',
+        voice_gender: '',
+        voice_tone: '',
+        voice_language: 'Bahasa Indonesia',
+        voice_notes: '',
         sheet_image_prompt: `Official character design reference sheet concept art presentation poster layout for ${prompt || charName}, featuring full multi-panel graphic composition layout: 1. Profile side view standing, 2. 360 degree turnaround view (front, 3/4 left, back, 3/4 right standing line-up), 3. Cinematic close up portrait, 4. Head study expressions grid with 5 emotions, 5. Wardrobe breakdown of clothing items, 6. Production notes & color palette swatches. Film production concept art sheet, 8k resolution masterwork, sleek studio dark background.`
       };
     }
+
+    // Item 9 (Auto mode): when the character spec was derived with the help of a
+    // reference photo, mark it as AI-auto-filled; a pure text prompt (no photo) is still
+    // "manual" in the sense that no image evidence backed the physical attributes.
+    parsedSpec.attributes_source = (refImageBase64 || refImageUrl) ? 'ai_auto' : 'manual';
 
     // Save reference image if uploaded as base64
     let savedRefUrl = saveBase64ToUploads(refImageBase64 || refImageUrl);
@@ -367,7 +601,7 @@ Only output pure JSON. No markdown backticks outside JSON.`;
 // Generate the high-res Character Reference Sheet Image using Image Generator (Freebeat/Magica)
 async function generateCharacterSheetImage(req, res) {
   try {
-    const { prompt, aspectRatio, apiKeyId, magicaModel, magicaKeyId, provider, refUrl, refImageUrl, refImageBase64 } = req.body;
+    const { prompt, aspectRatio, apiKeyId, magicaModel, magicaKeyId, provider, refUrl, refImageUrl, refImageBase64, refUrls } = req.body;
     if (!prompt) {
       return res.status(400).json({ message: 'Prompt gambar wajib diisi.' });
     }
@@ -378,30 +612,36 @@ async function generateCharacterSheetImage(req, res) {
     // Determine primary provider to try
     const wantMagica = provider === 'magica' || (!provider && userRow && userRow.pp === 'magica' && userRow.cum);
     
-    // Save any base64 image data to /uploads/ file on server disk
-    const rawRef = refUrl || refImageUrl || refImageBase64;
-    let savedPath = saveBase64ToUploads(rawRef);
-    if (!savedPath && typeof rawRef === 'string' && (rawRef.startsWith('http') || rawRef.startsWith('/uploads/'))) {
-      savedPath = rawRef;
-    }
+    // Item 2: accept up to MAX_REFERENCE_IMAGES reference photos (multi-angle) via the new
+    // `refUrls` array, while staying fully compatible with the legacy single
+    // refUrl/refImageUrl/refImageBase64 fields used by existing callers.
+    const rawRefList = (Array.isArray(refUrls) && refUrls.length ? refUrls : [refUrl || refImageUrl || refImageBase64]).filter(Boolean);
+    const savedPaths = rawRefList.slice(0, MAX_REFERENCE_IMAGES).map((r) => {
+      let saved = saveBase64ToUploads(r);
+      if (!saved && typeof r === 'string' && (r.startsWith('http') || r.startsWith('/uploads/'))) saved = r;
+      return saved;
+    }).filter(Boolean);
 
-    // Convert local /uploads/... relative path to public HTTP URL for Magica
-    let targetRefUrl = savedPath;
-    if (targetRefUrl && targetRefUrl.startsWith('/uploads/')) {
-      const publicBase = process.env.PUBLIC_URL || (req.protocol + '://' + req.get('host'));
-      targetRefUrl = `${publicBase.replace(/\/$/, '')}${targetRefUrl}`;
-    }
+    // Convert local /uploads/... relative paths to public HTTP URLs for Magica
+    const publicBaseUrl = process.env.PUBLIC_URL || (req.protocol + '://' + req.get('host'));
+    const targetRefUrls = savedPaths.map((p) => (p.startsWith('/uploads/') ? `${publicBaseUrl.replace(/\/$/, '')}${p}` : p));
+    const targetRefUrl = targetRefUrls[0] || null; // kept for readability where only one ref matters
 
     // Attempt 1: Magica if requested or preferred
     if (wantMagica) {
       try {
         const mk = await magicaGen.pickMediaMagicaKey(db, magicaKeyId);
         if (mk) {
-          const modelToUse = (magicaModel && magicaModel !== 'nano_fast') ? magicaModel : 'gpt_image_2';
+          // Bug fix (item 1): previously any model choice OTHER than the exact string
+          // 'nano_fast' fell through to the else-branch correctly, but choosing
+          // 'nano_fast' itself was silently overridden to 'gpt_image_2' — the model the
+          // user picked in the UI was never actually used. Now the chosen model is
+          // always respected, with 'gpt_image_2' only as the default when none is set.
+          const modelToUse = magicaModel || 'gpt_image_2';
           const genRes = await magicaGen.generateOneImageMagica(mk.key_value, prompt, {
             aspectRatio: aspectRatio || '3:4',
             nodeType: modelToUse,
-            refUrl: targetRefUrl
+            refUrls: targetRefUrls
           });
 
           if (genRes && genRes.url) {
@@ -420,7 +660,11 @@ async function generateCharacterSheetImage(req, res) {
       }
     }
 
-    // Attempt 2: Freebeat Provider
+    // Attempt 2: Freebeat Provider (text-to-image only — unchanged). Freebeat's own
+    // character-sheet render here has never accepted a reference photo/edit mode with a
+    // verified CLI contract for this endpoint (no `--model`/edit collected here), so it
+    // is intentionally left as-is rather than guessing an untested CLI invocation.
+    // Multi-angle references (item 2) are fully wired for Magica above instead.
     try {
       let keyRecord = null;
       if (apiKeyId && apiKeyId !== 'auto') {
@@ -474,11 +718,11 @@ async function generateCharacterSheetImage(req, res) {
       try {
         const mk = await magicaGen.pickMediaMagicaKey(db, magicaKeyId);
         if (mk) {
-          const modelToUse = (magicaModel && magicaModel !== 'nano_fast') ? magicaModel : 'gpt_image_2';
+          const modelToUse = magicaModel || 'gpt_image_2';
           const genRes = await magicaGen.generateOneImageMagica(mk.key_value, prompt, {
             aspectRatio: aspectRatio || '3:4',
             nodeType: modelToUse,
-            refUrl: targetRefUrl
+            refUrls: targetRefUrls
           });
 
           if (genRes && genRes.url) {
@@ -512,6 +756,7 @@ module.exports = {
   createCharacter,
   updateCharacter,
   deleteCharacter,
+  duplicateCharacter,
   generateCharacterAI,
   generateCharacterSheetImage
 };

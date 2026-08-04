@@ -6,7 +6,8 @@ const {
   updateCharacter,
   deleteCharacter,
   generateCharacterAI,
-  generateCharacterSheetImage
+  generateCharacterSheetImage,
+  duplicateCharacter
 } = require('../controllers/characterController');
 const { authenticateToken } = require('../middleware/authMiddleware');
 
@@ -19,6 +20,7 @@ router.get('/:id', getCharacterById);
 router.post('/', createCharacter);
 router.post('/generate-ai', generateCharacterAI);
 router.post('/generate-sheet-image', generateCharacterSheetImage);
+router.post('/:id/duplicate', duplicateCharacter);
 router.put('/:id', updateCharacter);
 router.delete('/:id', deleteCharacter);
 

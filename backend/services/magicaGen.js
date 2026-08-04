@@ -503,21 +503,30 @@ async function getCatalog(db) {
 }
 
 // Generate ONE storyboard image. nodeType defaults to gpt_image_2; text vs edit is
-// chosen by whether a reference image is present, then the input is built from the
+// chosen by whether reference image(s) are present, then the input is built from the
 // resolved submodel's live schema (correct field names per model).
+//
+// Item 2 (multi-angle references): accepts EITHER a single `opts.refUrl` (legacy,
+// unchanged behavior for every existing caller) OR an array `opts.refUrls` of up to
+// 3 reference photos (matching Freebeat's own reference limit — Magica's true
+// per-model cap is schema-driven via `maxImages` and can be lower, so 3 is used as a
+// safe common ceiling for both providers). All provided URLs are forwarded to models
+// that declare an image ARRAY field; models with only a single image field still get
+// exactly one (the first).
 async function generateOneImageMagica(apiKey, prompt, opts = {}) {
   const onLog = typeof opts.onLog === 'function' ? opts.onLog : () => {};
   const nodeType = opts.nodeType || 'gpt_image_2';
-  const refUrl = toPublicUrl(opts.refUrl);
-  const category = refUrl ? 'image-to-image' : 'text-to-image';
+  const rawRefs = Array.isArray(opts.refUrls) && opts.refUrls.length ? opts.refUrls : (opts.refUrl ? [opts.refUrl] : []);
+  const refUrls = rawRefs.map((u) => toPublicUrl(u)).filter(Boolean).slice(0, 3);
+  const category = refUrls.length ? 'image-to-image' : 'text-to-image';
   // Same public-URL requirement applies to image-to-image reference photos.
-  if (refUrl) await assertPublicImageReachable(refUrl, onLog);
+  for (const u of refUrls) await assertPublicImageReachable(u, onLog);
   const models = await getModelsCached(apiKey);
   const subModelId = resolveSubModel(models, nodeType, category);
 
   let fields = [];
   try { fields = ((await getSchemaCached(apiKey, subModelId || nodeType)) || {}).fields || []; } catch (e) {}
-  const input = buildInput(fields, { prompt, aspect: opts.aspectRatio, imageUrls: refUrl ? [refUrl] : [] });
+  const input = buildInput(fields, { prompt, aspect: opts.aspectRatio, imageUrls: refUrls });
   if (!('prompt' in input) && prompt) input.prompt = String(prompt);
 
   onLog(`[Magica] Gambar via ${nodeType}${subModelId ? ' / ' + subModelId : ''} (fields: ${Object.keys(input).join(', ')})...`);
