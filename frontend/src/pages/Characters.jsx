@@ -8,6 +8,31 @@ import {
 } from 'lucide-react';
 import { toast } from '../utils/toast';
 import { confirm } from '../utils/confirm';
+import CHARACTER_PRESETS from '../constants/characterPresets';
+
+// Quick-pick dropdown: lets the user choose a ready-made preset that instantly
+// fills the paired text field below, so manual entry no longer has to start
+// from a blank page. The select always resets back to its placeholder after a
+// pick so it can be used again, and the text field underneath stays fully
+// editable in case the user wants to tweak the chosen preset.
+function PresetPicker({ presets, onPick, placeholder }) {
+  if (!presets || presets.length === 0) return null;
+  return (
+    <select
+      value=""
+      onChange={(e) => {
+        const val = e.target.value;
+        if (val) onPick(val);
+      }}
+      className="w-full bg-[#1a1918] border border-[#2a2725] rounded-xl px-3 py-2 text-[11px] text-[#cfae80] focus:outline-none focus:border-[#cfae80]/60 mb-1.5 font-semibold"
+    >
+      <option value="">{placeholder || '✨ Pilih dari pilihan siap pakai...'}</option>
+      {presets.map((p, idx) => (
+        <option key={idx} value={p.value}>{p.label}</option>
+      ))}
+    </select>
+  );
+}
 
 export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
   const [characters, setCharacters] = useState([]);
@@ -1035,6 +1060,7 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="font-bold uppercase tracking-wider text-slate-300">Visual Tone & Style</label>
+                    <PresetPicker presets={CHARACTER_PRESETS.visualTone} onPick={setFormVisualTone} placeholder="✨ Pilih gaya visual siap pakai..." />
                     <input
                       type="text"
                       value={formVisualTone}
@@ -1045,6 +1071,7 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
                   </div>
                   <div className="space-y-1.5">
                     <label className="font-bold uppercase tracking-wider text-slate-300">Color Palette (Pisahkan dengan koma)</label>
+                    <PresetPicker presets={CHARACTER_PRESETS.colorPalette} onPick={setFormColorPalette} placeholder="✨ Pilih palet warna siap pakai..." />
                     <input
                       type="text"
                       value={formColorPalette}
@@ -1057,6 +1084,7 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
 
                 <div className="space-y-1.5">
                   <label className="font-bold uppercase tracking-wider text-slate-300">1. PROFILE Notes (Pandangan Samping & Ciri Fisik)</label>
+                  <PresetPicker presets={CHARACTER_PRESETS.profileNotes} onPick={setFormProfileNotes} placeholder="✨ Pilih ciri fisik siap pakai..." />
                   <textarea
                     rows={2}
                     value={formProfileNotes}
@@ -1068,6 +1096,7 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
 
                 <div className="space-y-1.5">
                   <label className="font-bold uppercase tracking-wider text-slate-300">2. TURNAROUND Notes (360° View: Front, Left, Back, Right)</label>
+                  <PresetPicker presets={CHARACTER_PRESETS.turnaroundNotes} onPick={setFormTurnaroundNotes} placeholder="✨ Pilih catatan turnaround siap pakai..." />
                   <textarea
                     rows={2}
                     value={formTurnaroundNotes}
@@ -1079,6 +1108,7 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
 
                 <div className="space-y-1.5">
                   <label className="font-bold uppercase tracking-wider text-slate-300">4. HEAD STUDY / Ekspresi Wajah (Pisahkan dengan koma)</label>
+                  <PresetPicker presets={CHARACTER_PRESETS.expressions} onPick={setFormExpressions} placeholder="✨ Pilih set ekspresi siap pakai..." />
                   <input
                     type="text"
                     value={formExpressions}
@@ -1090,6 +1120,7 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
 
                 <div className="space-y-1.5">
                   <label className="font-bold uppercase tracking-wider text-slate-300">5. WARDROBE BREAKDOWN (Pakaian & Aksesoris)</label>
+                  <PresetPicker presets={CHARACTER_PRESETS.wardrobe} onPick={setFormWardrobe} placeholder="✨ Pilih wardrobe siap pakai..." />
                   <textarea
                     rows={2}
                     value={formWardrobe}
@@ -1101,6 +1132,7 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
 
                 <div className="space-y-1.5">
                   <label className="font-bold uppercase tracking-wider text-slate-300">Trigger Prompt untuk AI Image Generator</label>
+                  <PresetPicker presets={CHARACTER_PRESETS.triggerPrompt} onPick={setFormTriggerPrompt} placeholder="✨ Pilih trigger prompt siap pakai..." />
                   <input
                     type="text"
                     value={formTriggerPrompt}
@@ -1129,6 +1161,7 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
                     </div>
                     <div className="space-y-1.5">
                       <label className="font-semibold text-slate-400">Nada / Tone Suara</label>
+                      <PresetPicker presets={CHARACTER_PRESETS.voiceTone} onPick={setFormVoiceTone} placeholder="✨ Pilih nada suara siap pakai..." />
                       <input
                         type="text"
                         value={formVoiceTone}
@@ -1139,6 +1172,7 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
                     </div>
                     <div className="space-y-1.5">
                       <label className="font-semibold text-slate-400">Bahasa Voice Over</label>
+                      <PresetPicker presets={CHARACTER_PRESETS.voiceLanguage} onPick={setFormVoiceLanguage} placeholder="✨ Pilih bahasa siap pakai..." />
                       <input
                         type="text"
                         value={formVoiceLanguage}
