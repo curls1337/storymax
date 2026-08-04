@@ -128,6 +128,23 @@ async function initDb() {
     )
   `);
 
+  // Character management upgrade: extended attributes (gender/skin tone), per-character
+  // voice identity for VO generation, free-form tags for search/organization, and Sheet
+  // Image version history (migration support for existing installs).
+  for (const [col, type] of [
+    ['gender', 'TEXT'],
+    ['skin_tone', 'TEXT'],
+    ['attributes_source', "TEXT DEFAULT 'manual'"],
+    ['voice_gender', 'TEXT'],
+    ['voice_tone', 'TEXT'],
+    ['voice_language', 'TEXT'],
+    ['voice_notes', 'TEXT'],
+    ['tags', 'TEXT'],
+    ['sheet_image_history', 'TEXT'],
+  ]) {
+    try { await db.exec(`ALTER TABLE characters ADD COLUMN ${col} ${type}`); } catch (e) { /* exists */ }
+  }
+
   // Ensure status column exists if table was already created (migration support)
   try {
     await db.exec('ALTER TABLE storyboards ADD COLUMN status TEXT NOT NULL DEFAULT "success"');
