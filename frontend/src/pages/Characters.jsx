@@ -50,6 +50,7 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
   // AI Modal State
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiRefImage, setAiRefImage] = useState('');
+  const [aiRefImageUploading, setAiRefImageUploading] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiStep, setAiStep] = useState(''); // 'spec' | 'image'
   const [aiResultSpec, setAiResultSpec] = useState(null);
@@ -77,6 +78,7 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
   const [formProductionNotes, setFormProductionNotes] = useState('');
   const [formTriggerPrompt, setFormTriggerPrompt] = useState('');
   const [formSheetImageUrl, setFormSheetImageUrl] = useState('');
+  const [formSheetImageUploading, setFormSheetImageUploading] = useState(false);
   // Item 9: gender / skin tone (and "lainnya" captured via profile notes already).
   // Left empty = "Auto" (AI decides / infers from reference photo).
   const [formGender, setFormGender] = useState('');
@@ -116,6 +118,17 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
     }).catch(() => {});
   }, []);
 
+  const getFullImageUrl = (path) => {
+    if (!path) return '';
+    if (path.startsWith('http')) return path;
+    const base = import.meta.env.VITE_API_URL || '/api';
+    let cleanPath = path.startsWith('/') ? path.slice(1) : path;
+    if (base.startsWith('http')) {
+      try { return `${new URL(base).origin}/${cleanPath}`; } catch (e) { return `/${cleanPath}`; }
+    }
+    return `/${cleanPath}`;
+  };
+
   // Handle AI Character Spec Generation
   const handleGenerateAI = async () => {
     if (!aiPrompt.trim() && !aiRefImage) {
@@ -130,8 +143,7 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
     try {
       const res = await api.post('/characters/generate-ai', {
         prompt: aiPrompt,
-        refImageUrl: aiRefImage.startsWith('http') ? aiRefImage : undefined,
-        refImageBase64: aiRefImage.startsWith('data:') ? aiRefImage : undefined
+        refImageUrl: aiRefImage ? getFullImageUrl(aiRefImage) : undefined
       });
 
       if (res.data && res.data.characterSpec) {
@@ -408,15 +420,28 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
     }
   };
 
-  // Handle image upload for manual sheet URL or AI reference
-  const handleFileUpload = (e, callback) => {
+  // Handle image upload for manual sheet URL or AI reference. Reads the picked local
+  // file, then immediately uploads it to the server (POST /characters/upload-image) so
+  // a small persisted /uploads/... link is stored/used going forward instead of the raw
+  // base64 data: URL string that used to get kept in state (and ultimately saved on the
+  // character record itself).
+  const handleFileUpload = (e, callback, setUploading) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => {
-      callback(reader.result);
+    reader.onload = async () => {
+      if (setUploading) setUploading(true);
+      try {
+        const res = await api.post('/characters/upload-image', { image: reader.result });
+        callback(res.data.url);
+      } catch (err) {
+        toast.error('Gagal mengunggah gambar ke server.');
+      } finally {
+        if (setUploading) setUploading(false);
+      }
     };
     reader.readAsDataURL(file);
+    e.target.value = '';
   };
 
   const filteredCharacters = characters
@@ -440,17 +465,6 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
           return new Date(b.created_at || 0) - new Date(a.created_at || 0);
       }
     });
-
-  const getFullImageUrl = (path) => {
-    if (!path) return '';
-    if (path.startsWith('http')) return path;
-    const base = import.meta.env.VITE_API_URL || '/api';
-    let cleanPath = path.startsWith('/') ? path.slice(1) : path;
-    if (base.startsWith('http')) {
-      try { return `${new URL(base).origin}/${cleanPath}`; } catch (e) { return `/${cleanPath}`; }
-    }
-    return `/${cleanPath}`;
-  };
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 animate-fadeIn">
@@ -828,19 +842,20 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
                     </label>
                     <div className="flex items-center gap-3">
                       <label className="cursor-pointer px-4 py-2.5 bg-[#121110] hover:bg-[#201e1c] border border-[#2a2725] rounded-xl text-xs font-semibold text-slate-300 flex items-center gap-2 transition-all">
-                        <Upload className="w-4 h-4 text-[#cfae80]" />
-                        Unggah Foto
+                        {aiRefImageUploading ? <Loader className="w-4 h-4 text-[#cfae80] animate-spin" /> : <Upload className="w-4 h-4 text-[#cfae80]" />}
+                        {aiRefImageUploading ? 'Mengunggah...' : 'Unggah Foto'}
                         <input
                           type="file"
                           accept="image/*"
-                          onChange={(e) => handleFileUpload(e, setAiRefImage)}
+                          disabled={aiRefImageUploading}
+                          onChange={(e) => handleFileUpload(e, setAiRefImage, setAiRefImageUploading)}
                           className="hidden"
                         />
                       </label>
                       <span className="text-xs text-slate-500">atau</span>
                       <input
                         type="text"
-                        value={aiRefImage.startsWith('data:') ? 'Foto Lokal Diunggah' : aiRefImage}
+                        value={aiRefImage.startsWith('/uploads/') ? 'Foto Lokal Diunggah' : aiRefImage}
                         onChange={(e) => setAiRefImage(e.target.value)}
                         placeholder="Tempel URL gambar referensi..."
                         className="flex-grow bg-[#121110] border border-[#2a2725] rounded-xl px-3.5 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-[#cfae80]/50"
@@ -848,7 +863,7 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
                     </div>
                     {aiRefImage && (
                       <div className="relative w-24 h-24 rounded-xl overflow-hidden border border-[#cfae80]/40 mt-2">
-                        <img src={aiRefImage} alt="Ref preview" className="w-full h-full object-cover" />
+                        <img src={getFullImageUrl(aiRefImage)} alt="Ref preview" className="w-full h-full object-cover" />
                         <button
                           onClick={() => setAiRefImage('')}
                           className="absolute top-1 right-1 p-1 bg-black/80 rounded-full text-white hover:text-red-400"
@@ -1198,12 +1213,13 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
                   <label className="font-bold uppercase tracking-wider text-slate-300">Gambar Character Design Sheet (URL / Upload)</label>
                   <div className="flex items-center gap-3">
                     <label className="cursor-pointer px-4 py-2.5 bg-[#121110] border border-[#2a2725] hover:bg-[#201e1c] rounded-xl font-semibold text-slate-300 flex items-center gap-2">
-                      <Upload className="w-4 h-4 text-[#cfae80]" />
-                      Upload File
+                      {formSheetImageUploading ? <Loader className="w-4 h-4 text-[#cfae80] animate-spin" /> : <Upload className="w-4 h-4 text-[#cfae80]" />}
+                      {formSheetImageUploading ? 'Mengunggah...' : 'Upload File'}
                       <input
                         type="file"
                         accept="image/*"
-                        onChange={(e) => handleFileUpload(e, setFormSheetImageUrl)}
+                        disabled={formSheetImageUploading}
+                        onChange={(e) => handleFileUpload(e, setFormSheetImageUrl, setFormSheetImageUploading)}
                         className="hidden"
                       />
                     </label>
