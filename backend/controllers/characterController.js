@@ -95,6 +95,26 @@ function saveBase64ToUploads(input) {
   return null;
 }
 
+// POST /characters/upload-image — used by the frontend upload widgets (manual Sheet
+// Image field + AI reference photo field) so a picked local file is immediately turned
+// into a small persisted /uploads/ link instead of being kept in memory/saved on the
+// character row as a giant base64 `data:` URL string.
+async function uploadCharacterImage(req, res) {
+  try {
+    const { image } = req.body || {};
+    if (!image || typeof image !== 'string') {
+      return res.status(400).json({ message: 'Gambar wajib diisi.' });
+    }
+    const url = saveBase64ToUploads(image);
+    if (!url) {
+      return res.status(400).json({ message: 'Format gambar tidak didukung. Gunakan PNG, JPG, WEBP, atau GIF.' });
+    }
+    res.json({ url });
+  } catch (error) {
+    res.status(500).json({ message: 'Gagal mengunggah gambar.', error: error.message });
+  }
+}
+
 // Item 3 (orphan cleanup): deletes a locally-stored /uploads/ file. Never throws;
 // silently no-ops for remote CDN URLs or files that are already gone.
 function deleteLocalUpload(refPath) {
@@ -479,6 +499,14 @@ async function generateCharacterAI(req, res) {
 
     const db = getDb();
 
+    // Local /uploads/... paths aren't fetchable by the external vision LLM API, so expand
+    // them to a full public URL first (mirrors the same expansion already done for
+    // Magica/Freebeat reference images down in generateCharacterSheetImage).
+    const publicBaseUrl = process.env.PUBLIC_URL || (req.protocol + '://' + req.get('host'));
+    const absoluteRefImageUrl = refImageUrl && refImageUrl.startsWith('/uploads/')
+      ? `${publicBaseUrl.replace(/\/$/, '')}${refImageUrl}`
+      : refImageUrl;
+
     const systemPrompt = `You are a world-class Character Designer, Concept Artist, and Art Director.
 Given a user prompt or image description, create an ultra-detailed, professional Character Design Reference Sheet specification (Character Bible / Turnaround Sheet).
 
@@ -521,8 +549,8 @@ Only output pure JSON. No markdown backticks outside JSON.`;
       }
       if (refImageBase64) {
         userMessageContent.push({ type: 'image_url', image_url: { url: refImageBase64.startsWith('data:') ? refImageBase64 : `data:image/png;base64,${refImageBase64}` } });
-      } else if (refImageUrl) {
-        userMessageContent.push({ type: 'image_url', image_url: { url: refImageUrl } });
+      } else if (absoluteRefImageUrl) {
+        userMessageContent.push({ type: 'image_url', image_url: { url: absoluteRefImageUrl } });
       }
 
       const messages = [
@@ -775,5 +803,6 @@ module.exports = {
   deleteCharacter,
   duplicateCharacter,
   generateCharacterAI,
-  generateCharacterSheetImage
+  generateCharacterSheetImage,
+  uploadCharacterImage
 };
