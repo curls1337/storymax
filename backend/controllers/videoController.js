@@ -95,7 +95,49 @@ function voToneLabel(tone) {
   return m[String(tone || '').trim()] || '';
 }
 
-function buildVoiceoverDirective(narration, lang, tone, durationSec) {
+// Item 8: pull the linked Consistent Character's saved voice identity (gender, tone,
+// language, notes) from the storyboard's character_id so narration can honor the
+// character's assigned voice instead of only the generic storyboard-level tone.
+// Returns null when no character is linked, or the character exists but every voice
+// field is empty (i.e. left as "Auto") — so behavior for un-configured characters is
+// completely unchanged.
+async function getCharacterVoiceProfile(db, storyboard) {
+  try {
+    if (!storyboard || !storyboard.character_id) return null;
+    const char = await db.get(
+      'SELECT name, voice_gender, voice_tone, voice_language, voice_notes FROM characters WHERE id = ?',
+      [storyboard.character_id]
+    );
+    if (!char) return null;
+    const hasAny = char.voice_gender || char.voice_tone || char.voice_language || char.voice_notes;
+    if (!hasAny) return null;
+    return {
+      name: char.name || '',
+      voiceGender: char.voice_gender || '',
+      voiceTone: char.voice_tone || '',
+      voiceLanguage: char.voice_language || '',
+      voiceNotes: char.voice_notes || '',
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
+// Item 8: builds a short additive clause anchoring the narrator's voice to the linked
+// character's saved voice identity. Returns '' when no profile is set so the base
+// voiceover directive is completely unchanged for characters without a configured voice.
+function buildCharacterVoiceClause(voiceProfile) {
+  if (!voiceProfile) return '';
+  const parts = [];
+  if (voiceProfile.voiceGender) parts.push(`${voiceProfile.voiceGender} voice`);
+  if (voiceProfile.voiceTone) parts.push(`a ${voiceProfile.voiceTone} tone`);
+  if (voiceProfile.voiceNotes) parts.push(voiceProfile.voiceNotes);
+  if (!parts.length) return '';
+  const who = voiceProfile.name ? `the character "${voiceProfile.name}"` : 'the linked character';
+  return ` The narrator's voice should specifically match ${who}: ${parts.join(', ')}.`;
+}
+
+function buildVoiceoverDirective(narration, lang, tone, durationSec, voiceProfile) {
   let line = String(narration || '').trim();
   if (!line) return '';
   // Sanitize text for clear TTS & video models: strip quotes, brackets, and convert 'x' to 'dan'
@@ -124,7 +166,7 @@ function buildVoiceoverDirective(narration, lang, tone, durationSec) {
   // speech per-panel with odd pauses (sounds spelled-out). Explicitly tell the model
   // that on-screen text is silent/visual-only and to speak ONLY this narration line,
   // as one smooth continuous sentence.
-  return `\n\nAudio — voiceover: an off-screen narrator speaks this line in ${language}${delivery}, paced evenly across the whole clip and synced to the on-screen action — begin as the shot starts and finish about one second before it ends, natural and unhurried, clear articulation, no rushing and no dead air, delivered as ONE smooth continuous sentence — never word-by-word, never spelled out letter-by-letter, never split into separate fragments or paused between individual words. Do NOT read aloud, sound out, or vocalize any on-screen text, caption, subtitle, or small "VO:" label printed in the image itself — that printed text is a silent visual reference note only, not dialogue to perform. Speak ONLY the voiceover line below, exactly once, as natural continuous speech. Voiceover line: "${line}"`;
+  return `\n\nAudio — voiceover: an off-screen narrator speaks this line in ${language}${delivery}, paced evenly across the whole clip and synced to the on-screen action — begin as the shot starts and finish about one second before it ends, natural and unhurried, clear articulation, no rushing and no dead air, delivered as ONE smooth continuous sentence — never word-by-word, never spelled out letter-by-letter, never split into separate fragments or paused between individual words. Do NOT read aloud, sound out, or vocalize any on-screen text, caption, subtitle, or small "VO:" label printed in the image itself — that printed text is a silent visual reference note only, not dialogue to perform. Speak ONLY the voiceover line below, exactly once, as natural continuous speech. Voiceover line: "${line}"${buildCharacterVoiceClause(voiceProfile)}`;
 }
 
 // When "backsound" (background music) is OFF, forbid any BGM/soundtrack so the video
@@ -186,7 +228,7 @@ function getSceneNarration(storyboard, sceneIdx) {
 
 // Finalizes a video prompt's AUDIO. When hasVo is true, keep audio enabled and attach
 // narration directive if present. If hasVo is false, enforce no-speech. Apply backsound toggle.
-function applyAudioDirectives(basePrompt, { hasVo, narration, voLanguage, voTone, durationSec, backsound }) {
+function applyAudioDirectives(basePrompt, { hasVo, narration, voLanguage, voTone, durationSec, backsound, voiceProfile }) {
   let t = stripVoiceover(basePrompt);
   let effectiveNarration = narration;
   if (hasVo && !effectiveNarration) {
@@ -199,10 +241,10 @@ function applyAudioDirectives(basePrompt, { hasVo, narration, voLanguage, voTone
 
   if (hasVo) {
     if (effectiveNarration) {
-      t += buildVoiceoverDirective(effectiveNarration, voLanguage, voTone, durationSec);
+      t += buildVoiceoverDirective(effectiveNarration, voLanguage, voTone, durationSec, voiceProfile);
     } else {
       const lang = voLanguage || 'Bahasa Indonesia';
-      t += `\n\nAudio — voiceover: an off-screen narrator speaks clear voiceover narration in ${lang} matching the scene action, delivered as one smooth continuous sentence — never word-by-word and never spelled out. Ignore any on-screen text, caption, subtitle, or small "VO:" label printed in the image; it is a silent visual reference note only, not dialogue to read aloud. Spoken voiceover narration MUST be active and clearly audible.`;
+      t += `\n\nAudio — voiceover: an off-screen narrator speaks clear voiceover narration in ${lang} matching the scene action, delivered as one smooth continuous sentence — never word-by-word and never spelled out. Ignore any on-screen text, caption, subtitle, or small "VO:" label printed in the image; it is a silent visual reference note only, not dialogue to read aloud. Spoken voiceover narration MUST be active and clearly audible.${buildCharacterVoiceClause(voiceProfile)}`;
     }
   } else {
     t = enforceNoVoiceover(t);
@@ -299,6 +341,8 @@ async function generateVideo(req, res) {
     const voCfg = resolveVoConfig(storyboard);
     const sceneNarration = getSceneNarration(storyboard, sceneIdx);
     const hasVo = !!generateAudio;
+    // Item 8: pull the linked character's saved voice identity (null when none configured).
+    const voiceProfile = await getCharacterVoiceProfile(db, storyboard);
 
     // Provider routing (Bagian 2): Magica single-video generation — bypasses the
     // Freebeat key requirement + inline CLI spawn entirely.
@@ -321,7 +365,7 @@ async function generateVideo(req, res) {
       
       (async () => {
         const onLog = (m) => { if (activeTasks[taskId]) activeTasks[taskId].logs += m + '\n'; };
-        const magicaPrompt = applyAudioDirectives(prompt, { hasVo, narration: sceneNarration, voLanguage: voCfg.voLanguage, voTone: voCfg.voTone, durationSec: duration, backsound });
+        const magicaPrompt = applyAudioDirectives(prompt, { hasVo, narration: sceneNarration, voLanguage: voCfg.voLanguage, voTone: voCfg.voTone, durationSec: duration, backsound, voiceProfile });
         const nativeAudio = !!(hasVo || backsound);
         
         try {
@@ -429,7 +473,7 @@ async function generateVideo(req, res) {
         // VO is server-authoritative from the storyboard setting (single source of truth):
         // attach the VO directive when the storyboard has VO on & this scene has narration,
         // else enforce no-speech. Backsound stays a per-video toggle.
-        const finalPrompt = applyAudioDirectives(prompt, { hasVo, narration: sceneNarration, voLanguage: voCfg.voLanguage, voTone: voCfg.voTone, durationSec: duration, backsound });
+        const finalPrompt = applyAudioDirectives(prompt, { hasVo, narration: sceneNarration, voLanguage: voCfg.voLanguage, voTone: voCfg.voTone, durationSec: duration, backsound, voiceProfile });
 
         const spawnCmd = 'node';
         const cliPath = localCliPath; // B3: shared resolution (services/freebeat/cli.js)
@@ -1290,6 +1334,10 @@ async function generateAllVideos(req, res) {
       return res.status(404).json({ message: 'Storyboard tidak ditemukan.' });
     }
 
+    // Item 8: pull the linked character's saved voice identity ONCE for the whole batch
+    // (null when no character is linked or it has no voice fields configured).
+    const voiceProfile = await getCharacterVoiceProfile(db, storyboard);
+
     // 2. Resolve pages & total scenes
     let panelImages = [];
     try {
@@ -1379,7 +1427,7 @@ async function generateAllVideos(req, res) {
         const voCfg = resolveVoConfig(storyboard);
         const sceneNarration = (matchingPrompt && matchingPrompt.narration) ? String(matchingPrompt.narration).trim() : '';
         const hasVo = !!generateAudio && !!sceneNarration;
-        promptText = applyAudioDirectives(promptText, { hasVo, narration: sceneNarration, voLanguage: voCfg.voLanguage, voTone: voCfg.voTone, durationSec: duration, backsound });
+        promptText = applyAudioDirectives(promptText, { hasVo, narration: sceneNarration, voLanguage: voCfg.voLanguage, voTone: voCfg.voTone, durationSec: duration, backsound, voiceProfile });
 
         // Resolve scene image
         const pageIdx = sceneIdx;
@@ -1771,79 +1819,4 @@ async function mergeStoryboardVideos(req, res) {
 
         await new Promise((resolve, reject) => {
           // Using -crf 18 and -b:v 6M / -b:a 192k for pristine high-definition video and audio quality!
-          const ffmpegCmd = `"${ffmpegPath}" -y -i "${currentPath}" -i "${nextPath}" -filter_complex "${filterComplex}" -map "[v]" -map "[a]" -c:v libx264 -crf 18 -b:v 6M -preset fast -c:a aac -b:a 192k -pix_fmt yuv420p "${nextTempOut}"`;
-          exec(ffmpegCmd, (error, stdout, stderr) => {
-            if (error) {
-              reject(new Error(`FFmpeg error at step ${i}: ${stderr || error.message}`));
-            } else {
-              resolve();
-            }
-          });
-        });
-
-        currentPath = nextTempOut;
-      }
-
-      fs.copyFileSync(currentPath, outputPath);
-    }
-
-    if (listPath && fs.existsSync(listPath)) {
-      fs.unlinkSync(listPath);
-      listPath = '';
-    }
-    for (const f of tempFiles) {
-      if (fs.existsSync(f) && f !== outputPath) {
-        try { fs.unlinkSync(f); } catch (e) {}
-      }
-    }
-
-    const finalMergedUrl = `/uploads/${outputFilename}`;
-    
-    // Maintain history of all merged video versions generated for this storyboard
-    const sbRecord = await db.get('SELECT merged_video_url, merged_video_history FROM storyboards WHERE id = ?', [storyboardId]);
-    let history = [];
-    if (sbRecord && sbRecord.merged_video_history) {
-      try { history = JSON.parse(sbRecord.merged_video_history); } catch (e) { history = []; }
-    }
-    if (!Array.isArray(history)) history = [];
-    if (sbRecord && sbRecord.merged_video_url && !history.includes(sbRecord.merged_video_url)) {
-      history.push(sbRecord.merged_video_url);
-    }
-    if (!history.includes(finalMergedUrl)) {
-      history.push(finalMergedUrl);
-    }
-
-    const historyJson = JSON.stringify(history);
-    await db.run('UPDATE storyboards SET merged_video_url = ?, merged_video_history = ? WHERE id = ?', [finalMergedUrl, historyJson, storyboardId]);
-
-    res.json({
-      message: 'Video berhasil digabungkan.',
-      merged_video_url: finalMergedUrl,
-      merged_video_history: historyJson
-    });
-
-  } catch (err) {
-    if (listPath && fs.existsSync(listPath)) {
-      try { fs.unlinkSync(listPath); } catch (e) {}
-    }
-    for (const f of tempFiles) {
-      if (fs.existsSync(f)) {
-        try { fs.unlinkSync(f); } catch (e) {}
-      }
-    }
-    console.error('[Video Concat] Merging failed:', err);
-    res.status(500).json({ message: 'Gagal menggabungkan video.', error: err.message });
-  }
-}
-
-module.exports = {
-  generateVideo,
-  getStoryboardVideos,
-  deleteVideo,
-  resumeProcessingVideos,
-  regenerateVideoMarketingCopy,
-  regenerateStoryboardMarketingCopy,
-  generateMarketingCopyInternal,
-  generateAllVideos,
-  mergeStoryboardVideos
-};
+          const ffmpegCmd = `"${ffmpegPath}" -y -i "${currentPath}" -i "${nextPath}" -filter_complex "${filterComplex}
