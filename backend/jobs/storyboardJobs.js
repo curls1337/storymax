@@ -19,6 +19,7 @@ const { getStyleSpec } = require('../prompts/styleLibrary');
 const { buildMasterPrompt } = require('../prompts/masterPrompt');
 const { generateMasterPromptWithAI } = require('../prompts/masterPromptLLM');
 const { analyzeSubject } = require('../prompts/subjectAnalyzer');
+const { analyzeCharacterSubject } = require('../prompts/characterAnalyzer');
 const { normalizeFaceMode } = require('../prompts/faceMode');
 
 async function runStoryboardGeneratorBackground(taskId, storyboardId) {
@@ -62,6 +63,21 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
           task.refImages = task.refImages || [];
           if (char.sheet_image_url) {
             task.refImages.unshift({ url: char.sheet_image_url });
+          }
+          // A13: also lock the character's PHYSICAL IDENTITY (face/gender/ethnicity/
+          // hair/body type) with its own vision analysis, separate from the PRODUCT-only
+          // subjectDescriptor below. Previously nothing explicitly anchored the human
+          // character's appearance in the prompt text — only the reference image + the
+          // AI splitter's per-page text carried it, both of which can drift — so a page
+          // could render a completely different-looking person while the product stayed
+          // consistent.
+          if (task.characterDescriptor === undefined && char.sheet_image_url) {
+            try {
+              task.characterDescriptor = await analyzeCharacterSubject({ imageUrlOrPath: char.sheet_image_url }, db);
+            } catch (cdErr) {
+              console.warn('Gagal menganalisis identitas karakter:', cdErr.message);
+              task.characterDescriptor = '';
+            }
           }
           task.characterLoaded = true;
           await saveTaskState(db, storyboardId, task);
@@ -292,6 +308,7 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
           textOnScreen: !!task.textOnScreen,
           voiceOver: task.enableVoImage !== undefined ? !!task.enableVoImage : !!task.enableVo,
           voLanguage: task.voLanguage || 'Bahasa Indonesia',
+          characterDescriptor: task.characterDescriptor || '',
         };
         // Try the LLM generator first; it returns null on ANY failure (no AI key,
         // timeout, bad output) so we always fall back to the deterministic builder.
@@ -830,6 +847,19 @@ async function regenerateStoryboardPage(req, res) {
         const faceMode = normalizeFaceMode(genParams.faceMode, showFace, style);
         const spec = getStyleSpec(style);
         const subjectDesc = await analyzeSubject({ imagePath: finalRefImagePath, ideaText: storyboard.prompt }, db);
+        // A13: also re-derive the CHARACTER identity anchor for regeneration, so a
+        // single-page redo doesn't lose the identity lock that the full run applied.
+        let regenCharacterDescriptor = '';
+        try {
+          if (storyboard.character_id) {
+            const char = await db.get('SELECT * FROM characters WHERE id = ?', [storyboard.character_id]);
+            if (char && char.sheet_image_url) {
+              regenCharacterDescriptor = await analyzeCharacterSubject({ imageUrlOrPath: char.sheet_image_url }, db) || '';
+            }
+          }
+        } catch (cdErr) {
+          console.warn('Gagal menganalisis identitas karakter (regenerasi):', cdErr.message);
+        }
         const genCtx = {
           subject: subjectDesc || storyboard.prompt, concept: pageConcept, faceMode,
           gridCount: Number(gridCount) || 6, startScene,
@@ -837,6 +867,7 @@ async function regenerateStoryboardPage(req, res) {
           aspectRatio, model, pageNum: pageIdx + 1, pageCount, hasRefImage: !!finalRefImagePath, secondsPerPage,
           textOnScreen: !!genParams.textOnScreen,
           voiceOver: !!genParams.enableVo, voLanguage: genParams.voLanguage || 'Bahasa Indonesia',
+          characterDescriptor: regenCharacterDescriptor,
         };
         // Try the LLM generator first; it falls back to the deterministic builder
         // (returns null on any failure) so generation never breaks.
