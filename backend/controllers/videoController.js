@@ -1229,10 +1229,9 @@ async function runSingleVideoSpawn(vRecId, tId, kRec, pText, scImg, model, gener
   }
 }
 
-// Fire-and-forget Magica video render for ONE scene in a batch. Extracted from the
-// inline batch loop so multiple scenes can be launched in PARALLEL (not one-by-one),
-// each using a DIFFERENT Magica API key (round-robin key assignment happens in the
-// caller). Mirrors the persistence/logging behavior of the previous inline version.
+// Fire-and-forget Magica video render for ONE scene in a batch. Extracted so multiple
+// scenes can be launched in PARALLEL (not one-by-one), each using a DIFFERENT Magica
+// API key (round-robin key assignment happens in the caller).
 async function runSingleMagicaVideoSpawn({ mRecId, mTaskId, mk, promptText, sceneImage, originalCdnUrl, generationType, duration, resolution, aspectRatio, hasVo, backsound, magicaModel, magicaMethod, mWhToken }) {
   const db = getDb();
   const onLog = (m) => { if (activeTasks[mTaskId]) activeTasks[mTaskId].logs += m + '\n'; };
@@ -1245,8 +1244,6 @@ async function runSingleMagicaVideoSpawn({ mRecId, mTaskId, mk, promptText, scen
   }
 
   try {
-    // generate_audio (native audio) ON if EITHER voiceover OR backsound is wanted;
-    // the prompt above already forbids whichever is off (parity with the single path).
     const nativeAudio = !!(hasVo || backsound);
     const { url, credit } = await magicaGen.generateVideoMagica(mk.key_value, { prompt: promptText, sceneImage, originalCdnUrl, generationType, duration, resolution, aspectRatio, generateAudio: nativeAudio, nodeType: magicaModel, method: magicaMethod, onLog, webhook: magicaGen.buildWebhook('video', mRecId, mWhToken), onRunStart: (rid) => db.run('UPDATE generated_videos SET magica_run_id = ? WHERE id = ?', [rid, mRecId]).catch(() => {}) });
     await db.run('UPDATE generated_videos SET video_url = ?, status = ?, used_credits = ?, logs = ? WHERE id = ?', [url, 'success', credit || 0, activeTasks[mTaskId]?.logs || '', mRecId]);
@@ -1327,7 +1324,7 @@ async function generateAllVideos(req, res) {
     }
 
     // Respond immediately to prevent HTTP timeouts
-    res.json({ message: 'Proses batch video generation sukses dimulai di background. Setiap scene akan diantrekan secara bergiliran.' });
+    res.json({ message: 'Proses batch video generation sukses dimulai di background.' });
 
     // Run the queue loop in the background!
     (async () => {
@@ -1342,8 +1339,9 @@ async function generateAllVideos(req, res) {
       // MANUAL (a specific key chosen) runs ONE scene at a time; AUTO runs as many in
       // parallel as there are FREE active keys — the key acquisition below is the gate.
       const isManual = !!(apiKeyId && apiKeyId !== 'auto');
-      // Provider routing (Bagian 2): Magica renders ALL scenes in PARALLEL via its own
-      // key pool (no Freebeat key gate). Determined once for the whole batch.
+      // Provider routing (Bagian 2): Magica renders ALL scenes in PARALLEL (fire-and-forget)
+      // via its own key pool, cycling through a DIFFERENT key per scene (round-robin) —
+      // no more one-by-one sequential Magica rendering. Determined once for the batch.
       const isMagica = await magicaGen.isMagicaForStoryboard(getDb(), storyboardId);
 
       for (let sceneIdx = 0; sceneIdx < totalScenes; sceneIdx++) {
@@ -1391,9 +1389,9 @@ async function generateAllVideos(req, res) {
         }
 
         // Magica batch scene — PARALLEL: fired off immediately (not awaited) so ALL
-        // queued pages render at once instead of waiting for each page to finish
-        // first, and each launch cycles to a DIFFERENT Magica API key (round-robin
-        // over the qualifying key pool) instead of reusing a single key.
+        // queued pages render at once instead of waiting for each page to finish first,
+        // and each launch cycles to a DIFFERENT Magica API key (round-robin over the
+        // qualifying key pool) instead of reusing a single key.
         if (isMagica) {
           const mAllKeys = await magicaGen.getAllMediaMagicaKeys(db, magicaKeyId);
           const mk = mAllKeys.length ? mAllKeys[sceneIdx % mAllKeys.length] : null;
@@ -1767,4 +1765,81 @@ async function mergeStoryboardVideos(req, res) {
           `[v0][v1]xfade=transition=${activeTransition}:duration=${transitionDur}:offset=${offset.toFixed(2)}[v]; ` +
           audioFilter;
 
-        await new Promise((resol
+        await new Promise((resolve, reject) => {
+          // Using -crf 18 and -b:v 6M / -b:a 192k for pristine high-definition video and audio quality!
+          const ffmpegCmd = `"${ffmpegPath}" -y -i "${currentPath}" -i "${nextPath}" -filter_complex "${filterComplex}" -map "[v]" -map "[a]" -c:v libx264 -crf 18 -b:v 6M -preset fast -c:a aac -b:a 192k -pix_fmt yuv420p "${nextTempOut}"`;
+          exec(ffmpegCmd, (error, stdout, stderr) => {
+            if (error) {
+              reject(new Error(`FFmpeg error at step ${i}: ${stderr || error.message}`));
+            } else {
+              resolve();
+            }
+          });
+        });
+
+        currentPath = nextTempOut;
+      }
+
+      fs.copyFileSync(currentPath, outputPath);
+    }
+
+    if (listPath && fs.existsSync(listPath)) {
+      fs.unlinkSync(listPath);
+      listPath = '';
+    }
+    for (const f of tempFiles) {
+      if (fs.existsSync(f) && f !== outputPath) {
+        try { fs.unlinkSync(f); } catch (e) {}
+      }
+    }
+
+    const finalMergedUrl = `/uploads/${outputFilename}`;
+    
+    // Maintain history of all merged video versions generated for this storyboard
+    const sbRecord = await db.get('SELECT merged_video_url, merged_video_history FROM storyboards WHERE id = ?', [storyboardId]);
+    let history = [];
+    if (sbRecord && sbRecord.merged_video_history) {
+      try { history = JSON.parse(sbRecord.merged_video_history); } catch (e) { history = []; }
+    }
+    if (!Array.isArray(history)) history = [];
+    if (sbRecord && sbRecord.merged_video_url && !history.includes(sbRecord.merged_video_url)) {
+      history.push(sbRecord.merged_video_url);
+    }
+    if (!history.includes(finalMergedUrl)) {
+      history.push(finalMergedUrl);
+    }
+
+    const historyJson = JSON.stringify(history);
+    await db.run('UPDATE storyboards SET merged_video_url = ?, merged_video_history = ? WHERE id = ?', [finalMergedUrl, historyJson, storyboardId]);
+
+    res.json({
+      message: 'Video berhasil digabungkan.',
+      merged_video_url: finalMergedUrl,
+      merged_video_history: historyJson
+    });
+
+  } catch (err) {
+    if (listPath && fs.existsSync(listPath)) {
+      try { fs.unlinkSync(listPath); } catch (e) {}
+    }
+    for (const f of tempFiles) {
+      if (fs.existsSync(f)) {
+        try { fs.unlinkSync(f); } catch (e) {}
+      }
+    }
+    console.error('[Video Concat] Merging failed:', err);
+    res.status(500).json({ message: 'Gagal menggabungkan video.', error: err.message });
+  }
+}
+
+module.exports = {
+  generateVideo,
+  getStoryboardVideos,
+  deleteVideo,
+  resumeProcessingVideos,
+  regenerateVideoMarketingCopy,
+  regenerateStoryboardMarketingCopy,
+  generateMarketingCopyInternal,
+  generateAllVideos,
+  mergeStoryboardVideos
+};
