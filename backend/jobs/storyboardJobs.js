@@ -22,6 +22,35 @@ const { analyzeSubject } = require('../prompts/subjectAnalyzer');
 const { analyzeCharacterSubject } = require('../prompts/characterAnalyzer');
 const { normalizeFaceMode } = require('../prompts/faceMode');
 
+// A14: stitches multiple reference image paths into one side-by-side collage
+// PNG. Extracted as a shared helper so it can be reused for either the legacy
+// "no character" collage path, or (separately) for combining multiple NON-
+// character product/scene reference images used only for the text descriptor.
+async function stitchImagesSideBySide(paths, publicDir) {
+  const combinedFilename = `combined_ref_${Date.now()}.png`;
+  const combinedPath = path.join(publicDir, combinedFilename);
+
+  const { Jimp } = require('jimp');
+  const images = await Promise.all(paths.map(p => Jimp.read(p)));
+
+  const targetHeight = 600;
+  let totalWidth = 0;
+  for (const img of images) {
+    img.resize({ h: targetHeight });
+    totalWidth += img.width;
+  }
+
+  const canvas = new Jimp({ width: totalWidth, height: targetHeight, color: 0xFFFFFFFF });
+  let currentX = 0;
+  for (const img of images) {
+    canvas.composite(img, currentX, 0);
+    currentX += img.width;
+  }
+
+  await canvas.write(combinedPath);
+  return combinedPath.replace(/\\/g, '/');
+}
+
 async function runStoryboardGeneratorBackground(taskId, storyboardId) {
   const db = getDb();
   const task = activeTasks[taskId];
@@ -62,7 +91,10 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
 
           task.refImages = task.refImages || [];
           if (char.sheet_image_url) {
-            task.refImages.unshift({ url: char.sheet_image_url });
+            // A14: tag this entry so the ref-image pipeline below keeps it as the
+            // SOLE visual identity anchor instead of stitching it into a mixed
+            // collage with any other reference image the user also uploaded.
+            task.refImages.unshift({ url: char.sheet_image_url, isCharacterRef: true });
           }
           // A13: also lock the character's PHYSICAL IDENTITY (face/gender/ethnicity/
           // hair/body type) with its own vision analysis, separate from the PRODUCT-only
@@ -112,7 +144,7 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
 
     // 2. Save Reference Images if starting fresh
     if (task.finalRefImagePath === undefined) {
-      const savedRefImagePaths = [];
+      const savedRefMeta = []; // { path, isCharacterRef }
       let refImagesList = task.refImages || [];
       if (refImagesList.length === 0) {
         if (task.refImageBase64) {
@@ -196,50 +228,65 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
           } catch (sharpErr) {
             console.warn(`[sharp] failed to process reference image: ${sharpErr.message}`);
           }
-          savedRefImagePaths.push(refImagePath.replace(/\\/g, '/'));
+          savedRefMeta.push({ path: refImagePath.replace(/\\/g, '/'), isCharacterRef: !!item.isCharacterRef });
         }
       }
 
+      // A14: keep the Consistent Character's own photo as the SOLE visual edit
+      // reference instead of stitching it into a side-by-side collage with any
+      // OTHER reference image the user also uploaded (e.g. a product/scene
+      // photo). A stitched collage gave every independent per-page "image edit"
+      // call an ambiguous mixed photo to interpret — which is why the rendered
+      // person's face/identity could still drift page-to-page even with the
+      // CHARACTER text anchor in place. This is style-agnostic (runs before any
+      // style branching), so it applies uniformly to every layout style. The
+      // character's own photo is now used directly (maximizing facial
+      // fidelity); any OTHER reference image(s) are kept separate and used only
+      // for the PRODUCT text descriptor below (never mixed into the identity photo).
+      const characterPaths = savedRefMeta.filter(m => m.isCharacterRef).map(m => m.path);
+      const otherPaths = savedRefMeta.filter(m => !m.isCharacterRef).map(m => m.path);
+
       let finalRefImagePath = '';
-      if (savedRefImagePaths.length === 1) {
-        finalRefImagePath = savedRefImagePaths[0];
+      let productRefImagePath = '';
+
+      if (characterPaths.length > 0) {
+        finalRefImagePath = characterPaths[0];
+        task.logs += `Ref Karakter : ${path.basename(finalRefImagePath)} (dipakai langsung sebagai acuan wajah, tidak digabung kolase)\n`;
+        if (otherPaths.length === 1) {
+          productRefImagePath = otherPaths[0];
+          task.logs += `Ref Produk   : ${path.basename(productRefImagePath)} (dipakai hanya untuk deskripsi produk)\n\n`;
+        } else if (otherPaths.length > 1) {
+          task.logs += `[1.5/4] Menggabungkan ${otherPaths.length} gambar referensi produk menjadi 1 kolase (khusus deskripsi produk)...\n`;
+          try {
+            productRefImagePath = await stitchImagesSideBySide(otherPaths, publicDir);
+            task.logs += `Kolase referensi produk berhasil dibuat.\n\n`;
+          } catch (stitchErr) {
+            console.error('Failed to stitch product reference images:', stitchErr);
+            task.logs += `[WARNING] Gagal menggabungkan gambar referensi produk: ${stitchErr.message}. Menggunakan gambar pertama sebagai fallback.\n\n`;
+            productRefImagePath = otherPaths[0];
+          }
+        } else {
+          task.logs += `\n`;
+        }
+      } else if (otherPaths.length === 1) {
+        finalRefImagePath = otherPaths[0];
         task.logs += `Ref Gambar   : ${path.basename(finalRefImagePath)}\n\n`;
-      } else if (savedRefImagePaths.length > 1) {
-        task.logs += `Ref Gambar Asli: ${savedRefImagePaths.map(p => path.basename(p)).join(', ')}\n`;
-        task.logs += `[1.5/4] Menggabungkan ${savedRefImagePaths.length} gambar referensi menjadi 1 kolase side-by-side untuk Freebeat...\n`;
+      } else if (otherPaths.length > 1) {
+        task.logs += `Ref Gambar Asli: ${otherPaths.map(p => path.basename(p)).join(', ')}\n`;
+        task.logs += `[1.5/4] Menggabungkan ${otherPaths.length} gambar referensi menjadi 1 kolase side-by-side untuk Freebeat...\n`;
         try {
-          const combinedFilename = `combined_ref_${Date.now()}.png`;
-          const combinedPath = path.join(publicDir, combinedFilename);
-          
-          const { Jimp } = require('jimp');
-          const images = await Promise.all(savedRefImagePaths.map(p => Jimp.read(p)));
-          
-          const targetHeight = 600;
-          let totalWidth = 0;
-          for (const img of images) {
-            img.resize({ h: targetHeight });
-            totalWidth += img.width;
-          }
-
-          const canvas = new Jimp({ width: totalWidth, height: targetHeight, color: 0xFFFFFFFF });
-          let currentX = 0;
-          for (const img of images) {
-            canvas.composite(img, currentX, 0);
-            currentX += img.width;
-          }
-
-          await canvas.write(combinedPath);
-          finalRefImagePath = combinedPath.replace(/\\/g, '/');
-          task.logs += `Kolase referensi berhasil dibuat: ${combinedFilename}\n\n`;
+          finalRefImagePath = await stitchImagesSideBySide(otherPaths, publicDir);
+          task.logs += `Kolase referensi berhasil dibuat.\n\n`;
         } catch (stitchErr) {
           console.error('Failed to stitch reference images:', stitchErr);
           task.logs += `[WARNING] Gagal menggabungkan gambar referensi: ${stitchErr.message}. Menggunakan gambar pertama sebagai fallback.\n\n`;
-          finalRefImagePath = savedRefImagePaths[0];
+          finalRefImagePath = otherPaths[0];
         }
       } else {
         task.logs += `Ref Gambar   : Tidak ada\n\n`;
       }
       task.finalRefImagePath = finalRefImagePath;
+      task.productRefImagePath = productRefImagePath;
       await saveTaskState(db, storyboardId, task);
     }
 
@@ -295,7 +342,11 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
         // so the prompt can lock the exact product identity across panels. Falls
         // back to the idea text on any failure — never blocks/hangs.
         if (task.subjectDescriptor === undefined) {
-          task.subjectDescriptor = await analyzeSubject({ imagePath: task.finalRefImagePath, ideaText: task.prompt }, db);
+          // A14: when a Consistent Character's own photo is the finalRefImagePath
+          // (used for visual identity), analyze the SEPARATE product reference
+          // (if the user also supplied one) for the product descriptor instead —
+          // otherwise the "product" description would just re-describe the person.
+          task.subjectDescriptor = await analyzeSubject({ imagePath: task.productRefImagePath || task.finalRefImagePath, ideaText: task.prompt }, db);
           await saveTaskState(db, storyboardId, task);
         }
         const faceMode = normalizeFaceMode(task.faceMode, task.showFace, task.style);
@@ -837,16 +888,20 @@ async function regenerateStoryboardPage(req, res) {
         
         // Resolve reference image path from active_task_data
         let finalRefImagePath = '';
+        let productRefImagePath = '';
         try {
           if (storyboard.active_task_data) {
             const taskData = JSON.parse(storyboard.active_task_data);
             finalRefImagePath = taskData.finalRefImagePath || '';
+            productRefImagePath = taskData.productRefImagePath || '';
           }
         } catch (e) {}
 
         const faceMode = normalizeFaceMode(genParams.faceMode, showFace, style);
         const spec = getStyleSpec(style);
-        const subjectDesc = await analyzeSubject({ imagePath: finalRefImagePath, ideaText: storyboard.prompt }, db);
+        // A14: analyze the dedicated product reference (if any) rather than the
+        // character's own identity photo, mirroring the main generator job.
+        const subjectDesc = await analyzeSubject({ imagePath: productRefImagePath || finalRefImagePath, ideaText: storyboard.prompt }, db);
         // A13: also re-derive the CHARACTER identity anchor for regeneration, so a
         // single-page redo doesn't lose the identity lock that the full run applied.
         let regenCharacterDescriptor = '';
