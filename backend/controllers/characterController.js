@@ -28,6 +28,29 @@ function _spawnCollect(cmd, args, opts = {}) {
   });
 }
 
+// Downloads a remotely-generated AI image into local /uploads storage with a short
+// retry, so a single flaky network blip doesn't leave a Character Sheet permanently
+// pointing at the provider's temporary/signed CDN URL. Those provider URLs normally
+// expire after a while, which is what previously made Character cards show a broken
+// image icon (the browser's alt-text placeholder) once the link died — the download
+// failure that caused it was being swallowed completely silently (`catch (dlErr) {}`)
+// with no retry and no log, so it was invisible in server logs.
+async function downloadFileWithRetry(url, destPath, retries = 2) {
+  let lastErr;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      await downloadFile(url, destPath);
+      return true;
+    } catch (e) {
+      lastErr = e;
+      console.warn(`[SheetImage] Local download attempt ${attempt + 1}/${retries + 1} failed for ${url}:`, e.message);
+      if (attempt < retries) await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
+    }
+  }
+  console.error(`[SheetImage] Giving up downloading image locally after ${retries + 1} attempts, keeping remote URL as-is (it may expire later):`, url, lastErr && lastErr.message);
+  return false;
+}
+
 function _extractImageUrl(json) {
   if (!json) return null;
   const d = json.data || json;
@@ -646,11 +669,9 @@ async function generateCharacterSheetImage(req, res) {
 
           if (genRes && genRes.url) {
             let storedUrl = genRes.url;
-            try {
-              const fname = `refsheet_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.png`;
-              await downloadFile(genRes.url, path.join(uploadsDir, fname));
-              storedUrl = `/uploads/${fname}`;
-            } catch (dlErr) {}
+            const fname = `refsheet_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.png`;
+            const downloaded = await downloadFileWithRetry(genRes.url, path.join(uploadsDir, fname));
+            if (downloaded) storedUrl = `/uploads/${fname}`;
 
             return res.json({ success: true, imageUrl: storedUrl });
           }
@@ -699,11 +720,9 @@ async function generateCharacterSheetImage(req, res) {
           const remoteUrl = _extractImageUrl(json);
           if (remoteUrl) {
             let storedUrl = remoteUrl;
-            try {
-              const fname = `refsheet_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.png`;
-              await downloadFile(remoteUrl, path.join(uploadsDir, fname));
-              storedUrl = `/uploads/${fname}`;
-            } catch (dlErr) {}
+            const fname = `refsheet_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.png`;
+            const downloaded = await downloadFileWithRetry(remoteUrl, path.join(uploadsDir, fname));
+            if (downloaded) storedUrl = `/uploads/${fname}`;
 
             return res.json({ success: true, imageUrl: storedUrl });
           }
@@ -727,11 +746,9 @@ async function generateCharacterSheetImage(req, res) {
 
           if (genRes && genRes.url) {
             let storedUrl = genRes.url;
-            try {
-              const fname = `refsheet_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.png`;
-              await downloadFile(genRes.url, path.join(uploadsDir, fname));
-              storedUrl = `/uploads/${fname}`;
-            } catch (dlErr) {}
+            const fname = `refsheet_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.png`;
+            const downloaded = await downloadFileWithRetry(genRes.url, path.join(uploadsDir, fname));
+            if (downloaded) storedUrl = `/uploads/${fname}`;
 
             return res.json({ success: true, imageUrl: storedUrl });
           }
