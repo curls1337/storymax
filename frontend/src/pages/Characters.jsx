@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom';
 import api from '../utils/api';
 import { 
   Sparkles, Plus, Search, Trash2, Edit3, Eye, Download, UserCheck, 
-  X, Loader, Palette, Layers, Film, Tag, Check, RefreshCw, Upload, Image as ImageIcon
+  X, Loader, Palette, Layers, Film, Tag, Check, RefreshCw, Upload, Image as ImageIcon,
+  Copy, History, ArrowUpDown, AlertTriangle
 } from 'lucide-react';
 import { toast } from '../utils/toast';
 import { confirm } from '../utils/confirm';
@@ -12,6 +13,8 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
   const [characters, setCharacters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState('created_desc');
+  const [duplicatingId, setDuplicatingId] = useState(null);
 
   // Modals
   const [showAiModal, setShowAiModal] = useState(false);
@@ -49,6 +52,16 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
   const [formProductionNotes, setFormProductionNotes] = useState('');
   const [formTriggerPrompt, setFormTriggerPrompt] = useState('');
   const [formSheetImageUrl, setFormSheetImageUrl] = useState('');
+  // Item 9: gender / skin tone (and "lainnya" captured via profile notes already).
+  // Left empty = "Auto" (AI decides / infers from reference photo).
+  const [formGender, setFormGender] = useState('');
+  const [formSkinTone, setFormSkinTone] = useState('');
+  // Item 8: per-character voice identity. All left empty = "Auto" (storyboard-level
+  // tone/language is used as-is, unchanged behavior).
+  const [formVoiceGender, setFormVoiceGender] = useState('');
+  const [formVoiceTone, setFormVoiceTone] = useState('');
+  const [formVoiceLanguage, setFormVoiceLanguage] = useState('');
+  const [formVoiceNotes, setFormVoiceNotes] = useState('');
   const [saving, setSaving] = useState(false);
 
   const fetchCharacters = async () => {
@@ -194,7 +207,16 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
         production_notes: aiResultSpec.production_notes || '',
         trigger_prompt: aiResultSpec.trigger_prompt || '',
         reference_images: refImgs,
-        sheet_image_url: aiSheetImageUrl || ''
+        sheet_image_url: aiSheetImageUrl || '',
+        // Item 9: gender / skin tone ("Auto" when the AI could not determine them).
+        gender: aiResultSpec.gender || '',
+        skin_tone: aiResultSpec.skin_tone || '',
+        attributes_source: aiResultSpec.attributes_source || (aiRefImage ? 'ai_auto' : 'manual'),
+        // Item 8: AI-suggested voice identity (all "Auto" if the AI left them blank).
+        voice_gender: aiResultSpec.voice_gender || '',
+        voice_tone: aiResultSpec.voice_tone || '',
+        voice_language: aiResultSpec.voice_language || '',
+        voice_notes: aiResultSpec.voice_notes || ''
       };
 
       await api.post('/characters', payload);
@@ -227,6 +249,12 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
     setFormProductionNotes(char.production_notes || '');
     setFormTriggerPrompt(char.trigger_prompt || '');
     setFormSheetImageUrl(char.sheet_image_url || '');
+    setFormGender(char.gender || '');
+    setFormSkinTone(char.skin_tone || '');
+    setFormVoiceGender(char.voice_gender || '');
+    setFormVoiceTone(char.voice_tone || '');
+    setFormVoiceLanguage(char.voice_language || '');
+    setFormVoiceNotes(char.voice_notes || '');
     setShowManualModal(true);
   };
 
@@ -245,6 +273,12 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
     setFormProductionNotes('');
     setFormTriggerPrompt('');
     setFormSheetImageUrl('');
+    setFormGender('');
+    setFormSkinTone('');
+    setFormVoiceGender('');
+    setFormVoiceTone('');
+    setFormVoiceLanguage('');
+    setFormVoiceNotes('');
     setShowManualModal(true);
   };
 
@@ -273,7 +307,14 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
         production_notes: formProductionNotes,
         trigger_prompt: formTriggerPrompt,
         reference_images: formSheetImageUrl ? [formSheetImageUrl] : [],
-        sheet_image_url: formSheetImageUrl
+        sheet_image_url: formSheetImageUrl,
+        gender: formGender,
+        skin_tone: formSkinTone,
+        attributes_source: 'manual',
+        voice_gender: formVoiceGender,
+        voice_tone: formVoiceTone,
+        voice_language: formVoiceLanguage,
+        voice_notes: formVoiceNotes
       };
 
       if (editingCharacter) {
@@ -293,7 +334,9 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
     }
   };
 
-  // Delete Character
+  // Delete Character. Item 5: if the server reports the character is still used in
+  // storyboards (HTTP 409), show a second confirmation naming the usage count and,
+  // if approved, retry with force=1 to delete anyway (detaching those storyboards).
   const handleDelete = async (char) => {
     const isOk = await confirm({
       title: 'Hapus Karakter',
@@ -306,7 +349,37 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
       toast.success(`Karakter "${char.name}" telah dihapus.`);
       fetchCharacters();
     } catch (err) {
+      if (err.response?.status === 409) {
+        const usageCount = err.response?.data?.usageCount || 0;
+        const forceOk = await confirm({
+          title: 'Karakter Masih Dipakai',
+          message: `Karakter "${char.name}" masih dipakai di ${usageCount} storyboard. Storyboard tersebut TIDAK akan dihapus, hanya tautan karakternya yang akan dilepas. Tetap hapus karakter ini?`
+        });
+        if (!forceOk) return;
+        try {
+          await api.delete(`/characters/${char.id}?force=1`);
+          toast.success(`Karakter "${char.name}" telah dihapus (dipaksa).`);
+          fetchCharacters();
+        } catch (err2) {
+          toast.error('Gagal menghapus karakter.');
+        }
+        return;
+      }
       toast.error('Gagal menghapus karakter.');
+    }
+  };
+
+  // Item 6: duplicate/clone an existing character (server copies its local files too).
+  const handleDuplicate = async (char) => {
+    setDuplicatingId(char.id);
+    try {
+      const res = await api.post(`/characters/${char.id}/duplicate`);
+      toast.success(`Karakter "${char.name}" berhasil diduplikasi.`);
+      fetchCharacters();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Gagal menduplikasi karakter.');
+    } finally {
+      setDuplicatingId(null);
     }
   };
 
@@ -321,11 +394,27 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
     reader.readAsDataURL(file);
   };
 
-  const filteredCharacters = characters.filter(c => 
-    c.name?.toLowerCase().includes(search.toLowerCase()) ||
-    c.visual_tone?.toLowerCase().includes(search.toLowerCase()) ||
-    c.concept?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredCharacters = characters
+    .filter(c => 
+      c.name?.toLowerCase().includes(search.toLowerCase()) ||
+      c.visual_tone?.toLowerCase().includes(search.toLowerCase()) ||
+      c.concept?.toLowerCase().includes(search.toLowerCase())
+    )
+    .sort((a, b) => {
+      switch (sortBy) {
+        case 'name_asc':
+          return String(a.name || '').localeCompare(String(b.name || ''));
+        case 'name_desc':
+          return String(b.name || '').localeCompare(String(a.name || ''));
+        case 'created_asc':
+          return new Date(a.created_at || 0) - new Date(b.created_at || 0);
+        case 'usage_desc':
+          return (b.usage_count || 0) - (a.usage_count || 0);
+        case 'created_desc':
+        default:
+          return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+      }
+    });
 
   const getFullImageUrl = (path) => {
     if (!path) return '';
@@ -373,8 +462,8 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
       </div>
 
       {/* SEARCH BAR */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="relative flex-grow max-w-md">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="relative flex-grow max-w-md w-full">
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
@@ -384,9 +473,26 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
             className="w-full bg-[#1a1918] border border-[#2a2725] rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-[#cfae80]/50"
           />
         </div>
-        <span className="text-xs text-slate-400 font-mono">
-          Total: <strong className="text-[#cfae80]">{filteredCharacters.length}</strong> Karakter
-        </span>
+        <div className="flex items-center gap-3">
+          {/* Item 7: advanced sort/organization control */}
+          <div className="relative flex items-center gap-1.5 bg-[#1a1918] border border-[#2a2725] rounded-xl px-3 py-2">
+            <ArrowUpDown className="w-3.5 h-3.5 text-[#cfae80]" />
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="bg-transparent text-xs text-slate-200 focus:outline-none"
+            >
+              <option value="created_desc">Terbaru</option>
+              <option value="created_asc">Terlama</option>
+              <option value="name_asc">Nama (A-Z)</option>
+              <option value="name_desc">Nama (Z-A)</option>
+              <option value="usage_desc">Paling Sering Dipakai</option>
+            </select>
+          </div>
+          <span className="text-xs text-slate-400 font-mono whitespace-nowrap">
+            Total: <strong className="text-[#cfae80]">{filteredCharacters.length}</strong> Karakter
+          </span>
+        </div>
       </div>
 
       {/* CHARACTERS GALLERY GRID */}
@@ -457,14 +563,22 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
 
                 {/* CARD BODY CONTENT */}
                 <div className="p-5 space-y-4 flex-grow">
-                  <div>
-                    <h3 className="text-lg font-editorial italic text-white group-hover:text-[#cfae80] transition-colors">
-                      {char.name}
-                    </h3>
-                    {char.tagline && (
-                      <p className="text-xs text-[#cfae80]/80 font-medium italic mt-0.5 truncate">
-                        "{char.tagline}"
-                      </p>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h3 className="text-lg font-editorial italic text-white group-hover:text-[#cfae80] transition-colors">
+                        {char.name}
+                      </h3>
+                      {char.tagline && (
+                        <p className="text-xs text-[#cfae80]/80 font-medium italic mt-0.5 truncate">
+                          "{char.tagline}"
+                        </p>
+                      )}
+                    </div>
+                    {/* Item 5: usage indicator */}
+                    {char.usage_count > 0 && (
+                      <span className="shrink-0 px-2 py-0.5 rounded-full bg-white/[0.04] border border-[#3a3633] text-[9px] font-bold text-slate-300 whitespace-nowrap">
+                        {char.usage_count} storyboard
+                      </span>
                     )}
                   </div>
 
@@ -520,6 +634,14 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
                       <Edit3 className="w-3.5 h-3.5" />
                     </button>
                     <button
+                      onClick={() => handleDuplicate(char)}
+                      disabled={duplicatingId === char.id}
+                      className="p-1.5 text-slate-400 hover:text-[#cfae80] rounded-lg hover:bg-white/5 transition-all disabled:opacity-50"
+                      title="Duplikat / Clone Karakter"
+                    >
+                      {duplicatingId === char.id ? <Loader className="w-3.5 h-3.5 animate-spin" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                    <button
                       onClick={() => handleDelete(char)}
                       className="p-1.5 text-slate-400 hover:text-red-400 rounded-lg hover:bg-red-950/20 transition-all"
                       title="Hapus Karakter"
@@ -559,7 +681,7 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
                 </span>
                 <div>
                   <h2 className="text-xl font-editorial italic text-white">Sihir AI: Buat Character Design Sheet</h2>
-                  <p className="text-xs text-slate-400">Masukkan deskripsi tokoh atau unggah foto untuk dibuatkan sheet lengkap otomatis.</p>
+                  <p className="text-xs text-slate-400">Masukkan deskripsi tokoh atau unggah foto untuk dibuatkan sheet lengkap otomatis. Jenis kelamin, warna kulit, dan identitas suara akan diisi otomatis oleh AI (mode Auto) — cukup kirim foto referensi saja jika Anda tidak ingin mengisi manual.</p>
                 </div>
               </div>
               <button
@@ -582,7 +704,7 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
                       rows={4}
                       value={aiPrompt}
                       onChange={(e) => setAiPrompt(e.target.value)}
-                      placeholder="Contoh: Aldi Taher - penyanyi pop eksentrik Indonesia, kaos kuning kumal bertuliskan 'I Love You', celana kargo krem, gitar akustik penuh stiker, jam tangan kuning, gaya film retro Tarantino 90s..."
+                      placeholder="Contoh: Aldi Taher - penyanyi pop eksentrik Indonesia, kaos kuning kumal bertuliskan 'I Love You', celana kargo krem, gitar akustik penuh stiker, jam tangan kuning, gaya film retro Tarantino 90s... (Kosongkan & unggah foto saja untuk mode Auto sepenuhnya)"
                       className="w-full bg-[#121110] border border-[#2a2725] rounded-xl p-3.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-[#cfae80]/60 leading-relaxed"
                     />
                   </div>
@@ -677,7 +799,7 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
                   {/* Optional Reference Image Upload */}
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-wider text-slate-300">
-                      Foto Referensi Visual (Opsional)
+                      Foto Referensi Visual (Opsional — Mode Auto)
                     </label>
                     <div className="flex items-center gap-3">
                       <label className="cursor-pointer px-4 py-2.5 bg-[#121110] hover:bg-[#201e1c] border border-[#2a2725] rounded-xl text-xs font-semibold text-slate-300 flex items-center gap-2 transition-all">
@@ -751,6 +873,12 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
                       <h4 className="font-editorial italic text-base text-white">{aiResultSpec.name}</h4>
                       <p className="text-slate-400 italic">"{aiResultSpec.tagline}"</p>
                       <p className="text-slate-300">{aiResultSpec.concept}</p>
+                      {(aiResultSpec.gender || aiResultSpec.skin_tone) && (
+                        <div className="flex flex-wrap gap-1.5 pt-1">
+                          {aiResultSpec.gender && <span className="px-2 py-0.5 rounded bg-white/[0.04] border border-[#3a3633] text-[9.5px] text-slate-300">Gender: {aiResultSpec.gender}</span>}
+                          {aiResultSpec.skin_tone && <span className="px-2 py-0.5 rounded bg-white/[0.04] border border-[#3a3633] text-[9.5px] text-slate-300">Kulit: {aiResultSpec.skin_tone}</span>}
+                        </div>
+                      )}
                     </div>
 
                     <div className="bg-[#121110] p-4 rounded-xl border border-[#2a2725] space-y-2">
@@ -765,6 +893,16 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
                       )}
                     </div>
                   </div>
+
+                  {(aiResultSpec.voice_gender || aiResultSpec.voice_tone || aiResultSpec.voice_language) && (
+                    <div className="bg-[#121110] p-4 rounded-xl border border-[#2a2725] space-y-2 text-xs">
+                      <span className="font-bold uppercase tracking-wider text-[#cfae80] text-[10px]">Identitas Suara (Voice Over) — Saran AI</span>
+                      <p className="text-slate-300">
+                        {[aiResultSpec.voice_gender, aiResultSpec.voice_tone, aiResultSpec.voice_language].filter(Boolean).join(' · ')}
+                      </p>
+                      {aiResultSpec.voice_notes && <p className="text-slate-500 text-[10px]">{aiResultSpec.voice_notes}</p>}
+                    </div>
+                  )}
 
                   <div className="bg-[#121110] p-4 rounded-xl border border-[#2a2725] space-y-2 text-xs">
                     <span className="font-bold uppercase tracking-wider text-[#cfae80] text-[10px]">Pakaian & Aksesoris (Wardrobe Breakdown)</span>
@@ -867,6 +1005,33 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
                   />
                 </div>
 
+                {/* Item 9: Gender / Skin Tone — leave blank for "Auto" (AI infers from photo) */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="font-bold uppercase tracking-wider text-slate-300">Jenis Kelamin <span className="text-slate-500 normal-case font-normal">(kosongkan = Auto)</span></label>
+                    <select
+                      value={formGender}
+                      onChange={(e) => setFormGender(e.target.value)}
+                      className="w-full bg-[#121110] border border-[#2a2725] rounded-xl px-3.5 py-2.5 text-slate-100 focus:outline-none focus:border-[#cfae80]/60"
+                    >
+                      <option value="">Auto (Ditentukan AI)</option>
+                      <option value="Male">Laki-laki</option>
+                      <option value="Female">Perempuan</option>
+                      <option value="Non-binary">Non-biner</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="font-bold uppercase tracking-wider text-slate-300">Warna Kulit <span className="text-slate-500 normal-case font-normal">(kosongkan = Auto)</span></label>
+                    <input
+                      type="text"
+                      value={formSkinTone}
+                      onChange={(e) => setFormSkinTone(e.target.value)}
+                      placeholder="Contoh: Sawo matang, Kuning langsat, Gelap..."
+                      className="w-full bg-[#121110] border border-[#2a2725] rounded-xl px-3.5 py-2.5 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-[#cfae80]/60"
+                    />
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="font-bold uppercase tracking-wider text-slate-300">Visual Tone & Style</label>
@@ -943,6 +1108,56 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
                     placeholder="Keywords khusus agar AI menjaga konsistensi wajah & baju di adegan..."
                     className="w-full bg-[#121110] border border-[#2a2725] rounded-xl px-3.5 py-2.5 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-[#cfae80]/60"
                   />
+                </div>
+
+                {/* Item 8: per-character voice identity — leave blank for "Auto" (unchanged storyboard-level tone) */}
+                <div className="space-y-3 p-4 rounded-xl border border-[#2a2725] bg-[#121110]/60">
+                  <label className="font-bold uppercase tracking-wider text-[#cfae80] block">8. Identitas Suara (Voice Over) Karakter <span className="text-slate-500 normal-case font-normal">(kosongkan semua = Auto)</span></label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="font-semibold text-slate-400">Gender Suara</label>
+                      <select
+                        value={formVoiceGender}
+                        onChange={(e) => setFormVoiceGender(e.target.value)}
+                        className="w-full bg-[#1a1918] border border-[#2a2725] rounded-xl px-3.5 py-2.5 text-slate-100 focus:outline-none focus:border-[#cfae80]/60"
+                      >
+                        <option value="">Auto</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Neutral">Neutral</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="font-semibold text-slate-400">Nada / Tone Suara</label>
+                      <input
+                        type="text"
+                        value={formVoiceTone}
+                        onChange={(e) => setFormVoiceTone(e.target.value)}
+                        placeholder="Contoh: hangat dan percaya diri, serak dan lelah..."
+                        className="w-full bg-[#1a1918] border border-[#2a2725] rounded-xl px-3.5 py-2.5 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-[#cfae80]/60"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="font-semibold text-slate-400">Bahasa Voice Over</label>
+                      <input
+                        type="text"
+                        value={formVoiceLanguage}
+                        onChange={(e) => setFormVoiceLanguage(e.target.value)}
+                        placeholder="Contoh: Bahasa Indonesia (kosongkan = ikut setelan storyboard)"
+                        className="w-full bg-[#1a1918] border border-[#2a2725] rounded-xl px-3.5 py-2.5 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-[#cfae80]/60"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="font-semibold text-slate-400">Catatan Suara Tambahan</label>
+                      <input
+                        type="text"
+                        value={formVoiceNotes}
+                        onChange={(e) => setFormVoiceNotes(e.target.value)}
+                        placeholder="Aksen, kecepatan bicara, dsb (opsional)"
+                        className="w-full bg-[#1a1918] border border-[#2a2725] rounded-xl px-3.5 py-2.5 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-[#cfae80]/60"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <div className="space-y-1.5">
@@ -1180,6 +1395,12 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
                   <p className="text-xs text-slate-300 leading-relaxed font-sans">
                     {showSheetViewer.profile_notes || 'Profil fisik, sudut pandang samping, gaya rambut, dan ekspresi khas.'}
                   </p>
+                  {(showSheetViewer.gender || showSheetViewer.skin_tone) && (
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {showSheetViewer.gender && <span className="px-2 py-0.5 rounded bg-white/[0.04] border border-[#3a3633] text-[9.5px] text-slate-300">Gender: {showSheetViewer.gender}</span>}
+                      {showSheetViewer.skin_tone && <span className="px-2 py-0.5 rounded bg-white/[0.04] border border-[#3a3633] text-[9.5px] text-slate-300">Kulit: {showSheetViewer.skin_tone}</span>}
+                    </div>
+                  )}
                 </div>
 
                 {/* 2. TURNAROUND 360° VIEW */}
@@ -1273,6 +1494,45 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
                   )}
                 </div>
               </div>
+
+              {/* ITEM 4: RIWAYAT VERSI SHEET IMAGE */}
+              {Array.isArray(showSheetViewer.sheet_image_history) && showSheetViewer.sheet_image_history.length > 0 && (
+                <div className="bg-[#181716] border border-[#2a2725] rounded-2xl p-6 space-y-4">
+                  <h4 className="text-xs font-bold uppercase tracking-widest text-[#cfae80] border-b border-[#2a2725] pb-2 flex items-center gap-2">
+                    <History className="w-3.5 h-3.5" />
+                    RIWAYAT VERSI SHEET IMAGE
+                  </h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    {[...showSheetViewer.sheet_image_history].reverse().map((h, idx) => (
+                      <div key={idx} className="relative group/hist rounded-xl overflow-hidden border border-[#2a2725] bg-[#11100f] aspect-[3/4]">
+                        <img src={getFullImageUrl(h.url)} alt={`Versi ${idx + 1}`} className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/70 opacity-0 group-hover/hist:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-2">
+                          {h.replaced_at && (
+                            <span className="text-[9px] text-slate-300 text-center">
+                              {new Date(h.replaced_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            </span>
+                          )}
+                          <button
+                            onClick={async () => {
+                              try {
+                                await api.put(`/characters/${showSheetViewer.id}`, { sheet_image_url: h.url });
+                                toast.success('Versi sheet image dipulihkan.');
+                                setShowSheetViewer(prev => (prev ? { ...prev, sheet_image_url: h.url } : prev));
+                                fetchCharacters();
+                              } catch (e) {
+                                toast.error('Gagal memulihkan versi ini.');
+                              }
+                            }}
+                            className="px-2 py-1 bg-[#cfae80] text-slate-950 rounded-lg text-[9px] font-bold uppercase tracking-wider"
+                          >
+                            Gunakan Versi Ini
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* FOOTER TITLE BRANDING */}
               <div className="p-6 bg-[#181716] border border-[#2a2725] rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
