@@ -108,6 +108,7 @@ function buildMasterPrompt(spec, ctx = {}) {
     textOnScreen = false,
     voiceOver = false,
     voLanguage = 'Bahasa Indonesia',
+    characterDescriptor = '',
   } = ctx;
 
   const gc = Number(gridCount) || 6;
@@ -173,6 +174,13 @@ function buildMasterPrompt(spec, ctx = {}) {
         : ['different or redesigned product', 'altered or generic button shape', 'circular power icon button instead of original button', 'altered or garbled logo/brand text', 'changed colors, shape or proportions', 'inconsistent product features across panels/pages'])
     : ['the main product looking different between panels'];
 
+  // A13: when a saved "Consistent Character" is used, explicitly forbid the
+  // character's identity from drifting between pages — this is on top of (not
+  // instead of) the CHARACTER anchor line appended in the protected tail below.
+  const characterNeg = characterDescriptor
+    ? ["the character's face, gender, ethnicity, hair or body type changing between panels or pages", 'a different, unrelated person appearing in any panel or page']
+    : [];
+
   // Merge + de-dupe every negative source so the tail never repeats phrases, then
   // cap its length. A 500+ char negative list (e.g. cube) would dominate the whole
   // budget; product-integrity + style terms come first, and the strongest no-people
@@ -186,6 +194,7 @@ function buildMasterPrompt(spec, ctx = {}) {
   let negatives = dedupeList(
     []
       .concat(fidelityNeg)
+      .concat(characterNeg)
       .concat(styleNegs)
       .concat(antiSketch)
       .concat(fneg ? String(fneg).split(',') : [])
@@ -215,11 +224,23 @@ function buildMasterPrompt(spec, ctx = {}) {
             : `IMPORTANT: PAGE ${pageNum}/${pageCount} (scenes ${startScene}-${endScene}, ${winStart}-${winEnd}s) — CONTINUE from the end of page ${pageNum - 1} (do NOT restart); show later stages / final result. ${CONT} `))
     : '';
 
-  // Protected tail: the FOOTER, the face-mode clause, and the NEGATIVE line must
-  // ALWAYS survive — they carry shooting notes, enforce faceless/chin-crop, and
+  // A13: CHARACTER identity anchor — separate from the PRODUCT-only SUBJECT
+  // line below. Previously nothing in the actual image prompt locked the human
+  // character's physical appearance across pages (only the reference image +
+  // the AI splitter's per-page text carried it, both of which can drift), so a
+  // page could render a completely different-looking person while the product
+  // stayed consistent. Kept in the PROTECTED tail (never trimmed) so it survives
+  // on every single page regardless of character-budget pressure.
+  const characterClause = characterDescriptor
+    ? `\nCHARACTER (SAME physical identity in EVERY panel & page — face, gender, ethnicity, hair color/style and body type must NEVER change; only wardrobe, setting & activity may vary): ${characterDescriptor}.`
+    : '';
+
+  // Protected tail: the FOOTER, the face-mode clause, the CHARACTER anchor (if
+  // any), and the NEGATIVE line must ALWAYS survive — they carry shooting
+  // notes, enforce faceless/chin-crop, lock the character's identity, and
   // block glow/robot/garbled text. Held out of the fitter and appended last.
   const tail = `FOOTER: a slim 'PRODUCTION NOTES' bar (camera, FPS, lighting, audio).
-${face}
+${face}${characterClause}
 NEGATIVE: ${negatives}.`;
 
   // ── Fixed structural lines (content is fixed; always present) ──
