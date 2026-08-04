@@ -897,16 +897,17 @@ async function regenerateStoryboardPage(req, res) {
           }
         } catch (e) {}
 
-        const faceMode = normalizeFaceMode(genParams.faceMode, showFace, style);
         const spec = getStyleSpec(style);
-        // A14: analyze the dedicated product reference (if any) rather than the
-        // character's own identity photo, mirroring the main generator job.
-        const subjectDesc = await analyzeSubject({ imagePath: productRefImagePath || finalRefImagePath, ideaText: storyboard.prompt }, db);
-        // A13: also re-derive the CHARACTER identity anchor for regeneration, so a
-        // single-page redo doesn't lose the identity lock that the full run applied.
-        let regenCharacterDescriptor = '';
+        const faceMode = normalizeFaceMode(genParams.faceMode, showFace, style);
+
+        let subjectDesc = genParams.subjectDescriptor;
+        if (subjectDesc === undefined) {
+          subjectDesc = await analyzeSubject({ imagePath: productRefImagePath || finalRefImagePath, ideaText: storyboard.prompt }, db);
+        }
+
+        let regenCharacterDescriptor = genParams.characterDescriptor || '';
         try {
-          if (storyboard.character_id) {
+          if (!regenCharacterDescriptor && storyboard.character_id) {
             const char = await db.get('SELECT * FROM characters WHERE id = ?', [storyboard.character_id]);
             if (char && char.sheet_image_url) {
               regenCharacterDescriptor = await analyzeCharacterSubject({ imageUrlOrPath: char.sheet_image_url }, db) || '';
@@ -1225,4 +1226,4 @@ async function resumeProcessingStoryboardsOnStartup() {
   }
 }
 
-module.exports = { runStoryboardGeneratorBackground, regenerateStoryboardPage, resumeProcessingStoryboardsOnStartup };
+module.exports = { runStoryboardGeneratorBackground, regenerateStoryboardPage, resumeProcessingStoryboardsOnStartup, stitchImagesSideBySide };
