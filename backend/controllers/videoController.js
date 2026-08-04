@@ -1819,4 +1819,79 @@ async function mergeStoryboardVideos(req, res) {
 
         await new Promise((resolve, reject) => {
           // Using -crf 18 and -b:v 6M / -b:a 192k for pristine high-definition video and audio quality!
-          const ffmpegCmd = `"${ffmpegPath}" -y -i "${currentPath}" -i "${nextPath}" -filter_complex "${filterComplex}
+          const ffmpegCmd = `"${ffmpegPath}" -y -i "${currentPath}" -i "${nextPath}" -filter_complex "${filterComplex}" -map "[v]" -map "[a]" -c:v libx264 -crf 18 -b:v 6M -preset fast -c:a aac -b:a 192k -pix_fmt yuv420p "${nextTempOut}"`;
+          exec(ffmpegCmd, (error, stdout, stderr) => {
+            if (error) {
+              reject(new Error(`FFmpeg error at step ${i}: ${stderr || error.message}`));
+            } else {
+              resolve();
+            }
+          });
+        });
+
+        currentPath = nextTempOut;
+      }
+
+      fs.copyFileSync(currentPath, outputPath);
+    }
+
+    if (listPath && fs.existsSync(listPath)) {
+      fs.unlinkSync(listPath);
+      listPath = '';
+    }
+    for (const f of tempFiles) {
+      if (fs.existsSync(f) && f !== outputPath) {
+        try { fs.unlinkSync(f); } catch (e) {}
+      }
+    }
+
+    const finalMergedUrl = `/uploads/${outputFilename}`;
+    
+    // Maintain history of all merged video versions generated for this storyboard
+    const sbRecord = await db.get('SELECT merged_video_url, merged_video_history FROM storyboards WHERE id = ?', [storyboardId]);
+    let history = [];
+    if (sbRecord && sbRecord.merged_video_history) {
+      try { history = JSON.parse(sbRecord.merged_video_history); } catch (e) { history = []; }
+    }
+    if (!Array.isArray(history)) history = [];
+    if (sbRecord && sbRecord.merged_video_url && !history.includes(sbRecord.merged_video_url)) {
+      history.push(sbRecord.merged_video_url);
+    }
+    if (!history.includes(finalMergedUrl)) {
+      history.push(finalMergedUrl);
+    }
+
+    const historyJson = JSON.stringify(history);
+    await db.run('UPDATE storyboards SET merged_video_url = ?, merged_video_history = ? WHERE id = ?', [finalMergedUrl, historyJson, storyboardId]);
+
+    res.json({
+      message: 'Video berhasil digabungkan.',
+      merged_video_url: finalMergedUrl,
+      merged_video_history: historyJson
+    });
+
+  } catch (err) {
+    if (listPath && fs.existsSync(listPath)) {
+      try { fs.unlinkSync(listPath); } catch (e) {}
+    }
+    for (const f of tempFiles) {
+      if (fs.existsSync(f)) {
+        try { fs.unlinkSync(f); } catch (e) {}
+      }
+    }
+    console.error('[Video Concat] Merging failed:', err);
+    res.status(500).json({ message: 'Gagal menggabungkan video.', error: err.message });
+  }
+}
+
+module.exports = {
+  generateVideo,
+  getStoryboardVideos,
+  deleteVideo,
+  resumeProcessingVideos,
+  regenerateVideoMarketingCopy,
+  regenerateStoryboardMarketingCopy,
+  generateMarketingCopyInternal,
+  generateAllVideos,
+  mergeStoryboardVideos
+};
