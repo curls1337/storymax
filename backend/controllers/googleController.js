@@ -190,9 +190,29 @@ function absUrl(apiBase, u) {
   return u.startsWith('/') ? `${apiBase}${u}` : `${apiBase}/${u}`;
 }
 
+// Turns an AI marketing title into a short, filesystem/URL-safe slug so exported Drive
+// video files carry a descriptive, keyword-rich filename (e.g. "Resep_Nasi_Goreng_Viral")
+// instead of a generic timestamp-based name. A meaningful filename is one of the few
+// pieces of "metadata" that survives when a video is downloaded from Drive and
+// re-uploaded to TikTok/Instagram/YouTube Shorts, so this gives it real SEO/keyword
+// value there — note this does NOT itself influence the FYP ranking algorithm, which
+// runs entirely on-platform after upload (see the chat explanation for real FYP levers).
+function sanitizeFilename(str, maxLen = 80) {
+  const cleaned = String(str || '')
+    .normalize('NFKD')
+    .replace(/[^\w\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '_');
+  return (cleaned || 'storymax_video').slice(0, maxLen);
+}
+
 // Helper to upload a local or remote media file to Google Drive and return its public Drive webViewLink.
 // If Drive auth is null or upload fails, falls back to absUrl(apiBase, u).
-async function resolveMediaLink(u, apiBase, auth, folderIdCache = {}) {
+// customFilename (optional): descriptive base name (without extension) to use instead of
+// the generic CDN/local filename — e.g. the AI-generated marketing title, slugified.
+// description (optional): shown as the Drive file's "Description" metadata field (e.g. the
+// marketing caption), so the file itself carries the caption/keywords inside Drive too.
+async function resolveMediaLink(u, apiBase, auth, folderIdCache = {}, customFilename = null, description = null) {
   const { Readable } = require('stream');
   u = String(u == null ? '' : u);
   if (!u) return '';
@@ -250,6 +270,7 @@ async function resolveMediaLink(u, apiBase, auth, folderIdCache = {}) {
       filename = path.basename(urlPath) || `asset_${Date.now()}.mp4`;
       const ext = path.extname(filename).toLowerCase();
       mimeType = ext === '.png' ? 'image/png' : (ext === '.webp' ? 'image/webp' : (ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : 'video/mp4'));
+      if (customFilename) filename = `${customFilename}${ext || '.mp4'}`;
     } else {
       // Local file in /uploads/
       const relativePath = u.replace(/^https?:\/\/[^\/]+/, '').replace(/^\/?/, '');
@@ -261,10 +282,12 @@ async function resolveMediaLink(u, apiBase, auth, folderIdCache = {}) {
       const ext = path.extname(filename).toLowerCase();
       mimeType = ext === '.mp4' ? 'video/mp4' : (ext === '.webp' ? 'image/webp' : 'image/png');
       mediaStream = fs.createReadStream(localFilePath);
+      if (customFilename) filename = `${customFilename}${ext || '.mp4'}`;
     }
 
     const fileMetadata = {
       name: filename,
+      description: description ? String(description).slice(0, 1000) : undefined,
       parents: folderIdCache.folderId ? [folderIdCache.folderId] : []
     };
     const media = {
@@ -287,7 +310,7 @@ async function resolveMediaLink(u, apiBase, auth, folderIdCache = {}) {
       });
     } catch (e) {}
 
-    const driveLink = uploadedFile.data.webViewLink || `https://drive.google.com/file/d/${fileId}/view?usp=sharing`;
+    const driveLink = uploadedFile.data.webViewLink || `{{https://drive.google.com/file/d/${fileId}}}/view?usp=sharing`;
     folderIdCache.uploadedFiles[u] = driveLink;
     return driveLink;
   } catch (err) {
@@ -311,7 +334,7 @@ async function buildSimpleRows(db, storyboards, apiBase, auth = null) {
         const latestVid = await db.get('SELECT video_url FROM generated_videos WHERE storyboard_id = ? AND status = "success" ORDER BY id DESC LIMIT 1', [sb.id]);
         videoLink = (latestVid && latestVid.video_url) ? latestVid.video_url : (sb.image_path || '');
       }
-      const mediaUrl = await resolveMediaLink(videoLink, apiBase, auth, driveCache);
+      const mediaUrl = await resolveMediaLink(videoLink, apiBase, auth, driveCache, sanitizeFilename(title), caption);
       rows.push([createdDate, title, caption, mediaUrl, '', '']);
     } catch (e) {
       rows.push([new Date((sb && sb.created_at) || Date.now()).toLocaleDateString('id-ID'), (sb && sb.title) || '', (sb && sb.prompt) || '', '', '', '']);
@@ -342,7 +365,7 @@ async function buildFullRows(db, storyboards, apiBase, auth = null) {
       const vidByScene = {};
       for (const v of vids) { const cur = vidByScene[v.scene_idx]; if (!cur || v.status === 'success') vidByScene[v.scene_idx] = v; }
       
-      const mergedVideoUrl = await resolveMediaLink(sb.merged_video_url, apiBase, auth, driveCache);
+      const mergedVideoUrl = await resolveMediaLink(sb.merged_video_url, apiBase, auth, driveCache, sanitizeFilename(title), caption);
       const sceneCount = Math.max(images.length, scenes.length, ...vids.map((v) => (Number(v.scene_idx) || 0) + 1), 1);
       
       for (let i = 0; i < sceneCount; i++) {
@@ -552,7 +575,7 @@ async function performAutoDriveBackup(db) {
       });
     } catch (e) {}
 
-    const driveLink = uploadedFile.data.webViewLink || `https://drive.google.com/file/d/${fileId}/view?usp=sharing`;
+    const driveLink = uploadedFile.data.webViewLink || `{{https://drive.google.com/file/d/${fileId}}}/view?usp=sharing`;
     const lastBackupStamp = new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'medium' });
 
     await db.run(
