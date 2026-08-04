@@ -1229,6 +1229,34 @@ async function runSingleVideoSpawn(vRecId, tId, kRec, pText, scImg, model, gener
   }
 }
 
+// Fire-and-forget Magica video render for ONE scene in a batch. Extracted so multiple
+// scenes can be launched in PARALLEL (not one-by-one), each using a DIFFERENT Magica
+// API key (round-robin key assignment happens in the caller).
+async function runSingleMagicaVideoSpawn({ mRecId, mTaskId, mk, promptText, sceneImage, originalCdnUrl, generationType, duration, resolution, aspectRatio, hasVo, backsound, magicaModel, magicaMethod, mWhToken }) {
+  const db = getDb();
+  const onLog = (m) => { if (activeTasks[mTaskId]) activeTasks[mTaskId].logs += m + '\n'; };
+
+  if (!mk) {
+    const _noKeyMsg = 'Tidak ada API Key Magica dengan saldo cukup (>= 5 kredit) untuk video (key < 5 kredit hanya untuk LLM).';
+    if (activeTasks[mTaskId]) { activeTasks[mTaskId].status = 'failed'; activeTasks[mTaskId].error = _noKeyMsg; }
+    await db.run('UPDATE generated_videos SET status = ?, error_message = ?, logs = ? WHERE id = ?', ['failed', _noKeyMsg, activeTasks[mTaskId]?.logs || '', mRecId]);
+    return;
+  }
+
+  try {
+    const nativeAudio = !!(hasVo || backsound);
+    const { url, credit } = await magicaGen.generateVideoMagica(mk.key_value, { prompt: promptText, sceneImage, originalCdnUrl, generationType, duration, resolution, aspectRatio, generateAudio: nativeAudio, nodeType: magicaModel, method: magicaMethod, onLog, webhook: magicaGen.buildWebhook('video', mRecId, mWhToken), onRunStart: (rid) => db.run('UPDATE generated_videos SET magica_run_id = ? WHERE id = ?', [rid, mRecId]).catch(() => {}) });
+    await db.run('UPDATE generated_videos SET video_url = ?, status = ?, used_credits = ?, logs = ? WHERE id = ?', [url, 'success', credit || 0, activeTasks[mTaskId]?.logs || '', mRecId]);
+    if (activeTasks[mTaskId]) { activeTasks[mTaskId].status = 'success'; activeTasks[mTaskId].logs += '[Magica] Video selesai.\n'; }
+    try { await db.run('UPDATE magica_api_keys SET last_status = ? WHERE id = ?', ['OK - ' + new Date().toLocaleString('id-ID'), mk.id]); } catch (e) {}
+  } catch (mErr) {
+    onLog('[ERROR] Magica gagal: ' + mErr.message);
+    if (activeTasks[mTaskId]) { activeTasks[mTaskId].status = 'failed'; activeTasks[mTaskId].error = mErr.message; }
+    await db.run('UPDATE generated_videos SET status = ?, error_message = ?, logs = ? WHERE id = ?', ['failed', mErr.message, activeTasks[mTaskId]?.logs || '', mRecId]);
+    try { await db.run('UPDATE magica_api_keys SET last_status = ? WHERE id = ?', ['Error: ' + String(mErr.message).slice(0, 120), mk.id]); } catch (e) {}
+  }
+}
+
 async function generateAllVideos(req, res) {
   const {
     storyboardId,
@@ -1296,7 +1324,7 @@ async function generateAllVideos(req, res) {
     }
 
     // Respond immediately to prevent HTTP timeouts
-    res.json({ message: 'Proses batch video generation sukses dimulai di background. Setiap scene akan diantrekan secara bergiliran.' });
+    res.json({ message: 'Proses batch video generation sukses dimulai di background.' });
 
     // Run the queue loop in the background!
     (async () => {
@@ -1311,8 +1339,9 @@ async function generateAllVideos(req, res) {
       // MANUAL (a specific key chosen) runs ONE scene at a time; AUTO runs as many in
       // parallel as there are FREE active keys — the key acquisition below is the gate.
       const isManual = !!(apiKeyId && apiKeyId !== 'auto');
-      // Provider routing (Bagian 2): Magica renders each scene sequentially via its
-      // own pool (no Freebeat key gate). Determined once for the whole batch.
+      // Provider routing (Bagian 2): Magica renders ALL scenes in PARALLEL (fire-and-forget)
+      // via its own key pool, cycling through a DIFFERENT key per scene (round-robin) —
+      // no more one-by-one sequential Magica rendering. Determined once for the batch.
       const isMagica = await magicaGen.isMagicaForStoryboard(getDb(), storyboardId);
 
       for (let sceneIdx = 0; sceneIdx < totalScenes; sceneIdx++) {
@@ -1359,9 +1388,13 @@ async function generateAllVideos(req, res) {
           } catch (e) {}
         }
 
-        // Magica batch scene — sequential, bypasses the Freebeat key gate below.
+        // Magica batch scene — PARALLEL: fired off immediately (not awaited) so ALL
+        // queued pages render at once instead of waiting for each page to finish first,
+        // and each launch cycles to a DIFFERENT Magica API key (round-robin over the
+        // qualifying key pool) instead of reusing a single key.
         if (isMagica) {
-          const mk = await magicaGen.pickMediaMagicaKey(db, magicaKeyId);
+          const mAllKeys = await magicaGen.getAllMediaMagicaKeys(db, magicaKeyId);
+          const mk = mAllKeys.length ? mAllKeys[sceneIdx % mAllKeys.length] : null;
           const mTaskId = 'video_task_' + Date.now() + '_' + sceneIdx;
           const mWhToken = require('crypto').randomBytes(16).toString('hex');
           const mIns = await db.run(
@@ -1369,28 +1402,22 @@ async function generateAllVideos(req, res) {
             [storyboardId, sceneIdx, promptText, 'magica:seedance', aspectRatio || null, duration || null, resolution || null, 'processing', mTaskId, null, mk ? mk.id : null, mWhToken]
           );
           const mRecId = mIns.lastID;
-          activeTasks[mTaskId] = { status: 'processing', storyboardId, apiKeyId: null, logs: `=== VIDEO (MAGICA) scene ${sceneIdx + 1} ===\n`, result: null, error: null };
-          const onLog = (m) => { if (activeTasks[mTaskId]) activeTasks[mTaskId].logs += m + '\n'; };
+          activeTasks[mTaskId] = { status: 'processing', storyboardId, apiKeyId: null, logs: `=== VIDEO (MAGICA) scene ${sceneIdx + 1} (Key #${mk ? mk.id : '-'}) ===\n`, result: null, error: null };
+
           if (!mk) {
             const _noKeyMsg = 'Tidak ada API Key Magica dengan saldo cukup (>= 5 kredit) untuk video (key < 5 kredit hanya untuk LLM).';
             activeTasks[mTaskId].status = 'failed'; activeTasks[mTaskId].error = _noKeyMsg;
             await db.run('UPDATE generated_videos SET status = ?, error_message = ?, logs = ? WHERE id = ?', ['failed', _noKeyMsg, activeTasks[mTaskId].logs, mRecId]);
             break;
           }
-          try {
-            // generate_audio (native audio) ON if EITHER voiceover OR backsound is wanted;
-            // the prompt above already forbids whichever is off (parity with the single path).
-            const nativeAudio = !!(hasVo || backsound);
-            const { url, credit } = await magicaGen.generateVideoMagica(mk.key_value, { prompt: promptText, sceneImage, originalCdnUrl, generationType, duration, resolution, aspectRatio, generateAudio: nativeAudio, nodeType: magicaModel, method: magicaMethod, onLog, webhook: magicaGen.buildWebhook('video', mRecId, mWhToken), onRunStart: (rid) => db.run('UPDATE generated_videos SET magica_run_id = ? WHERE id = ?', [rid, mRecId]).catch(() => {}) });
-            await db.run('UPDATE generated_videos SET video_url = ?, status = ?, used_credits = ?, logs = ? WHERE id = ?', [url, 'success', credit || 0, activeTasks[mTaskId].logs, mRecId]);
-            activeTasks[mTaskId].status = 'success'; activeTasks[mTaskId].logs += '[Magica] Video selesai.\n';
-            try { await db.run('UPDATE magica_api_keys SET last_status = ? WHERE id = ?', ['OK - ' + new Date().toLocaleString('id-ID'), mk.id]); } catch (e) {}
-          } catch (mErr) {
-            onLog('[ERROR] Magica gagal: ' + mErr.message);
-            activeTasks[mTaskId].status = 'failed'; activeTasks[mTaskId].error = mErr.message;
-            await db.run('UPDATE generated_videos SET status = ?, error_message = ?, logs = ? WHERE id = ?', ['failed', mErr.message, activeTasks[mTaskId].logs, mRecId]);
-          }
-          await sleep(1500);
+
+          // Fire-and-forget: do NOT await this scene's generation — start the next
+          // queued scene immediately so all pages render in parallel.
+          runSingleMagicaVideoSpawn({ mRecId, mTaskId, mk, promptText, sceneImage, originalCdnUrl, generationType, duration, resolution, aspectRatio, hasVo, backsound, magicaModel, magicaMethod, mWhToken });
+
+          // Small courtesy stagger so simultaneous launches don't all hit Magica at
+          // the exact same instant — this does NOT serialize generation itself.
+          await sleep(400);
           continue;
         }
 
