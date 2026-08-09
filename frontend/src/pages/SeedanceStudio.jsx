@@ -106,23 +106,53 @@ export default function SeedanceStudio() {
             .filter(Boolean);
         }
 
-        let prompts = [];
+        // Extract AI Video Prompts (Image-to-Video / Text-to-Video prompts)
+        let videoPromptList = [];
         if (sb.video_prompts) {
           try {
-            prompts = typeof sb.video_prompts === 'string' ? JSON.parse(sb.video_prompts) : sb.video_prompts;
+            const parsedVp = typeof sb.video_prompts === 'string' ? JSON.parse(sb.video_prompts) : sb.video_prompts;
+            if (parsedVp) {
+              if (Array.isArray(parsedVp.scenes)) {
+                videoPromptList = parsedVp.scenes;
+              } else if (Array.isArray(parsedVp)) {
+                videoPromptList = parsedVp;
+              }
+            }
           } catch (e) {}
         }
 
         imgUrls.forEach((url, idx) => {
           const cleanedUrl = cleanImageUrl(url);
           const fullUrl = getFullFileUrl(cleanedUrl);
-          const pagePrompt = (prompts[idx] && prompts[idx].prompt) ? prompts[idx].prompt : (sb.prompt || sb.title);
+
+          // Get dedicated AI Video Prompt for this panel/scene
+          let videoPromptText = '';
+          const vpItem = videoPromptList[idx];
+          if (vpItem) {
+            if (typeof vpItem === 'string') {
+              videoPromptText = vpItem;
+            } else if (typeof vpItem === 'object') {
+              videoPromptText = vpItem.imageToVideoPrompt || vpItem.textToVideoPrompt || vpItem.prompt || vpItem.visualPrompt || vpItem.description || '';
+            }
+          }
+
+          // Fallback to sb.prompt or sb.title if no specific video prompt found
+          if (!videoPromptText || !videoPromptText.trim()) {
+            videoPromptText = sb.prompt || sb.title || '';
+          }
+
+          // Clean any VO: or Voiceover: cues from the video prompt
+          videoPromptText = String(videoPromptText)
+            .replace(/\b(VO|Voiceover|Voice\s*Over|Naskah\s*Voice\s*Over|Narasi|Narration)\s*:\s*"[^"]*"/gi, '')
+            .replace(/\b(VO|Voiceover|Voice\s*Over|Naskah\s*Voice\s*Over|Narasi|Narration)\s*:[^\n.]*([.\n]|$)/gi, '')
+            .trim();
+
           panels.push({
             id: `${sb.id}_${idx}`,
             storyboardId: sb.id,
             title: sb.title || `Storyboard #${sb.id}`,
             pageNum: idx + 1,
-            prompt: pagePrompt,
+            prompt: videoPromptText,
             imageUrl: fullUrl
           });
         });
@@ -140,7 +170,6 @@ export default function SeedanceStudio() {
     const found = storyboardPanels.find(p => String(p.id) === String(panelId));
     if (found) {
       if (found.prompt) {
-        // Strip any VO: or Voiceover: lines from the prompt so video model won't speak it unless requested
         let cleanP = String(found.prompt)
           .replace(/\b(VO|Voiceover|Voice\s*Over|Naskah\s*Voice\s*Over|Narasi|Narration)\s*:\s*"[^"]*"/gi, '')
           .replace(/\b(VO|Voiceover|Voice\s*Over|Naskah\s*Voice\s*Over|Narasi|Narration)\s*:[^\n.]*([.\n]|$)/gi, '')
@@ -148,6 +177,27 @@ export default function SeedanceStudio() {
         setPrompt(cleanP || found.prompt);
       }
       if (found.imageUrl) setImageUrl(cleanImageUrl(found.imageUrl));
+    }
+  };
+
+  // State for AI Prompt Rewriter
+  const [rewritingPrompt, setRewritingPrompt] = useState(false);
+
+  const handleRewritePrompt = async () => {
+    if (!prompt || !prompt.trim()) return;
+    setRewritingPrompt(true);
+    setError('');
+    setSuccessMsg('');
+    try {
+      const res = await api.post('/seedance/rewrite-prompt', { prompt: prompt.trim() });
+      if (res.data && res.data.prompt) {
+        setPrompt(res.data.prompt);
+        setSuccessMsg('Prompt berhasil ditulis ulang & disempurnakan oleh AI!');
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Gagal menulis ulang prompt.');
+    } finally {
+      setRewritingPrompt(false);
     }
   };
 
@@ -435,16 +485,37 @@ export default function SeedanceStudio() {
               </select>
             </div>
 
-            {/* Prompt Input */}
+            {/* Prompt Input & AI Rewrite Button */}
             <div className="space-y-1.5">
-              <label className="block text-[10px] font-bold text-slate-300 uppercase tracking-widest">
-                Prompt Deskripsi Video (Wajib):
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="block text-[10px] font-bold text-slate-300 uppercase tracking-widest">
+                  Prompt Deskripsi Video (Wajib):
+                </label>
+                <button
+                  type="button"
+                  onClick={handleRewritePrompt}
+                  disabled={rewritingPrompt || !prompt.trim()}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#06b6d4]/15 hover:bg-[#06b6d4] text-[#67e8f9] hover:text-white border border-[#06b6d4]/30 text-[9px] font-bold uppercase tracking-wider transition-all cursor-pointer disabled:opacity-40"
+                  title="Tulis ulang & sempurnakan prompt ini menjadi prompt video sinematik khas SeedDance 2.5"
+                >
+                  {rewritingPrompt ? (
+                    <>
+                      <Loader className="w-3 h-3 animate-spin text-[#06b6d4]" />
+                      <span>Menulis Ulang AI...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3 h-3 text-[#06b6d4]" />
+                      <span>Tulis Ulang & Sempurnakan dengan AI</span>
+                    </>
+                  )}
+                </button>
+              </div>
               <textarea
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 rows={4}
-                placeholder="Contoh: timelaps membuat gedung sate..."
+                placeholder="Contoh: timelaps membuat gedung sate... (atau klik Tulis Ulang AI untuk menyempurnakan)"
                 className="w-full bg-black/60 border border-[#2a2725] focus:border-[#06b6d4] rounded-xl p-3.5 text-white text-xs placeholder:text-slate-600 focus:outline-none transition-all leading-relaxed"
                 required
               />

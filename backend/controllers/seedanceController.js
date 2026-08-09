@@ -415,11 +415,93 @@ async function getSeedanceCookieCreditInfo(req, res) {
   }
 }
 
+// AI Rewrite & Enhance Prompt for SeedDance 2.5
+async function rewriteSeedancePrompt(req, res) {
+  try {
+    const { prompt } = req.body;
+    if (!prompt || !prompt.trim()) {
+      return res.status(400).json({ message: 'Prompt tidak boleh kosong.' });
+    }
+
+    const db = getDb();
+    const settings = await db.get('SELECT * FROM ai_settings LIMIT 1');
+
+    let endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+    let apiKey = process.env.GEMINI_API_KEY || '';
+
+    if (settings && settings.api_key) {
+      apiKey = settings.api_key;
+      if (settings.endpoint) {
+        endpoint = settings.endpoint;
+      }
+    }
+
+    const sysPrompt = `You are an expert AI Video Director & Prompt Engineer specializing in SeedDance 2.5 video generation.
+Your job is to rewrite and expand the user's short input or rough draft into a high-fidelity, cinematic English video prompt (60-120 words).
+Focus on:
+1. Camera movement (e.g. slow push-in, cinematic panning, tracking shot, low angle, smooth orbit).
+2. Lighting & atmosphere (e.g. volumetric lighting, cinematic golden hour, neon cyber reflections, 8k photorealistic).
+3. Detailed subject & environment motion (smooth physical movement, fluid action).
+STRICT RULES:
+- Output ONLY the rewritten video prompt text in English.
+- NO conversational intro, NO explanation, NO markdown quotes, NO voiceover speech text.
+- Do NOT mention "VO:" or narration text.`;
+
+    const userMsg = `Rewrite this prompt into a cinematic SeedDance 2.5 video prompt:\n\n"${prompt.trim()}"`;
+
+    let rewrittenText = '';
+
+    if (apiKey) {
+      const url = `${endpoint}?key=${apiKey}`;
+      const payload = {
+        contents: [
+          {
+            parts: [
+              { text: `${sysPrompt}\n\nUser Prompt: ${userMsg}` }
+            ]
+          }
+        ]
+      };
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+          rewrittenText = data.candidates[0].content.parts.map(p => p.text).join(' ').trim();
+        }
+      }
+    }
+
+    if (!rewrittenText) {
+      rewrittenText = `Cinematic 4K video shot of ${prompt.trim()}, slow camera tracking shot with natural atmospheric lighting, high detail, photorealistic 8k render, smooth motion flow.`;
+    }
+
+    rewrittenText = rewrittenText
+      .replace(/^```json\s*/i, '')
+      .replace(/^```markdown\s*/i, '')
+      .replace(/^```\s*/, '')
+      .replace(/```$/, '')
+      .replace(/^["']|["']$/g, '')
+      .trim();
+
+    res.json({ prompt: rewrittenText });
+  } catch (error) {
+    console.error('Error rewriting prompt:', error);
+    res.status(500).json({ message: 'Gagal menulis ulang prompt dengan AI.', error: error.message });
+  }
+}
+
 module.exports = {
   getActiveSeedanceCookies,
   createSeedanceVideo,
   getSeedanceHistory,
   checkSeedanceTaskStatus,
   getSeedanceVideoList,
-  getSeedanceCookieCreditInfo
+  getSeedanceCookieCreditInfo,
+  rewriteSeedancePrompt
 };

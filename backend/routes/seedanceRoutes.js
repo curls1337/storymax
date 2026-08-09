@@ -1,5 +1,5 @@
 const express = require('express');
-const { getActiveSeedanceCookies, createSeedanceVideo, getSeedanceHistory, checkSeedanceTaskStatus, getSeedanceVideoList, getSeedanceCookieCreditInfo } = require('../controllers/seedanceController');
+const { getActiveSeedanceCookies, createSeedanceVideo, getSeedanceHistory, checkSeedanceTaskStatus, getSeedanceVideoList, getSeedanceCookieCreditInfo, rewriteSeedancePrompt } = require('../controllers/seedanceController');
 const { authenticateToken } = require('../middleware/authMiddleware');
 
 const router = express.Router();
@@ -14,5 +14,6 @@ router.post('/list', getSeedanceVideoList);
 router.get('/list', getSeedanceVideoList);
 router.post('/credit-info', getSeedanceCookieCreditInfo);
 router.get('/credit-info', getSeedanceCookieCreditInfo);
+router.post('/rewrite-prompt', rewriteSeedancePrompt);
 
 module.exports = router;
