@@ -1900,5 +1900,9 @@ module.exports = {
   regenerateStoryboardMarketingCopy,
   generateMarketingCopyInternal,
   generateAllVideos,
-  mergeStoryboardVideos
+  mergeStoryboardVideos,
+  resolveVoConfig,
+  getSceneNarration,
+  applyAudioDirectives,
+  getCharacterVoiceProfile
 };

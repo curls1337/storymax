@@ -29,6 +29,8 @@ export default function SeedanceStudio() {
   // Storyboard Panels Import Dropdown
   const [storyboardPanels, setStoryboardPanels] = useState([]);
   const [selectedPanelId, setSelectedPanelId] = useState('');
+  const [selectedStoryboardId, setSelectedStoryboardId] = useState(null);
+  const [selectedSceneIdx, setSelectedSceneIdx] = useState(0);
   const [filterMode, setFilterMode] = useState('all'); // Default to 'all' so storyboards are immediately visible!
   const [isUsingFallback, setIsUsingFallback] = useState(false);
 
@@ -166,9 +168,15 @@ export default function SeedanceStudio() {
 
   const handleSelectStoryboardPanel = (panelId) => {
     setSelectedPanelId(panelId);
-    if (!panelId) return;
+    if (!panelId) {
+      setSelectedStoryboardId(null);
+      setSelectedSceneIdx(0);
+      return;
+    }
     const found = storyboardPanels.find(p => String(p.id) === String(panelId));
     if (found) {
+      setSelectedStoryboardId(found.storyboardId || null);
+      setSelectedSceneIdx(found.pageNum ? found.pageNum - 1 : 0);
       if (found.prompt) {
         let cleanP = String(found.prompt)
           .replace(/\b(VO|Voiceover|Voice\s*Over|Naskah\s*Voice\s*Over|Narasi|Narration)\s*:\s*"[^"]*"/gi, '')
@@ -312,7 +320,9 @@ export default function SeedanceStudio() {
         duration: Number(duration),
         aspectRatio,
         resolution,
-        watermark: Number(watermark)
+        watermark: Number(watermark),
+        storyboardId: selectedStoryboardId,
+        sceneIdx: selectedSceneIdx
       };
 
       const res = await api.post('/seedance/create', payload);

@@ -4,6 +4,7 @@ const http = require('http');
 const https = require('https');
 const { getDb } = require('../db');
 const { parseCookieOrTokenInput } = require('./adminController');
+const { resolveVoConfig, getSceneNarration, applyAudioDirectives, getCharacterVoiceProfile } = require('./videoController');
 
 // Helper to download or read an image buffer from disk or remote URL
 function downloadOrReadImageBuffer(imageUrl) {
@@ -183,7 +184,7 @@ async function createSeedanceVideo(req, res) {
     if (!(await checkUserSeedancePermission(req))) {
       return res.status(403).json({ message: 'Akses ke SeedDance 2.5 tidak diizinkan. Hubungi Admin.' });
     }
-    const { cookie_id, prompt, images, duration, resolution, aspectRatio, watermark, name } = req.body;
+    const { cookie_id, prompt, images, duration, resolution, aspectRatio, watermark, name, storyboardId, sceneIdx } = req.body;
     if (!prompt || !prompt.trim()) {
       return res.status(400).json({ message: 'Prompt deskripsi video wajib diisi.' });
     }
@@ -246,6 +247,45 @@ async function createSeedanceVideo(req, res) {
       imagesArr = [""];
     }
 
+    // Apply Master Storyboard Settings & Audio Directives (VO Mode, Script, Character Voice Profile, No-Speech Rules)
+    let finalPrompt = String(prompt).trim();
+
+    if (storyboardId) {
+      try {
+        const storyboard = await db.get('SELECT * FROM storyboards WHERE id = ?', [storyboardId]);
+        if (storyboard) {
+          const sIdx = sceneIdx !== undefined ? Number(sceneIdx) : 0;
+          const voCfg = resolveVoConfig(storyboard);
+          const sceneNarration = voCfg.enableVo ? getSceneNarration(storyboard, sIdx) : '';
+          const voiceProfile = await getCharacterVoiceProfile(db, storyboard);
+          const hasVo = voCfg.enableVo;
+
+          finalPrompt = applyAudioDirectives(finalPrompt, {
+            hasVo,
+            narration: sceneNarration,
+            voLanguage: voCfg.voLanguage,
+            voTone: voCfg.voTone,
+            durationSec: duration || 10,
+            backsound: false,
+            voiceProfile
+          });
+        }
+      } catch (sbErr) {
+        console.error('[SeedDance 2.5] Warning reading storyboard params:', sbErr.message);
+      }
+    } else {
+      // Custom standalone prompt: enforce no-voiceover & clean audio rules
+      finalPrompt = applyAudioDirectives(finalPrompt, {
+        hasVo: false,
+        narration: '',
+        voLanguage: 'Bahasa Indonesia',
+        voTone: 'casual',
+        durationSec: duration || 10,
+        backsound: false,
+        voiceProfile: null
+      });
+    }
+
     const payload = {
       generationType: genType,
       model: 'seedance-2.5',
@@ -254,7 +294,7 @@ async function createSeedanceVideo(req, res) {
       resolution: resolution || '720p',
       style: '',
       images: imagesArr,
-      prompt: String(prompt).trim(),
+      prompt: finalPrompt,
       watermark: Number(watermark) || 0,
       name: name || '',
       aspectRatio: aspectRatio || '16:9',
