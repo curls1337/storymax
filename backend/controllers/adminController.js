@@ -1122,44 +1122,37 @@ async function addSeedanceCookiesBulk(req, res) {
     const str = String(bulk_data).trim();
     let itemsToProcess = [];
 
-    // Check if user pasted a single full JSON array of cookies directly into the bulk field
-    if (str.startsWith('[') && str.endsWith(']')) {
-      try {
-        const parsed = JSON.parse(str);
-        if (Array.isArray(parsed)) {
-          // Extracted single cookie/authToken object from JSON array
-          const extractedKey = parseCookieOrTokenInput(str);
-          if (extractedKey) {
-            itemsToProcess.push({
-              keyVal: extractedKey,
-              labelVal: `SeedDance Cookie ${Date.now()}`
-            });
-          }
-        }
-      } catch (e) {
-        // Fallback to line by line
-      }
-    }
+    // Split input line by line or JSON block by line
+    const lines = str.split(/\r?\n/);
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
 
-    // If not handled as single JSON array, process line by line
-    if (itemsToProcess.length === 0) {
-      const lines = str.split('\n');
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (!line) continue;
-        let keyVal = line;
-        let labelVal = `SeedDance Cookie ${Date.now()}-${i + 1}`;
-        if (line.includes(',')) {
-          const parts = line.split(',').map((x) => x.trim()).filter(Boolean);
-          const keyPart = parts.find((x) => /^webcbc/i.test(x) || x.startsWith('[') || x.length > 20) || parts[parts.length - 1];
-          keyVal = parseCookieOrTokenInput(keyPart);
-          labelVal = parts.find((x) => x !== keyPart) || labelVal;
-        } else {
-          keyVal = parseCookieOrTokenInput(line);
-        }
-        if (keyVal) {
-          itemsToProcess.push({ keyVal, labelVal });
-        }
+      let keyVal = null;
+      let labelVal = `SeedDance Cookie ${Date.now()}-${i + 1}`;
+
+      // Check if line is a JSON array string e.g. [{"name":...}]
+      if (line.startsWith('[') && line.endsWith(']')) {
+        try {
+          const parsed = JSON.parse(line);
+          if (Array.isArray(parsed)) {
+            keyVal = parseCookieOrTokenInput(line);
+          }
+        } catch (e) {}
+      }
+
+      // If line contains CSV format (label, cookie) or raw string
+      if (!keyVal && line.includes(',')) {
+        const parts = line.split(',').map((x) => x.trim()).filter(Boolean);
+        const keyPart = parts.find((x) => /^webcbc/i.test(x) || x.startsWith('[') || x.length > 20) || parts[parts.length - 1];
+        keyVal = parseCookieOrTokenInput(keyPart);
+        labelVal = parts.find((x) => x !== keyPart) || labelVal;
+      } else if (!keyVal) {
+        keyVal = parseCookieOrTokenInput(line);
+      }
+
+      if (keyVal) {
+        itemsToProcess.push({ keyVal, labelVal });
       }
     }
 
