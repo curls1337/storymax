@@ -6,7 +6,8 @@ const {
   getStorageFiles, deleteStorageFile,
   backupDatabase, restoreDatabase, restoreChunkDatabase, getRestoreStatus,
   getMagicaKeys, addMagicaKey, addMagicaKeysBulk, toggleMagicaKey, deleteMagicaKey, deleteMagicaKeysBulk,
-  testMagicaConnection, getMagicaBalances, setUserMagicaAccess, setUserHdAccess
+  testMagicaConnection, getMagicaBalances, setUserMagicaAccess, setUserHdAccess, setUserSeedanceAccess,
+  getSeedanceCookies, addSeedanceCookie, addSeedanceCookiesBulk, toggleSeedanceCookie, deleteSeedanceCookie, deleteSeedanceCookiesBulk, testSeedanceCookieConnection
 } = require('../controllers/adminController');
 const { authenticateToken, requireAdmin } = require('../middleware/authMiddleware');
 
@@ -63,5 +64,15 @@ router.delete('/magica/keys/:id', deleteMagicaKey);
 router.post('/magica/test', testMagicaConnection);
 router.put('/users/:id/magica-access', setUserMagicaAccess);
 router.put('/users/:id/hd-access', setUserHdAccess);
+router.put('/users/:id/seedance-access', setUserSeedanceAccess);
+
+// SeedDance 2.5 Web Cookies Pool
+router.get('/seedance-cookies', getSeedanceCookies);
+router.post('/seedance-cookies', addSeedanceCookie);
+router.post('/seedance-cookies/bulk', addSeedanceCookiesBulk);
+router.post('/seedance-cookies/bulk-delete', deleteSeedanceCookiesBulk);
+router.put('/seedance-cookies/:id/toggle', toggleSeedanceCookie);
+router.delete('/seedance-cookies/:id', deleteSeedanceCookie);
+router.post('/seedance-cookies/test', testSeedanceCookieConnection);
 
 module.exports = router;

@@ -74,12 +74,13 @@ async function login(req, res) {
 async function getMe(req, res) {
   try {
     const db = getDb();
-    const user = await db.get('SELECT id, username, role, can_use_magica, allow_hd_resolutions, preferred_provider FROM users WHERE id = ?', [req.user.id]);
+    const user = await db.get('SELECT id, username, role, can_use_magica, can_use_seedance, allow_hd_resolutions, preferred_provider FROM users WHERE id = ?', [req.user.id]);
     if (!user) {
       return res.status(404).json({ message: 'User not found.' });
     }
     if (user.role === 'admin') {
       user.allow_hd_resolutions = 1;
+      user.can_use_seedance = 1;
     }
     res.json(user);
   } catch (error) {

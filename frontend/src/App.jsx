@@ -6,7 +6,8 @@ import ThreeD from './pages/ThreeD';
 import Characters from './pages/Characters';
 import Settings from './pages/Settings';
 import AdminPanel from './pages/AdminPanel';
-import { Home, Sparkles, Settings as SettingsIcon, ShieldAlert, LogOut, Loader, User, Zap, Menu, X, Box, UserCheck } from 'lucide-react';
+import SeedanceStudio from './pages/SeedanceStudio';
+import { Home, Sparkles, Settings as SettingsIcon, ShieldAlert, LogOut, Loader, User, Zap, Menu, X, Box, UserCheck, Film } from 'lucide-react';
 import api from './utils/api';
 
 export default function App() {
@@ -193,9 +194,11 @@ export default function App() {
     return <Login onLoginSuccess={handleLoginSuccess} />;
   }
 
+  const canUseSeedance = user && (user.role === 'admin' || user.can_use_seedance === 1 || user.can_use_seedance === undefined);
+
   return (
-    <div className="flex flex-col lg:flex-row h-screen bg-darkBg text-slate-100 overflow-hidden relative font-sans">
-      {/* Background ambient glowing orbs */}
+    <div className="flex flex-col lg:flex-row h-screen bg-darkBg text-slate-200 overflow-hidden font-sans text-xs select-none relative">
+      {/* Background Subtle Glows */}
       <div className="absolute top-[-10%] right-[-10%] w-[550px] h-[550px] bg-[#cfae80] opacity-[0.05] rounded-full blur-[150px] pointer-events-none"></div>
       <div className="absolute bottom-[-10%] left-[-10%] w-[550px] h-[550px] bg-[#8c827a] opacity-[0.03] rounded-full blur-[150px] pointer-events-none"></div>
 
@@ -270,6 +273,23 @@ export default function App() {
               </span>
               {tab === 'characters' && <div className="w-1.5 h-1.5 rounded-full bg-[#cfae80] shadow-sm shadow-[#cfae80]"></div>}
             </button>
+
+            {canUseSeedance && (
+              <button
+                onClick={() => { setTab('seedance'); setSidebarOpen(false); }}
+                className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-[10px] font-semibold tracking-widest uppercase transition-all duration-350 border ${
+                  tab === 'seedance'
+                    ? 'text-white bg-[#06b6d4]/10 border-[#06b6d4]/40 shadow-sm shadow-[#06b6d4]/10'
+                    : 'text-slate-400 hover:text-white border-transparent hover:bg-white/[0.01]'
+                }`}
+              >
+                <span className="flex items-center gap-3">
+                  <Film className="w-3.5 h-3.5 text-[#06b6d4]" />
+                  SeedDance 2.5
+                </span>
+                {tab === 'seedance' && <div className="w-1.5 h-1.5 rounded-full bg-[#06b6d4] shadow-sm shadow-[#06b6d4]"></div>}
+              </button>
+            )}
 
             <button
               onClick={() => { setTab('3d'); setSidebarOpen(false); }}
@@ -358,6 +378,7 @@ export default function App() {
           {tab === 'dashboard' && <Dashboard setTab={setTab} />}
           {tab === 'generator' && <Generator setTab={setTab} selectedCharacter={selectedCharacter} setSelectedCharacter={setSelectedCharacter} />}
           {tab === 'characters' && <Characters setTab={setTab} onSelectCharacterForStoryboard={(char) => { setSelectedCharacter(char); setTab('generator'); }} />}
+          {tab === 'seedance' && (canUseSeedance ? <SeedanceStudio /> : <Dashboard setTab={setTab} />)}
           {tab === '3d' && <ThreeD />}
           {tab === 'settings' && <Settings onLogout={handleLogout} />}
           {tab === 'admin' && user.role === 'admin' && <AdminPanel />}
@@ -384,6 +405,17 @@ export default function App() {
           <Sparkles className="w-4.5 h-4.5" />
           <span className="text-[7.5px] font-bold uppercase tracking-widest mt-0.5">AI Gen</span>
         </button>
+        {canUseSeedance && (
+          <button 
+            onClick={() => setTab('seedance')} 
+            className={`flex flex-col items-center justify-center gap-1 w-16 py-1.5 transition-all duration-200 ${
+              tab === 'seedance' ? 'text-[#06b6d4]' : 'text-slate-400'
+            }`}
+          >
+            <Film className="w-4.5 h-4.5" />
+            <span className="text-[7.5px] font-bold uppercase tracking-widest mt-0.5">Seed 2.5</span>
+          </button>
+        )}
         <button 
           onClick={() => setTab('characters')} 
           className={`flex flex-col items-center justify-center gap-1 w-16 py-1.5 transition-all duration-200 ${

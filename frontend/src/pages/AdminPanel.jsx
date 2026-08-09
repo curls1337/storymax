@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import api from '../utils/api';
-import { Users, Key, Plus, Trash2, ShieldAlert, Eye, EyeOff, Loader, Check, X, ShieldCheck, Terminal, UserPlus, Database, Sparkles, FolderOpen, HardDrive, DownloadCloud, Wallet, RefreshCw } from 'lucide-react';
+import { Users, Key, Plus, Trash2, ShieldAlert, Eye, EyeOff, Loader, Check, X, ShieldCheck, Terminal, UserPlus, Database, Sparkles, FolderOpen, HardDrive, DownloadCloud, Wallet, RefreshCw, Film } from 'lucide-react';
 import { confirm } from '../utils/confirm';
 
 export default function AdminPanel() {
@@ -20,6 +20,13 @@ export default function AdminPanel() {
   const [magicaTestLoading, setMagicaTestLoading] = useState(false);
   const [magicaBalances, setMagicaBalances] = useState(null);
   const [magicaBalLoading, setMagicaBalLoading] = useState(false);
+  const [seedanceCookies, setSeedanceCookies] = useState([]);
+  const [selectedSeedanceCookieIds, setSelectedSeedanceCookieIds] = useState([]);
+  const [newSeedanceCookieVal, setNewSeedanceCookieVal] = useState('');
+  const [newSeedanceCookieLabel, setNewSeedanceCookieLabel] = useState('');
+  const [seedanceBulk, setSeedanceBulk] = useState('');
+  const [seedanceTest, setSeedanceTest] = useState(null);
+  const [seedanceTestLoading, setSeedanceTestLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [sortBy, setSortBy] = useState('date_desc');
@@ -272,6 +279,93 @@ const PRESET_AI_MODELS = [
     }
   };
 
+  const fetchSeedanceCookies = async () => {
+    try {
+      const res = await api.get('/admin/seedance-cookies');
+      setSeedanceCookies(res.data);
+      setSelectedSeedanceCookieIds([]);
+    } catch (err) {
+      console.error('Gagal mengambil SeedDance 2.5 cookies:', err);
+    }
+  };
+
+  const handleAddSeedanceCookie = async (e) => {
+    e.preventDefault();
+    setError(''); setMessage('');
+    if (!newSeedanceCookieVal.trim() || !newSeedanceCookieLabel.trim()) { setError('Label & Cookie/Token SeedDance 2.5 wajib diisi.'); return; }
+    try {
+      await api.post('/admin/seedance-cookies', { key_value: newSeedanceCookieVal.trim(), label: newSeedanceCookieLabel.trim() });
+      setMessage('Cookie SeedDance 2.5 ditambahkan.');
+      setNewSeedanceCookieVal(''); setNewSeedanceCookieLabel('');
+      fetchSeedanceCookies();
+    } catch (err) { setError(err.response?.data?.message || 'Gagal menambah Cookie SeedDance 2.5.'); }
+  };
+
+  const handleSeedanceBulk = async (e) => {
+    e.preventDefault();
+    setError(''); setMessage('');
+    if (!seedanceBulk.trim()) { setError('Data bulk kosong.'); return; }
+    try {
+      const res = await api.post('/admin/seedance-cookies/bulk', { bulk_data: seedanceBulk });
+      setMessage(res.data.message || 'Bulk import Cookie SeedDance 2.5 selesai.');
+      setSeedanceBulk('');
+      fetchSeedanceCookies();
+    } catch (err) { setError(err.response?.data?.message || 'Gagal bulk import Cookie SeedDance 2.5.'); }
+  };
+
+  const handleToggleSeedanceCookie = async (id, currentStatus) => {
+    setError(''); setMessage('');
+    try {
+      await api.put(`/admin/seedance-cookies/${id}/toggle`, { is_active: currentStatus === 1 ? 0 : 1 });
+      fetchSeedanceCookies();
+    } catch (err) { setError('Gagal mengubah status Cookie SeedDance 2.5.'); }
+  };
+
+  const handleDeleteSeedanceCookie = async (id) => {
+    if (!(await confirm({ title: 'Hapus Cookie SeedDance 2.5 ini?', message: 'Cookie/Token akan dihapus dari kolam.', confirmText: 'Hapus', danger: true }))) return;
+    setError(''); setMessage('');
+    try {
+      await api.delete(`/admin/seedance-cookies/${id}`);
+      setMessage('Cookie SeedDance 2.5 dihapus.');
+      setSelectedSeedanceCookieIds((prev) => prev.filter((x) => x !== id));
+      fetchSeedanceCookies();
+    } catch (err) { setError(err.response?.data?.message || 'Gagal menghapus Cookie SeedDance 2.5.'); }
+  };
+
+  const handleDeleteSelectedSeedance = async () => {
+    if (selectedSeedanceCookieIds.length === 0) return;
+    if (!(await confirm({ title: 'Hapus Cookie SeedDance 2.5 terpilih?', message: `${selectedSeedanceCookieIds.length} Cookie akan dihapus.`, confirmText: `Hapus ${selectedSeedanceCookieIds.length}`, danger: true }))) return;
+    setError(''); setMessage('');
+    try {
+      await api.post('/admin/seedance-cookies/bulk-delete', { ids: selectedSeedanceCookieIds });
+      setMessage(`${selectedSeedanceCookieIds.length} Cookie SeedDance 2.5 dihapus.`);
+      setSelectedSeedanceCookieIds([]);
+      fetchSeedanceCookies();
+    } catch (err) { setError(err.response?.data?.message || 'Gagal menghapus Cookie terpilih.'); }
+  };
+
+  const handleToggleSeedanceCookieSelect = (id) => {
+    setSelectedSeedanceCookieIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  };
+
+  const seedanceSelectAll = () => {
+    if (selectedSeedanceCookieIds.length === seedanceCookies.length) {
+      setSelectedSeedanceCookieIds([]);
+    } else {
+      setSelectedSeedanceCookieIds(seedanceCookies.map((k) => k.id));
+    }
+  };
+
+  const handleTestSeedanceCookie = async () => {
+    setSeedanceTestLoading(true); setError(''); setMessage(''); setSeedanceTest(null);
+    try {
+      const res = await api.post('/admin/seedance-cookies/test');
+      setSeedanceTest(res.data);
+      setMessage(res.data.message || 'Koneksi Cookie SeedDance 2.5 OK.');
+    } catch (err) { setError(err.response?.data?.message || 'Tes koneksi Cookie SeedDance 2.5 gagal.'); }
+    finally { setSeedanceTestLoading(false); }
+  };
+
   const handleAddMagicaKey = async (e) => {
     e.preventDefault();
     setError(''); setMessage('');
@@ -354,19 +448,9 @@ const PRESET_AI_MODELS = [
     } catch (err) { setError(err.response?.data?.message || 'Gagal mengubah izin HD user.'); }
   };
 
-  const magicaSelectAll = () => {
-    setSelectedMagicaKeyIds(selectedMagicaKeyIds.length === magicaKeys.length && magicaKeys.length > 0 ? [] : magicaKeys.map((k) => k.id));
-  };
-
-  const handleToggleMagicaKeySelect = (id) => {
-    setSelectedMagicaKeyIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
-  };
-
   const loadData = async () => {
     setLoading(true);
-    await Promise.all([fetchUsers(), fetchKeys(), fetchMagicaKeys(), fetchAiSettings(), fetchGoogleSettings(), fetchFiles()]);
+    await Promise.all([fetchUsers(), fetchKeys(), fetchMagicaKeys(), fetchSeedanceCookies(), fetchAiSettings(), fetchGoogleSettings(), fetchFiles()]);
     setLoading(false);
   };
 
@@ -425,6 +509,24 @@ const PRESET_AI_MODELS = [
     } catch (err) {
       setError(err.response?.data?.message || 'Gagal menghapus user.');
     }
+  };
+
+  const handleToggleUserSeedance = async (u) => {
+    setError(''); setMessage('');
+    try {
+      await api.put(`/admin/users/${u.id}/seedance-access`, { can_use_seedance: u.can_use_seedance === 0 ? 1 : 0 });
+      fetchUsers();
+    } catch (err) { setError(err.response?.data?.message || 'Gagal mengubah izin SeedDance 2.5 user.'); }
+  };
+
+  const magicaSelectAll = () => {
+    setSelectedMagicaKeyIds(selectedMagicaKeyIds.length === magicaKeys.length && magicaKeys.length > 0 ? [] : magicaKeys.map((k) => k.id));
+  };
+
+  const handleToggleMagicaKeySelect = (id) => {
+    setSelectedMagicaKeyIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
   };
 
   const handleAddKey = async (e) => {
@@ -735,6 +837,17 @@ const PRESET_AI_MODELS = [
         >
           <Sparkles className="w-3.5 h-3.5 mr-1.5 text-[#a855f7]" />
           API Magica ({magicaKeys.length})
+        </button>
+        <button
+          onClick={() => { setActiveTab('seedance'); setError(''); setMessage(''); }}
+          className={`py-2.5 px-3.5 flex items-center font-bold text-[9px] uppercase tracking-wider border-b-2 transition-all shrink-0 relative ${
+            activeTab === 'seedance'
+              ? 'border-[#cfae80] text-white'
+              : 'border-transparent text-slate-400 hover:text-white'
+          }`}
+        >
+          <Film className="w-3.5 h-3.5 mr-1.5 text-[#06b6d4]" />
+          SeedDance 2.5 ({seedanceCookies.length})
         </button>
         <button
           onClick={() => { setActiveTab('ai-settings'); setError(''); setMessage(''); }}
@@ -1051,6 +1164,13 @@ const PRESET_AI_MODELS = [
                         className={`py-1 px-2 rounded-md text-[9px] font-bold uppercase tracking-wider transition-all cursor-pointer border ${u.can_use_magica ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/25' : 'bg-black/40 text-slate-500 border-[#2a2725] hover:text-slate-300'}`}
                       >
                         Magica: {u.can_use_magica ? 'ON' : 'OFF'}
+                      </button>
+                      <button
+                        onClick={() => handleToggleUserSeedance(u)}
+                        title="Izin mengakses Studio SeedDance 2.5"
+                        className={`py-1 px-2 rounded-md text-[9px] font-bold uppercase tracking-wider transition-all cursor-pointer border ${u.can_use_seedance !== 0 ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30 hover:bg-cyan-500/25' : 'bg-black/40 text-slate-500 border-[#2a2725] hover:text-slate-300'}`}
+                      >
+                        SeedDance 2.5: {u.can_use_seedance !== 0 ? 'ON' : 'OFF'}
                       </button>
                       <button
                         onClick={() => handleToggleUserHd(u)}
@@ -1782,6 +1902,118 @@ const PRESET_AI_MODELS = [
               <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest">Bulk Import (1 baris/key, atau label,gx_key)</label>
               <textarea value={magicaBulk} onChange={(e)=>setMagicaBulk(e.target.value)} rows={3} placeholder={"Magica 1,gx_aaa\nMagica 2,gx_bbb"} className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-3 py-2 text-white text-[11px] font-mono resize-none focus:outline-none focus:border-[#a855f7]" />
               <button type="submit" className="bg-black/40 border border-[#2a2725] hover:bg-[#a855f7] hover:text-white text-slate-300 font-bold py-2 px-3 rounded-lg text-[9px] uppercase tracking-wider flex items-center gap-1 cursor-pointer"><Database className="w-3.5 h-3.5" /> Import</button>
+            </form>
+          </div>
+
+        </div>
+      )}
+
+      {activeTab === 'seedance' && (
+        <div className="bg-[#1a1918]/60 border border-[#2a2725] rounded-2xl p-4 md:p-6 relative backdrop-blur-md">
+          <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#06b6d4]/25 to-transparent"></div>
+
+          <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3 mb-4 border-b border-[#2a2725] pb-3">
+            <div>
+              <h3 className="text-[10px] font-bold text-white uppercase tracking-widest flex items-center gap-1.5">
+                <Film className="w-4 h-4 text-[#06b6d4]" /> Kolam Cookies / AuthToken SeedDance 2.5
+              </h3>
+              <p className="text-slate-400 text-[10px] mt-1 leading-relaxed">
+                Kelola Cookie / AuthToken web untuk eksekusi model <strong className="text-[#06b6d4]">SeedDance 2.5</strong>. Anda dapat memasukkan cookie/token satu per satu atau secara <strong>Bulk (1 cookie/token per baris)</strong>.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-1.5 items-center shrink-0">
+              {selectedSeedanceCookieIds.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleDeleteSelectedSeedance}
+                  className="bg-red-950/40 border border-red-500/40 hover:bg-red-600 text-white font-bold py-1.5 px-3 rounded-lg flex items-center transition-all shadow-lg text-[9px] uppercase tracking-wider cursor-pointer animate-fadeIn"
+                >
+                  <Trash2 className="w-3.5 h-3.5 mr-1" />
+                  Hapus Terpilih ({selectedSeedanceCookieIds.length})
+                </button>
+              )}
+              {seedanceCookies.length > 0 && (
+                <button
+                  type="button"
+                  onClick={seedanceSelectAll}
+                  className="bg-black/40 border border-[#2a2725] hover:bg-[#06b6d4] hover:text-white text-slate-300 font-bold py-1.5 px-3 rounded-lg flex items-center transition-all text-[9px] uppercase tracking-wider cursor-pointer select-none"
+                >
+                  {selectedSeedanceCookieIds.length === seedanceCookies.length ? 'Batal Centang' : `Centang Semua (${seedanceCookies.length})`}
+                </button>
+              )}
+              <button onClick={handleTestSeedanceCookie} disabled={seedanceTestLoading} className="bg-[#06b6d4]/10 border border-[#06b6d4]/30 hover:bg-[#06b6d4] hover:text-white text-[#67e8f9] font-bold py-1.5 px-3 rounded-lg flex items-center gap-1 text-[9px] uppercase tracking-wider cursor-pointer disabled:opacity-50">
+                {seedanceTestLoading ? <Loader className="animate-spin w-3.5 h-3.5" /> : <Check className="w-3.5 h-3.5" />} Tes Koneksi Cookie
+              </button>
+            </div>
+          </div>
+
+          {/* Cookie Cards Grid */}
+          <div className="bg-[#131211]/50 border border-[#06b6d4]/25 rounded-xl p-4 mb-4">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <p className="text-slate-350 text-[9px] font-bold uppercase tracking-widest flex items-center gap-1.5">
+                <Wallet className="w-3.5 h-3.5 text-[#06b6d4]" /> Daftar Cookie Terdaftar ({seedanceCookies.length})
+              </p>
+              <button onClick={fetchSeedanceCookies} className="bg-[#06b6d4]/10 border border-[#06b6d4]/30 hover:bg-[#06b6d4] hover:text-white text-[#67e8f9] font-bold py-1.5 px-3 rounded-lg flex items-center gap-1 text-[9px] uppercase tracking-wider cursor-pointer shrink-0">
+                <RefreshCw className="w-3.5 h-3.5" /> Refresh
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
+              {seedanceCookies.length === 0 ? (
+                <p className="col-span-full text-center text-slate-500 italic text-[10px] uppercase tracking-wider py-4">
+                  Belum ada Cookie / AuthToken SeedDance 2.5 terdaftar. Tambahkan di bawah.
+                </p>
+              ) : seedanceCookies.map((k) => {
+                const isSelected = selectedSeedanceCookieIds.includes(k.id);
+                return (
+                  <div key={k.id} className={`border rounded-lg p-2.5 flex flex-col gap-1.5 transition-all ${isSelected ? 'bg-[#06b6d4]/15 border-[#06b6d4]/50 shadow-md' : 'bg-black/30 border-[#2a2725]'}`}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleToggleSeedanceCookieSelect(k.id)}
+                          className="w-3.5 h-3.5 rounded border-[#2a2725] bg-black text-[#06b6d4] focus:ring-0 cursor-pointer accent-[#06b6d4] shrink-0"
+                        />
+                        <div className="min-w-0">
+                          <p className="text-[10px] text-slate-200 font-semibold truncate" title={k.label}>{k.label}</p>
+                          <p className="text-[9px] font-mono text-slate-500 truncate">{String(k.key_value || '').substring(0, 15)}••••</p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-bold text-[#67e8f9] whitespace-nowrap shrink-0">
+                        {k.is_active === 1 ? '🟢 Ready' : '🔴 Inactive'}
+                      </span>
+                    </div>
+                    {k.last_status ? <p className="text-[8px] text-slate-500 truncate pl-5.5" title={k.last_status}>📋 {k.last_status}</p> : null}
+                    <div className="flex items-center gap-1.5 pt-1">
+                      <button onClick={() => handleToggleSeedanceCookie(k.id, k.is_active)} className={`flex-1 px-2 py-1.5 rounded-md text-[8px] font-bold tracking-wider uppercase border transition-all cursor-pointer ${k.is_active === 1 ? 'bg-green-950/20 text-green-300 border-green-500/20 hover:bg-green-600 hover:text-white' : 'bg-slate-900/40 text-slate-500 border-slate-800 hover:bg-slate-700 hover:text-white'}`}>{k.is_active === 1 ? 'Aktif' : 'Nonaktif'}</button>
+                      <button onClick={() => handleDeleteSeedanceCookie(k.id)} title="Hapus cookie" className="px-2.5 py-1.5 rounded-md bg-red-950/15 border border-red-500/20 text-red-400 hover:bg-red-600 hover:text-white transition-all cursor-pointer"><Trash2 className="w-3 h-3" /></button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {seedanceTest && (
+            <div className="bg-cyan-950/20 border border-cyan-500/25 text-cyan-200 p-3 rounded-xl text-[11px] mb-4">
+              ✅ <strong>Koneksi Cookie OK!</strong> · Saldo Kredit Terbaca: <strong>{seedanceTest.totalCredits ?? seedanceTest.membership ?? '?'}</strong> · Plan: {seedanceTest.planName ?? 'Pro'}
+            </div>
+          )}
+
+          {/* Add Cookie Forms */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+            <form onSubmit={handleAddSeedanceCookie} className="bg-[#131211]/50 border border-[#2a2725] rounded-xl p-3 space-y-2">
+              <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest">Tambah Single Cookie / AuthToken</label>
+              <input type="text" value={newSeedanceCookieLabel} onChange={(e)=>setNewSeedanceCookieLabel(e.target.value)} placeholder="Label (mis. Cookie Akun 1)" className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-3 py-2 text-white text-xs focus:outline-none focus:border-[#06b6d4]" />
+              <input type="password" value={newSeedanceCookieVal} onChange={(e)=>setNewSeedanceCookieVal(e.target.value)} placeholder="webcbc9f00b76594ecf9cc7de5c401c2669" className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-3 py-2 text-white text-xs font-mono focus:outline-none focus:border-[#06b6d4]" />
+              <button type="submit" className="bg-[#06b6d4] hover:bg-[#0891b2] text-white font-bold py-2 px-3 rounded-lg text-[9px] uppercase tracking-wider flex items-center gap-1 cursor-pointer"><Plus className="w-3.5 h-3.5" /> Tambah Cookie</button>
+            </form>
+
+            <form onSubmit={handleSeedanceBulk} className="bg-[#131211]/50 border border-[#2a2725] rounded-xl p-3 space-y-2">
+              <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest">Bulk Import (Mendukung paste langsung JSON Array Cookies Chrome / Text Token)</label>
+              <textarea value={seedanceBulk} onChange={(e)=>setSeedanceBulk(e.target.value)} rows={3} placeholder={'Paste langsung JSON Cookie Array dari Chrome:\n[{"name":"authToken","value":"webcbc..."}, ...]\n\nAtau 1 baris/token: Akun 1,webcbc...'} className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-3 py-2 text-white text-[10px] font-mono resize-none focus:outline-none focus:border-[#06b6d4]" />
+              <button type="submit" className="bg-black/40 border border-[#2a2725] hover:bg-[#06b6d4] hover:text-white text-slate-300 font-bold py-2 px-3 rounded-lg text-[9px] uppercase tracking-wider flex items-center gap-1 cursor-pointer"><Database className="w-3.5 h-3.5" /> Import Cookies / Tokens</button>
             </form>
           </div>
 

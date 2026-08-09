@@ -17,7 +17,7 @@ async function getAllUsers(req, res) {
     //   storyboards flagged Magica + Magica videos + Meshy 3D.
     // Values are microcredits; the UI divides by 1e6 to show Magica credits.
     const users = await db.all(`
-      SELECT u.id, u.username, u.role, u.can_use_magica, u.allow_hd_resolutions, u.preferred_provider,
+      SELECT u.id, u.username, u.role, u.can_use_magica, u.can_use_seedance, u.allow_hd_resolutions, u.preferred_provider,
         (
           COALESCE((SELECT SUM(s.used_credits) FROM storyboards s WHERE s.user_id = u.id AND (s.generation_params NOT LIKE '%magica%' OR s.generation_params IS NULL) AND s.api_key_id IS NOT NULL), 0)
           + COALESCE((SELECT SUM(gv.used_credits) FROM generated_videos gv JOIN storyboards s2 ON s2.id = gv.storyboard_id WHERE s2.user_id = u.id AND gv.api_key_id IS NOT NULL AND (gv.model NOT LIKE 'magica:%' OR gv.model IS NULL)), 0)
@@ -1037,6 +1037,247 @@ async function setUserHdAccess(req, res) {
   }
 }
 
+async function setUserSeedanceAccess(req, res) {
+  const { id } = req.params;
+  const { can_use_seedance } = req.body;
+  try {
+    const db = getDb();
+    const val = can_use_seedance ? 1 : 0;
+    await db.run('UPDATE users SET can_use_seedance = ? WHERE id = ?', [val, id]);
+    res.json({ message: 'Izin SeedDance 2.5 user diperbarui.', can_use_seedance: val });
+  } catch (error) {
+    res.status(500).json({ message: 'Error update izin SeedDance 2.5 user.', error: error.message });
+  }
+}
+
+// SeedDance 2.5 Cookies / AuthTokens Pool Management
+async function getSeedanceCookies(req, res) {
+  try {
+    const db = getDb();
+    const rows = await db.all('SELECT id, key_value, label, is_active, last_status, created_at FROM seedance_cookies ORDER BY id DESC');
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching SeedDance 2.5 cookies.', error: error.message });
+  }
+}
+
+// Helper to extract authToken or format raw cookie string from JSON array / text
+function parseCookieOrTokenInput(rawInput) {
+  const str = String(rawInput || '').trim();
+  if (!str) return null;
+
+  // Try parsing as JSON (e.g. Chrome exported cookies JSON array)
+  if (str.startsWith('[') || str.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(str);
+      const arr = Array.isArray(parsed) ? parsed : [parsed];
+      
+      // Look for authToken specifically first
+      const authItem = arr.find((c) => c && (c.name === 'authToken' || c.name === 'authorization'));
+      if (authItem && authItem.value) {
+        return authItem.value.trim();
+      }
+
+      // If no authToken item found, combine all name=value pairs into a Cookie header string
+      const cookieString = arr
+        .filter((c) => c && c.name && c.value)
+        .map((c) => `${c.name}=${c.value}`)
+        .join('; ');
+      
+      if (cookieString) return cookieString;
+    } catch (e) {
+      // Not valid JSON, fallback to text parsing
+    }
+  }
+
+  // If plain text line containing authToken=xyz...
+  if (str.includes('authToken=')) {
+    const match = str.match(/authToken=([^;\s]+)/);
+    if (match && match[1]) return match[1].trim();
+  }
+
+  return str;
+}
+
+async function addSeedanceCookie(req, res) {
+  const { key_value, label } = req.body;
+  if (!key_value || !label) return res.status(400).json({ message: 'Cookie/Token dan label wajib diisi.' });
+  try {
+    const extractedKey = parseCookieOrTokenInput(key_value);
+    const db = getDb();
+    await db.run('INSERT INTO seedance_cookies (key_value, label, is_active) VALUES (?, ?, 1)', [extractedKey, label]);
+    res.status(201).json({ message: 'Cookie SeedDance 2.5 berhasil ditambahkan.' });
+  } catch (error) {
+    res.status(500).json({ message: 'Gagal menambah Cookie (mungkin duplikat).', error: error.message });
+  }
+}
+
+async function addSeedanceCookiesBulk(req, res) {
+  const { bulk_data } = req.body;
+  if (!bulk_data) return res.status(400).json({ message: 'Data bulk kosong.' });
+  const db = getDb();
+  let added = 0, failed = 0;
+
+  try {
+    const str = String(bulk_data).trim();
+    let itemsToProcess = [];
+
+    // Check if user pasted a single full JSON array of cookies directly into the bulk field
+    if (str.startsWith('[') && str.endsWith(']')) {
+      try {
+        const parsed = JSON.parse(str);
+        if (Array.isArray(parsed)) {
+          // Extracted single cookie/authToken object from JSON array
+          const extractedKey = parseCookieOrTokenInput(str);
+          if (extractedKey) {
+            itemsToProcess.push({
+              keyVal: extractedKey,
+              labelVal: `SeedDance Cookie ${Date.now()}`
+            });
+          }
+        }
+      } catch (e) {
+        // Fallback to line by line
+      }
+    }
+
+    // If not handled as single JSON array, process line by line
+    if (itemsToProcess.length === 0) {
+      const lines = str.split('\n');
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        let keyVal = line;
+        let labelVal = `SeedDance Cookie ${Date.now()}-${i + 1}`;
+        if (line.includes(',')) {
+          const parts = line.split(',').map((x) => x.trim()).filter(Boolean);
+          const keyPart = parts.find((x) => /^webcbc/i.test(x) || x.startsWith('[') || x.length > 20) || parts[parts.length - 1];
+          keyVal = parseCookieOrTokenInput(keyPart);
+          labelVal = parts.find((x) => x !== keyPart) || labelVal;
+        } else {
+          keyVal = parseCookieOrTokenInput(line);
+        }
+        if (keyVal) {
+          itemsToProcess.push({ keyVal, labelVal });
+        }
+      }
+    }
+
+    await db.run('BEGIN TRANSACTION');
+    for (const item of itemsToProcess) {
+      try {
+        await db.run('INSERT INTO seedance_cookies (key_value, label, is_active) VALUES (?, ?, 1)', [item.keyVal, item.labelVal]);
+        added++;
+      } catch (e) {
+        failed++;
+      }
+    }
+    await db.run('COMMIT');
+    res.json({ message: `Bulk import selesai. Ditambah: ${added}, Gagal/Duplikat: ${failed}` });
+  } catch (error) {
+    await db.run('ROLLBACK');
+    res.status(500).json({ message: 'Error bulk import SeedDance cookies.', error: error.message });
+  }
+}
+
+async function toggleSeedanceCookie(req, res) {
+  const { id } = req.params;
+  const { is_active } = req.body;
+  try {
+    const db = getDb();
+    await db.run('UPDATE seedance_cookies SET is_active = ? WHERE id = ?', [is_active, id]);
+    res.json({ message: 'Status Cookie SeedDance 2.5 diperbarui.' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error update status Cookie.', error: error.message });
+  }
+}
+
+async function deleteSeedanceCookie(req, res) {
+  const { id } = req.params;
+  try {
+    const db = getDb();
+    await db.run('DELETE FROM seedance_cookies WHERE id = ?', [id]);
+    res.json({ message: 'Cookie SeedDance 2.5 dihapus.' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error menghapus Cookie.', error: error.message });
+  }
+}
+
+async function deleteSeedanceCookiesBulk(req, res) {
+  const { ids } = req.body;
+  if (!ids || !Array.isArray(ids) || ids.length === 0) return res.status(400).json({ message: 'Tidak ada ID Cookie.' });
+  try {
+    const db = getDb();
+    const ph = ids.map(() => '?').join(',');
+    await db.run(`DELETE FROM seedance_cookies WHERE id IN (${ph})`, ids);
+    res.json({ message: `${ids.length} Cookie SeedDance 2.5 dihapus.` });
+  } catch (error) {
+    res.status(500).json({ message: 'Error menghapus Cookie terpilih.', error: error.message });
+  }
+}
+
+async function testSeedanceCookieConnection(req, res) {
+  try {
+    const db = getDb();
+    let rawToken = req.body && req.body.key_value ? String(req.body.key_value).trim() : null;
+    let cookieRow = null;
+    if (!rawToken) {
+      cookieRow = await db.get('SELECT id, key_value FROM seedance_cookies WHERE is_active = 1 ORDER BY id ASC LIMIT 1');
+      rawToken = cookieRow && cookieRow.key_value;
+    }
+    if (!rawToken) return res.status(400).json({ message: 'Belum ada Cookie/Token SeedDance 2.5 aktif untuk dites.' });
+
+    const token = parseCookieOrTokenInput(rawToken);
+
+    const https = require('https');
+    const result = await new Promise((resolve, reject) => {
+      const options = {
+        hostname: 'api.freebeatfit.com',
+        port: 443,
+        path: '/v1/user/credits/findCredits',
+        method: 'GET',
+        headers: {
+          'accept': '*/*',
+          'authorization': token,
+          'token': token,
+          'udt': token,
+          'fb-language': 'en',
+          'x-platform-type': 'web'
+        }
+      };
+      const req0 = https.request(options, (res0) => {
+        let data = '';
+        res0.on('data', (chunk) => data += chunk);
+        res0.on('end', () => {
+          try {
+            const json = JSON.parse(data);
+            if (json.code === 0 && json.data) {
+              resolve(json.data);
+            } else {
+              reject(new Error(json.msg || 'Token/Cookie tidak valid'));
+            }
+          } catch (e) {
+            reject(new Error('Respon server bukan JSON valid'));
+          }
+        });
+      });
+      req0.on('error', (e) => reject(e));
+      req0.end();
+    });
+
+    if (cookieRow && cookieRow.id) {
+      const statusText = `OK - ${result.totalCredits ?? result.membership ?? 0} Kredit (${result.planName || 'Plan'}) - ${new Date().toLocaleTimeString('id-ID')}`;
+      try {
+        await db.run('UPDATE seedance_cookies SET last_status = ? WHERE id = ?', [statusText, cookieRow.id]);
+      } catch (e) {}
+    }
+
+    res.json({ message: 'Koneksi Cookie SeedDance 2.5 OK!', ...result });
+  } catch (error) {
+    res.status(500).json({ message: 'Gagal tes koneksi Cookie SeedDance 2.5: ' + error.message });
+  }
+}
+
 module.exports = {
   getAllUsers,
   createUser,
@@ -1067,5 +1308,14 @@ module.exports = {
   testMagicaConnection,
   getMagicaBalances,
   setUserMagicaAccess,
-  setUserHdAccess
+  setUserHdAccess,
+  setUserSeedanceAccess,
+  getSeedanceCookies,
+  addSeedanceCookie,
+  addSeedanceCookiesBulk,
+  toggleSeedanceCookie,
+  deleteSeedanceCookie,
+  deleteSeedanceCookiesBulk,
+  testSeedanceCookieConnection,
+  parseCookieOrTokenInput
 };

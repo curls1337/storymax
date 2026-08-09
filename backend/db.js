@@ -63,6 +63,38 @@ async function initDb() {
     )
   `);
 
+  // Create SeedDance 2.5 Web Cookies / AuthTokens Table
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS seedance_cookies (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      key_value TEXT UNIQUE NOT NULL,
+      label TEXT NOT NULL,
+      is_active INTEGER DEFAULT 1,
+      last_status TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Create SeedDance 2.5 Video Generation History Table
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS seedance_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      cookie_id INTEGER,
+      task_no TEXT UNIQUE NOT NULL,
+      prompt TEXT,
+      images TEXT,
+      duration INTEGER DEFAULT 30,
+      aspect_ratio TEXT DEFAULT '16:9',
+      resolution TEXT DEFAULT '720p',
+      status TEXT DEFAULT 'processing',
+      video_url TEXT,
+      cover_url TEXT,
+      error_message TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   // Ensure keys in magica_api_keys remain active
   try {
     await db.run("UPDATE magica_api_keys SET is_active = 1 WHERE is_active = 0 AND (last_status LIKE 'Saldo tinggal%' OR last_status LIKE 'Saldo Habis%')");
@@ -206,6 +238,11 @@ async function initDb() {
   // preferred_provider in Settings (only 'magica' when allowed).
   try {
     await db.exec("ALTER TABLE users ADD COLUMN can_use_magica INTEGER DEFAULT 0");
+  } catch (e) {
+    // Column already exists, safe to ignore
+  }
+  try {
+    await db.exec("ALTER TABLE users ADD COLUMN can_use_seedance INTEGER DEFAULT 1");
   } catch (e) {
     // Column already exists, safe to ignore
   }

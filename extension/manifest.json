@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "Storymax Freebeat Bridge",
+  "version": "1.0.0",
+  "description": "Bridge Chrome Extension untuk mengintegrasikan SeedDance 2.5 dari web freebeat.ai ke Storymax",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "cookies"
+  ],
+  "host_permissions": [
+    "https://freebeat.ai/*",
+    "https://*.freebeat.ai/*",
+    "https://*.freebeatfit.com/*",
+    "http://localhost:5000/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://freebeat.ai/*"],
+      "js": ["content.js"]
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Storymax Freebeat Bridge"
+  }
+}

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Storymax Freebeat Bridge</title>
+  <style>
+    body {
+      width: 320px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: #0f172a;
+      color: #f8fafc;
+      margin: 0;
+      padding: 16px;
+    }
+    h2 {
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #38bdf8;
+      margin-top: 0;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #94a3b8;
+      display: block;
+      margin-bottom: 4px;
+    }
+    input, textarea {
+      width: 100%;
+      background: #0f172a;
+      border: 1px solid #475569;
+      border-radius: 6px;
+      color: #fff;
+      padding: 8px;
+      font-size: 12px;
+      box-sizing: border-box;
+      margin-bottom: 8px;
+    }
+    button {
+      width: 100%;
+      background: linear-gradient(135deg, #0284c7, #2563eb);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 10px;
+      font-weight: bold;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    button:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
+    }
+    #status {
+      font-size: 11px;
+      padding: 8px;
+      border-radius: 6px;
+      background: #0f172a;
+      border: 1px solid #334155;
+      color: #cbd5e1;
+      word-break: break-all;
+      max-height: 120px;
+      overflow-y: auto;
+    }
+  </style>
+</head>
+<body>
+  <h2>🎬 SeedDance 2.5 Bridge</h2>
+  
+  <div class="card">
+    <label>Prompt Video:</label>
+    <textarea id="promptInput" rows="2">drift di jalan gazibu bandung</textarea>
+
+    <label>URL Gambar (Opsional):</label>
+    <input type="text" id="imageInput" value="https://static.freebeatfit.com/dance/aivideo/1786268088389.png">
+
+    <button id="btnGenerate">🚀 Test Generate SeedDance 2.5</button>
+  </div>
+
+  <label>Status / Respon:</label>
+  <div id="status">Buka tab freebeat.ai lalu klik Generate.</div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

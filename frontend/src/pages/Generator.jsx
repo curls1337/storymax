@@ -8,6 +8,12 @@ import { confirm } from '../utils/confirm';
 
 
 const ENGINE_DURATIONS = {
+  seedance25: [
+    { value: 30, pages: 1, label: '30 Detik (1 Halaman)' },
+    { value: 60, pages: 2, label: '60 Detik (2 Halaman)' },
+    { value: 90, pages: 3, label: '90 Detik (3 Halaman)' },
+    { value: 120, pages: 4, label: '120 Detik (4 Halaman)' }
+  ],
   seedance: [
     { value: 15, pages: 1, label: '15 Detik (1 Halaman)' },
     { value: 30, pages: 2, label: '30 Detik (2 Halaman)' },
@@ -892,7 +898,8 @@ export default function Generator({ setTab, selectedCharacter }) {
           <div>
             <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Engine Video</label>
             <select value={videoEngine} onChange={(e) => handleEngineChange(e.target.value)} className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs" disabled={generating}>
-              <option value="seedance">SeedDance (15 Detik/Panel)</option>
+              <option value="seedance25">SeedDance 2.5 Pro (30 Detik/Panel)</option>
+              <option value="seedance">SeedDance 1.0 (15 Detik/Panel)</option>
               <option value="omni">Omni (10 Detik/Panel)</option>
               <option value="veo">Veo (8 Detik/Panel)</option>
             </select>
