@@ -1,6 +1,155 @@
-const { getDb } = require('../db');
+const fs = require('fs');
+const path = require('path');
+const http = require('http');
 const https = require('https');
+const { getDb } = require('../db');
 const { parseCookieOrTokenInput } = require('./adminController');
+
+// Helper to download or read an image buffer from disk or remote URL
+function downloadOrReadImageBuffer(imageUrl) {
+  return new Promise((resolve, reject) => {
+    if (!imageUrl) return reject(new Error('URL gambar kosong.'));
+    const str = String(imageUrl).trim();
+
+    // Base64 Data URI
+    if (str.startsWith('data:image/')) {
+      try {
+        const base64Data = str.split(',')[1];
+        return resolve(Buffer.from(base64Data, 'base64'));
+      } catch (e) {
+        return reject(new Error('Gagal parse base64 image: ' + e.message));
+      }
+    }
+
+    // Local file path
+    if (str.startsWith('/uploads/') || str.startsWith('uploads/')) {
+      const filename = str.replace(/^\/?uploads\//, '');
+      const localPath = path.join(process.cwd(), 'uploads', filename);
+      if (fs.existsSync(localPath)) {
+        try {
+          return resolve(fs.readFileSync(localPath));
+        } catch (e) {
+          return reject(new Error('Gagal membaca file lokal: ' + e.message));
+        }
+      }
+    }
+
+    // Remote HTTP / HTTPS URL
+    try {
+      const parsedUrl = new URL(str);
+      const client = parsedUrl.protocol === 'https:' ? https : http;
+      client.get(str, (res) => {
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          return downloadOrReadImageBuffer(res.headers.location).then(resolve).catch(reject);
+        }
+        if (res.statusCode !== 200) {
+          return reject(new Error(`Gagal mengunduh gambar (Status ${res.statusCode})`));
+        }
+        const chunks = [];
+        res.on('data', chunk => chunks.push(chunk));
+        res.on('end', () => resolve(Buffer.concat(chunks)));
+      }).on('error', reject);
+    } catch (err) {
+      reject(new Error('URL Gambar tidak valid: ' + err.message));
+    }
+  });
+}
+
+// Uploads an image buffer to Freebeat AWS S3 bucket using presigned URL
+async function uploadImageToFreebeatS3(token, buffer, originalUrl = 'image.jpg') {
+  const timestamp = Date.now();
+  let ext = '.jpg';
+  if (originalUrl.includes('.png')) ext = '.png';
+  const key = `dance/aivideo/${timestamp}${ext}`;
+  const uploadFileName = `photo_${timestamp}${ext}`;
+
+  // 1. Get presigned signURL from Freebeat API
+  const presignPayload = {
+    reqList: [
+      {
+        key: key,
+        fileName: uploadFileName,
+        bucketName: 'freebeat-static'
+      }
+    ]
+  };
+
+  const postData = JSON.stringify(presignPayload);
+
+  const presignData = await new Promise((resolve, reject) => {
+    const req = https.request({
+      hostname: 'api.freebeatfit.com',
+      port: 443,
+      path: '/api/v2/file/genUploadSignUrl',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(postData),
+        'authorization': token,
+        'token': token,
+        'udt': token,
+        'fb-language': 'en',
+        'x-platform-type': 'web',
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    }, (res) => {
+      let data = '';
+      res.on('data', c => data += c);
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(data);
+          if (json.code === 0 && json.data && json.data[0]) {
+            resolve(json.data[0]);
+          } else {
+            reject(new Error(json.msg || 'Gagal mendapatkan signURL dari Freebeat'));
+          }
+        } catch (e) {
+          reject(new Error('Respon Freebeat bukan JSON: ' + data));
+        }
+      });
+    });
+    req.on('error', reject);
+    req.write(postData);
+    req.end();
+  });
+
+  const { signURL, finalStaticUrl } = presignData;
+  if (!signURL || !finalStaticUrl) {
+    throw new Error('Data presignURL Freebeat tidak lengkap.');
+  }
+
+  // 2. Upload image buffer to S3 via HTTP PUT
+  const s3Url = new URL(signURL);
+  const contentType = ext === '.png' ? 'image/png' : 'image/jpeg';
+
+  await new Promise((resolve, reject) => {
+    const req = https.request({
+      hostname: s3Url.hostname,
+      port: 443,
+      path: s3Url.pathname + s3Url.search,
+      method: 'PUT',
+      headers: {
+        'Content-Type': contentType,
+        'Content-Length': buffer.length
+      }
+    }, (res) => {
+      let data = '';
+      res.on('data', c => data += c);
+      res.on('end', () => {
+        if (res.statusCode === 200 || res.statusCode === 204) {
+          resolve(true);
+        } else {
+          reject(new Error(`Upload S3 gagal (Status ${res.statusCode}): ${data}`));
+        }
+      });
+    });
+    req.on('error', reject);
+    req.write(buffer);
+    req.end();
+  });
+
+  return finalStaticUrl;
+}
 
 // Check if user has permission to use SeedDance 2.5
 async function checkUserSeedancePermission(req) {
@@ -59,35 +208,37 @@ async function createSeedanceVideo(req, res) {
 
     const token = parseCookieOrTokenInput(cookieRow.key_value);
 
-    // Determine generationType and images array
-    // generationType: 0 = Image-to-Video (requires Freebeat static CDN image)
-    // generationType: 1 = Text-to-Video (prompt only, images = [""])
-    let imagesArr = [];
-    if (Array.isArray(images)) {
-      imagesArr = images.map((x) => String(x || '').trim()).filter((x) => x.startsWith('http://') || x.startsWith('https://'));
-    } else if (images && typeof images === 'string' && (images.trim().startsWith('http://') || images.trim().startsWith('https://'))) {
-      imagesArr = [images.trim()];
+    // Determine raw input image URL
+    let rawImageUrl = '';
+    if (Array.isArray(images) && images.length > 0) {
+      rawImageUrl = String(images[0] || '').trim();
+    } else if (typeof images === 'string' && images.trim()) {
+      rawImageUrl = images.trim();
     }
 
-    // Freebeat API strictly validates image URLs for generationType: 0.
-    // Filter for valid Freebeat CDN hosted images (static.freebeatfit.com or freebeat.ai)
-    const freebeatImages = imagesArr.filter((url) => {
-      try {
-        const u = new URL(url);
-        return u.hostname.includes('freebeat') || u.hostname.includes('freebeatfit.com');
-      } catch (e) {
-        return false;
-      }
-    });
-
+    let imagesArr = [""];
     let genType = 1;
-    if (freebeatImages.length > 0) {
-      genType = 0;
-      imagesArr = freebeatImages;
-    } else {
-      // Fallback to Text-to-Video mode so Freebeat API accepts prompt without "Invalid parameter." error
-      genType = 1;
-      imagesArr = [""];
+
+    if (rawImageUrl) {
+      try {
+        const isFreebeatHost = rawImageUrl.includes('freebeatfit.com') || rawImageUrl.includes('freebeat.ai');
+        if (isFreebeatHost) {
+          imagesArr = [rawImageUrl];
+          genType = 0;
+        } else {
+          // Auto-upload non-Freebeat image (external CDN / local upload / base64) to Freebeat AWS S3 CDN first
+          console.log('[SeedDance 2.5] Auto-uploading image to Freebeat S3 CDN:', rawImageUrl.substring(0, 80));
+          const imgBuffer = await downloadOrReadImageBuffer(rawImageUrl);
+          const staticCdnUrl = await uploadImageToFreebeatS3(token, imgBuffer, rawImageUrl);
+          console.log('[SeedDance 2.5] Uploaded successfully to Freebeat CDN:', staticCdnUrl);
+          imagesArr = [staticCdnUrl];
+          genType = 0;
+        }
+      } catch (uploadErr) {
+        console.error('[SeedDance 2.5] Warning: Gagal auto-upload gambar ke Freebeat CDN, fallback ke Text-to-Video:', uploadErr.message);
+        genType = 1;
+        imagesArr = [""];
+      }
     }
 
     const payload = {
