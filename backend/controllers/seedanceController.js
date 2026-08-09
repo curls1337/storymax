@@ -235,10 +235,15 @@ async function createSeedanceVideo(req, res) {
           genType = 0;
         }
       } catch (uploadErr) {
-        console.error('[SeedDance 2.5] Warning: Gagal auto-upload gambar ke Freebeat CDN, fallback ke Text-to-Video:', uploadErr.message);
-        genType = 1;
-        imagesArr = [""];
+        console.error('[SeedDance 2.5] Error auto-upload gambar ke Freebeat CDN:', uploadErr.message);
+        return res.status(400).json({ 
+          message: `Gagal mengunggah gambar referensi ke CDN Freebeat: ${uploadErr.message}. Proses dibatalkan.` 
+        });
       }
+    } else {
+      // User left reference image blank from the start: Text-to-Video mode
+      genType = 1;
+      imagesArr = [""];
     }
 
     const payload = {

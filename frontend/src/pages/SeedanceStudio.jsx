@@ -689,6 +689,21 @@ export default function SeedanceStudio() {
                 const isFailed = item.status === 101;
                 const isProcessing = !isCompleted && !isFailed; // Treats status 0, 1, etc as Processing!
 
+                // Extract reference image URL (Freebeat static CDN URL) if present
+                let refImgUrl = null;
+                if (Array.isArray(item.images) && item.images.length > 0 && item.images[0] && item.images[0] !== '') {
+                  refImgUrl = item.images[0];
+                } else if (typeof item.images === 'string' && item.images.trim()) {
+                  try {
+                    const parsed = JSON.parse(item.images);
+                    if (Array.isArray(parsed) && parsed.length > 0 && parsed[0] && parsed[0] !== '') {
+                      refImgUrl = parsed[0];
+                    }
+                  } catch (e) {
+                    if (item.images.startsWith('http')) refImgUrl = item.images.trim();
+                  }
+                }
+
                 return (
                   <div key={item.id || item.serialNo} className={`border rounded-2xl p-4 space-y-3 transition-all ${
                     isCompleted ? 'bg-black/50 border-green-500/30' :
@@ -732,6 +747,33 @@ export default function SeedanceStudio() {
                     <p className="text-xs text-white leading-relaxed font-medium">
                       "{item.prompt}"
                     </p>
+
+                    {/* Reference Image Badge & Freebeat CDN Link */}
+                    {refImgUrl && (
+                      <div className="bg-[#131211] border border-[#06b6d4]/40 rounded-xl p-2.5 flex items-center gap-3 my-2">
+                        <img 
+                          src={refImgUrl} 
+                          alt="Referensi Gambar Freebeat CDN" 
+                          className="w-12 h-12 object-cover rounded-lg border border-[#06b6d4]/50 shadow-md bg-black flex-shrink-0"
+                          onError={(e) => { e.target.style.display = 'none'; }}
+                        />
+                        <div className="min-w-0 flex-1 space-y-0.5">
+                          <div className="flex items-center gap-1.5 text-[9px] font-bold text-[#67e8f9] uppercase tracking-wider">
+                            <ImageIcon className="w-3.5 h-3.5 text-[#06b6d4]" />
+                            <span>Gambar Referensi (Freebeat CDN Uploaded):</span>
+                          </div>
+                          <a
+                            href={refImgUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[9.5px] font-mono text-cyan-300 hover:text-white underline truncate block"
+                            title={refImgUrl}
+                          >
+                            {refImgUrl}
+                          </a>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Metadata Specs */}
                     <div className="flex items-center justify-between text-[9px] text-slate-400 pt-1">
