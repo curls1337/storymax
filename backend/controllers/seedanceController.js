@@ -60,7 +60,7 @@ async function createSeedanceVideo(req, res) {
     const token = parseCookieOrTokenInput(cookieRow.key_value);
 
     // Determine generationType and images array
-    // generationType: 0 = Image-to-Video (with reference image)
+    // generationType: 0 = Image-to-Video (requires Freebeat static CDN image)
     // generationType: 1 = Text-to-Video (prompt only, images = [""])
     let imagesArr = [];
     if (Array.isArray(images)) {
@@ -69,10 +69,23 @@ async function createSeedanceVideo(req, res) {
       imagesArr = [images.trim()];
     }
 
-    let genType = 0;
-    if (imagesArr.length > 0) {
+    // Freebeat API strictly validates image URLs for generationType: 0.
+    // Filter for valid Freebeat CDN hosted images (static.freebeatfit.com or freebeat.ai)
+    const freebeatImages = imagesArr.filter((url) => {
+      try {
+        const u = new URL(url);
+        return u.hostname.includes('freebeat') || u.hostname.includes('freebeatfit.com');
+      } catch (e) {
+        return false;
+      }
+    });
+
+    let genType = 1;
+    if (freebeatImages.length > 0) {
       genType = 0;
+      imagesArr = freebeatImages;
     } else {
+      // Fallback to Text-to-Video mode so Freebeat API accepts prompt without "Invalid parameter." error
       genType = 1;
       imagesArr = [""];
     }
