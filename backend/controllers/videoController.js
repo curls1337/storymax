@@ -181,6 +181,13 @@ function stripVoiceover(text) {
   let t = String(text || '');
   t = t.replace(/\n*\s*Voiceover\s*\([^)]*\)\s*:[\s\S]*$/i, '');
   t = t.replace(/\n*\s*Audio\s*[—-]\s*voiceover\s*:[\s\S]*$/i, '');
+  t = t.replace(/\n*\s*AUDIO\s*MIX\s*DIRECTIVE:[\s\S]*$/i, '');
+  // Strip inline VO / Voiceover / Narration cues that leak into visual prompt
+  t = t.replace(/\b(VO|Voiceover|Voice\s*Over|Naskah\s*Voice\s*Over|Narasi|Narration|Speech)\s*:\s*"[^"]*"/gi, '');
+  t = t.replace(/\b(VO|Voiceover|Voice\s*Over|Naskah\s*Voice\s*Over|Narasi|Narration|Speech)\s*:\s*'[^']*'/gi, '');
+  t = t.replace(/\b(VO|Voiceover|Voice\s*Over|Naskah\s*Voice\s*Over|Narasi|Narration|Speech)\s*:[^\n.]*([.\n]|$)/gi, '');
+  t = t.replace(/\[Voiceover\s*Narration\]\s*:\s*"[^"]*"/gi, '');
+  t = t.replace(/\[Voiceover\s*Narration\]\s*:[^\n.]*([.\n]|$)/gi, '');
   return t.trim();
 }
 
@@ -339,8 +346,8 @@ async function generateVideo(req, res) {
     // VO script + tone/language come from the STORYBOARD (single source of truth); the
     // Video Studio "Hasilkan Audio (VO)" toggle gates whether THIS video speaks it.
     const voCfg = resolveVoConfig(storyboard);
-    const sceneNarration = getSceneNarration(storyboard, sceneIdx);
-    const hasVo = !!generateAudio;
+    const sceneNarration = voCfg.enableVo ? getSceneNarration(storyboard, sceneIdx) : '';
+    const hasVo = !!(generateAudio && voCfg.enableVo);
     // Item 8: pull the linked character's saved voice identity (null when none configured).
     const voiceProfile = await getCharacterVoiceProfile(db, storyboard);
 

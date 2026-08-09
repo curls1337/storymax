@@ -139,7 +139,14 @@ export default function SeedanceStudio() {
     if (!panelId) return;
     const found = storyboardPanels.find(p => String(p.id) === String(panelId));
     if (found) {
-      if (found.prompt) setPrompt(found.prompt);
+      if (found.prompt) {
+        // Strip any VO: or Voiceover: lines from the prompt so video model won't speak it unless requested
+        let cleanP = String(found.prompt)
+          .replace(/\b(VO|Voiceover|Voice\s*Over|Naskah\s*Voice\s*Over|Narasi|Narration)\s*:\s*"[^"]*"/gi, '')
+          .replace(/\b(VO|Voiceover|Voice\s*Over|Naskah\s*Voice\s*Over|Narasi|Narration)\s*:[^\n.]*([.\n]|$)/gi, '')
+          .trim();
+        setPrompt(cleanP || found.prompt);
+      }
       if (found.imageUrl) setImageUrl(cleanImageUrl(found.imageUrl));
     }
   };
