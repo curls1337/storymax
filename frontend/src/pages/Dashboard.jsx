@@ -315,6 +315,7 @@ export default function Dashboard({ setTab }) {
   const [magicaVideoMethod, setMagicaVideoMethod] = useState('');
   const [magicaKeyId, setMagicaKeyId] = useState('auto');
   const [vidEstimate, setVidEstimate] = useState(null);
+  const [effectivePromptPreview, setEffectivePromptPreview] = useState({ loading: false, prompt: '', error: '', audio: null });
 
   // When the Magica video model/method changes, clamp duration/resolution/aspect and
   // the audio toggle to exactly what THAT model supports (each Magica model differs).
@@ -644,22 +645,48 @@ export default function Dashboard({ setTab }) {
 
   useEffect(() => {
     if (selectedStoryboard) {
-      const { imageToVideoPrompt: i2v, textToVideoPrompt: t2v, narration } = parseVideoPrompts(selectedStoryboard.video_prompts, modalCarouselIdx);
-      // Auto-detect the right AI prompt for the CURRENT method (like Freebeat). For Magica
-      // the method is `magicaVideoMethod`; for Freebeat it's `videoGenType`. text-to-video
-      // pulls the Text-to-Video prompt; image/reference/transition pull the Image-to-Video prompt.
+      const { imageToVideoPrompt: i2v, textToVideoPrompt: t2v } = parseVideoPrompts(selectedStoryboard.video_prompts, modalCarouselIdx);
+      // The editable field stays as the stored visual base prompt. Voiceover and music
+      // directives are applied by the server and shown separately in Prompt Efektif.
       const isTextMethod = userProvider === 'magica'
         ? (magicaVideoMethod === 'text-to-video')
         : (videoGenType === 'text');
-      let basePrompt = isTextMethod ? (t2v || '') : (i2v || '');
-      if (videoGenerateAudio && narration) {
-        if (!basePrompt.includes(narration)) {
-          basePrompt += `\n\n[Voiceover Narration]:\n"${narration}"`;
-        }
-      }
-      setVideoStudioPrompt(basePrompt);
+      setVideoStudioPrompt(isTextMethod ? (t2v || '') : (i2v || ''));
     }
-  }, [modalCarouselIdx, selectedStoryboard, videoGenType, userProvider, magicaVideoMethod, videoGenerateAudio]);
+  }, [modalCarouselIdx, selectedStoryboard, videoGenType, userProvider, magicaVideoMethod]);
+
+  // Preview comes from the same server-side audio policy used at submission time so
+  // users can inspect the complete effective prompt before creating a video.
+  useEffect(() => {
+    if (!selectedStoryboard || !videoStudioPrompt.trim()) {
+      setEffectivePromptPreview({ loading: false, prompt: '', error: '', audio: null });
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setEffectivePromptPreview((current) => ({ ...current, loading: true, error: '' }));
+      try {
+        const response = await api.post('/videos/preview-prompt', {
+          storyboardId: selectedStoryboard.id,
+          sceneIdx: modalCarouselIdx,
+          prompt: videoStudioPrompt,
+          duration: videoDuration === 'auto' ? undefined : Number(videoDuration),
+          generateAudio: videoGenerateAudio,
+          backsound: videoBacksound,
+        }, { signal: controller.signal });
+        setEffectivePromptPreview({ loading: false, prompt: response.data.effectivePrompt || '', error: '', audio: response.data.audio || null });
+      } catch (error) {
+        if (error.name === 'CanceledError' || error.code === 'ERR_CANCELED') return;
+        setEffectivePromptPreview({ loading: false, prompt: '', error: error.response?.data?.message || 'Preview prompt efektif gagal dibuat.', audio: null });
+      }
+    }, 350);
+
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [selectedStoryboard?.id, modalCarouselIdx, videoStudioPrompt, videoDuration, videoGenerateAudio, videoBacksound]);
 
   useEffect(() => {
     if (selectedStoryboard) {
@@ -2451,14 +2478,56 @@ export default function Dashboard({ setTab }) {
                           )}
                         </div>
 
-                        <div className="space-y-1">
-                          <label className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80]">Custom Prompt</label>
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between gap-3">
+                            <label className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80]">Prompt Dasar yang Dapat Diedit</label>
+                            <span className="text-[8px] font-mono text-slate-500">{videoStudioPrompt.length.toLocaleString('id-ID')} karakter</span>
+                          </div>
                           <textarea
                             value={videoStudioPrompt}
                             onChange={(e) => setVideoStudioPrompt(e.target.value)}
                             placeholder="Masukkan deskripsi detail gerakan video..."
-                            className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] focus:outline-none focus:border-[#cfae80] transition-all font-medium h-16 resize-none scrollbar-thin"
+                            rows={12}
+                            className="w-full min-h-[260px] bg-black/40 border border-[#2a2725] rounded-lg px-3 py-2.5 text-white text-[11px] leading-relaxed focus:outline-none focus:border-[#cfae80] transition-all font-medium resize-y scrollbar-thin"
                           />
+                          <p className="text-[8px] leading-relaxed text-slate-500">Prompt dasar dapat diedit. Prompt efektif di bawah menunjukkan isi lengkap yang benar-benar dikirim ke provider.</p>
+                        </div>
+
+                        <div className="space-y-2 border-t border-[#2a2725]/45 pt-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-[8px] font-bold uppercase tracking-widest text-emerald-300">Prompt Efektif — Dikirim ke Provider</p>
+                              <p className="mt-0.5 text-[8px] leading-relaxed text-slate-500">Termasuk aturan audio, voice-over, musik latar, durasi, dan profil suara yang aktif.</p>
+                            </div>
+                            <button
+                              type="button"
+                              disabled={!effectivePromptPreview.prompt}
+                              onClick={async () => {
+                                try {
+                                  await navigator.clipboard.writeText(effectivePromptPreview.prompt);
+                                  toast.success('Prompt efektif disalin.');
+                                } catch (error) {
+                                  toast.error('Gagal menyalin prompt efektif.');
+                                }
+                              }}
+                              className="shrink-0 text-[8px] font-bold uppercase tracking-wider text-emerald-300 hover:text-white disabled:opacity-40"
+                            >
+                              Salin
+                            </button>
+                          </div>
+                          <pre className="m-0 whitespace-pre-wrap break-words rounded-lg border border-emerald-500/20 bg-emerald-950/10 p-3 font-mono text-[10px] leading-relaxed text-slate-200">
+                            {effectivePromptPreview.loading
+                              ? 'Memuat prompt efektif...'
+                              : (effectivePromptPreview.prompt || 'Prompt efektif belum tersedia.')}
+                          </pre>
+                          {effectivePromptPreview.audio && (
+                            <p className="text-[8px] leading-relaxed text-slate-500">
+                              Audio native: <span className="text-slate-300">{effectivePromptPreview.audio.nativeAudioEnabled ? 'aktif' : 'nonaktif'}</span>
+                              {' · '}Voice-over: <span className="text-slate-300">{effectivePromptPreview.audio.voiceoverEnabled ? (effectivePromptPreview.audio.narrationPresent ? 'aktif dengan naskah storyboard' : 'aktif tanpa naskah tersimpan') : 'nonaktif'}</span>
+                              {' · '}Musik latar: <span className="text-slate-300">{effectivePromptPreview.audio.musicAllowed ? 'diizinkan' : 'dilarang oleh prompt'}</span>
+                            </p>
+                          )}
+                          {effectivePromptPreview.error && <p className="text-[8px] text-red-400">{effectivePromptPreview.error}</p>}
                         </div>
 
                         <div className="grid grid-cols-3 gap-1.5 border-t border-[#2a2725]/45 pt-2.5">
@@ -2558,7 +2627,7 @@ export default function Dashboard({ setTab }) {
                             className="rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5"
                           />
                           <span className="text-[9px] font-bold uppercase tracking-wider text-slate-350">
-                            Hasilkan Audio / Voice Over <span className="text-slate-500 normal-case font-normal">(narasi dari storyboard)</span>
+                            Hasilkan Audio / Voice Over <span className="text-slate-500 normal-case font-normal">(mengaktifkan audio native di Magica/Freebeat; narasi berasal dari storyboard bila tersedia)</span>
                           </span>
                         </label>
                           );
@@ -2567,17 +2636,17 @@ export default function Dashboard({ setTab }) {
                         <label className="flex items-center gap-2 cursor-pointer select-none pb-1">
                           <input
                             type="checkbox"
-                            checked={videoBacksound}
-                            onChange={(e) => setVideoBacksound(e.target.checked)}
+                            checked={!videoBacksound}
+                            onChange={(e) => setVideoBacksound(!e.target.checked)}
                             className="rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5"
                           />
                           <span className="text-[9px] font-bold uppercase tracking-wider text-slate-350">
-                            Backsound / Musik Latar
+                            Tanpa Musik Latar
                           </span>
                         </label>
-                        {!videoBacksound && (
-                          <p className="text-[8px] text-slate-500 -mt-1 pl-6">Tanpa musik latar — hanya suara natural/ASMR/SFX.</p>
-                        )}
+                        <p className="text-[8px] text-slate-500 -mt-1 pl-6">
+                          {videoBacksound ? 'Musik latar diizinkan oleh prompt.' : 'Prompt secara tegas melarang backsound/musik latar; hanya suara natural, ASMR, atau SFX.'}
+                        </p>
 
                         {userProvider === 'magica' && vidEstimate && (
                           <div className="text-center text-[8.5px] text-slate-400 font-semibold mt-1.5">
