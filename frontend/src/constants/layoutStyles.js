@@ -1,45 +1,29 @@
 // Canonical frontend storyboard styles. Selector shows icon + name + desc
 // (no preview images). faceMode = default face handling per style.
 export default [
-  // Transformasi & Reveal
-  { value: 'cube_box_transform', label: 'Cube Box Transformation', desc: 'Kubus detail di atas permukaan → otomatis morph & mekar jadi produk/model, sinematik fotorealistis.', category: 'Transformasi & Reveal', faceMode: 'faceless', icon: 'Box' },
-  { value: 'shape_morph_transform', label: 'Transformasi Shape Adaptif (Auto)', desc: 'Bentuk awal otomatis menyesuaikan objek (kotak, bulat/bola, silinder, segitiga, dsb.) → mekar & morph otomatis di atas permukaan.', category: 'Transformasi & Reveal', faceMode: 'faceless', icon: 'Shapes' },
-  { value: 'asmr_toy_transform', label: 'ASMR Toy Transform (Statis)', desc: 'Kubus diletakkan di meja lalu membuka sendiri jadi mainan die-cast — kamera DIAM, suara ASMR mekanis, smooth.', category: 'Transformasi & Reveal', faceMode: 'faceless', icon: 'AudioWaveform' },
-  { value: 'unboxing', label: 'Unboxing', desc: 'Buka kemasan dramatis, reveal produk, close-up detail.', category: 'Transformasi & Reveal', faceMode: 'faceless', icon: 'PackageOpen' },
-  { value: 'before_after', label: 'Before–After', desc: 'Perbandingan sebelum vs sesudah memakai produk.', category: 'Transformasi & Reveal', faceMode: 'chin_max', icon: 'GitCompareArrows' },
-  { value: 'product_assembly', label: 'Product Assembly', desc: 'Bagian-bagian beterbangan menyatu jadi produk.', category: 'Transformasi & Reveal', faceMode: 'faceless', icon: 'Combine' },
-  { value: 'liquid_splash', label: 'Liquid / Splash Reveal', desc: 'Produk muncul dari cipratan cairan / asap.', category: 'Transformasi & Reveal', faceMode: 'faceless', icon: 'Droplets' },
-  // UGC & Social
-  { value: 'ugc_review', label: 'UGC Review', desc: 'Influencer autentik: hook → demo → ajakan beli.', category: 'UGC & Social', faceMode: 'chin_max', icon: 'Megaphone' },
-  { value: 'pov', label: 'POV', desc: 'Sudut pandang orang pertama memakai produk.', category: 'UGC & Social', faceMode: 'chin_max', icon: 'Eye' },
-  { value: 'talking_head', label: 'Talking-Head', desc: 'Bicara ke kamera memperkenalkan produk.', category: 'UGC & Social', faceMode: 'chin_max', icon: 'Mic' },
-  { value: 'grwm', label: 'GRWM (Get Ready With Me)', desc: 'Rutinitas persiapan sambil pakai produk.', category: 'UGC & Social', faceMode: 'chin_max', icon: 'Sparkles' },
-  { value: 'skit_meme', label: 'Skit / Meme', desc: 'Komedi singkat relatable seputar produk.', category: 'UGC & Social', faceMode: 'chin_max', icon: 'Laugh' },
-  { value: 'reaction', label: 'Reaction / Duet', desc: 'Reaksi terhadap produk atau hasil.', category: 'UGC & Social', faceMode: 'chin_max', icon: 'MessageCircle' },
-  // Proses & Edukasi
-  { value: 'timelapse_process', label: 'Timelapse Proses', desc: 'Proses dipercepat dari awal sampai hasil.', category: 'Proses & Edukasi', faceMode: 'faceless', icon: 'FastForward' },
-  { value: 'tutorial_steps', label: 'Tutorial Langkah', desc: 'Panduan how-to langkah demi langkah bernomor.', category: 'Proses & Edukasi', faceMode: 'chin_max', icon: 'ListChecks' },
-  { value: 'recipe_cooking', label: 'Resep & Masakan', desc: 'Langkah memasak + ASMR, cocok kuliner/F&B.', category: 'Proses & Edukasi', faceMode: 'faceless', icon: 'ChefHat' },
-  { value: 'education_explainer', label: 'Edukasi Explainer', desc: 'Menjelaskan konsep/fitur dengan ikon & diagram.', category: 'Proses & Edukasi', faceMode: 'faceless', icon: 'GraduationCap' },
-  { value: 'diy_build', label: 'DIY / Build', desc: 'Rakit atau kerajinan miniatur langkah demi langkah.', category: 'Proses & Edukasi', faceMode: 'faceless', icon: 'Hammer' },
-  // Sinematik & Branding
-  { value: 'short_story', label: 'Cerita Pendek Sinematik', desc: 'Iklan bernarasi dengan alur cerita sinematik.', category: 'Sinematik & Branding', faceMode: 'full', icon: 'Clapperboard' },
-  { value: 'cinematic_broll', label: 'Cinematic B-Roll', desc: 'Potongan sinematik estetik untuk iklan/TVC.', category: 'Sinematik & Branding', faceMode: 'faceless', icon: 'Film' },
-  { value: 'product_hero', label: 'Product Hero Showcase', desc: 'Hero shot produk premium yang bersih.', category: 'Sinematik & Branding', faceMode: 'faceless', icon: 'Star' },
-  { value: 'luxury_mood', label: 'Luxury / Premium Mood', desc: 'Mewah, gelap, dramatis, eksklusif.', category: 'Sinematik & Branding', faceMode: 'faceless', icon: 'Gem' },
-  { value: 'fashion_lookbook', label: 'Fashion Lookbook', desc: 'Busana / OOTD bergaya editorial.', category: 'Sinematik & Branding', faceMode: 'full', icon: 'Shirt' },
-  // Artistik / Niche
-  { value: 'asmr_satisfying', label: 'ASMR / Satisfying', desc: 'Fokus tekstur & suara, visual memuaskan.', category: 'Artistik / Niche', faceMode: 'faceless', icon: 'AudioWaveform' },
-  { value: 'stop_motion', label: 'Stop-Motion', desc: 'Animasi frame-by-frame yang playful.', category: 'Artistik / Niche', faceMode: 'faceless', icon: 'Frame' },
-  { value: 'tiny_world', label: 'Miniature / Tiny World', desc: 'Gaya Pixar 3D dengan objek mini.', category: 'Artistik / Niche', faceMode: 'faceless', icon: 'Blocks' },
-  { value: 'anime_comic', label: 'Anime / Komik', desc: 'Gaya manga/komik bercerita (ilustrasi).', category: 'Artistik / Niche', faceMode: 'full', icon: 'BookOpen' },
-  // Viral & Kreatif (dari video referensi)
-  { value: 'bts_practical_fx', label: 'Behind-the-Scenes Efek Praktis', desc: 'Ala "making of" film: miniatur lokasi di soundstage + kru & blue screen, lalu efek praktis (banjir/gelombang/ledakan) menerjang miniatur. Subjek ikut referensi.', category: 'Viral & Kreatif', faceMode: 'faceless', icon: 'Clapperboard' },
-  { value: 'mini_restoration_asmr', label: 'Restorasi / Rakit Miniatur (ASMR)', desc: 'Tangan + alat presisi merakit/merestorasi miniatur super-detail dari objek, studio bersih, macro ASMR, berakhir model mulus. Ikut referensi.', category: 'Viral & Kreatif', faceMode: 'faceless', icon: 'Wrench' },
-  { value: 'jelly_character_asmr', label: 'Jelly Character ASMR', desc: 'Figurin jeli transparan dari karakter digenggam telapak tangan; tubuh tembus pandang terisi gelembung, ASMR menggemaskan. Ikut referensi.', category: 'Viral & Kreatif', faceMode: 'faceless', icon: 'Baby' },
-  // Caption / Edukasi Anak
-  { value: 'tiktok_text_ad', label: 'TikTok Text Ad (Caption)', desc: 'Iklan vertikal dengan caption teks on-screen besar tiap scene: hook → fitur → bukti → CTA. Foto produk bersih ala TikTok/Reels.', category: 'UGC & Social', faceMode: 'chin_max', icon: 'Type' },
-  { value: 'kids_education', label: 'Edukasi Anak (Playful)', desc: 'Ceria & warna cerah, karakter kartun + ikon belajar (buku, bintang, topi wisuda). Cocok konten/produk anak.', category: 'Proses & Edukasi', faceMode: 'full', icon: 'GraduationCap' },
-  // Konten Sosial (IG/TikTok/Shorts)
-  { value: 'social_lifestyle', label: 'Konten Sosial (IG/TikTok/Shorts)', desc: 'Karakter yang sama tampil di momen keseharian berbeda per halaman (lari pagi, belanja, dinner, dll) — candid ala kamera HP asli, bukan gaya AI yang kelihatan sempurna.', category: 'Konten Sosial (IG/TikTok/Shorts)', faceMode: 'full', icon: 'Instagram' },
+  // ── A. Transformasi & Reveal (Premium) ──
+  { value: 'mechanical_transform', label: 'Mechanical Transformation', desc: 'Wadah mekanis premium mekar & morph mulus jadi produk. Fokus pada presisi mekanik sinematik.', category: 'Transformasi & Reveal', faceMode: 'faceless', icon: 'Box' },
+  { value: 'product_assembly', label: 'Product Assembly', desc: 'Bagian-bagian produk beterbangan menyatu secara presisi. Gaya futuristik & teknis.', category: 'Transformasi & Reveal', faceMode: 'faceless', icon: 'Combine' },
+  { value: 'liquid_splash', label: 'Liquid / Splash Reveal', desc: 'Produk muncul dari cipratan cairan, asap, atau bubuk yang membeku. Artistik & segar.', category: 'Transformasi & Reveal', faceMode: 'faceless', icon: 'Droplets' },
+  { value: 'unboxing', label: 'Cinematic Unboxing', desc: 'Pembukaan kemasan dramatis dengan fokus pada tekstur kotak dan reveal produk.', category: 'Transformasi & Reveal', faceMode: 'faceless', icon: 'PackageOpen' },
+  { value: 'before_after', label: 'Before–After', desc: 'Perbandingan visual langsung antara masalah (sebelum) dan solusi produk (sesudah).', category: 'Transformasi & Reveal', faceMode: 'chin_max', icon: 'GitCompareArrows' },
+
+  // ── B. UGC & Social (Viral) ──
+  { value: 'ugc_creator', label: 'UGC Creator Style', desc: 'Gaya influencer autentik berbicara ke kamera, demo produk, dan reaksi jujur. Relatable.', category: 'UGC & Social', faceMode: 'chin_max', icon: 'Megaphone' },
+  { value: 'social_stylized_text', label: 'Social Media (Stylized Text)', desc: 'Fokus pada teks overlay besar, stiker, dan balon penjelasan fitur artistik di dalam gambar.', category: 'UGC & Social', faceMode: 'chin_max', icon: 'Type' },
+  { value: 'social_lifestyle', label: 'Social Lifestyle (Independent)', desc: 'Satu karakter dalam berbagai aktivitas berbeda per halaman. Identitas konsisten, momen berbeda.', category: 'UGC & Social', faceMode: 'full', icon: 'Instagram' },
+  { value: 'jelly_character_asmr', label: 'Jelly Character ASMR', desc: 'Figurin jeli transparan karakter yang digenggam; tubuh terisi gelembung. Memuaskan.', category: 'UGC & Social', faceMode: 'faceless', icon: 'Baby' },
+
+  // ── C. Proses & Edukasi (Informatif) ──
+  { value: 'timelapse_process', label: 'Timelapse Process', desc: 'Proses dipercepat dari awal sampai hasil akhir dengan sudut kamera tetap. Memuaskan.', category: 'Proses & Edukasi', faceMode: 'faceless', icon: 'FastForward' },
+  { value: 'professional_tutorial', label: 'Professional Tutorial', desc: 'Panduan langkah demi langkah teknis dengan label nomor, durasi, dan fokus pada tangan.', category: 'Proses & Edukasi', faceMode: 'faceless', icon: 'ListChecks' },
+  { value: 'recipe_asmr', label: 'Recipe & ASMR Cooking', desc: 'Langkah memasak dengan fokus pada tekstur makanan, uap, dan suara. Menggugah selera.', category: 'Proses & Edukasi', faceMode: 'faceless', icon: 'ChefHat' },
+  { value: 'infographic_explainer', label: 'Infographic Explainer', desc: 'Menjelaskan konsep dengan ikon, diagram bersih, dan panah petunjuk.', category: 'Proses & Edukasi', faceMode: 'faceless', icon: 'GraduationCap' },
+
+  // ── D. Cinematic & Art (High-End) ──
+  { value: 'cinematic_ad', label: 'Cinematic TV Commercial', desc: 'Gaya iklan TV premium dengan layout katalog bersih dan fokus estetika produk kelas atas.', category: 'Cinematic & Art', faceMode: 'full', icon: 'Film' },
+  { value: 'anime_manga', label: 'Anime / Manga Storyboard', desc: 'Gaya ilustrasi tangan dengan panel dinamis, action lines, dan ekspresi karakter kuat.', category: 'Cinematic & Art', faceMode: 'full', icon: 'BookOpen' },
+  { value: 'kawaii_playful', label: 'Kawaii / Playful Layout', desc: 'Gaya lucu dengan elemen stiker, warna pastel ceria, ikon imut, dan balon teks.', category: 'Cinematic & Art', faceMode: 'full', icon: 'Sparkles' },
+  { value: 'luxury_mood', label: 'Luxury / Premium Mood', desc: 'Eksklusif, gelap, dramatis. Fokus pada kemewahan material dan pencahayaan misterius.', category: 'Cinematic & Art', faceMode: 'faceless', icon: 'Gem' },
+  { value: 'product_hero', label: 'Product Hero Showcase', desc: 'Hero shot produk premium yang bersih dan fokus pada sudut pandang terbaik produk.', category: 'Cinematic & Art', faceMode: 'faceless', icon: 'Star' },
 ];
