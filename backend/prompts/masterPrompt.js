@@ -214,14 +214,14 @@ function buildMasterPrompt(spec, ctx = {}) {
     ? ' Every panel shows the SAME product as the reference — identical shape, proportions, colors and logo/text (verbatim); never redesign, rename or replace it.'
     : '';
   const CONT = independentScenes
-    ? "Keep the SAME character identity, face, body type & personal style consistent across all pages — but the setting, wardrobe and activity may naturally change per page to match that page's own moment."
-    : 'Keep SAME setting, lighting, wardrobe & palette across all parts.';
+    ? "VISUAL CONTINUITY: Keep the SAME character identity (face, body, style) 100% consistent across all pages. While the setting/activity changes per page, ensure the character's core appearance and personal aesthetic remain identical."
+    : "VISUAL CONTINUITY: You MUST keep the EXACT SAME background setting, lighting, character wardrobe, and color palette from the previous page. Every detail must match perfectly to ensure a seamless narrative flow.";
   const pageScope = pageCount > 1
     ? (independentScenes
-        ? `IMPORTANT: PAGE ${pageNum}/${pageCount} (scenes ${startScene}-${endScene}, ${winStart}-${winEnd}s) — this page shows its OWN separate everyday moment/activity for the SAME character; do NOT force this page to continue the action from another page. ${CONT} `
+        ? `IMPORTANT: PAGE ${pageNum}/${pageCount} (scenes ${startScene}-${endScene}) — This is a standalone moment for the SAME character. ${CONT} `
         : (pageNum === 1
-            ? `IMPORTANT: PAGE 1/${pageCount} (scenes ${startScene}-${endScene}, ${winStart}-${winEnd}s) — show only the BEGINNING; continues on later pages. ${CONT} `
-            : `IMPORTANT: PAGE ${pageNum}/${pageCount} (scenes ${startScene}-${endScene}, ${winStart}-${winEnd}s) — CONTINUE from the end of page ${pageNum - 1} (do NOT restart); show later stages / final result. ${CONT} `))
+            ? `IMPORTANT: PAGE 1/${pageCount} (scenes ${startScene}-${endScene}) — This is the START of the sequence. Establish the setting and character look that MUST be followed in later pages. ${CONT} `
+            : `IMPORTANT: PAGE ${pageNum}/${pageCount} (scenes ${startScene}-${endScene}) — This is a DIRECT CONTINUATION from Page ${pageNum - 1}. DO NOT restart the scene. Maintain absolute visual consistency with the established setting and character wardrobe. ${CONT} `))
     : '';
 
   // A13/A15: CHARACTER identity anchor — separate from the PRODUCT-only SUBJECT
