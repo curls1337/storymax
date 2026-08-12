@@ -83,6 +83,9 @@ export default function Generator({ setTab, selectedCharacter }) {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState('');
   const [aiMatchedLayout, setAiMatchedLayout] = useState(null);
+  const [aiReferenceSummary, setAiReferenceSummary] = useState('');
+  const [aiReferenceStatus, setAiReferenceStatus] = useState('not_requested');
+  const [aiIdeaSeed, setAiIdeaSeed] = useState('');
 
   const [generating, setGenerating] = useState(false);
   const [currentTaskId, setCurrentTaskId] = useState(null);
@@ -387,35 +390,48 @@ export default function Generator({ setTab, selectedCharacter }) {
 
   const [autoLayout, setAutoLayout] = useState(true);
 
-  const handleGenerateAiPrompt = async (conceptText) => {
-    const targetConcept = conceptText || aiInput.trim();
-    if (!targetConcept) return;
+  const handleGenerateAiPrompt = async (requestMode) => {
+    const mode = requestMode === 'random_idea' ? 'random_idea' : 'expand';
+    const referenceImages = selectedRefImages
+      .map(item => item?.value || item?.url)
+      .filter(Boolean)
+      .slice(0, 3);
+    // Tulis AI expands the user's brief and attached visual references. Minta Ide is
+    // deliberately independent: it uses only an optional keyword, never the old draft.
+    const targetConcept = mode === 'expand' ? (aiInput.trim() || prompt.trim()) : aiInput.trim();
+    if (mode === 'expand' && !targetConcept && referenceImages.length === 0) {
+      setAiError('Tulis AI memerlukan ide teks atau minimal satu gambar referensi.');
+      return;
+    }
     setAiLoading(true);
     setAiError('');
     setAiMatchedLayout(null);
+    setAiReferenceSummary('');
+    setAiReferenceStatus('not_requested');
+    setAiIdeaSeed('');
     try {
-      const res = await api.post('/ai/write-prompt', { 
-        concept: targetConcept, 
+      const endpoint = mode === 'random_idea' ? '/ai/random-idea' : '/ai/write-prompt';
+      const res = await api.post(endpoint, {
+        concept: targetConcept,
         style: autoLayout ? 'auto' : style,
         videoEngine,
         gridCount,
         duration,
-        hasRefImage: selectedRefImages.length > 0,
-        refImage: selectedRefImages.length > 0 ? (selectedRefImages[0].type === 'base64' ? selectedRefImages[0].value : selectedRefImages[0].value) : null
+        aspectRatio,
+        refImages: mode === 'expand' ? referenceImages : []
       });
-      const { title: aiTitle, description: aiDesc, layout: aiLayout } = res.data;
+      const { title: aiTitle, description: aiDesc, layout: aiLayout, referenceSummary, referenceAnalysisStatus, ideaSeed } = res.data;
       setTitle(aiTitle || '');
       setPrompt(aiDesc || '');
+      setAiReferenceSummary(referenceSummary || '');
+      setAiReferenceStatus(referenceAnalysisStatus || 'not_requested');
+      setAiIdeaSeed(ideaSeed || '');
       if (aiLayout) {
         setStyle(aiLayout);
         const matchOpt = LAYOUT_STYLES.find(opt => opt.value === aiLayout);
-        if (matchOpt) {
-          setAiMatchedLayout(matchOpt.label);
-        }
+        if (matchOpt) setAiMatchedLayout(matchOpt.label);
       }
-      if (!conceptText) {
-        setAiInput('');
-      }
+      setAiInput('');
     } catch (err) {
       setAiError(err.response?.data?.message || 'Gagal generate prompt dengan AI.');
     } finally {
@@ -973,25 +989,32 @@ export default function Generator({ setTab, selectedCharacter }) {
                 type="text"
                 value={aiInput}
                 onChange={(e) => setAiInput(e.target.value)}
-                placeholder={mode === 'tokopedia' ? "Opsional: ide tambahan (misal: buat nuansa hujan malam)" : "Tulis ide kasar (misal: iklan parfum mewah)"}
+                placeholder="Tulis brief untuk Tulis AI, atau kata kunci opsional untuk Minta Ide"
                 className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-xs text-white placeholder-slate-700 focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all"
                 disabled={aiLoading || generating}
               />
+              {selectedRefImages.length > 0 && (
+                <p className="flex items-center gap-1 text-[8px] text-emerald-300/90 font-medium">
+                  <Eye className="w-3 h-3" /> Tulis AI akan menganalisis {Math.min(selectedRefImages.length, 3)} gambar referensi yang dipilih.
+                </p>
+              )}
+              <p className="text-[8px] text-slate-500 leading-relaxed">Minta Ide membuat konsep baru dari kata kunci opsional dan layout; draft serta gambar referensi saat ini tidak dikirim.</p>
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => handleGenerateAiPrompt()}
+                  onClick={() => handleGenerateAiPrompt('expand')}
                   className="flex-grow bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-1.5 rounded-lg transition-all text-[8.5px] uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40"
-                  disabled={aiLoading || generating || (!aiInput.trim() && !prompt.trim())}
-                  title="Merangkum teks produk, membuang aturan unboxing/garansi, dan membuat prompt sinematik"
+                  disabled={aiLoading || generating || (!aiInput.trim() && !prompt.trim() && selectedRefImages.length === 0)}
+                  title="Menganalisis brief dan gambar referensi yang dipilih untuk membuat storyboard yang sesuai produk nyata"
                 >
                   {aiLoading ? <Loader className="animate-spin w-3 h-3" /> : <Sparkles className="w-3 h-3" />}
-                  {mode === 'tokopedia' && prompt.trim() ? '✨ Rapikan Deskripsi dengan AI' : 'Tulis AI'}
+                  Tulis AI
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleGenerateAiPrompt(aiInput.trim() ? `minta_ide_acak:${aiInput.trim()}` : (prompt.trim() ? `minta_ide_acak:${prompt.slice(0, 100)}` : 'minta_ide_acak'))}
+                  onClick={() => handleGenerateAiPrompt('random_idea')}
                   className="flex-grow bg-[#1a1918] hover:bg-[#2a2725] text-[#cfae80] border border-[#cfae80]/20 font-bold py-1.5 rounded-lg transition-all text-[8.5px] uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer"
+                  title="Membuat konsep acak baru; hanya kata kunci opsional dan layout yang dipilih dipakai"
                   disabled={aiLoading || generating}
                 >
                   {aiLoading ? <Loader className="animate-spin w-3 h-3" /> : <Sparkles className="w-3 h-3 text-[#cfae80]" />}
@@ -1000,6 +1023,15 @@ export default function Generator({ setTab, selectedCharacter }) {
               </div>
             </div>
             
+            {aiReferenceSummary && aiReferenceStatus === 'analyzed' && (
+              <p className="text-[9px] text-emerald-300 mt-1 font-medium">Referensi terdeteksi: {aiReferenceSummary}</p>
+            )}
+            {aiReferenceStatus === 'text_fallback' && (
+              <p className="text-[9px] text-amber-300 mt-1 font-medium">Gambar tidak berhasil dianalisis; hasil dibuat hanya dari brief teks, tanpa menebak detail produk.</p>
+            )}
+            {aiIdeaSeed && (
+              <p className="text-[8px] text-slate-500 font-mono">Ide acak: {aiIdeaSeed}</p>
+            )}
             {aiError && (
               <p className="text-[9px] text-red-400 mt-1 font-medium">{aiError}</p>
             )}

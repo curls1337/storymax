@@ -146,10 +146,25 @@ async function resolveImageDataUrl(src) {
   return `data:image/png;base64,${src}`;
 }
 
-async function writePrompt(req, res) {
-  const { concept, style, videoEngine, gridCount, duration, aspectRatio, hasRefImage, refImage } = req.body;
-  if (!concept) {
-    return res.status(400).json({ message: 'Ide kasar (concept) harus diisi.' });
+function writePrompt(req, res) {
+  return generateAiAssistant(req, res, 'expand');
+}
+
+function generateRandomIdea(req, res) {
+  return generateAiAssistant(req, res, 'random_idea');
+}
+
+async function generateAiAssistant(req, res, forcedMode) {
+  const { concept, style, videoEngine, gridCount, duration, aspectRatio, mode: requestedMode = 'expand', refImages = [], refImage } = req.body || {};
+  const mode = forcedMode || requestedMode;
+  const isRandomIdea = mode === 'random_idea';
+  const rawReferenceInputs = Array.isArray(refImages) ? refImages : [];
+  const legacyReferences = rawReferenceInputs.length ? rawReferenceInputs : (refImage ? [refImage] : []);
+  if (!isRandomIdea && !String(concept || '').trim() && legacyReferences.length === 0) {
+    return res.status(400).json({ message: 'Tulis AI memerlukan ide teks atau minimal satu gambar referensi.' });
+  }
+  if (!['expand', 'random_idea'].includes(mode)) {
+    return res.status(400).json({ message: 'Mode AI Assistant tidak valid.' });
   }
 
   // Dynamic AI Creative Matrix pools to generate infinite, ultra-broad commercial concepts
@@ -229,12 +244,8 @@ async function writePrompt(req, res) {
     "Ciptakan konsep eksperimental dengan permainan bayangan dramatis, refleksi kaca, dan pencahayaan kontras tinggi."
   ];
 
-  let rawKeyword = '';
-  let isRandomIdea = false;
-  if (concept && concept.startsWith('minta_ide_acak')) {
-    isRandomIdea = true;
-    rawKeyword = concept.includes(':') ? concept.split(':').slice(1).join(':').trim() : '';
-  }
+  const rawKeyword = isRandomIdea ? String(concept || '').trim() : '';
+  const ideaSeed = isRandomIdea ? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}` : '';
 
   try {
     const db = getDb();
@@ -248,6 +259,20 @@ async function writePrompt(req, res) {
       apiHost = settings.endpoint;
       apiToken = settings.api_key;
     }
+
+    // Tulis AI may inspect up to three actual visual references. Invalid or unreadable
+    // images are excluded rather than being described as if the model had seen them.
+    const resolvedReferenceImages = [];
+    if (!isRandomIdea) {
+      for (const source of legacyReferences.slice(0, 3)) {
+        const imageUrl = await resolveImageDataUrl(source);
+        if (imageUrl) resolvedReferenceImages.push(imageUrl);
+      }
+    }
+    const hasVisualReferences = resolvedReferenceImages.length > 0;
+    const referenceDirective = hasVisualReferences
+      ? `\nVISUAL REFERENCE CONTRACT:\n- You are receiving ${resolvedReferenceImages.length} actual product/reference image(s). Inspect them before writing.\n- Identify only objects, materials, colors, forms, labels, accessories, and people that are visibly supported by those image(s).\n- The product/subect in every panel MUST be the same visible reference; never substitute a generic tumbler, perfume, phone, or another product.\n- If a visual fact is unclear, describe it conservatively and do not invent a feature.\n- Return a concise Indonesian \"referenceSummary\" containing the concrete subject detected from the image(s).\n`
+      : '';
 
     const layoutListText = LAYOUT_STYLES.map(s => `- "${s.value}": ${s.label}`).join('\n');
     const styleExists = style && LAYOUT_STYLES.some(s => s.value === style);
@@ -286,12 +311,13 @@ Tugas Anda adalah memfasilitasi ideasi storyboard kreatif pengguna berdasarkan P
 3. 'layout': Wajib bernilai "${style}" (karena pengguna telah memilih gaya ini).
 
 ${strictRules}
-
-Anda harus mengembalikan respon hanya dalam format JSON mentah dengan key 'title', 'description', dan 'layout'. Jangan bungkus dalam markdown (jangan pakai \`\`\`json). Contoh output:
+${referenceDirective}
+Anda harus mengembalikan respon hanya dalam format JSON mentah dengan key 'title', 'description', 'layout', dan 'referenceSummary'. Jangan bungkus dalam markdown (jangan pakai \`\`\`json). Contoh output:
 {
   "title": "Judul Elegan",
   "description": "Panel 1: ...\nPanel 2: ...\nPanel 3: ...\nPanel 4: ...",
-  "layout": "${style}"
+  "layout": "${style}",
+  "referenceSummary": "Ringkasan objek yang benar-benar terlihat, atau string kosong bila tidak ada gambar."
 }`;
     } else {
       systemInstruction = `Anda adalah seorang Creative Director & Sutradara Visual World-Class yang SANGAT SETIA pada ide asli pengguna — Anda MENGEMBANGKAN, bukan MENGGANTI, ide yang pengguna tulis.
@@ -302,12 +328,13 @@ Tugas Anda adalah memfasilitasi ideasi storyboard kreatif pengguna berdasarkan P
 ${layoutListText}
 
 ${strictRules}
-
-Anda harus mengembalikan respon hanya dalam format JSON mentah dengan key 'title', 'description', dan 'layout' (diisi dengan value/kode dari layout yang Anda pilih). Jangan bungkus dalam markdown (jangan pakai \`\`\`json). Contoh output:
+${referenceDirective}
+Anda harus mengembalikan respon hanya dalam format JSON mentah dengan key 'title', 'description', 'layout', dan 'referenceSummary' (diisi dengan value/kode dari layout yang Anda pilih). Jangan bungkus dalam markdown (jangan pakai \`\`\`json). Contoh output:
 {
   "title": "Judul Elegan",
   "description": "Panel 1: ...\nPanel 2: ...\nPanel 3: ...\nPanel 4: ...",
-  "layout": "premium_vertical_row"
+  "layout": "premium_vertical_row",
+  "referenceSummary": "Ringkasan objek yang benar-benar terlihat, atau string kosong bila tidak ada gambar."
 }`;
     }
 
@@ -403,13 +430,13 @@ Anda harus mengembalikan respon hanya dalam format JSON mentah dengan key 'title
     const pickAngle = RANDOM_CREATIVE_ANGLES[Math.floor(Math.random() * RANDOM_CREATIVE_ANGLES.length)];
 
     if (rawKeyword) {
-      userMessageContent = `Buatlah konsep ide iklan sinematik yang sangat unik, segar, dan belum pernah ada sebelumnya berdasarkan kata kunci produk pengguna: "${rawKeyword}".
+      userMessageContent = `MODE: RANDOM IDEA. Seed variasi: ${ideaSeed}. Buatlah konsep ide iklan sinematik yang sangat unik, segar, dan berbeda dari ide sebelumnya berdasarkan kata kunci produk pengguna: "${rawKeyword}".
 Padukan kata kunci produk tersebut secara harmonis dengan pengarahan estetik berikut:
 - Pendekatan Ideasi: ${pickAngle}
 - Tema Visual & Aesthetic: ${pickVisual}
 - Gerakan Kamera & Aksi Visual: ${pickAction}`;
     } else {
-      userMessageContent = `Buatlah ide konsep video komersial lengkap yang SANGAT KREATIF, BARU, DAN BERBEDA DARI SEBELUMNYA.
+      userMessageContent = `MODE: RANDOM IDEA. Seed variasi: ${ideaSeed}. Buatlah ide konsep video komersial lengkap yang SANGAT KREATIF, BARU, DAN BERBEDA DARI SEBELUMNYA.
 ${styleExists ? `PENTING: Pengguna telah memilih gaya layout "${style}". Pilihlah subjek/objek produk (${pickNiche}) yang SECARA ALAMI & LOGIS PALING COCOK DAN TERBAIK untuk gaya layout tersebut (DILARANG memilih objek yang tidak cocok seperti kendaraan besar atau robot untuk gaya ASMR/detail).` : 'DILARANG KERAS mengulang ide pasaran, melainkan buatlah ideasi komersial yang segar, out-of-the-box, dan sangat beragam!'}
 
 Gunakan kombinasi pengarahan matriks ideasi acak berikut:
@@ -418,9 +445,11 @@ Gunakan kombinasi pengarahan matriks ideasi acak berikut:
 - Gaya Visual & Pencahayaan: ${pickVisual}
 - Pergerakan Kamera & Aksi: ${pickAction}`;
     }
-  } else {
-    userMessageContent = `Ide Kasar Pengguna: ${concept}`;
-  }
+    } else {
+      userMessageContent = String(concept || '').trim()
+        ? `Ide Kasar Pengguna: ${String(concept).trim()}`
+        : 'Tidak ada brief teks. Bangun storyboard hanya dari objek yang benar-benar terlihat pada gambar referensi.';
+    }
 
     // Calculate pageCount and totalPanels based on video engine and duration
     let secondsPerPage = 15;
@@ -443,27 +472,28 @@ Gunakan kombinasi pengarahan matriks ideasi acak berikut:
     contextClause += `\n- Total panel sekuensial secara keseluruhan: ${totalPanels} Panel`;
     if (duration) contextClause += `\n- Total durasi video: ${durVal} detik`;
     if (aspectRatio) contextClause += `\n- Ukuran gambar/Rasio aspek: ${aspectRatio}`;
-    if (hasRefImage) {
-      contextClause += `\n- Catatan: Pengguna mengunggah gambar referensi produk asli. Pastikan deskripsi prompt fokus untuk menjaga konsistensi produk/subjek dari gambar referensi (pertahankan detail produk tersebut di seluruh panel visual).`;
+    if (hasVisualReferences) {
+      contextClause += `\n- Bukti visual: ${resolvedReferenceImages.length} gambar referensi dilampirkan dan WAJIB menjadi sumber kebenaran produk/subjek di seluruh panel.`;
     }
     contextClause += `\n\nSesuaikan deskripsi visual agar selaras dengan parameter-parameter tersebut. Karena durasi video adalah ${durVal} detik dengan engine ${engine}, storyboard ini akan memiliki ${pageCount} halaman dengan ${gCount} panel per halaman (Total: ${totalPanels} panel sekuensial). Alur cerita dalam deskripsi Anda WAJIB merinci pembagian alur panel dari Panel 1 sampai Panel ${totalPanels} secara kronologis untuk mencakup seluruh durasi tersebut agar gambar di setiap halaman tidak berulang.`;
 
     userMessageContent += contextClause;
 
-    // Use text-only payload for prompt synthesis so it routes fast & 100% reliably across all providers (Magica & Default).
+    // Vision references are appended as actual image content. `llmChatViaSettings`
+    // automatically routes this multimodal request to the configured vision endpoint.
+    const userContent = hasVisualReferences
+      ? [
+          { type: 'text', text: userMessageContent },
+          ...resolvedReferenceImages.map((url) => ({ type: 'image_url', image_url: { url } }))
+        ]
+      : userMessageContent;
     const payload = {
       model: settings?.model || 'gemini-3-flash',
       messages: [
-        {
-          role: 'system',
-          content: systemInstruction
-        },
-        {
-          role: 'user',
-          content: userMessageContent
-        }
+        { role: 'system', content: systemInstruction },
+        { role: 'user', content: userContent }
       ],
-      temperature: 0.7
+      temperature: isRandomIdea ? 0.95 : 0.45
     };
 
     const headers = {
@@ -471,7 +501,54 @@ Gunakan kombinasi pengarahan matriks ideasi acak berikut:
       'Authorization': `Bearer ${apiToken}`
     };
 
-    const response = await llmChatViaSettings(payload, { db });
+    let response;
+    let visualFallbackUsed = false;
+    try {
+      response = await llmChatViaSettings(payload, { db });
+    } catch (visionError) {
+      // A vision outage must never be disguised as successful image recognition. If
+      // the user supplied a text brief, preserve the request via a clearly labelled
+      // text-only fallback; image-only requests fail safely instead of inventing.
+      if (!hasVisualReferences) throw visionError;
+      if (!String(concept || '').trim()) {
+        return res.status(503).json({
+          message: 'Analisis gambar referensi sedang tidak tersedia. Coba lagi; Storymax tidak akan menebak produk tanpa membaca gambarnya.'
+        });
+      }
+      console.warn('[writePrompt] Vision request failed; using labelled text-only fallback:', visionError.message);
+      visualFallbackUsed = true;
+      const textOnlySystemInstruction = `${systemInstruction.replace(referenceDirective, '')}\nVISUAL FALLBACK: gambar referensi gagal dimuat. Jangan mengaku telah melihat gambar; gunakan hanya brief teks pengguna dan jangan menebak detail produk.`;
+      const textOnlyUserMessage = userMessageContent.replace(/\n- Bukti visual:[^\n]*/g, '');
+      response = await llmChatViaSettings({
+        ...payload,
+        messages: [
+          { role: 'system', content: textOnlySystemInstruction },
+          { role: 'user', content: textOnlyUserMessage }
+        ]
+      }, { db });
+    }
+
+    // Some providers return non-200 rather than throwing for an unsupported vision
+    // request. Treat that exactly like a vision failure and retry text-only only when
+    // a user brief exists; never fabricate an image-only product description.
+    if (response.statusCode !== 200 && hasVisualReferences && !visualFallbackUsed) {
+      if (!String(concept || '').trim()) {
+        return res.status(503).json({
+          message: 'Analisis gambar referensi sedang tidak tersedia. Coba lagi; Storymax tidak akan menebak produk tanpa membaca gambarnya.'
+        });
+      }
+      console.warn('[writePrompt] Vision response was non-200; using labelled text-only fallback:', response.statusCode);
+      visualFallbackUsed = true;
+      const textOnlySystemInstruction = `${systemInstruction.replace(referenceDirective, '')}\nVISUAL FALLBACK: gambar referensi gagal dimuat. Jangan mengaku telah melihat gambar; gunakan hanya brief teks pengguna dan jangan menebak detail produk.`;
+      const textOnlyUserMessage = userMessageContent.replace(/\n- Bukti visual:[^\n]*/g, '');
+      response = await llmChatViaSettings({
+        ...payload,
+        messages: [
+          { role: 'system', content: textOnlySystemInstruction },
+          { role: 'user', content: textOnlyUserMessage }
+        ]
+      }, { db });
+    }
 
     if (response.statusCode !== 200) {
       console.error('[writePrompt API Non-200 Error]:', response.statusCode, response.body);
@@ -525,9 +602,14 @@ Gunakan kombinasi pengarahan matriks ideasi acak berikut:
       cleanDesc = cleanDesc.replace(/^[a-z0-9_-]+:\s*(panel\s+terasa|panel\s+1|halaman)/i, '$1').trim();
 
       return res.json({
+        mode: isRandomIdea ? 'random_idea' : 'expand',
         title: parsed.title || 'Untitled AI Project',
         description: cleanDesc,
-        layout: selectedLayout
+        layout: selectedLayout,
+        referenceSummary: hasVisualReferences && !visualFallbackUsed ? String(parsed.referenceSummary || '').trim() : '',
+        referenceCount: resolvedReferenceImages.length,
+        referenceAnalysisStatus: hasVisualReferences ? (visualFallbackUsed ? 'text_fallback' : 'analyzed') : 'not_requested',
+        ideaSeed
       });
     } else {
       console.warn('[writePrompt Fallback]: LLM returned plain text:', content.substring(0, 100));
@@ -536,9 +618,14 @@ Gunakan kombinasi pengarahan matriks ideasi acak berikut:
       cleanDesc = cleanDesc.replace(/^storyboard\s+.*?\d+\s*panel[^\n:]*:\s*/i, '').trim();
 
       return res.json({
-        title: String(concept || 'Project').substring(0, 25).trim(),
-        description: cleanDesc || concept,
-        layout: 'premium_vertical_row'
+        mode: isRandomIdea ? 'random_idea' : 'expand',
+        title: String(concept || (isRandomIdea ? 'Ide Acak' : 'Project')).substring(0, 25).trim(),
+        description: cleanDesc || String(concept || ''),
+        layout: 'premium_vertical_row',
+        referenceSummary: '',
+        referenceCount: resolvedReferenceImages.length,
+        referenceAnalysisStatus: hasVisualReferences ? (visualFallbackUsed ? 'text_fallback' : 'analyzed') : 'not_requested',
+        ideaSeed
       });
     }
 
@@ -1067,6 +1154,7 @@ async function generateVideoPrompts(req, res) {
 
 module.exports = {
   writePrompt,
+  generateRandomIdea,
   generateVideoPrompts,
   generateVideoPromptsInternal
 };
