@@ -53,15 +53,14 @@ function dedupeList(arr) {
 // should render as photorealistic PHOTO panels — not sketches / concept art. The
 // word "storyboard" biases image models toward rough sketches, so photo styles get
 // an explicit photorealism directive + anti-sketch negatives.
-const ILLUSTRATION_STYLES = new Set(['anime_comic', 'stop_motion', 'tiny_world', 'education_explainer', 'kids_education']);
+const ILLUSTRATION_STYLES = new Set(['anime_manga', 'kawaii_playful', 'infographic_explainer', 'stop_motion']);
 
 // Creative "transform" styles where a reference image is only INSPIRATION for the
 // subject's identity & colors — the output is re-rendered into the style's own form
-// (cube, pod, toy, miniature, jelly, soundstage miniature), NOT a 1:1 copy of the
+// (mechanical, toy, miniature, jelly, soundstage miniature), NOT a 1:1 copy of the
 // reference. Every OTHER style keeps STRICT reference fidelity (exact reproduction).
 const STYLIZED_REF_STYLES = new Set([
-  'cube_box_transform', 'shape_morph_transform', 'asmr_toy_transform',
-  'bts_practical_fx', 'mini_restoration_asmr', 'jelly_character_asmr',
+  'mechanical_transform', 'jelly_character_asmr', 'bts_practical_fx', 'mini_restoration_asmr',
 ]);
 
 // Shared helper so the LLM generator applies the SAME photo/illustration decision.

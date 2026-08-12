@@ -369,9 +369,19 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
               db,
               task.magicaKeyId,
               async (keyRec) => {
+                // For Magica, send BOTH character and product images if available
+                const refUrls = [];
+                if (task.characterId && task.finalRefImagePath) {
+                  refUrls.push(task.finalRefImagePath); // Character (Primary)
+                  if (task.productRefImagePath) refUrls.push(task.productRefImagePath); // Product (Secondary)
+                } else if (pageRefPath) {
+                  refUrls.push(pageRefPath);
+                }
+
                 return await magicaGen.generateOneImageMagica(keyRec.key_value, pagePrompt, {
                   aspectRatio: task.aspectRatio,
-                  refUrl: pageRefPath,
+                  refUrls: refUrls.length ? refUrls : undefined,
+                  refUrl: !refUrls.length ? pageRefPath : undefined,
                   nodeType: task.magicaModel,
                   onLog: (m) => { task.logs += m + '\n'; },
                 });

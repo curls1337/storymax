@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        .slide-container {
+            width: 1280px;
+            min-height: 720px;
+            background-color: #E8ECEF;
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            position: relative;
+            padding: 60px 80px 0 80px;
+            display: flex;
+            flex-direction: column;
+        }
+        .header-section {
+            margin-bottom: 50px;
+        }
+        .accent-bar {
+            width: 60px;
+            height: 8px;
+            background-color: #E67E22;
+            margin-bottom: 20px;
+        }
+        h2 {
+            color: #1A2B3C;
+            font-weight: 800;
+            font-size: 48px;
+            text-transform: uppercase;
+            letter-spacing: -1px;
+        }
+        .content-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            flex-grow: 1;
+        }
+        .code-block {
+            border: 2px solid #34495E;
+            background-color: #1A2B3C;
+            color: #E8ECEF;
+            padding: 30px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 20px;
+            line-height: 1.6;
+            white-space: pre;
+            overflow: hidden;
+        }
+        .points-list {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+            justify-content: center;
+        }
+        .point-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 20px;
+        }
+        .point-bullet {
+            width: 16px;
+            height: 16px;
+            background-color: #E67E22;
+            margin-top: 8px;
+            flex-shrink: 0;
+        }
+        .point-text {
+            color: #34495E;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 24px;
+            line-height: 1.5;
+        }
+        .highlight {
+            color: #E67E22;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body>
+    <div class="slide-container">
+        <div class="header-section">
+            <div class="accent-bar"></div>
+            <h2>Kontrak Baru: StoryboardPlan</h2>
+        </div>
+        
+        <div class="content-grid">
+            <div class="code-block">StoryboardPlan
+├─ version, title, layout, projectBrief
+└─ pages[]
+   ├─ pageIndex, goal
+   └─ beats[]
+      ├─ index
+      ├─ action
+      └─ camera</div>
+            
+            <div class="points-list">
+                <div class="point-item">
+                    <div class="point-bullet"></div>
+                    <div class="point-text">LLM menghasilkan <span class="highlight">page dan beat</span> yang sudah sesuai generation plan.</div>
+                </div>
+                <div class="point-item">
+                    <div class="point-bullet"></div>
+                    <div class="point-text"><span class="highlight">description</span> menjadi proyeksi kompatibilitas, bukan sumber kebenaran.</div>
+                </div>
+                <div class="point-item">
+                    <div class="point-bullet"></div>
+                    <div class="point-text">Job storyboard memakai <span class="highlight">pages[pageIndex]</span> langsung; tidak perlu memecah ulang teks bebas.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -374,12 +374,19 @@ export default function Generator({ setTab, selectedCharacter }) {
       setPrompt(scrapedDesc || '');
       setScrapedImages(images || []);
       if (images && images.length > 0) {
-        setSelectedRefImages([{
-          id: images[0],
-          type: 'url',
-          value: images[0],
-          preview: images[0]
-        }]);
+        setSelectedRefImages(prev => {
+          // Keep character references, replace or add product references
+          const charRefs = prev.filter(img => img.isCharacter);
+          return [
+            ...charRefs,
+            {
+              id: images[0],
+              type: 'url',
+              value: images[0],
+              preview: images[0]
+            }
+          ];
+        });
       }
     } catch (err) {
       setError(err.response?.data?.message || 'Gagal mengambil data dari Tokopedia.');
@@ -418,7 +425,8 @@ export default function Generator({ setTab, selectedCharacter }) {
         gridCount,
         duration,
         aspectRatio,
-        refImages: mode === 'expand' ? referenceImages : []
+        refImages: mode === 'expand' ? referenceImages : [],
+        characterId: chosenCharacter ? chosenCharacter.id : undefined
       });
       const { title: aiTitle, description: aiDesc, layout: aiLayout, referenceSummary, referenceAnalysisStatus, ideaSeed } = res.data;
       setTitle(aiTitle || '');

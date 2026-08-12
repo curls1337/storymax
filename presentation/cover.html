@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        .slide-container {
+            width: 1280px;
+            min-height: 720px;
+            background-color: #E8ECEF;
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            position: relative;
+            overflow: hidden;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: auto 1fr; /* top row adapts to title height so grid doesn't force equal tall rows */
+        }
+        /* Structural Grid Lines */
+        .slide-container::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 100%;
+            height: 1px;
+            background-color: rgba(52, 73, 94, 0.2);
+            z-index: 1;
+        }
+        .slide-container::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            width: 1px;
+            height: 100%;
+            background-color: rgba(52, 73, 94, 0.2);
+            z-index: 1;
+        }
+        /* Slightly reduced default padding for non-title quadrants to save vertical space */
+        .quadrant {
+            position: relative;
+            z-index: 2;
+            padding: 40px; /* reduced from 60 for most quadrants */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        /* Keep the title quadrant padding intact (do NOT shrink upper padding of the title) */
+        .quadrant-tl { padding: 60px; align-items: flex-start; justify-content: flex-end; }
+        .quadrant-br { align-items: flex-end; justify-content: flex-start; text-align: right; }
+        .quadrant-tr, .quadrant-bl { justify-content: center; align-items: center; }
+        h1 {
+            color: #1A2B3C;
+            font-weight: 800;
+            font-size: 80px;
+            line-height: 1.1;
+            text-transform: uppercase;
+            letter-spacing: -2px;
+            margin-bottom: 20px;
+        }
+        .accent-bar {
+            width: 80px;
+            height: 8px;
+            background-color: #E67E22;
+            margin-bottom: 20px; /* reduced from 30 */
+        }
+        h3 {
+            color: #34495E;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-weight: 400;
+            font-size: 26px;
+            line-height: 1.4;
+            max-width: 500px;
+        }
+        .meta-box {
+            border: 2px solid #34495E;
+            padding: 15px 25px;
+            background-color: transparent;
+            color: #1A2B3C;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-weight: 400;
+            font-size: 18px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            display: inline-block;
+        }
+        /* Slightly smaller decorative boxes and milder transforms to avoid pushing into other rows */
+        .decorative-box {
+            width: 120px;
+            height: 120px;
+            border: 2px solid #E67E22;
+            opacity: 0.5;
+        }
+        .quadrant-tr .decorative-box { transform: translate(-20px, 20px); }
+        .quadrant-bl .decorative-box { transform: translate(20px, -20px); border-color: #34495E; }
+    </style>
+</head>
+<body>
+    <div class="slide-container">
+        <div class="quadrant quadrant-tl">
+            <div class="accent-bar"></div>
+            <h1>Audit<br>Tulis AI &<br>Minta Ide</h1>
+        </div>
+        <div class="quadrant quadrant-tr">
+            <div class="decorative-box"></div>
+        </div>
+        <div class="quadrant quadrant-bl">
+            <div class="decorative-box"></div>
+        </div>
+        <div class="quadrant quadrant-br">
+            <h3>Stabilkan kontrak cerita, panel, dan draft pengguna</h3>
+            <div style="margin-top: 24px;"> <!-- reduced from 40px to save vertical space -->
+                <div class="meta-box">Storymax — Ringkasan Teknis</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

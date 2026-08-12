@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        .slide-container {
+            width: 1280px;
+            min-height: 720px;
+            background-color: #E8ECEF;
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            position: relative;
+            display: grid;
+            grid-template-columns: 500px 1fr;
+        }
+        /* Structural Grid Line */
+        .slide-container::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 500px;
+            width: 1px;
+            height: 100%;
+            background-color: rgba(52, 73, 94, 0.2);
+            z-index: 1;
+        }
+        .left-col {
+            padding: 60px 40px 0 60px;
+            z-index: 2;
+        }
+        .right-col {
+            padding: 60px 80px 0 60px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            z-index: 2;
+        }
+        .accent-bar {
+            width: 60px;
+            height: 8px;
+            background-color: #E67E22;
+            margin-bottom: 20px;
+        }
+        h2 {
+            color: #1A2B3C;
+            font-weight: 800;
+            font-size: 42px;
+            line-height: 1.1;
+            text-transform: uppercase;
+            letter-spacing: -1px;
+            margin-bottom: 50px;
+        }
+        .step-list {
+            list-style: none;
+            counter-reset: step-counter;
+        }
+        .step-item {
+            position: relative;
+            padding-left: 50px;
+            margin-bottom: 30px;
+            color: #34495E;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 20px;
+            line-height: 1.4;
+        }
+        .step-item::before {
+            counter-increment: step-counter;
+            content: counter(step-counter) ".";
+            position: absolute;
+            left: 0;
+            top: 0;
+            color: #E67E22;
+            font-weight: 700;
+        }
+        .quote-box {
+            border: 2px solid #E67E22;
+            padding: 50px;
+            background-color: transparent;
+        }
+        .quote-text {
+            color: #1A2B3C;
+            font-weight: 800;
+            font-size: 42px;
+            line-height: 1.2;
+            text-transform: uppercase;
+        }
+        .quote-highlight {
+            color: #E67E22;
+        }
+    </style>
+</head>
+<body>
+    <div class="slide-container">
+        <div class="left-col">
+            <div class="accent-bar"></div>
+            <h2>Flow Saat Ini Mengulang Perencanaan</h2>
+            
+            <ul class="step-list">
+                <li class="step-item">Pengguna mengirim ide atau meminta ide acak.</li>
+                <li class="step-item">LLM menulis judul, description, dan layout dalam satu respons.</li>
+                <li class="step-item">Frontend langsung menimpa field form.</li>
+                <li class="step-item">Generator storyboard kembali memecah description menjadi halaman.</li>
+            </ul>
+        </div>
+        
+        <div class="right-col">
+            <div class="quote-box">
+                <p class="quote-text">Satu cerita direncanakan <span class="quote-highlight">dua kali</span>: oleh Tulis AI dan oleh proses storyboard.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

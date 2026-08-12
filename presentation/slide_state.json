@@ -1,0 +1,122 @@
+{
+  "project_info": {
+    "title": "Audit Tulis AI & Minta Ide",
+    "created": 1786486773.241,
+    "last_updated": 1786486945.708,
+    "total_slides": 10
+  },
+  "slides": [
+    {
+      "id": "cover",
+      "state": "edited",
+      "pageNum": 1
+    },
+    {
+      "id": "kesimpulan",
+      "state": "edited",
+      "pageNum": 2
+    },
+    {
+      "id": "tiga_sumber_masalah",
+      "state": "edited",
+      "pageNum": 3
+    },
+    {
+      "id": "flow_saat_ini",
+      "state": "edited",
+      "pageNum": 4
+    },
+    {
+      "id": "kontrak_baru",
+      "state": "edited",
+      "pageNum": 5
+    },
+    {
+      "id": "validasi_sebelum_sukses",
+      "state": "edited",
+      "pageNum": 6
+    },
+    {
+      "id": "candidate_apply",
+      "state": "edited",
+      "pageNum": 7
+    },
+    {
+      "id": "mode_eksplisit",
+      "state": "edited",
+      "pageNum": 8
+    },
+    {
+      "id": "urutan_implementasi",
+      "state": "edited",
+      "pageNum": 9
+    },
+    {
+      "id": "keputusan_tim",
+      "state": "edited",
+      "pageNum": 10
+    }
+  ],
+  "outline": [
+    {
+      "id": "cover",
+      "title": "Audit Tulis AI & Minta Ide",
+      "summary": "Cover slide with title and subtitle",
+      "image_plan": "Use a suitable image if needed"
+    },
+    {
+      "id": "kesimpulan",
+      "title": "Kesimpulan: flow belum cukup aman",
+      "summary": "Ringkasan masalah pada flow Tulis AI dan Minta Ide saat ini.",
+      "image_plan": "Use a suitable image if needed"
+    },
+    {
+      "id": "tiga_sumber_masalah",
+      "title": "Tiga sumber ketidaksesuaian utama",
+      "summary": "Tabel tiga masalah utama: description tunggal, fallback plain text, dan penimpaan langsung.",
+      "image_plan": "Use a suitable image if needed"
+    },
+    {
+      "id": "flow_saat_ini",
+      "title": "Flow saat ini mengulang perencanaan",
+      "summary": "Penjelasan alur saat ini di mana cerita direncanakan dua kali oleh AI dan splitter.",
+      "image_plan": "Use a suitable image if needed"
+    },
+    {
+      "id": "kontrak_baru",
+      "title": "Kontrak baru: StoryboardPlan",
+      "summary": "Penjelasan struktur JSON StoryboardPlan yang memisahkan page dan beat.",
+      "image_plan": "Use a suitable image if needed"
+    },
+    {
+      "id": "validasi_sebelum_sukses",
+      "title": "P0: validasi sebelum hasil dianggap sukses",
+      "summary": "Aturan validasi output LLM, repair request, dan penolakan jika gagal.",
+      "image_plan": "Use a suitable image if needed"
+    },
+    {
+      "id": "candidate_apply",
+      "title": "P0: candidate dulu, Apply kemudian",
+      "summary": "State machine untuk menyimpan candidate dan menerapkan hasil dengan aman.",
+      "image_plan": "Use a suitable image if needed"
+    },
+    {
+      "id": "mode_eksplisit",
+      "title": "Minta Ide membutuhkan mode eksplisit",
+      "summary": "Perubahan dari sentinel string ke mode request API eksplisit.",
+      "image_plan": "Use a suitable image if needed"
+    },
+    {
+      "id": "urutan_implementasi",
+      "title": "Urutan implementasi aman",
+      "summary": "Langkah-langkah penerapan dari helper hingga rilis UI.",
+      "image_plan": "Use a suitable image if needed"
+    },
+    {
+      "id": "keputusan_tim",
+      "title": "Keputusan yang dibutuhkan tim",
+      "summary": "Penutup berisi hasil akhir yang dituju setelah P0 disetujui.",
+      "image_plan": "Use a suitable image if needed"
+    }
+  ]
+}

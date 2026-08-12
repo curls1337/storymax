@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        .slide-container {
+            width: 1280px;
+            min-height: 720px;
+            background-color: #E8ECEF;
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            position: relative;
+            padding: 60px 80px 0 80px;
+            display: flex;
+            flex-direction: column;
+        }
+        .header-section {
+            margin-bottom: 50px;
+        }
+        .accent-bar {
+            width: 60px;
+            height: 8px;
+            background-color: #E67E22;
+            margin-bottom: 20px;
+        }
+        h2 {
+            color: #1A2B3C;
+            font-weight: 800;
+            font-size: 48px;
+            text-transform: uppercase;
+            letter-spacing: -1px;
+        }
+        .data-table {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            border: 2px solid #34495E;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            margin-bottom: 40px;
+        }
+        .table-header {
+            background-color: #1A2B3C;
+            color: #E8ECEF;
+            font-weight: 700;
+            font-size: 22px;
+            padding: 15px 25px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .table-cell {
+            padding: 25px;
+            font-size: 22px;
+            color: #34495E;
+            line-height: 1.5;
+            border-top: 2px solid #34495E;
+        }
+        .col-left {
+            border-right: 2px solid #34495E;
+            background-color: rgba(52, 73, 94, 0.05);
+        }
+        .col-right {
+            background-color: transparent;
+        }
+        code {
+            background-color: rgba(230, 126, 34, 0.15);
+            color: #E67E22;
+            padding: 2px 8px;
+            font-weight: 700;
+            border: 1px solid rgba(230, 126, 34, 0.3);
+        }
+        .note-box {
+            border: 2px solid #E67E22;
+            padding: 25px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 20px;
+            color: #1A2B3C;
+            background-color: transparent;
+        }
+        .note-title {
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            color: #E67E22;
+        }
+    </style>
+</head>
+<body>
+    <div class="slide-container">
+        <div class="header-section">
+            <div class="accent-bar"></div>
+            <h2>Minta Ide Membutuhkan Mode Eksplisit</h2>
+        </div>
+        
+        <div class="data-table">
+            <div class="table-header col-left">Sebelum</div>
+            <div class="table-header col-right">Sesudah</div>
+            
+            <div class="table-cell col-left">
+                <code>minta_ide_acak:</code> di dalam text
+            </div>
+            <div class="table-cell col-right">
+                <code>mode: random_idea</code> di request API
+            </div>
+            
+            <div class="table-cell col-left">
+                Ide acak sulit ditelusuri
+            </div>
+            <div class="table-cell col-right">
+                Return seed dan metadata ide
+            </div>
+            
+            <div class="table-cell col-left">
+                Satu hasil langsung menimpa form
+            </div>
+            <div class="table-cell col-right">
+                Beberapa candidate untuk dipilih
+            </div>
+        </div>
+        
+        <div class="note-box">
+            <div class="note-title">Mode yang Dipisahkan:</div>
+            <code>expand</code>, <code>clean_product_copy</code>, <code>random_idea</code>, dan <code>layout_recommendation</code>.
+        </div>
+    </div>
+</body>
+</html>

@@ -35,8 +35,8 @@ const { llmChatViaSettings } = require('../prompts/aiClient');
 // flare + shallow DOF). Every other style stays clean & crisp (DOF only, no
 // haze/flare) so products/UGC/tutorials/comparisons read clearly and honestly.
 const CINEMATIC_VIDEO_STYLES = new Set([
-  'cube_box_transform', 'shape_morph_transform', 'short_story', 'cinematic_broll', 'luxury_mood',
-  'product_assembly', 'liquid_splash', 'fashion_lookbook',
+  'mechanical_transform', 'cinematic_ad', 'luxury_mood',
+  'product_assembly', 'liquid_splash',
 ]);
 
 // Styles where the subject changes SCALE or EXPANDS on screen (a cube/pod unfolds
@@ -45,8 +45,7 @@ const CINEMATIC_VIDEO_STYLES = new Set([
 // with margin for the LARGEST/final state of the motion — never tight on the small
 // starting object.
 const TRANSFORM_FRAMING_STYLES = new Set([
-  'cube_box_transform', 'shape_morph_transform', 'asmr_toy_transform',
-  'product_assembly', 'liquid_splash',
+  'mechanical_transform', 'product_assembly', 'liquid_splash',
 ]);
 
 // A few styles' `camera` grammar describes a LAYOUT (comic panels, infographic
@@ -155,7 +154,7 @@ function generateRandomIdea(req, res) {
 }
 
 async function generateAiAssistant(req, res, forcedMode) {
-  const { concept, style, videoEngine, gridCount, duration, aspectRatio, mode: requestedMode = 'expand', refImages = [], refImage } = req.body || {};
+  const { concept, style, videoEngine, gridCount, duration, aspectRatio, mode: requestedMode = 'expand', refImages = [], refImage, characterId } = req.body || {};
   const mode = forcedMode || requestedMode;
   const isRandomIdea = mode === 'random_idea';
   const rawReferenceInputs = Array.isArray(refImages) ? refImages : [];
@@ -251,6 +250,19 @@ async function generateAiAssistant(req, res, forcedMode) {
     const db = getDb();
     const settings = await db.get('SELECT * FROM ai_settings LIMIT 1');
     
+    // Fetch character details if characterId is provided
+    let characterInfo = null;
+    if (characterId) {
+      const char = await db.get('SELECT * FROM characters WHERE id = ?', [characterId]);
+      if (char) {
+        characterInfo = {
+          name: char.name,
+          description: char.trigger_prompt || char.concept || '',
+          imageUrl: char.sheet_image_url || (char.reference_images ? JSON.parse(char.reference_images)[0] : null)
+        };
+      }
+    }
+
     // Default fallbacks if settings table is empty
     let apiHost = AI_API_HOST;
     let apiToken = AI_API_TOKEN;
@@ -269,10 +281,22 @@ async function generateAiAssistant(req, res, forcedMode) {
         if (imageUrl) resolvedReferenceImages.push(imageUrl);
       }
     }
+    // If character is provided, add its image to the visual references for analysis
+    if (characterInfo && characterInfo.imageUrl) {
+      const charImageUrl = await resolveImageDataUrl(characterInfo.imageUrl);
+      if (charImageUrl && !resolvedReferenceImages.includes(charImageUrl)) {
+        resolvedReferenceImages.push(charImageUrl);
+      }
+    }
+
     const hasVisualReferences = resolvedReferenceImages.length > 0;
-    const referenceDirective = hasVisualReferences
+    let referenceDirective = hasVisualReferences
       ? `\nVISUAL REFERENCE CONTRACT:\n- You are receiving ${resolvedReferenceImages.length} actual product/reference image(s). Inspect them before writing.\n- Identify only objects, materials, colors, forms, labels, accessories, and people that are visibly supported by those image(s).\n- The product/subect in every panel MUST be the same visible reference; never substitute a generic tumbler, perfume, phone, or another product.\n- If a visual fact is unclear, describe it conservatively and do not invent a feature.\n- Return a concise Indonesian \"referenceSummary\" containing the concrete subject detected from the image(s).\n`
       : '';
+
+    if (characterInfo) {
+      referenceDirective += `\nCHARACTER CONTEXT:\n- The user has selected a character: "${characterInfo.name}".\n- Character Description: ${characterInfo.description}\n- You MUST include this character in the storyboard description as the primary person interacting with the product.\n- Ensure the character's appearance and actions are consistent with their description.\n`;
+    }
 
     const layoutListText = LAYOUT_STYLES.map(s => `- "${s.value}": ${s.label}`).join('\n');
     const styleExists = style && LAYOUT_STYLES.some(s => s.value === style);
@@ -305,6 +329,7 @@ PENTING & LARANGAN KERAS:
 
     if (styleExists) {
       systemInstruction = `Anda adalah seorang Creative Director & Sutradara Visual World-Class yang SANGAT SETIA pada ide asli pengguna — Anda MENGEMBANGKAN, bukan MENGGANTI, ide yang pengguna tulis.
+Jika "Ide Kasar Pengguna" terlihat seperti salinan deskripsi toko (seperti Tokopedia/Shopee) yang berantakan, tugas utama Anda adalah MEMBERSIHKANNYA terlebih dahulu: buang informasi pengiriman, garansi, nomor WA, dan kebijakan toko. Fokuslah hanya pada FITUR UTAMA PRODUK dan MANFAATNYA bagi pengguna.
 Tugas Anda adalah memfasilitasi ideasi storyboard kreatif pengguna berdasarkan PERSIS apa yang pengguna tulis di "Ide Kasar Pengguna", dan menghasilkan:
 1. 'title': Judul Proyek yang padat dan sinematik, SESUAI TEMA ASLI ide pengguna (jika ide pengguna memang tentang sebuah produk, contoh: "Sonifer 5-in-1 Hand Blender Pro"; jika BUKAN tentang produk, buat judul yang mencerminkan tema/cerita aslinya — JANGAN memaksakan nama produk yang tidak ada. Maksimal 5 kata).
 2. 'description': Deskripsi Storyboard rinci yang siap digunakan sebagai prompt AI (berisi detail visual, alur aksi, sudut kamera), SETIA mengikuti ide asli pengguna tanpa menambahkan produk/elemen yang tidak diminta, dan secara khusus diselaraskan dan cocok dengan gaya layout storyboard: "${style}".
@@ -321,6 +346,7 @@ Anda harus mengembalikan respon hanya dalam format JSON mentah dengan key 'title
 }`;
     } else {
       systemInstruction = `Anda adalah seorang Creative Director & Sutradara Visual World-Class yang SANGAT SETIA pada ide asli pengguna — Anda MENGEMBANGKAN, bukan MENGGANTI, ide yang pengguna tulis.
+Jika "Ide Kasar Pengguna" terlihat seperti salinan deskripsi toko (seperti Tokopedia/Shopee) yang berantakan, tugas utama Anda adalah MEMBERSIHKANNYA terlebih dahulu: buang informasi pengiriman, garansi, nomor WA, dan kebijakan toko. Fokuslah hanya pada FITUR UTAMA PRODUK dan MANFAATNYA bagi pengguna.
 Tugas Anda adalah memfasilitasi ideasi storyboard kreatif pengguna berdasarkan PERSIS apa yang pengguna tulis di "Ide Kasar Pengguna", dan menghasilkan:
 1. 'title': Judul Proyek yang padat dan sinematik, SESUAI TEMA ASLI ide pengguna (jika ide pengguna memang tentang sebuah produk, contoh: "Sonifer 5-in-1 Hand Blender Pro"; jika BUKAN tentang produk, buat judul yang mencerminkan tema/cerita aslinya — JANGAN memaksakan nama produk yang tidak ada. Maksimal 5 kata).
 2. 'description': Deskripsi Storyboard rinci yang siap digunakan sebagai prompt AI (berisi detail visual, alur aksi, sudut kamera), SETIA mengikuti ide asli pengguna tanpa menambahkan produk/elemen yang tidak diminta.
@@ -794,42 +820,19 @@ async function generateVideoPromptsInternal({ storyboardId, promptType, regenera
   // (cube_morph_product, capsule_toss_transform) get the CURRENT rules.
   const resolvedStyle = resolveStyleId(storyboard.style);
   let capsuleStyleClause = '';
-  if (resolvedStyle === 'cube_box_transform') {
-    // Cube transformation reveal (photorealistic viral cube -> subject).
-    capsuleStyleClause = `
-CRITICAL CUBE TRANSFORMATION VIDEO RULES (photorealistic viral toy-cube reveal — NOT a glowing humanoid Transformer robot):
-1. CAMERA: shoot from a FARTHER, WIDE distance on ONE stable, locked-off (or very slow) camera — do NOT cut, jump, snap or suddenly reposition the camera; keep the entire action comfortably inside the frame the whole time. Photorealistic and cinematic, shallow DOF, NOT a CGI cartoon.
-2. OPENING — the ONLY moment a hand appears: a single human hand enters just to PRESS a button on top of the small premium mechanical cube (showing it is a transforming toy), then gently TOSSES / flips the cube (into the air or onto the surface). The hand then LEAVES the frame completely.
-3. TRANSFORM (hands-free): after the toss, the cube automatically UNFOLDS — armored panels slide, hinge and telescope outward SMOOTHLY and satisfyingly, mechanically CONNECTED (no loose or detached parts) — and reshapes into the subject at its natural scale (the product itself, a scaled collectible, or a full-scale structure/scene). NO hands during this stage. NO exploding/flying/detached parts, NO energy beams, NO glow-energy magic; it does NOT become a humanoid robot/mecha/Transformer.
-4. Keep the subject's EXACT identity, branding and colors. End on the finished photorealistic result in a calm, WIDE cinematic hero shot.
-I2V FIELD NOTE: in the "imageToVideoPrompt" field, convey this ONLY as the stable WIDE camera + the action MOTION (a hand presses the button, tosses the cube, then it auto-unfolds hands-free) — do NOT re-describe or "build" the product in words; the full identity/build description belongs to the "textToVideoPrompt" field.`;
-  }
-
-  if (resolvedStyle === 'asmr_toy_transform') {
-    // Static-camera ASMR toy transform on a tabletop.
-    capsuleStyleClause = `
-CRITICAL ASMR TOY TRANSFORM VIDEO RULES (LOCKED camera, tabletop, ASMR — no camera effects):
-1. The CAMERA IS COMPLETELY LOCKED/STATIC on a tripod over a real worn white table, framed at a COMFORTABLE, slightly WIDE top-down distance with clear empty margin around the toy — wide enough that the FULLY-UNFOLDED finished die-cast toy stays entirely in frame and is NEVER cropped. ABSOLUTELY NO camera movement — no pan, tilt, zoom, orbit, dolly, push-in or shake (do NOT move to keep up with the toy; the starting framing must already fit the final result). ONLY the toy moves. Ignore any 'CAM:' tag that implies movement; keep the shot perfectly still.
-2. A small armored cube rests statically on the table and SMOOTHLY, mechanically UNFOLDS by itself — panels slide, hinge and telescope out step by step — into a HIGH-END, PREMIUM, EXPENSIVE-LOOKING miniature die-cast collectible of the product on the SAME table (heavy metal die-cast feel, flawless factory paint, crisp realistic detailing, glossy premium finish — NOT a cheap hollow plastic toy). Photorealistic; mechanically connected; NO human hands visible in frame; NO flying/detaching parts; NO glow/energy; NOT a humanoid robot/mecha.
-3. AUDIO = satisfying ASMR mechanical transformation sounds ONLY (soft clicks, servo whirs, panels locking into place). No music-over.
-4. Keep the exact same worn white table and the product's exact identity throughout; end on the finished PREMIUM, expensive-looking die-cast collectible resting still on the table.
-I2V FIELD NOTE: in the "imageToVideoPrompt" field, express this ONLY as the locked WIDE framing + the unfolding MOTION and sounds — do NOT re-describe or "build" the product there; the full identity/build description belongs to the "textToVideoPrompt" field.`;
-  }
-
-  if (resolvedStyle === 'shape_morph_transform') {
+  if (resolvedStyle === 'mechanical_transform') {
     const { getInitialContainerDescription } = require('../prompts/containerShapes');
     const containerObj = getInitialContainerDescription(storyboard.prompt || storyboard.title, 'auto');
     const shapeDesc = containerObj.shapeEn;
 
-    // Adaptive Shape transformation reveal — STRICT SINGLE SHAPE.
+    // Mechanical transformation reveal (photorealistic viral cube/shape -> subject).
     capsuleStyleClause = `
-CRITICAL ADAPTIVE SHAPE TRANSFORMATION VIDEO RULES (photorealistic single container reveal — NOT a glowing humanoid Transformer robot):
-1. PHOTOREALISTIC and cinematic. The scene MUST start from a SINGLE precision high-tech mechanical pod (${shapeDesc}) resting statically on a fitting surface. Smooth motion move as the container expands, shallow depth of field.
-2. STRICT SINGLE SHAPE RULE: DO NOT change or cycle through other container shapes (NO spheres, NO cubes, NO cylinders if the container is a box). The SAME single ${shapeDesc} unfolds mechanically into the target subject.
-3. STRICT CONSISTENT MECHANICAL LOOK: keep the SAME high-tech, precision-engineered METAL / mechanical material, finish and realism from the FIRST frame to the LAST. It must NEVER drift into a cartoon, plastic, glossy or childish kids-toy look partway through — start mechanical, STAY mechanical all the way to the finished subject.
-4. The container's panels UNFOLD, slide and telescope outward SMOOTHLY and satisfyingly — mechanically CONNECTED, no loose or detached parts — and build/reshape into the target subject at its natural scale. NO hands visible in frame. NO exploding/flying/detached parts, NO energy beams, NO glow-energy magic.
-5. Keep the subject's EXACT identity, branding and colors. NO human hands in frame (automatic mechanical unfolding). End on the finished photorealistic result in a cinematic hero shot.
-I2V FIELD NOTE: in the "imageToVideoPrompt" field, convey all of this ONLY as camera + the unfolding MOTION (framed WIDE so the fully-formed subject is never cropped) — do NOT write "build/create the product" or re-describe the product there; the full build/identity description belongs to the "textToVideoPrompt" field.`;
+CRITICAL MECHANICAL TRANSFORMATION VIDEO RULES (photorealistic viral toy reveal — NOT a glowing humanoid Transformer robot):
+1. CAMERA: shoot from a FARTHER, WIDE distance on ONE stable, locked-off (or very slow) camera — do NOT cut, jump, snap or suddenly reposition the camera; keep the entire action comfortably inside the frame the whole time. Photorealistic and cinematic, shallow DOF, NOT a CGI cartoon.
+2. OPENING — the scene MUST start from a SINGLE precision high-tech mechanical container (${shapeDesc}) resting statically on a fitting surface. If the storyboard shows a hand, a single human hand enters just to PRESS a button on top of the ${shapeDesc}, then gently TOSSES / flips it. The hand then LEAVES the frame completely.
+3. TRANSFORM (hands-free): the ${shapeDesc} automatically UNFOLDS — armored panels slide, hinge and telescope outward SMOOTHLY and satisfyingly, mechanically CONNECTED (no loose or detached parts) — and reshapes into the subject at its natural scale. NO hands during this stage. NO exploding/flying/detached parts, NO energy beams, NO glow-energy magic; it does NOT become a humanoid robot/mecha/Transformer.
+4. Keep the subject's EXACT identity, branding and colors. End on the finished photorealistic result in a calm, WIDE cinematic hero shot.
+I2V FIELD NOTE: in the "imageToVideoPrompt" field, convey this ONLY as the stable WIDE camera + the unfolding MOTION (framed WIDE so the fully-formed subject is never cropped) — do NOT re-describe or "build" the product in words; the full identity/build description belongs to the "textToVideoPrompt" field.`;
   }
 
   if (resolvedStyle === 'bts_practical_fx') {

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        .slide-container {
+            width: 1280px;
+            min-height: 720px;
+            background-color: #E8ECEF;
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            position: relative;
+            padding: 60px 80px 0 80px;
+            display: flex;
+            flex-direction: column;
+        }
+        .header-section {
+            margin-bottom: 40px;
+        }
+        .accent-bar {
+            width: 60px;
+            height: 8px;
+            background-color: #E67E22;
+            margin-bottom: 20px;
+        }
+        h2 {
+            color: #1A2B3C;
+            font-weight: 800;
+            font-size: 48px;
+            text-transform: uppercase;
+            letter-spacing: -1px;
+        }
+        .steps-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .step-row {
+            display: flex;
+            border: 2px solid #34495E;
+        }
+        .step-number {
+            width: 80px;
+            background-color: #1A2B3C;
+            color: #E67E22;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-weight: 800;
+            font-size: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-right: 2px solid #34495E;
+            flex-shrink: 0;
+        }
+        .step-text {
+            padding: 20px 30px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 22px;
+            color: #34495E;
+            line-height: 1.4;
+            flex-grow: 1;
+            background-color: transparent;
+        }
+        .highlight {
+            color: #E67E22;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body>
+    <div class="slide-container">
+        <div class="header-section">
+            <div class="accent-bar"></div>
+            <h2>Urutan Implementasi Aman</h2>
+        </div>
+        
+        <div class="steps-container">
+            <div class="step-row">
+                <div class="step-number">1</div>
+                <div class="step-text">Tambahkan helper <span class="highlight">StoryboardPlan</span> dan test validator.</div>
+            </div>
+            
+            <div class="step-row">
+                <div class="step-number">2</div>
+                <div class="step-text">Ubah endpoint agar menghasilkan <span class="highlight">candidate tervalidasi</span> dan repair sekali.</div>
+            </div>
+            
+            <div class="step-row">
+                <div class="step-number">3</div>
+                <div class="step-text">Rilis <span class="highlight">preview, Apply, Dismiss, dan Undo</span> di Generator UI.</div>
+            </div>
+            
+            <div class="step-row">
+                <div class="step-number">4</div>
+                <div class="step-text">Persist plan di <span class="highlight">generation_params</span>; pakai plan pada generate dan regenerate.</div>
+            </div>
+            
+            <div class="step-row">
+                <div class="step-number">5</div>
+                <div class="step-text">Hapus sentinel lama serta parser regex setelah <span class="highlight">kompatibilitas selesai</span>.</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
