@@ -2673,6 +2673,10 @@ export default function Dashboard({ setTab }) {
                           const mm = userProvider === 'magica' ? (magicaCatalog?.videoModels || []).find(x => x.nodeType === magicaVideoModel) : null;
                           const mt = mm && (mm.methods || []).find(x => x.category === magicaVideoMethod);
                           const audioUnavailable = Boolean(userProvider === 'magica' && mt && mt.hasAudio === false);
+                          // For Magica, we allow checking Voice Over even if Audio Native is unavailable,
+                          // because we can still send the VO instructions via the text prompt.
+                          const canForceVo = userProvider === 'magica';
+
                           return (
                             <>
                               <label className={`flex items-center gap-2 select-none border-t border-[#2a2725]/40 pt-2 pb-1 ${audioUnavailable ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
@@ -2684,19 +2688,19 @@ export default function Dashboard({ setTab }) {
                                   className="rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5"
                                 />
                                 <span className="text-[9px] font-bold uppercase tracking-wider text-slate-350">
-                                  Audio Native <span className="text-slate-500 normal-case font-normal">({audioUnavailable ? 'model Magica ini tidak mendukung audio' : 'mengirim setting audio ke Magica/Freebeat'})</span>
+                                  Audio Native <span className="text-slate-500 normal-case font-normal">({audioUnavailable ? 'model Magica ini tidak menyediakan switch audio' : 'mengirim setting audio ke Magica/Freebeat'})</span>
                                 </span>
                               </label>
-                              <label className={`flex items-center gap-2 select-none pb-1 ${(!videoGenerateAudio || audioUnavailable) ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+                              <label className={`flex items-center gap-2 select-none pb-1 ${(!videoGenerateAudio && !canForceVo) ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
                                 <input
                                   type="checkbox"
                                   checked={videoVoiceOver}
-                                  disabled={!videoGenerateAudio || audioUnavailable}
+                                  disabled={!videoGenerateAudio && !canForceVo}
                                   onChange={(e) => setVideoVoiceOver(e.target.checked)}
                                   className="rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5"
                                 />
                                 <span className="text-[9px] font-bold uppercase tracking-wider text-slate-350">
-                                  Voice Over <span className="text-slate-500 normal-case font-normal">(menambahkan arahan voice over ke prompt; menggunakan naskah storyboard bila tersedia)</span>
+                                  Voice Over <span className="text-slate-500 normal-case font-normal">(arahan narasi via prompt{canForceVo && !videoGenerateAudio ? ' — tetap dikirim meskipun audio native off' : ''})</span>
                                 </span>
                               </label>
                             </>

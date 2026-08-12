@@ -321,7 +321,7 @@ async function previewEffectiveVideoPrompt(req, res) {
     const voCfg = resolveVoConfig(storyboard);
     const gp = storyboard.generation_params ? JSON.parse(storyboard.generation_params) : {};
     const textOnScreen = !!gp.textOnScreen;
-    const hasVo = Boolean(generateAudio && voiceOver);
+    const hasVo = Boolean(voiceOver);
     const narration = hasVo ? getSceneNarration(storyboard, Number(sceneIdx)) : '';
     const voiceProfile = await getCharacterVoiceProfile(db, storyboard);
     const effectivePrompt = applyAudioDirectives(String(prompt).trim(), {
@@ -430,7 +430,7 @@ async function generateVideo(req, res) {
     const voCfg = resolveVoConfig(storyboard);
     const gp = storyboard.generation_params ? JSON.parse(storyboard.generation_params) : {};
     const textOnScreen = !!gp.textOnScreen;
-    const hasVo = Boolean(generateAudio && voiceOver);
+    const hasVo = Boolean(voiceOver);
     const sceneNarration = hasVo ? getSceneNarration(storyboard, sceneIdx) : '';
     const voiceProfile = await getCharacterVoiceProfile(db, storyboard);
 
@@ -1520,7 +1520,7 @@ async function generateAllVideos(req, res) {
         // VO from the STORYBOARD setting (single source of truth), auto-attached here —
         // no Video Studio VO toggle. Backsound stays a per-video toggle.
         const voCfg = resolveVoConfig(storyboard);
-        const hasVo = Boolean(generateAudio && voiceOver);
+        const hasVo = Boolean(voiceOver);
         const sceneNarration = hasVo ? (getSceneNarration(storyboard, sceneIdx) || (matchingPrompt && matchingPrompt.narration ? String(matchingPrompt.narration).trim() : '')) : '';
         promptText = applyAudioDirectives(promptText, { hasVo, narration: sceneNarration, voLanguage: voCfg.voLanguage, voTone: voCfg.voTone, durationSec: duration, backsound, voiceProfile, textOnScreen });
         const nativeAudio = Boolean(generateAudio);
