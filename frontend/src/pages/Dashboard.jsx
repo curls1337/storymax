@@ -798,7 +798,7 @@ export default function Dashboard({ setTab }) {
 
   const handleGenerateVideo = async () => {
     if (!selectedStoryboard || isGeneratingVideo || isGeneratingAllVideos) return;
-    if (videoVoiceOver && !videoGenerateAudio) {
+    if (videoVoiceOver && !videoGenerateAudio && userProvider !== 'magica') {
       toast.error('Aktifkan Audio Native agar Voice Over dari prompt dapat dirender provider.');
       return;
     }
@@ -839,7 +839,7 @@ export default function Dashboard({ setTab }) {
 
   const handleGenerateAllVideos = async () => {
     if (!selectedStoryboard || isGeneratingVideo || isGeneratingAllVideos) return;
-    if (videoVoiceOver && !videoGenerateAudio) {
+    if (videoVoiceOver && !videoGenerateAudio && userProvider !== 'magica') {
       toast.error('Aktifkan Audio Native agar Voice Over dari prompt dapat dirender provider.');
       return;
     }
