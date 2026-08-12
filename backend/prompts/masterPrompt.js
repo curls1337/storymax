@@ -266,7 +266,7 @@ NEGATIVE: ${negatives}.`;
   // each panel (a SHORT one-line narration cue in the VO language) so the storyboard itself
   // carries the voice-over instruction. Kept short so the image model renders it cleanly.
   const voClause = voiceOver
-    ? ` Also print a small 'VO:' note under each panel — a VERY SHORT 2-4 word voice-over cue for that scene in ${voLanguage} (super concise, 2-4 plain words, NO quotes, NO symbols like 'x', e.g. 'Langkah awal', 'Kualitas terbaik', 'Dapatkan sekarang').`
+    ? ` Also print a small 'Voiceover:' note under each panel — a VERY SHORT 2-4 word voice-over cue for that scene in ${voLanguage} (super concise, 2-4 plain words, NO quotes, NO symbols like 'x', e.g. 'Langkah awal', 'Kualitas terbaik', 'Dapatkan sekarang').`
     : '';
   const L4 = `Layout: ${layout}, numbered SCENE ${startScene}–${endScene}; each panel: a short SCENE TITLE, one-line action, tiny 'CAM'/'LIGHT' tags + a duration chip. Keep on-sheet text short & correctly spelled; vary the camera per scene; keep card layout, palette & background identical.${textClause}${voClause}`;
   const L5 = `Base camera: ${spec.camera}; light: ${spec.lighting}.`;
