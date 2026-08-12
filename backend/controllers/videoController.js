@@ -264,7 +264,7 @@ function getSceneNarration(storyboard, sceneIdx) {
 
 // Finalizes a video prompt's AUDIO. When hasVo is true, keep audio enabled and attach
 // narration directive if present. If hasVo is false, enforce no-speech. Apply backsound toggle.
-function applyAudioDirectives(basePrompt, { hasVo, narration, voLanguage, voTone, durationSec, backsound, voiceProfile }) {
+function applyAudioDirectives(basePrompt, { hasVo, narration, voLanguage, voTone, durationSec, backsound, voiceProfile, textOnScreen }) {
   let t = stripVoiceover(basePrompt);
   let effectiveNarration = narration;
   if (hasVo && !effectiveNarration) {
@@ -282,6 +282,10 @@ function applyAudioDirectives(basePrompt, { hasVo, narration, voLanguage, voTone
     t += buildVoiceoverDirective(effectiveNarration, voLanguage, voTone, durationSec, voiceProfile);
   } else {
     t = enforceNoVoiceover(t);
+  }
+
+  if (textOnScreen) {
+    t += '\n\nVISUAL TEXT RULE: Preserve all on-screen text, captions, callout badges, and artistic lettering exactly as they appear in the reference image. Do not blur, remove, or alter the visual text elements.';
   }
 
   if (!backsound) {
@@ -315,6 +319,8 @@ async function previewEffectiveVideoPrompt(req, res) {
     if (!storyboard) return res.status(404).json({ message: 'Storyboard tidak ditemukan.' });
 
     const voCfg = resolveVoConfig(storyboard);
+    const gp = storyboard.generation_params ? JSON.parse(storyboard.generation_params) : {};
+    const textOnScreen = !!gp.textOnScreen;
     const hasVo = Boolean(generateAudio && voiceOver);
     const narration = hasVo ? getSceneNarration(storyboard, Number(sceneIdx)) : '';
     const voiceProfile = await getCharacterVoiceProfile(db, storyboard);
@@ -325,7 +331,8 @@ async function previewEffectiveVideoPrompt(req, res) {
       voTone: voCfg.voTone,
       durationSec: duration,
       backsound: Boolean(backsound),
-      voiceProfile
+      voiceProfile,
+      textOnScreen
     });
 
     return res.json({
@@ -421,6 +428,8 @@ async function generateVideo(req, res) {
     // Voice Over is an explicit per-video prompt policy. The storyboard supplies the
     // narration text plus language/tone defaults; Audio Native controls the provider only.
     const voCfg = resolveVoConfig(storyboard);
+    const gp = storyboard.generation_params ? JSON.parse(storyboard.generation_params) : {};
+    const textOnScreen = !!gp.textOnScreen;
     const hasVo = Boolean(generateAudio && voiceOver);
     const sceneNarration = hasVo ? getSceneNarration(storyboard, sceneIdx) : '';
     const voiceProfile = await getCharacterVoiceProfile(db, storyboard);
@@ -446,7 +455,7 @@ async function generateVideo(req, res) {
       
       (async () => {
         const onLog = (m) => { if (activeTasks[taskId]) activeTasks[taskId].logs += m + '\n'; };
-        const magicaPrompt = applyAudioDirectives(prompt, { hasVo, narration: sceneNarration, voLanguage: voCfg.voLanguage, voTone: voCfg.voTone, durationSec: duration, backsound, voiceProfile });
+        const magicaPrompt = applyAudioDirectives(prompt, { hasVo, narration: sceneNarration, voLanguage: voCfg.voLanguage, voTone: voCfg.voTone, durationSec: duration, backsound, voiceProfile, textOnScreen });
         // "Hasilkan Audio/Voiceover" is the native provider switch. Music is a
         // prompt policy only and must never turn audio on by itself.
         const nativeAudio = Boolean(generateAudio);
@@ -557,7 +566,7 @@ async function generateVideo(req, res) {
         // VO is server-authoritative from the storyboard setting (single source of truth):
         // attach the VO directive when the storyboard has VO on & this scene has narration,
         // else enforce no-speech. Backsound stays a per-video toggle.
-        const finalPrompt = applyAudioDirectives(prompt, { hasVo, narration: sceneNarration, voLanguage: voCfg.voLanguage, voTone: voCfg.voTone, durationSec: duration, backsound, voiceProfile });
+        const finalPrompt = applyAudioDirectives(prompt, { hasVo, narration: sceneNarration, voLanguage: voCfg.voLanguage, voTone: voCfg.voTone, durationSec: duration, backsound, voiceProfile, textOnScreen });
         await db.run('UPDATE generated_videos SET prompt = ? WHERE id = ?', [finalPrompt, videoRecordId]);
 
         const spawnCmd = 'node';
@@ -1463,6 +1472,8 @@ async function generateAllVideos(req, res) {
     // Run the queue loop in the background!
     (async () => {
       const db = getDb();
+      const gp = storyboard.generation_params ? JSON.parse(storyboard.generation_params) : {};
+      const textOnScreen = !!gp.textOnScreen;
       const voiceProfile = await getCharacterVoiceProfile(db, storyboard);
       const activeTasksCountForStoryboard = () => {
         return Object.values(activeTasks).filter(task => 
@@ -1511,7 +1522,7 @@ async function generateAllVideos(req, res) {
         const voCfg = resolveVoConfig(storyboard);
         const hasVo = Boolean(generateAudio && voiceOver);
         const sceneNarration = hasVo ? (getSceneNarration(storyboard, sceneIdx) || (matchingPrompt && matchingPrompt.narration ? String(matchingPrompt.narration).trim() : '')) : '';
-        promptText = applyAudioDirectives(promptText, { hasVo, narration: sceneNarration, voLanguage: voCfg.voLanguage, voTone: voCfg.voTone, durationSec: duration, backsound, voiceProfile });
+        promptText = applyAudioDirectives(promptText, { hasVo, narration: sceneNarration, voLanguage: voCfg.voLanguage, voTone: voCfg.voTone, durationSec: duration, backsound, voiceProfile, textOnScreen });
         const nativeAudio = Boolean(generateAudio);
 
         // Resolve scene image
