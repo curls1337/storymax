@@ -447,9 +447,9 @@ export default function Generator({ setTab, selectedCharacter }) {
 
     try {
       const finalTitle = mode === 'manual' ? (prompt.substring(0, 30).trim() || 'Manual Project') + '...' : title;
-      const finalPrompt = chosenCharacter && chosenCharacter.trigger_prompt && !prompt.toLowerCase().includes(chosenCharacter.name.toLowerCase())
-        ? `[Character Appearance & Outfit: ${chosenCharacter.trigger_prompt}] ${prompt}`
-        : prompt;
+      // A selected character is passed by ID and used as an image-only reference in
+      // the background job. Do not inject its trigger/profile text into the concept.
+      const finalPrompt = prompt;
 
       const res = await api.post('/storyboards/generate', { 
         title: finalTitle, 

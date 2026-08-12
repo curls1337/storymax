@@ -306,6 +306,7 @@ export default function Dashboard({ setTab }) {
   const [videoResolution, setVideoResolution] = useState('720p');
   const [videoAspectRatio, setVideoAspectRatio] = useState('9:16');
   const [videoGenerateAudio, setVideoGenerateAudio] = useState(false);
+  const [videoVoiceOver, setVideoVoiceOver] = useState(false);
   const [videoBacksound, setVideoBacksound] = useState(false);
   const [apiKeys, setApiKeys] = useState([]);
   const [selectedApiKeyId, setSelectedApiKeyId] = useState('auto');
@@ -624,22 +625,16 @@ export default function Dashboard({ setTab }) {
         })
         .catch(err => console.error("Error fetching keys:", err));
 
-      // Auto check generate audio if storyboard was generated with voiceover enabled
-      if (selectedStoryboard.generation_params) {
-        try {
-          const params = JSON.parse(selectedStoryboard.generation_params);
-          setVideoGenerateAudio(!!params.enableVo);
-        } catch (e) {
-          setVideoGenerateAudio(false);
-        }
-      } else {
-        setVideoGenerateAudio(false);
-      }
+      // All three audio controls are explicit per-video choices. Storyboard settings
+      // remain only as available narration/language defaults when Voice Over is enabled.
+      setVideoGenerateAudio(false);
+      setVideoVoiceOver(false);
     } else {
       setVideos([]);
       setApiKeys([]);
       setSelectedApiKeyId('');
       setVideoGenerateAudio(false);
+      setVideoVoiceOver(false);
     }
   }, [selectedStoryboard]);
 
@@ -673,6 +668,7 @@ export default function Dashboard({ setTab }) {
           prompt: videoStudioPrompt,
           duration: videoDuration === 'auto' ? undefined : Number(videoDuration),
           generateAudio: videoGenerateAudio,
+          voiceOver: videoVoiceOver,
           backsound: videoBacksound,
         }, { signal: controller.signal });
         setEffectivePromptPreview({ loading: false, prompt: response.data.effectivePrompt || '', error: '', audio: response.data.audio || null });
@@ -686,7 +682,7 @@ export default function Dashboard({ setTab }) {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [selectedStoryboard?.id, modalCarouselIdx, videoStudioPrompt, videoDuration, videoGenerateAudio, videoBacksound]);
+  }, [selectedStoryboard?.id, modalCarouselIdx, videoStudioPrompt, videoDuration, videoGenerateAudio, videoVoiceOver, videoBacksound]);
 
   useEffect(() => {
     if (selectedStoryboard) {
@@ -755,6 +751,10 @@ export default function Dashboard({ setTab }) {
 
   const handleGenerateVideo = async () => {
     if (!selectedStoryboard || isGeneratingVideo || isGeneratingAllVideos) return;
+    if (videoVoiceOver && !videoGenerateAudio) {
+      toast.error('Aktifkan Audio Native agar Voice Over dari prompt dapat dirender provider.');
+      return;
+    }
     setIsGeneratingVideo(true);
     try {
       const res = await api.post('/videos/generate', {
@@ -791,6 +791,10 @@ export default function Dashboard({ setTab }) {
 
   const handleGenerateAllVideos = async () => {
     if (!selectedStoryboard || isGeneratingVideo || isGeneratingAllVideos) return;
+    if (videoVoiceOver && !videoGenerateAudio) {
+      toast.error('Aktifkan Audio Native agar Voice Over dari prompt dapat dirender provider.');
+      return;
+    }
     const confirmAll = await confirm({ title: 'Generate video untuk semua halaman?', message: '• Mode Auto: tiap halaman memakai API key Freebeat aktif yang berbeda & sedang bebas (paralel sebanyak key yang tersedia).\n• Mode Manual (pilih 1 key): dikerjakan 1 halaman per waktu — menunggu tiap halaman selesai dulu.', confirmText: 'Ya, buat semua' });
     if (!confirmAll) return;
 
@@ -2610,26 +2614,37 @@ export default function Dashboard({ setTab }) {
                           </div>
                         </div>
 
-                        {/* Per-video audio switch (Magica/Freebeat). The VO SCRIPT itself comes from
-                            the storyboard; this toggle just decides whether THIS video speaks it. */}
                         {(() => {
-                          if (userProvider === 'magica') {
-                            const mm = (magicaCatalog?.videoModels || []).find(x => x.nodeType === magicaVideoModel);
-                            const mt = mm && (mm.methods || []).find(x => x.category === magicaVideoMethod);
-                            if (mt && mt.hasAudio === false) return null;
-                          }
+                          const mm = userProvider === 'magica' ? (magicaCatalog?.videoModels || []).find(x => x.nodeType === magicaVideoModel) : null;
+                          const mt = mm && (mm.methods || []).find(x => x.category === magicaVideoMethod);
+                          const audioUnavailable = Boolean(userProvider === 'magica' && mt && mt.hasAudio === false);
                           return (
-                        <label className="flex items-center gap-2 cursor-pointer select-none border-t border-[#2a2725]/40 pt-2 pb-1">
-                          <input
-                            type="checkbox"
-                            checked={videoGenerateAudio}
-                            onChange={(e) => setVideoGenerateAudio(e.target.checked)}
-                            className="rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5"
-                          />
-                          <span className="text-[9px] font-bold uppercase tracking-wider text-slate-350">
-                            Hasilkan Audio / Voice Over <span className="text-slate-500 normal-case font-normal">(mengaktifkan audio native di Magica/Freebeat; narasi berasal dari storyboard bila tersedia)</span>
-                          </span>
-                        </label>
+                            <>
+                              <label className={`flex items-center gap-2 select-none border-t border-[#2a2725]/40 pt-2 pb-1 ${audioUnavailable ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+                                <input
+                                  type="checkbox"
+                                  checked={videoGenerateAudio}
+                                  disabled={audioUnavailable}
+                                  onChange={(e) => setVideoGenerateAudio(e.target.checked)}
+                                  className="rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5"
+                                />
+                                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-350">
+                                  Audio Native <span className="text-slate-500 normal-case font-normal">({audioUnavailable ? 'model Magica ini tidak mendukung audio' : 'mengirim setting audio ke Magica/Freebeat'})</span>
+                                </span>
+                              </label>
+                              <label className={`flex items-center gap-2 select-none pb-1 ${(!videoGenerateAudio || audioUnavailable) ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+                                <input
+                                  type="checkbox"
+                                  checked={videoVoiceOver}
+                                  disabled={!videoGenerateAudio || audioUnavailable}
+                                  onChange={(e) => setVideoVoiceOver(e.target.checked)}
+                                  className="rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5"
+                                />
+                                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-350">
+                                  Voice Over <span className="text-slate-500 normal-case font-normal">(menambahkan arahan voice over ke prompt; menggunakan naskah storyboard bila tersedia)</span>
+                                </span>
+                              </label>
+                            </>
                           );
                         })()}
 

@@ -19,7 +19,6 @@ const { getStyleSpec } = require('../prompts/styleLibrary');
 const { buildMasterPrompt } = require('../prompts/masterPrompt');
 const { generateMasterPromptWithAI } = require('../prompts/masterPromptLLM');
 const { analyzeSubject } = require('../prompts/subjectAnalyzer');
-const { analyzeCharacterSubject } = require('../prompts/characterAnalyzer');
 const { normalizeFaceMode } = require('../prompts/faceMode');
 
 // A14: stitches multiple reference image paths into one side-by-side collage
@@ -76,46 +75,31 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
     const hasLocalCli = fs.existsSync(localCliPath);
     const publicDir = uploadsDir;
 
-    // Load Character details if characterId is specified.
-    // IMPORTANT: the character is used ONLY as an image reference (sheet_image_url) so the
-    // generated panels keep the same face/appearance. We deliberately do NOT inject the
-    // character's name/trigger_prompt/profile_notes/visual_tone/wardrobe as TEXT into the
-    // storyboard prompt anymore — that text used to leak into the split scene descriptions,
-    // the subject descriptor, and the final image prompt (sometimes rendering as garbled
-    // on-panel text). The character's likeness should come from the reference image alone.
+    // A selected character is an IMAGE-ONLY reference. Prefer the original character
+    // photo and never inject name, trigger prompt, profile, or vision-derived physical
+    // details into the storyboard text prompt. The provider receives this image directly.
     if (task.characterId && !task.characterLoaded) {
       try {
         const char = await db.get('SELECT * FROM characters WHERE id = ?', [task.characterId]);
         if (char) {
-          task.logs += `[INFO] Menggunakan Karakter Konsisten: "${char.name}" (hanya sebagai referensi gambar, tanpa teks prompt karakter)\n`;
+          let originalRefs = [];
+          try { originalRefs = Array.isArray(char.reference_images) ? char.reference_images : JSON.parse(char.reference_images || '[]'); } catch (e) {}
+          const characterImageUrl = originalRefs.find(Boolean) || char.sheet_image_url || '';
 
           task.refImages = task.refImages || [];
-          if (char.sheet_image_url) {
-            // A14: tag this entry so the ref-image pipeline below keeps it as the
-            // SOLE visual identity anchor instead of stitching it into a mixed
-            // collage with any other reference image the user also uploaded.
-            task.refImages.unshift({ url: char.sheet_image_url, isCharacterRef: true });
-          }
-          // A13: also lock the character's PHYSICAL IDENTITY (face/gender/ethnicity/
-          // hair/body type) with its own vision analysis, separate from the PRODUCT-only
-          // subjectDescriptor below. Previously nothing explicitly anchored the human
-          // character's appearance in the prompt text — only the reference image + the
-          // AI splitter's per-page text carried it, both of which can drift — so a page
-          // could render a completely different-looking person while the product stayed
-          // consistent.
-          if (task.characterDescriptor === undefined && char.sheet_image_url) {
-            try {
-              task.characterDescriptor = await analyzeCharacterSubject({ imageUrlOrPath: char.sheet_image_url }, db);
-            } catch (cdErr) {
-              console.warn('Gagal menganalisis identitas karakter:', cdErr.message);
-              task.characterDescriptor = '';
-            }
+          if (characterImageUrl) {
+            // Keep the character image as the sole visual identity anchor. It must not
+            // be stitched with product/scene references before the provider sees it.
+            task.refImages.unshift({ url: characterImageUrl, isCharacterRef: true });
+            task.logs += `[INFO] Menggunakan gambar referensi karakter: ${char.name || 'karakter'} (tanpa descriptor teks).\n`;
+          } else {
+            task.logs += `[WARNING] Karakter terpilih tidak memiliki gambar referensi yang dapat dipakai.\n`;
           }
           task.characterLoaded = true;
           await saveTaskState(db, storyboardId, task);
         }
       } catch (charErr) {
-        console.warn('Gagal memuat data karakter konsisten:', charErr.message);
+        console.warn('Gagal memuat gambar referensi karakter:', charErr.message);
       }
     }
 
@@ -346,7 +330,13 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
           // (used for visual identity), analyze the SEPARATE product reference
           // (if the user also supplied one) for the product descriptor instead —
           // otherwise the "product" description would just re-describe the person.
-          task.subjectDescriptor = await analyzeSubject({ imagePath: task.productRefImagePath || task.finalRefImagePath, ideaText: task.prompt }, db);
+          // A character image is sent directly to the provider as a visual anchor only.
+          // Analyze a separate product reference when available; never turn character
+          // appearance into text that can conflict with the reference image.
+          const subjectImagePath = task.productRefImagePath || (task.characterId ? '' : task.finalRefImagePath);
+          task.subjectDescriptor = subjectImagePath
+            ? await analyzeSubject({ imagePath: subjectImagePath, ideaText: task.prompt }, db)
+            : task.prompt;
           await saveTaskState(db, storyboardId, task);
         }
         const faceMode = normalizeFaceMode(task.faceMode, task.showFace, task.style);
@@ -359,7 +349,7 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
           textOnScreen: !!task.textOnScreen,
           voiceOver: task.enableVoImage !== undefined ? !!task.enableVoImage : !!task.enableVo,
           voLanguage: task.voLanguage || 'Bahasa Indonesia',
-          characterDescriptor: task.characterDescriptor || '',
+          referenceKind: task.characterId ? 'character' : 'subject',
         };
         // Try the LLM generator first; it returns null on ANY failure (no AI key,
         // timeout, bad output) so we always fall back to the deterministic builder.
@@ -902,20 +892,12 @@ async function regenerateStoryboardPage(req, res) {
 
         let subjectDesc = genParams.subjectDescriptor;
         if (subjectDesc === undefined) {
-          subjectDesc = await analyzeSubject({ imagePath: productRefImagePath || finalRefImagePath, ideaText: storyboard.prompt }, db);
+          const subjectImagePath = productRefImagePath || (storyboard.character_id ? '' : finalRefImagePath);
+          subjectDesc = subjectImagePath
+            ? await analyzeSubject({ imagePath: subjectImagePath, ideaText: storyboard.prompt }, db)
+            : storyboard.prompt;
         }
 
-        let regenCharacterDescriptor = genParams.characterDescriptor || '';
-        try {
-          if (!regenCharacterDescriptor && storyboard.character_id) {
-            const char = await db.get('SELECT * FROM characters WHERE id = ?', [storyboard.character_id]);
-            if (char && char.sheet_image_url) {
-              regenCharacterDescriptor = await analyzeCharacterSubject({ imageUrlOrPath: char.sheet_image_url }, db) || '';
-            }
-          }
-        } catch (cdErr) {
-          console.warn('Gagal menganalisis identitas karakter (regenerasi):', cdErr.message);
-        }
         const genCtx = {
           subject: subjectDesc || storyboard.prompt, concept: pageConcept, faceMode,
           gridCount: Number(gridCount) || 6, startScene,
@@ -923,7 +905,7 @@ async function regenerateStoryboardPage(req, res) {
           aspectRatio, model, pageNum: pageIdx + 1, pageCount, hasRefImage: !!finalRefImagePath, secondsPerPage,
           textOnScreen: !!genParams.textOnScreen,
           voiceOver: !!genParams.enableVo, voLanguage: genParams.voLanguage || 'Bahasa Indonesia',
-          characterDescriptor: regenCharacterDescriptor,
+          referenceKind: storyboard.character_id ? 'character' : 'subject',
         };
         // Try the LLM generator first; it falls back to the deterministic builder
         // (returns null on any failure) so generation never breaks.
