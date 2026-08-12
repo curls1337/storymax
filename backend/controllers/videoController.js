@@ -229,7 +229,30 @@ function getSceneNarration(storyboard, sceneIdx) {
       if (matchVo) return matchVo[1].trim();
     }
   } catch (e) {}
-  return '';
+  // Fallback: extract VO from storyboard.prompt or storyboard.title if available
+  try {
+    if (storyboard && storyboard.prompt) {
+      const promptText = String(storyboard.prompt);
+      // Look for Panel [sceneIdx+1] or similar in prompt
+      const panelRegex = new RegExp(`(?:Panel|Scene)\\s*0?${sceneIdx + 1}\\b[:\\s]*([^\\n]+(?:\\n(?!\\s*(?:Panel|Scene))[^\\n]+)*)`, 'i');
+      const panelMatch = promptText.match(panelRegex);
+      if (panelMatch && panelMatch[1]) {
+        const pContent = panelMatch[1];
+        const voMatch = pContent.match(/VO\s*:\s*([^.\n]+[.!?]?)/i) || pContent.match(/Voiceover[^:]*:\s*"?([^"\n]+)"?/i);
+        if (voMatch) return voMatch[1].trim();
+      }
+      // General VO search
+      const allVoMatches = promptText.match(/(?:VO|Voiceover)\s*:\s*([^.\n]+[.!?]?)/gi);
+      if (allVoMatches && allVoMatches[sceneIdx]) {
+        const m = allVoMatches[sceneIdx].match(/(?:VO|Voiceover)\s*:\s*(.+)/i);
+        if (m) return m[1].trim();
+      }
+    }
+  } catch (e) {}
+  if (storyboard && storyboard.title) {
+    return `Menampilkan keunggulan ${storyboard.title}.`;
+  }
+  return 'Nikmati kualitas terbaik produk ini sekarang juga.';
 }
 
 // Finalizes a video prompt's AUDIO. When hasVo is true, keep audio enabled and attach
@@ -246,12 +269,10 @@ function applyAudioDirectives(basePrompt, { hasVo, narration, voLanguage, voTone
   }
 
   if (hasVo) {
-    if (effectiveNarration) {
-      t += buildVoiceoverDirective(effectiveNarration, voLanguage, voTone, durationSec);
-    } else {
-      const lang = voLanguage || 'Bahasa Indonesia';
-      t += `\n\nAudio — voiceover: an off-screen narrator speaks clear voiceover narration in ${lang} matching the scene action, delivered as one smooth continuous sentence — never word-by-word and never spelled out. Ignore any on-screen text, caption, subtitle, or small "VO:" label printed in the image; it is a silent visual reference note only, not dialogue to read aloud. Spoken voiceover narration MUST be active and clearly audible.`;
+    if (!effectiveNarration) {
+      effectiveNarration = 'Pilihan terbaik untuk Anda.';
     }
+    t += buildVoiceoverDirective(effectiveNarration, voLanguage, voTone, durationSec);
   } else {
     t = enforceNoVoiceover(t);
   }

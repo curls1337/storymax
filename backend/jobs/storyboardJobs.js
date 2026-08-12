@@ -737,8 +737,10 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
       [dbPathString, originalCdnString, task.totalCreditsUsed, 'success', storyboardId]
     );
     
-    const isVoScriptActive = task.enableVoScript !== undefined ? !!task.enableVoScript : !!task.enableVo;
-    task.logs += `[AI Video Prompts] Men-generate otomatis prompt video Image-to-Video ${isVoScriptActive ? 'dan voiceover ' : ''}di latar belakang...\n`;
+    const isVoActive = (task.enableVoScript !== undefined ? !!task.enableVoScript : false) ||
+                       (task.enableVoImage !== undefined ? !!task.enableVoImage : false) ||
+                       !!task.enableVo;
+    task.logs += `[AI Video Prompts] Men-generate otomatis prompt video Image-to-Video ${isVoActive ? 'dan voiceover ' : ''}di latar belakang...\n`;
     await saveTaskState(db, storyboardId, task);
     try {
       const { generateVideoPromptsInternal } = require('../controllers/aiController');
@@ -746,10 +748,10 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
         storyboardId: storyboardId,
         promptType: 'image-to-video',
         regenerate: true,
-        enableVo: isVoScriptActive,
+        enableVo: isVoActive,
         voMaxWords: task.voMaxWords || 10,
-        voLanguage: isVoScriptActive ? task.voLanguage : undefined,
-        voTone: isVoScriptActive ? task.voTone : undefined,
+        voLanguage: isVoActive ? task.voLanguage : 'Bahasa Indonesia',
+        voTone: isVoActive ? (task.voTone || 'casual') : 'casual',
         videoDuration: task.totalDuration
       });
       task.logs += `[AI Video Prompts] Prompt video berhasil di-generate secara otomatis.\n`;
