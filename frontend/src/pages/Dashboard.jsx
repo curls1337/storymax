@@ -610,7 +610,13 @@ export default function Dashboard({ setTab }) {
 
   useEffect(() => {
     if (selectedStoryboard) {
+      // Cleanup: Clear old data immediately when switching projects to prevent "leaks"
+      setVideos([]);
       setFetchingVideos(true);
+      setModalCarouselIdx(0);
+      setVideoTaskId(null);
+      setActiveVideoTask(null);
+
       api.get(`/videos/storyboard/${selectedStoryboard.id}`)
         .then(res => {
           setVideos(res.data);
@@ -635,6 +641,8 @@ export default function Dashboard({ setTab }) {
       setSelectedApiKeyId('');
       setVideoGenerateAudio(false);
       setVideoVoiceOver(false);
+      setVideoTaskId(null);
+      setActiveVideoTask(null);
     }
   }, [selectedStoryboard]);
 
