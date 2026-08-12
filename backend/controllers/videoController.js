@@ -166,7 +166,7 @@ function buildVoiceoverDirective(narration, lang, tone, durationSec) {
   // speech per-panel with odd pauses (sounds spelled-out). Explicitly tell the model
   // that on-screen text is silent/visual-only and to speak ONLY this narration line,
   // as one smooth continuous sentence.
-  return `\n\nAudio — voiceover: an off-screen narrator speaks this line in ${language}${delivery}, paced evenly across the whole clip and synced to the on-screen action — begin as the shot starts and finish about one second before it ends, natural and unhurried, clear articulation, no rushing and no dead air, delivered as ONE smooth continuous sentence — never word-by-word, never spelled out letter-by-letter, never split into separate fragments or paused between individual words. Do NOT read aloud, sound out, or vocalize any on-screen text, caption, subtitle, or small "VO:" label printed in the image itself — that printed text is a silent visual reference note only, not dialogue to perform. Speak ONLY the voiceover line below, exactly once, as natural continuous speech. Voiceover line: "${line}"`;
+  return `\n\n[AUDIO DIRECTIVE — VOICE OVER]\nNarrator Type: Off-screen professional narrator\nLanguage: ${language}${delivery}\nScript Content: "${line}"\n\nCRITICAL PERFORMANCE RULES:\n- Speak the "Script Content" EXACTLY as written, once, from start to finish.\n- Deliver as ONE smooth, natural, continuous conversational sentence.\n- DO NOT read word-by-word. DO NOT spell out letters. DO NOT pause between every word.\n- DO NOT vocalize any on-screen text, captions, or "Voiceover:" labels seen in the image; those are silent visual notes only.\n- Start speaking at 0s and finish naturally before the scene ends.\n- AUDIO OUTPUT MUST BE ACTIVE AND CLEARLY AUDIBLE.`;
 }
 
 // When "backsound" (background music) is OFF, forbid any BGM/soundtrack so the video
@@ -179,15 +179,18 @@ function applyNoBacksound(text) {
 // (used to normalize a client-supplied prompt before the server re-decides VO).
 function stripVoiceover(text) {
   let t = String(text || '');
-  t = t.replace(/\n*\s*Voiceover\s*\([^)]*\)\s*:[\s\S]*$/i, '');
+  // Item 1: Remove full trailing audio blocks (VO scripts, mixing directives, BGM rules)
+  // so the server can re-append the fresh chosen audio policy without duplication.
   t = t.replace(/\n*\s*Audio\s*[—-]\s*voiceover\s*:[\s\S]*$/i, '');
   t = t.replace(/\n*\s*AUDIO\s*MIX\s*DIRECTIVE:[\s\S]*$/i, '');
-  // Strip inline VO / Voiceover / Narration cues that leak into visual prompt
-  t = t.replace(/\b(VO|Voiceover|Voice\s*Over|Naskah\s*Voice\s*Over|Narasi|Narration|Speech)\s*:\s*"[^"]*"/gi, '');
-  t = t.replace(/\b(VO|Voiceover|Voice\s*Over|Naskah\s*Voice\s*Over|Narasi|Narration|Speech)\s*:\s*'[^']*'/gi, '');
-  t = t.replace(/\b(VO|Voiceover|Voice\s*Over|Naskah\s*Voice\s*Over|Narasi|Narration|Speech)\s*:[^\n.]*([.\n]|$)/gi, '');
-  t = t.replace(/\[Voiceover\s*Narration\]\s*:\s*"[^"]*"/gi, '');
-  t = t.replace(/\[Voiceover\s*Narration\]\s*:[^\n.]*([.\n]|$)/gi, '');
+  t = t.replace(/\n*\s*BACKGROUND\s*MUSIC:[\s\S]*$/i, '');
+  
+  // Item 2: Strip inline cues that sometimes leak from LLM visual prompts (e.g. "VO: ...")
+  // while keeping the visual description intact.
+  const inlinePattern = /\b(VO|Voiceover|Voice\s*Over|Naskah\s*Voice\s*Over|Narasi|Narration|Speech)\s*:\s*(?:"[^"]*"|'[^']*'|[^\n.]*([.\n]|$))/gi;
+  t = t.replace(inlinePattern, '');
+  t = t.replace(/\[Voiceover\s*Narration\]\s*:\s*(?:"[^"]*"|[^\n.]*([.\n]|$))/gi, '');
+  
   return t.trim();
 }
 
