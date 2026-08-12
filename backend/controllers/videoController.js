@@ -137,7 +137,7 @@ function buildCharacterVoiceClause(voiceProfile) {
   return ` The narrator's voice should specifically match ${who}: ${parts.join(', ')}.`;
 }
 
-function buildVoiceoverDirective(narration, lang, tone, durationSec) {
+function buildVoiceoverDirective(narration, lang, tone, durationSec, voiceProfile) {
   let line = String(narration || '').trim();
   if (!line) return '';
   // Sanitize text for clear TTS & video models: strip quotes, brackets, and convert 'x' to 'dan'
@@ -160,13 +160,17 @@ function buildVoiceoverDirective(narration, lang, tone, durationSec) {
   }
   const toneLbl = voToneLabel(tone);
   const delivery = toneLbl ? ` with a ${toneLbl} delivery` : '';
+  
+  const charClause = buildCharacterVoiceClause(voiceProfile);
+  const charLine = charClause ? `\nVoice Identity: ${charClause.trim()}` : '';
+
   // IMPORTANT: the storyboard panel image may itself contain a small printed "VO:" cue
   // (baked in on purpose so the panel image matches the scene). Some image-to-video
   // models try to "read"/vocalize any on-screen text they see, which fragments the
   // speech per-panel with odd pauses (sounds spelled-out). Explicitly tell the model
   // that on-screen text is silent/visual-only and to speak ONLY this narration line,
   // as one smooth continuous sentence.
-  return `\n\n[AUDIO DIRECTIVE — VOICE OVER]\nNarrator Type: Off-screen professional narrator\nLanguage: ${language}${delivery}\nScript Content: "${line}"\n\nCRITICAL PERFORMANCE RULES:\n- Speak the "Script Content" EXACTLY as written, once, from start to finish.\n- Deliver as ONE smooth, natural, continuous conversational sentence in ${language}.\n- DO NOT read word-by-word. DO NOT spell out letters. DO NOT pause between every word. STOP speaking immediately once the sentence completes.\n- DO NOT vocalize any on-screen text, captions, or "Voiceover:" labels seen in the image; those are silent visual notes only.\n- Start speaking at 0s, pace evenly, and finish completely before the final second of the scene to avoid trailing or overlapping stutter.\n- END OF AUDIO: After the script completes, maintain ABSOLUTE SILENCE for the remainder of the clip. DO NOT hum, murmur, stutter, or generate any phantom speech/noise in any other language.\n- AUDIO OUTPUT MUST BE ACTIVE, CLEAN, AND CLEARLY AUDIBLE.`;
+  return `\n\n[AUDIO DIRECTIVE — VOICE OVER]\nNarrator Type: Off-screen professional narrator\nLanguage: ${language}${delivery}${charLine}\nScript Content: "${line}"\n\nCRITICAL PERFORMANCE RULES:\n- Speak the "Script Content" EXACTLY as written, once, from start to finish.\n- Deliver as ONE smooth, natural, continuous conversational sentence in ${language}.\n- DO NOT read word-by-word. DO NOT spell out letters. DO NOT pause between every word. STOP speaking immediately once the sentence completes.\n- DO NOT vocalize any on-screen text, captions, or "Voiceover:" labels seen in the image; those are silent visual notes only.\n- Start speaking at 0s, pace evenly, and finish completely before the final second of the scene to avoid trailing or overlapping stutter.\n- END OF AUDIO: After the script completes, maintain ABSOLUTE SILENCE for the remainder of the clip. DO NOT hum, murmur, stutter, or generate any phantom speech/noise in any other language.\n- AUDIO OUTPUT MUST BE ACTIVE, CLEAN, AND CLEARLY AUDIBLE.`;
 }
 
 // When "backsound" (background music) is OFF, forbid any BGM/soundtrack so the video
@@ -260,7 +264,7 @@ function getSceneNarration(storyboard, sceneIdx) {
 
 // Finalizes a video prompt's AUDIO. When hasVo is true, keep audio enabled and attach
 // narration directive if present. If hasVo is false, enforce no-speech. Apply backsound toggle.
-function applyAudioDirectives(basePrompt, { hasVo, narration, voLanguage, voTone, durationSec, backsound }) {
+function applyAudioDirectives(basePrompt, { hasVo, narration, voLanguage, voTone, durationSec, backsound, voiceProfile }) {
   let t = stripVoiceover(basePrompt);
   let effectiveNarration = narration;
   if (hasVo && !effectiveNarration) {
@@ -275,7 +279,7 @@ function applyAudioDirectives(basePrompt, { hasVo, narration, voLanguage, voTone
     if (!effectiveNarration) {
       effectiveNarration = 'Pilihan terbaik untuk Anda.';
     }
-    t += buildVoiceoverDirective(effectiveNarration, voLanguage, voTone, durationSec);
+    t += buildVoiceoverDirective(effectiveNarration, voLanguage, voTone, durationSec, voiceProfile);
   } else {
     t = enforceNoVoiceover(t);
   }
@@ -313,6 +317,7 @@ async function previewEffectiveVideoPrompt(req, res) {
     const voCfg = resolveVoConfig(storyboard);
     const hasVo = Boolean(generateAudio && voiceOver);
     const narration = hasVo ? getSceneNarration(storyboard, Number(sceneIdx)) : '';
+    const voiceProfile = await getCharacterVoiceProfile(db, storyboard);
     const effectivePrompt = applyAudioDirectives(String(prompt).trim(), {
       hasVo,
       narration,
@@ -320,6 +325,7 @@ async function previewEffectiveVideoPrompt(req, res) {
       voTone: voCfg.voTone,
       durationSec: duration,
       backsound: Boolean(backsound),
+      voiceProfile
     });
 
     return res.json({
@@ -438,7 +444,7 @@ async function generateVideo(req, res) {
       
       (async () => {
         const onLog = (m) => { if (activeTasks[taskId]) activeTasks[taskId].logs += m + '\n'; };
-        const magicaPrompt = applyAudioDirectives(prompt, { hasVo, narration: sceneNarration, voLanguage: voCfg.voLanguage, voTone: voCfg.voTone, durationSec: duration, backsound });
+        const magicaPrompt = applyAudioDirectives(prompt, { hasVo, narration: sceneNarration, voLanguage: voCfg.voLanguage, voTone: voCfg.voTone, durationSec: duration, backsound, voiceProfile });
         // "Hasilkan Audio/Voiceover" is the native provider switch. Music is a
         // prompt policy only and must never turn audio on by itself.
         const nativeAudio = Boolean(generateAudio);
@@ -549,7 +555,7 @@ async function generateVideo(req, res) {
         // VO is server-authoritative from the storyboard setting (single source of truth):
         // attach the VO directive when the storyboard has VO on & this scene has narration,
         // else enforce no-speech. Backsound stays a per-video toggle.
-        const finalPrompt = applyAudioDirectives(prompt, { hasVo, narration: sceneNarration, voLanguage: voCfg.voLanguage, voTone: voCfg.voTone, durationSec: duration, backsound });
+        const finalPrompt = applyAudioDirectives(prompt, { hasVo, narration: sceneNarration, voLanguage: voCfg.voLanguage, voTone: voCfg.voTone, durationSec: duration, backsound, voiceProfile });
         await db.run('UPDATE generated_videos SET prompt = ? WHERE id = ?', [finalPrompt, videoRecordId]);
 
         const spawnCmd = 'node';
@@ -1454,6 +1460,8 @@ async function generateAllVideos(req, res) {
 
     // Run the queue loop in the background!
     (async () => {
+      const db = getDb();
+      const voiceProfile = await getCharacterVoiceProfile(db, storyboard);
       const activeTasksCountForStoryboard = () => {
         return Object.values(activeTasks).filter(task => 
           task.status === 'processing' && task.storyboardId === storyboardId
@@ -1501,7 +1509,7 @@ async function generateAllVideos(req, res) {
         const voCfg = resolveVoConfig(storyboard);
         const hasVo = Boolean(generateAudio && voiceOver);
         const sceneNarration = hasVo ? (getSceneNarration(storyboard, sceneIdx) || (matchingPrompt && matchingPrompt.narration ? String(matchingPrompt.narration).trim() : '')) : '';
-        promptText = applyAudioDirectives(promptText, { hasVo, narration: sceneNarration, voLanguage: voCfg.voLanguage, voTone: voCfg.voTone, durationSec: duration, backsound });
+        promptText = applyAudioDirectives(promptText, { hasVo, narration: sceneNarration, voLanguage: voCfg.voLanguage, voTone: voCfg.voTone, durationSec: duration, backsound, voiceProfile });
         const nativeAudio = Boolean(generateAudio);
 
         // Resolve scene image
