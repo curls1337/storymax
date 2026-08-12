@@ -2574,11 +2574,11 @@ export default function Dashboard({ setTab }) {
                               Salin
                             </button>
                           </div>
-                          <pre className="m-0 whitespace-pre-wrap break-words rounded-lg border border-emerald-500/20 bg-emerald-950/10 p-3 font-mono text-[10px] leading-relaxed text-slate-200">
-                            {effectivePromptPreview.loading
-                              ? 'Memuat prompt efektif...'
-                              : (effectivePromptPreview.prompt || 'Prompt efektif belum tersedia.')}
-                          </pre>
+                          <textarea
+                            readOnly
+                            value={effectivePromptPreview.loading ? 'Memuat prompt efektif...' : (effectivePromptPreview.prompt || 'Prompt efektif belum tersedia.')}
+                            className="w-full h-24 m-0 p-3 rounded-lg border border-emerald-500/20 bg-emerald-950/10 font-mono text-[9px] leading-relaxed text-slate-200 focus:outline-none scrollbar-thin scrollbar-thumb-emerald-500/20 scrollbar-track-transparent resize-none"
+                          />
                           {effectivePromptPreview.audio && (
                             <p className="text-[8px] leading-relaxed text-slate-500">
                               Audio native: <span className="text-slate-300">{effectivePromptPreview.audio.nativeAudioEnabled ? 'aktif' : 'nonaktif'}</span>
