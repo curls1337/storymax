@@ -428,6 +428,7 @@ function extractConstraints(schema) {
   const resF = find((f) => lc(f.name).includes('resolution'));
   const arF = find((f) => lc(f.name).includes('aspect') || lc(f.name) === 'image_size' || lc(f.name) === 'size');
   const audioF = find((f) => (f.dataType === 'boolean' || f.type === 'boolean') && (lc(f.name).includes('audio') || lc(f.name).includes('voice') || lc(f.name).includes('sound') || lc(f.name).includes('speech')));
+  const promptF = find((f) => lc(f.name) === 'prompt');
   const imgArr = find(isImageArrayField);
   const imgOne = find((f) => lc(f.name) === 'image_url');
   return {
@@ -435,6 +436,7 @@ function extractConstraints(schema) {
     resolutions: resF && resF.options ? resF.options : null,
     aspectRatios: arF && arF.options ? arF.options : null,
     hasAudio: !!audioF,
+    promptMax: promptF && promptF.max ? promptF.max : null,
     needsImage: !!((imgArr && imgArr.required) || (imgOne && imgOne.required)),
   };
 }
@@ -461,15 +463,16 @@ async function getCatalog(db) {
     .filter((m) => (m.subModels || []).some((s) => s.category === 'text-to-image') || m.category === 'text-to-image')
     .map((m) => shape(m, IMAGE_METHODS))
     .filter((m) => m.methods.length);
+
   const videoModels = models
     .filter((m) => (m.subModels || []).some((s) => VIDEO_METHODS.includes(s.category)) || VIDEO_METHODS.includes(m.category))
     .map((m) => shape(m, VIDEO_METHODS))
     .filter((m) => m.methods.length);
 
-  // Enrich each VIDEO method with its schema constraints (duration/resolution/aspect/
-  // audio) so the UI can offer exactly what each model supports. Cached per schema.
+  // Enrich each model method with its schema constraints (duration/resolution/aspect/
+  // audio/prompt limit) so the UI can offer exactly what each model supports. Cached per schema.
   const jobs = [];
-  for (const m of videoModels) {
+  for (const m of [...videoModels, ...imageModels]) {
     for (const mt of m.methods) {
       jobs.push((async () => {
         try {

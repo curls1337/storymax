@@ -324,7 +324,7 @@ PENTING & LARANGAN KERAS:
    - DILARANG KERAS memasukkan teks garansi, syarat video unboxing, nomor WhatsApp, alamat pengiriman, atau kebijakan retur toko.
 6. HANYA TEKS VISUAL MURNI:
    - DILARANG KERAS menyertakan awalan meta-header teknis seperti "storyboard seedance...", "cube_box_transform:", atau nama layout di dalam teks 'description'.
-7. PANJANG TEKS: Total panjang 'description' HARUS DI BAWAH 1500 karakter. Jangan bertele-tele.
+7. PANJANG TEKS: Total panjang 'description' HARUS DI BAWAH 10000 karakter. Jangan bertele-tele.
 `;
 
     if (styleExists) {

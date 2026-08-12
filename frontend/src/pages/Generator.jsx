@@ -71,6 +71,13 @@ export default function Generator({ setTab, selectedCharacter }) {
   const dropdownRef = useRef(null);
   
   const [selectedRefImages, setSelectedRefImages] = useState([]);
+  const getEffectivePromptMax = () => {
+    if (userProvider !== 'magica') return 10000;
+    const model = (magicaCatalog?.imageModels || []).find(m => m.nodeType === magicaImageModel);
+    const method = (model?.methods || [])[0];
+    return method?.promptMax || 10000;
+  };
+  const effectiveMax = getEffectivePromptMax();
   const [refGenPrompt, setRefGenPrompt] = useState('');
   const [refGenLoading, setRefGenLoading] = useState(false);
   const refGenPollRef = useRef(null);
@@ -1050,21 +1057,21 @@ export default function Generator({ setTab, selectedCharacter }) {
             <div>
               <div className="flex justify-between items-center mb-1">
                 <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest">Prompt</label>
-                <span className={`text-[9px] font-mono transition-colors duration-200 ${prompt.length > 1500 ? 'text-red-400 font-bold' : 'text-slate-500'}`}>
-                  {prompt.length} / 1500
+                <span className={`text-[9px] font-mono transition-colors duration-200 ${prompt.length > effectiveMax ? 'text-red-400 font-bold' : 'text-slate-500'}`}>
+                  {prompt.length} / {effectiveMax}
                 </span>
               </div>
               <textarea 
                 value={prompt} 
                 onChange={(e) => setPrompt(e.target.value)} 
                 rows={3} 
-                className={`w-full bg-black/40 border rounded-xl px-3.5 py-2.5 text-white placeholder-slate-700 focus:outline-none focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs resize-none ${prompt.length > 1500 ? 'border-red-500 focus:border-red-500' : 'border-[#2a2725] focus:border-[#cfae80]'}`} 
+                className={`w-full bg-black/40 border rounded-xl px-3.5 py-2.5 text-white placeholder-slate-700 focus:outline-none focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs resize-none ${prompt.length > effectiveMax ? 'border-red-500 focus:border-red-500' : 'border-[#2a2725] focus:border-[#cfae80]'}`}
                 placeholder="Tulis prompt visual yang detail untuk storyboard Anda..."
                 required={mode === 'manual'}
                 disabled={generating} 
               />
-              {prompt.length > 1500 && (
-                <p className="text-[9px] text-red-400 mt-1 font-medium">⚠️ Deskripsi terlalu panjang. Hapus beberapa karakter hingga di bawah 1500.</p>
+              {prompt.length > effectiveMax && (
+                <p className="text-[9px] text-red-400 mt-1 font-medium">⚠️ Deskripsi terlalu panjang. Hapus beberapa karakter hingga di bawah {effectiveMax}.</p>
               )}
             </div>
           )}
@@ -1082,21 +1089,21 @@ export default function Generator({ setTab, selectedCharacter }) {
             <div>
               <div className="flex justify-between items-center mb-1">
                 <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest">Deskripsi Video / Ide Utama</label>
-                <span className={`text-[9px] font-mono transition-colors duration-200 ${prompt.length > 1500 ? 'text-red-400 font-bold' : 'text-slate-500'}`}>
-                  {prompt.length} / 1500
+                <span className={`text-[9px] font-mono transition-colors duration-200 ${prompt.length > effectiveMax ? 'text-red-400 font-bold' : 'text-slate-500'}`}>
+                  {prompt.length} / {effectiveMax}
                 </span>
               </div>
               <textarea 
                 value={prompt} 
                 onChange={(e) => setPrompt(e.target.value)} 
                 rows={3} 
-                className={`w-full bg-black/40 border rounded-xl px-3.5 py-2.5 text-white placeholder-slate-700 focus:outline-none focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs resize-none ${prompt.length > 1500 ? 'border-red-500 focus:border-red-500' : 'border-[#2a2725] focus:border-[#cfae80]'}`} 
+                className={`w-full bg-black/40 border rounded-xl px-3.5 py-2.5 text-white placeholder-slate-700 focus:outline-none focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs resize-none ${prompt.length > effectiveMax ? 'border-red-500 focus:border-red-500' : 'border-[#2a2725] focus:border-[#cfae80]'}`}
                 placeholder="Jelaskan alur, aksi produk, atau ide utama cerita..." 
                 required={mode === 'tokopedia'}
                 disabled={generating} 
               />
-              {prompt.length > 1500 && (
-                <p className="text-[9px] text-red-400 mt-1 font-medium">⚠️ Deskripsi terlalu panjang. Hapus beberapa karakter hingga di bawah 1500.</p>
+              {prompt.length > effectiveMax && (
+                <p className="text-[9px] text-red-400 mt-1 font-medium">⚠️ Deskripsi terlalu panjang. Hapus beberapa karakter hingga di bawah {effectiveMax}.</p>
               )}
             </div>
           )}
@@ -1296,7 +1303,7 @@ export default function Generator({ setTab, selectedCharacter }) {
             </div>
           )}
 
-          <button type="submit" disabled={generating || (userProvider !== 'magica' && apiKeys.length === 0) || prompt.length > 1500} className="w-full bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-2.5 px-4 rounded-xl transition-all shadow-lg hover:shadow-[#cfae80]/10 disabled:opacity-50 flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-wider cursor-pointer">
+          <button type="submit" disabled={generating || (userProvider !== 'magica' && apiKeys.length === 0) || prompt.length > effectiveMax} className="w-full bg-[#cfae80] hover:bg-[#c5a880] text-black font-bold py-2.5 px-4 rounded-xl transition-all shadow-lg hover:shadow-[#cfae80]/10 disabled:opacity-50 flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-wider cursor-pointer">
             {generating ? <><Loader className="animate-spin w-3.5 h-3.5" /> Memproses...</> : <><Sparkles className="w-3.5 h-3.5" /> Generate Storyboard AI</>}
           </button>
         </form>
