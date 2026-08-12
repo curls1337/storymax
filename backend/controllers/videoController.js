@@ -423,6 +423,8 @@ async function generateVideo(req, res) {
     const voCfg = resolveVoConfig(storyboard);
     const hasVo = Boolean(generateAudio && voiceOver);
     const sceneNarration = hasVo ? getSceneNarration(storyboard, sceneIdx) : '';
+    const voiceProfile = await getCharacterVoiceProfile(db, storyboard);
+
     // Provider routing (Bagian 2): Magica single-video generation — bypasses the
     // Freebeat key requirement + inline CLI spawn entirely.
     if (await magicaGen.isMagicaForStoryboard(db, storyboardId)) {
