@@ -260,7 +260,7 @@ NEGATIVE: ${negatives}.`;
   // font, color & placement VARIED per panel to fit the mood & this layout's vibe.
   // Kept short (1–4 words) so the image model renders it cleanly (no garble).
   const textClause = textOnScreen
-    ? " ALSO burn ONE punchy ON-SCREEN CAPTION into each panel (a few words up to a short 1–2 line phrase, in the storyboard's language, e.g. 'Upgrade ke Novilla', '3 SAIZ · KEDAP', 'Lagi Flash Sale!', 'WOW!') as BOLD high-contrast social-video lettering with a clean outline/shadow for legibility — VARY the font, color, accent word & placement per panel to fit the mood/this style, correctly spelled, like viral TikTok captions (not a plain label)."
+    ? " ALSO burn ONE stylized ON-SCREEN TEXT element into each panel — choose between a clean feature callout badge, a floating sticker caption bubble, or bold kinetic social lettering (e.g. 'Lembut macam awan', 'Praktis & Hemat Tempat', 'Ujung Runcing Menjangkau Sudut') rendered with crisp high-contrast outlines, soft drop shadows, and varied sticker shapes per panel to act as clear product feature explanations, perfectly spelled."
     : '';
   // Opt-in VOICE OVER note: when the storyboard has VO on, print a small 'VO' cue under
   // each panel (a SHORT one-line narration cue in the VO language) so the storyboard itself
