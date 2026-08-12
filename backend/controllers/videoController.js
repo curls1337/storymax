@@ -1961,6 +1961,41 @@ async function mergeStoryboardVideos(req, res) {
   }
 }
 
+async function deleteMergedVideo(req, res) {
+  const { storyboardId } = req.params;
+  try {
+    const db = getDb();
+    const sb = await db.get('SELECT * FROM storyboards WHERE id = ? AND user_id = ?', [storyboardId, req.user.id]);
+    if (!sb) {
+      return res.status(404).json({ message: 'Storyboard tidak ditemukan.' });
+    }
+
+    let history = [];
+    try {
+      if (sb.merged_video_history) history = JSON.parse(sb.merged_video_history);
+    } catch (e) {}
+
+    let newMergedUrl = null;
+    if (history.length > 0) {
+      history.pop();
+      if (history.length > 0) {
+        newMergedUrl = history[history.length - 1];
+      }
+    }
+
+    await db.run('UPDATE storyboards SET merged_video_url = ?, merged_video_history = ? WHERE id = ?', [
+      newMergedUrl,
+      history.length > 0 ? JSON.stringify(history) : null,
+      storyboardId
+    ]);
+
+    return res.json({ message: 'Video gabungan berhasil dihapus.', merged_video_url: newMergedUrl, merged_video_history: history.length > 0 ? JSON.stringify(history) : null });
+  } catch (err) {
+    console.error('Failed to delete merged video:', err);
+    return res.status(500).json({ message: 'Gagal menghapus video gabungan.', error: err.message });
+  }
+}
+
 module.exports = {
   generateVideo,
   getStoryboardVideos,
@@ -1972,6 +2007,7 @@ module.exports = {
   generateAllVideos,
   mergeStoryboardVideos,
   previewEffectiveVideoPrompt,
+  deleteMergedVideo,
   resolveVoConfig,
   getSceneNarration,
   applyAudioDirectives,

@@ -818,8 +818,8 @@ async function generateVideoPromptsInternal({ storyboardId, promptType, regenera
 
   // Resolve legacy/aliased ids to the canonical style so old storyboards
   // (cube_morph_product, capsule_toss_transform) get the CURRENT rules.
-  const resolvedStyle = resolveStyleId(storyboard.style);
   const gp = storyboard.generation_params ? JSON.parse(storyboard.generation_params) : {};
+  const resolvedStyle = resolveStyleId(storyboard.style || gp.style || 'premium_vertical_row');
   const textOnScreen = !!gp.textOnScreen;
   let capsuleStyleClause = '';
   if (resolvedStyle === 'mechanical_transform') {

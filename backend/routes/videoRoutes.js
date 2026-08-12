@@ -1,5 +1,5 @@
 const express = require('express');
-const { generateVideo, getStoryboardVideos, deleteVideo, regenerateVideoMarketingCopy, generateAllVideos, mergeStoryboardVideos, previewEffectiveVideoPrompt } = require('../controllers/videoController');
+const { generateVideo, getStoryboardVideos, deleteVideo, regenerateVideoMarketingCopy, generateAllVideos, mergeStoryboardVideos, previewEffectiveVideoPrompt, deleteMergedVideo } = require('../controllers/videoController');
 const { authenticateToken } = require('../middleware/authMiddleware');
 
 const router = express.Router();
@@ -13,5 +13,6 @@ router.get('/storyboard/:storyboardId', getStoryboardVideos);
 router.delete('/:id', deleteVideo);
 router.post('/:id/marketing-copy', regenerateVideoMarketingCopy);
 router.post('/storyboard/:storyboardId/merge', mergeStoryboardVideos);
+router.delete('/storyboard/:storyboardId/merge', deleteMergedVideo);
 
 module.exports = router;

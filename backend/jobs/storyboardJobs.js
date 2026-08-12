@@ -847,6 +847,8 @@ async function regenerateStoryboardPage(req, res) {
     }
     const pageCount = imagePaths.length;
 
+    const storyboardIsMagica = await magicaGen.isMagicaForStoryboard(db, storyboard.id);
+
     // Retrieve API Key
     let keyRecord = null;
     if (storyboard.api_key_id) {
@@ -860,7 +862,7 @@ async function regenerateStoryboardPage(req, res) {
       }
     }
 
-    if (!keyRecord) {
+    if (!storyboardIsMagica && !keyRecord) {
       return res.status(400).json({ message: 'Tidak ada API Key Freebeat yang aktif atau valid untuk regenerasi.' });
     }
 
@@ -883,7 +885,7 @@ async function regenerateStoryboardPage(req, res) {
           error: null
         };
 
-        const subPrompts = await splitStoryboardPromptWithAI(storyboard.prompt, pageCount, db, secondsPerPage, storyboard.style);
+        const subPrompts = await splitStoryboardPromptWithAI(storyboard.prompt, pageCount, db, secondsPerPage, style);
         const pageConcept = (subPrompts && subPrompts[pageIdx]) ? subPrompts[pageIdx] : storyboard.prompt;
         
         const startScene = pageIdx * Number(gridCount) + 1;

@@ -757,6 +757,45 @@ export default function Dashboard({ setTab }) {
     }
   }, [modalCarouselIdx, selectedStoryboard, videos]);
 
+  const handleDeleteMergedVideo = async () => {
+    const confirmDel = await confirm({ title: 'Hapus Video Gabungan?', message: 'Video gabungan versi ini akan dihapus permanen.', confirmText: 'Hapus', danger: true });
+    if (!confirmDel) return;
+
+    try {
+      const res = await api.delete(`/videos/storyboard/${selectedStoryboard.id}/merge`);
+      let history = [];
+      if (res.data.merged_video_history) {
+        try { history = JSON.parse(res.data.merged_video_history); } catch (e) {}
+      }
+
+      setSelectedStoryboard(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          merged_video_url: res.data.merged_video_url,
+          merged_video_history: res.data.merged_video_history
+        };
+      });
+
+      setStoryboards(prev => prev.map(sb => {
+        if (sb.id === selectedStoryboard.id) {
+          return {
+            ...sb,
+            merged_video_url: res.data.merged_video_url,
+            merged_video_history: res.data.merged_video_history
+          };
+        }
+        return sb;
+      }));
+
+      setActiveMergedIdx(Math.max(0, history.length - 1));
+      toast.success('Video gabungan berhasil dihapus.');
+    } catch (err) {
+      console.error('Error deleting merged video:', err);
+      toast.error(err.response?.data?.message || 'Gagal menghapus video gabungan.');
+    }
+  };
+
   const handleGenerateVideo = async () => {
     if (!selectedStoryboard || isGeneratingVideo || isGeneratingAllVideos) return;
     if (videoVoiceOver && !videoGenerateAudio) {
@@ -2128,7 +2167,7 @@ export default function Dashboard({ setTab }) {
                                 preload="metadata"
                                 className="w-full rounded-xl border border-[#2a2725] bg-black max-h-40"
                               />
-                              <div className="grid grid-cols-2 gap-2">
+                              <div className="grid grid-cols-3 gap-2">
                                 <a
                                   href={getDownloadUrl(activeMergedUrl)}
                                   onClick={(e) => handleDownloadClick(e, activeMergedUrl, `storyboard-${selectedStoryboard.id}-v${safeMergedIdx + 1}-full.mp4`)}
@@ -2143,6 +2182,12 @@ export default function Dashboard({ setTab }) {
                                   className="w-full bg-[#131211] hover:bg-[#1a1918] text-slate-350 font-bold py-2 px-2 rounded-lg border border-[#2a2725]/60 text-[8px] uppercase tracking-wider flex items-center justify-center gap-1 transition-all text-center cursor-pointer disabled:opacity-50"
                                 >
                                   {mergingVideos ? <Loader className="animate-spin w-3 h-3" /> : '🔄 Gabung Ulang'}
+                                </button>
+                                <button
+                                  onClick={handleDeleteMergedVideo}
+                                  className="w-full bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/30 font-bold py-2 px-2 rounded-lg text-[8px] uppercase tracking-wider flex items-center justify-center gap-1 transition-all text-center cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" /> Hapus
                                 </button>
                               </div>
                             </div>
