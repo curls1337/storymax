@@ -819,6 +819,8 @@ async function generateVideoPromptsInternal({ storyboardId, promptType, regenera
   // Resolve legacy/aliased ids to the canonical style so old storyboards
   // (cube_morph_product, capsule_toss_transform) get the CURRENT rules.
   const resolvedStyle = resolveStyleId(storyboard.style);
+  const gp = storyboard.generation_params ? JSON.parse(storyboard.generation_params) : {};
+  const textOnScreen = !!gp.textOnScreen;
   let capsuleStyleClause = '';
   if (resolvedStyle === 'mechanical_transform') {
     const { getInitialContainerDescription } = require('../prompts/containerShapes');
@@ -902,8 +904,15 @@ SUBJECT CONSISTENCY (CRITICAL): every page/scene depicts the SAME product/subjec
   // CAM/LIGHT tag labels, badges, duration chips) inside the generated prompts — that
   // printed planning text is not part of the real scene and was the source of a
   // persistent text "leak" into otherwise purely-visual prompt fields.
-  const noStoryboardChromeClause = `NEVER RENDER THE STORYBOARD SHEET ITSELF: each page image is a storyboard PLANNING layout — a printed poster with a grid of numbered panels, a header/title banner, badges and duration chips. Your prompts must describe ONLY the real scene happening INSIDE the relevant panel, rendered as ONE single, full-frame, continuous live shot. NEVER show, pan across, scroll or animate the sheet or its layout: no grid, no split panels/boxes/cards, no rows or columns, no panel numbers or 'Scene N' labels, no header/badge/duration chips, no on-screen captions or UI text, and NEVER write 'a 3x2 (or NxN) grid of panels', 'top-left to bottom-right' sweeps, or 'panels sliding into focus'. If a page shows several numbered panels/beats, render them as ONE continuous full-frame real-world shot that PROGRESSES through those beats in chronological order (a single flowing long-take / mini-montage of the actual scene, evenly across the clip) — NOT a single frozen moment, and NEVER the grid, split panels, or a sweep across the sheet.
-NEVER QUOTE OR PARAPHRASE THE SHEET'S PRINTED TEXT (critical — this is the #1 source of leaks): the printed header/title text, on-screen caption text, 'VO:' voice-over cue notes, the 'CAM:'/'LIGHT:' tag labels themselves, panel/scene numbers, and duration/badge chip text are PLANNING ANNOTATIONS for the human crew — they are NOT part of the real-world scene and must NEVER appear, be mentioned, quoted, transcribed, translated, or paraphrased inside "imageToVideoPrompt" or "textToVideoPrompt". Do NOT write things like "the caption reads '...'", "a banner displaying '...'", "text on screen says '...'", "the VO note shows '...'", or repeat any of that printed wording (in any language) in quotation marks anywhere in your output. Describe only the real, physical visual scene and its motion — never the sheet's printed planning text.`;
+  const chromeNote = textOnScreen
+    ? "EXCEPT for the stylized on-screen captions/callouts (e.g. 'Momen Santai', 'Estetika Meja') which SHOULD be rendered as dynamic video overlays, NEVER render the storyboard sheet's chrome: no grid, no split panels, no panel numbers, no header banner, and no 'CAM:'/'LIGHT:' tag labels."
+    : "no on-screen captions or UI text, and NEVER write 'a 3x2 (or NxN) grid of panels', 'top-left to bottom-right' sweeps, or 'panels sliding into focus'.";
+  const quoteNote = textOnScreen
+    ? "EXCEPT for the stylized on-screen caption text which MUST be included as real-world dynamic overlays in the video, NEVER quote or paraphrase the planning text: 'VO:' notes, 'CAM:'/'LIGHT:' tags, and duration chips are for the crew only and must never appear in the video."
+    : "the printed header/title text, on-screen caption text, 'VO:' voice-over cue notes, the 'CAM:'/'LIGHT:' tag labels themselves, panel/scene numbers, and duration/badge chip text are PLANNING ANNOTATIONS for the human crew — they are NOT part of the real-world scene and must NEVER appear, be mentioned, quoted, transcribed, translated, or paraphrased.";
+
+  const noStoryboardChromeClause = `NEVER RENDER THE STORYBOARD SHEET ITSELF: each page image is a storyboard PLANNING layout — a printed poster with a grid of numbered panels, a header/title banner, badges and duration chips. Your prompts must describe ONLY the real scene happening INSIDE the relevant panel, rendered as ONE single, full-frame, continuous live shot. NEVER show, pan across, scroll or animate the sheet or its layout: ${chromeNote} If a page shows several numbered panels/beats, render them as ONE continuous full-frame real-world shot that PROGRESSES through those beats in chronological order (a single flowing long-take / mini-montage of the actual scene, evenly across the clip) — NOT a single frozen moment, and NEVER the grid, split panels, or a sweep across the sheet.
+NEVER QUOTE OR PARAPHRASE THE SHEET'S PRINTED TEXT (critical — this is the #1 source of leaks): ${quoteNote} Do NOT write things like "the VO note shows '...'", or repeat any of that printed wording (in any language) in quotation marks anywhere in your output. Describe only the real, physical visual scene and its motion — never the sheet's printed planning text.`;
 
   let systemInstruction = '';
   if (enableVo) {
@@ -1086,7 +1095,8 @@ Please analyze the provided image sheet(s) carefully. Generate the requested JSO
 
         // Bug C: the image-to-video prompt must be PURELY visual — strip any leaked
         // narration / VO / timecode / printed-sheet-text text (keep camera + motion + atmosphere only).
-        i2v = stripSpeechLeak(i2v);
+        i2v = stripSpeechLeak(i2v, textOnScreen);
+        t2v = stripSpeechLeak(t2v, textOnScreen);
 
         // Automatic Narration Truncation: ensure voiceover script never exceeds max words
         if (narr && typeof narr === 'string') {
