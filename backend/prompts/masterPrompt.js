@@ -207,6 +207,16 @@ function buildMasterPrompt(spec, ctx = {}) {
 
   const layout = (spec.layoutHint || 'a grid of {N} numbered panels on one sheet').replace('{N}', String(gc));
   const partLabel = pageCount > 1 ? ` PART ${pageNum}/${pageCount}` : '';
+  // Force total layout structural overhaul based on layoutHint.
+  // If layoutHint mentions "magazine", "table", or "infographic", enforce that structural geometry.
+  const layoutStructure = layout.toLowerCase().includes('magazine')
+    ? 'OVERALL STRUCTURE: A high-end MAGAZINE CATALOG layout with large hero images and elegant typography; do NOT use a basic 2x3 grid.'
+    : (layout.toLowerCase().includes('table')
+        ? 'OVERALL STRUCTURE: A professional PRODUCTION TABLE layout with strict columns for Visual, Duration, and Camera; do NOT use a basic 2x3 grid.'
+        : (layout.toLowerCase().includes('infographic') || layout.toLowerCase().includes('playful')
+            ? 'OVERALL STRUCTURE: A dynamic PLAYFUL INFOGRAPHIC layout with varied panel sizes, rounded corners, and decorative icons; do NOT use a basic 2x3 grid.'
+            : `OVERALL STRUCTURE: ${layout}.`));
+
   // Strict styles get the full "reproduce exactly" clause here; stylized styles carry
   // their (short, always-present) "re-form" instruction in L1 instead, so refNote stays
   // empty for them and never competes for the trimmable budget.
@@ -249,7 +259,7 @@ ${face}
 NEGATIVE: ${negatives}.`;
 
   // ── Fixed structural lines (content is fixed; always present) ──
-  const L1 = `A professional ${spec.name} storyboard sheet — ONE printed poster, ${ratio} layout, ${bgClause(spec.bg)}.${realNote}${looseRef ? " The reference is ONLY inspiration — re-form the subject into THIS style's own shape (recognizable, same colors), do NOT copy it 1:1." : ''}`;
+  const L1 = `A professional ${spec.name} storyboard sheet — ONE printed poster, ${ratio} layout, ${bgClause(spec.bg)}.${realNote}${layoutStructure}${looseRef ? " The reference is ONLY inspiration — re-form the subject into THIS style's own shape (recognizable, same colors), do NOT copy it 1:1." : ''}`;
   // A15: CHARACTER identity anchor placed immediately after the opening line —
   // as early as possible in the prompt (empty string when no character, so it
   // is dropped by the assemble()'s filter(Boolean) below).
