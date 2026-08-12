@@ -166,7 +166,7 @@ function buildVoiceoverDirective(narration, lang, tone, durationSec) {
   // speech per-panel with odd pauses (sounds spelled-out). Explicitly tell the model
   // that on-screen text is silent/visual-only and to speak ONLY this narration line,
   // as one smooth continuous sentence.
-  return `\n\n[AUDIO DIRECTIVE — VOICE OVER]\nNarrator Type: Off-screen professional narrator\nLanguage: ${language}${delivery}\nScript Content: "${line}"\n\nCRITICAL PERFORMANCE RULES:\n- Speak the "Script Content" EXACTLY as written, once, from start to finish.\n- Deliver as ONE smooth, natural, continuous conversational sentence.\n- DO NOT read word-by-word. DO NOT spell out letters. DO NOT pause between every word.\n- DO NOT vocalize any on-screen text, captions, or "Voiceover:" labels seen in the image; those are silent visual notes only.\n- Start speaking at 0s and finish naturally before the scene ends.\n- AUDIO OUTPUT MUST BE ACTIVE AND CLEARLY AUDIBLE.`;
+  return `\n\n[AUDIO DIRECTIVE — VOICE OVER]\nNarrator Type: Off-screen professional narrator\nLanguage: ${language}${delivery}\nScript Content: "${line}"\n\nCRITICAL PERFORMANCE RULES:\n- Speak the "Script Content" EXACTLY as written, once, from start to finish.\n- Deliver as ONE smooth, natural, continuous conversational sentence.\n- DO NOT read word-by-word. DO NOT spell out letters. DO NOT pause between every word. STOP speaking immediately once the sentence completes.\n- DO NOT vocalize any on-screen text, captions, or "Voiceover:" labels seen in the image; those are silent visual notes only.\n- Start speaking at 0s, pace evenly, and finish completely before the final second of the scene to avoid trailing or overlapping stutter.\n- AUDIO OUTPUT MUST BE ACTIVE, CLEAN, AND CLEARLY AUDIBLE.`;
 }
 
 // When "backsound" (background music) is OFF, forbid any BGM/soundtrack so the video
@@ -1500,7 +1500,7 @@ async function generateAllVideos(req, res) {
         // no Video Studio VO toggle. Backsound stays a per-video toggle.
         const voCfg = resolveVoConfig(storyboard);
         const hasVo = Boolean(generateAudio && voiceOver);
-        const sceneNarration = hasVo && matchingPrompt && matchingPrompt.narration ? String(matchingPrompt.narration).trim() : '';
+        const sceneNarration = hasVo ? (getSceneNarration(storyboard, sceneIdx) || (matchingPrompt && matchingPrompt.narration ? String(matchingPrompt.narration).trim() : '')) : '';
         promptText = applyAudioDirectives(promptText, { hasVo, narration: sceneNarration, voLanguage: voCfg.voLanguage, voTone: voCfg.voTone, durationSec: duration, backsound });
         const nativeAudio = Boolean(generateAudio);
 

@@ -399,8 +399,8 @@ function buildInput(fields, vals) {
         v = nearestNum(opts, vals.duration);
         if (v === undefined) v = f.default;
       }
-    } else if ((dt === 'boolean') && lname.includes('audio')) {
-      // ALWAYS set audio booleans explicitly, defaulting to OFF. If this field is omitted,
+    } else if ((dt === 'boolean') && (lname.includes('audio') || lname.includes('voice') || lname.includes('sound') || lname.includes('speech'))) {
+      // ALWAYS set audio/speech booleans explicitly, defaulting to OFF. If this field is omitted,
       // native audio-visual models (e.g. Seedance) default to audio ON → the video gets
       // backsound/ambient even when the user did NOT enable audio. Verified against the live
       // API: generate_audio:false → 0 audio streams; omitted → 1 audio stream.
@@ -427,7 +427,7 @@ function extractConstraints(schema) {
   const durF = find((f) => lc(f.name).includes('duration'));
   const resF = find((f) => lc(f.name).includes('resolution'));
   const arF = find((f) => lc(f.name).includes('aspect') || lc(f.name) === 'image_size' || lc(f.name) === 'size');
-  const audioF = find((f) => (f.dataType === 'boolean' || f.type === 'boolean') && lc(f.name).includes('audio'));
+  const audioF = find((f) => (f.dataType === 'boolean' || f.type === 'boolean') && (lc(f.name).includes('audio') || lc(f.name).includes('voice') || lc(f.name).includes('sound') || lc(f.name).includes('speech')));
   const imgArr = find(isImageArrayField);
   const imgOne = find((f) => lc(f.name) === 'image_url');
   return {
