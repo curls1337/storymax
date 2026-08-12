@@ -71,6 +71,10 @@ export default function Generator({ setTab, selectedCharacter }) {
   const dropdownRef = useRef(null);
   
   const [selectedRefImages, setSelectedRefImages] = useState([]);
+  const [userProvider, setUserProvider] = useState('freebeat');
+  const [magicaCatalog, setMagicaCatalog] = useState(null);
+  const [magicaImageModel, setMagicaImageModel] = useState('');
+
   const getEffectivePromptMax = () => {
     if (userProvider !== 'magica') return 10000;
     const model = (magicaCatalog?.imageModels || []).find(m => m.nodeType === magicaImageModel);
@@ -107,9 +111,6 @@ export default function Generator({ setTab, selectedCharacter }) {
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
   const [loadingKeys, setLoadingKeys] = useState(true);
-  const [userProvider, setUserProvider] = useState('freebeat');
-  const [magicaCatalog, setMagicaCatalog] = useState(null);
-  const [magicaImageModel, setMagicaImageModel] = useState('');
   const [magicaKeyId, setMagicaKeyId] = useState('auto');
   const [imgEstimate, setImgEstimate] = useState(null);
   
