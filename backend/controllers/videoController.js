@@ -133,16 +133,30 @@ async function getCharacterReferenceUrls(db, storyboard) {
 async function getCharacterVoiceProfile(db, storyboard) {
   try {
     if (!storyboard || !storyboard.character_id) return null;
+    // A14: Also fetch visual 'gender' as a fallback for voice identity if voice_gender is empty.
     const char = await db.get(
-      'SELECT name, voice_gender, voice_tone, voice_language, voice_notes FROM characters WHERE id = ?',
+      'SELECT name, gender, voice_gender, voice_tone, voice_language, voice_notes FROM characters WHERE id = ?',
       [storyboard.character_id]
     );
     if (!char) return null;
-    const hasAny = char.voice_gender || char.voice_tone || char.voice_language || char.voice_notes;
+    
+    // If voice_gender is missing, try to infer it from the character's visual gender
+    let effectiveVoiceGender = char.voice_gender || '';
+    if (!effectiveVoiceGender && char.gender) {
+      const g = char.gender.toLowerCase();
+      if (g.includes('wanita') || g.includes('perempuan') || g.includes('female') || g.includes('girl') || g.includes('woman')) {
+        effectiveVoiceGender = 'Female';
+      } else if (g.includes('pria') || g.includes('laki') || g.includes('male') || g.includes('boy') || g.includes('man')) {
+        effectiveVoiceGender = 'Male';
+      }
+    }
+
+    const hasAny = effectiveVoiceGender || char.voice_tone || char.voice_language || char.voice_notes;
     if (!hasAny) return null;
+    
     return {
       name: char.name || '',
-      voiceGender: char.voice_gender || '',
+      voiceGender: effectiveVoiceGender,
       voiceTone: char.voice_tone || '',
       voiceLanguage: char.voice_language || '',
       voiceNotes: char.voice_notes || '',
@@ -199,7 +213,7 @@ function buildVoiceoverDirective(narration, lang, tone, durationSec, voiceProfil
   // speech per-panel with odd pauses (sounds spelled-out). Explicitly tell the model
   // that on-screen text is silent/visual-only and to speak ONLY this narration line,
   // as one smooth continuous sentence.
-  return `\n\n[AUDIO DIRECTIVE — VOICE OVER]\nNarrator Type: Off-screen professional narrator\nLanguage: ${language}${delivery}${charLine}\nScript Content: "${line}"\n\nCRITICAL PERFORMANCE RULES:\n- Speak the "Script Content" EXACTLY as written, once, from start to finish.\n- Deliver as ONE smooth, natural, continuous conversational sentence in ${language}.\n- DO NOT read word-by-word. DO NOT spell out letters. DO NOT pause between every word. STOP speaking immediately once the sentence completes.\n- DO NOT vocalize any on-screen text, captions, or "Voiceover:" labels seen in the image; those are silent visual notes only.\n- Start speaking at 0s, pace evenly, and finish completely before the final second of the scene to avoid trailing or overlapping stutter.\n- END OF AUDIO: After the script completes, maintain ABSOLUTE SILENCE for the remainder of the clip. DO NOT hum, murmur, stutter, or generate any phantom speech/noise in any other language (e.g., NO Thai, NO Chinese, NO gibberish).\n- AUDIO OUTPUT MUST BE ACTIVE, CLEAN, AND CLEARLY AUDIBLE.`;
+  return `\n\n[AUDIO DIRECTIVE — VOICE OVER]\nNarrator Type: Off-screen professional narrator\nLanguage: ${language}${delivery}${charLine}\nScript Content: "${line}"\n\nCRITICAL PERFORMANCE RULES:\n- VOICE CONSISTENCY: This clip is part of a series. You MUST use the exact same voice identity (same gender, age, and timbre) as used in all other scenes in this project. Do not change the voice between scenes.\n- Speak the "Script Content" EXACTLY as written, once, from start to finish.\n- Deliver as ONE smooth, natural, continuous conversational sentence in ${language}.\n- DO NOT read word-by-word. DO NOT spell out letters. DO NOT pause between every word. STOP speaking immediately once the sentence completes.\n- DO NOT vocalize any on-screen text, captions, or "Voiceover:" labels seen in the image; those are silent visual notes only.\n- Start speaking at 0s, pace evenly, and finish completely before the final second of the scene to avoid trailing or overlapping stutter.\n- END OF AUDIO: After the script completes, maintain ABSOLUTE SILENCE for the remainder of the clip. DO NOT hum, murmur, stutter, or generate any phantom speech/noise in any other language (e.g., NO Thai, NO Chinese, NO gibberish).\n- AUDIO OUTPUT MUST BE ACTIVE, CLEAN, AND CLEARLY AUDIBLE.`;
 }
 
 // When "backsound" (background music) is OFF, forbid any BGM/soundtrack so the video
@@ -308,6 +322,14 @@ function applyAudioDirectives(basePrompt, { hasVo, narration, voLanguage, voTone
   
   // A14: Anchor visual identity if a character is linked
   t = applyCharacterIdentity(t, characterId);
+  
+  // A14: Anchor audio consistency even if no character is linked
+  if (hasVo && !voiceProfile) {
+    const language = voLanguage || 'Bahasa Indonesia';
+    const toneLbl = voToneLabel(voTone);
+    const delivery = toneLbl ? ` with a ${toneLbl} delivery` : '';
+    t += `\n\nVOICE ANCHOR: Use a consistent, professional off-screen narrator voice in ${language}${delivery}. This voice MUST remain identical across all scenes in this project.`;
+  }
   
   let effectiveNarration = narration;
   if (hasVo && !effectiveNarration) {
