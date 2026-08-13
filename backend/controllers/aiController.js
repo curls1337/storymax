@@ -295,7 +295,14 @@ async function generateAiAssistant(req, res, forcedMode) {
       : '';
 
     if (characterInfo) {
-      referenceDirective += `\nCHARACTER CONTEXT:\n- The user has selected a character: "${characterInfo.name}".\n- Character Description: ${characterInfo.description}\n- You MUST include this character in the storyboard description as the primary person interacting with the product.\n- Ensure the character's appearance and actions are consistent with their description.\n`;
+      const hasCharImage = !!characterInfo.imageUrl;
+      referenceDirective += `\nCHARACTER CONTEXT:\n- The user has selected a character: "${characterInfo.name}".\n- Character Description: ${characterInfo.description}\n- You MUST include this character in the storyboard description as the primary person interacting with the product.\n`;
+      
+      if (hasCharImage) {
+        referenceDirective += `- IMPORTANT: The character's visual details are ALREADY in the reference image. DO NOT repeat long physical descriptions (age, glasses, clothes, etc.) in every panel. Refer to them simply as "${characterInfo.name}" or "the character" and focus on their actions.\n`;
+      } else {
+        referenceDirective += `- Ensure the character's appearance and actions are consistent with the description provided.\n`;
+      }
     }
 
     const layoutListText = LAYOUT_STYLES.map(s => `- "${s.value}": ${s.label}`).join('\n');

@@ -336,20 +336,31 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
           const subjectImagePath = task.productRefImagePath || (task.characterId ? '' : task.finalRefImagePath);
           task.subjectDescriptor = subjectImagePath
             ? await analyzeSubject({ imagePath: subjectImagePath, ideaText: task.prompt }, db)
-            : task.prompt;
+            : (task.characterId ? 'the product' : task.prompt);
           await saveTaskState(db, storyboardId, task);
         }
         const faceMode = normalizeFaceMode(task.faceMode, task.showFace, task.style);
         const spec = getStyleSpec(task.style);
         const genCtx = {
-          subject: task.subjectDescriptor || task.prompt, concept: pageConcept, faceMode,
-          gridCount: Number(task.gridCount) || 6, startScene,
-          totalDuration: task.totalDuration, aspectRatio: task.aspectRatio, model: task.selectedModel,
-          pageNum, pageCount: task.pageCount, hasRefImage: !!pageRefPath, secondsPerPage: task.secondsPerPage,
+          subject: task.subjectDescriptor || (task.characterId ? 'the product' : task.prompt),
+          concept: pageConcept,
+          faceMode,
+          gridCount: Number(task.gridCount) || 6,
+          startScene,
+          totalDuration: task.totalDuration,
+          aspectRatio: task.aspectRatio,
+          model: task.selectedModel,
+          pageNum,
+          pageCount: task.pageCount,
+          hasRefImage: !!pageRefPath,
+          secondsPerPage: task.secondsPerPage,
           textOnScreen: !!task.textOnScreen,
           voiceOver: task.enableVoImage !== undefined ? !!task.enableVoImage : !!task.enableVo,
           voLanguage: task.voLanguage || 'Bahasa Indonesia',
           referenceKind: task.characterId ? 'character' : 'subject',
+          // Pass a brief character anchor if characterId is present, to help the model
+          // identify who the person in the reference image is without verbose prose.
+          characterDescriptor: task.characterId ? 'the main character' : '',
         };
         // Try the LLM generator first; it returns null on ANY failure (no AI key,
         // timeout, bad output) so we always fall back to the deterministic builder.
