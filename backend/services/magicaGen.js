@@ -572,16 +572,7 @@ async function generateVideoMagica(apiKey, params = {}) {
   const currentImgUrl = toPublicUrl(params.sceneImage, params.originalCdnUrl);
   const imgUrl = currentImgUrl; 
   
-  // Fallback: if we are in reference mode but have no images, try to fall back to text-to-video
-  // to avoid 400 errors from models that require at least one image in reference mode.
-  if (category !== 'text-to-video' && (!imgUrl && (!params.extraImageUrls || params.extraImageUrls.length === 0))) {
-    const textSubModel = resolveSubModel(models, nodeType, 'text-to-video');
-    if (textSubModel) {
-      onLog(`[Magica 🔄] Tidak ada gambar referensi; beralih ke mode text-to-video.`);
-      subModelId = textSubModel;
-      category = 'text-to-video';
-    }
-  }
+  // Strict reference mode: do not fallback to text-to-video if image is missing
 
   let fields = [];
   try { fields = ((await getSchemaCached(apiKey, subModelId || nodeType)) || {}).fields || []; } catch (e) {}

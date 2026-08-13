@@ -403,16 +403,14 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
 
             const { url, credit } = magicaRes;
 
-            let magicaStored = url;
+            // Use direct Magica public CDN URL directly so video generation can fetch it reliably without local uploads dependency
+            const magicaStored = url;
             try {
               const ext = ((String(url).split('?')[0].match(/\.(png|jpe?g|webp)$/i) || [])[1] || 'png').toLowerCase();
               const fname = `storyboard_${storyboardId}_page_${pageIdx}_${Date.now()}.${ext}`;
               await downloadFile(url, path.join(uploadsDir, fname));
-              magicaStored = `/uploads/${fname}`;
-              task.logs += `[Halaman ${pageNum}] Gambar Magica disimpan lokal: ${magicaStored}\n`;
-            } catch (dlErr) {
-              task.logs += `[WARNING][Halaman ${pageNum}] Gagal simpan lokal (${dlErr.message}); memakai URL CDN Magica (bisa kadaluarsa).\n`;
-            }
+              task.logs += `[Halaman ${pageNum}] Backup lokal tersimpan di /uploads/${fname}\n`;
+            } catch (dlErr) {}
             task.originalCdnUrls[pageIdx] = url;
             task.imagePaths[pageIdx] = magicaStored;
             task.totalCreditsUsed = (task.totalCreditsUsed || 0) + credit;
@@ -954,12 +952,11 @@ async function regenerateStoryboardPage(req, res) {
               (msg) => { activeTasks[taskId].logs += msg + '\n'; }
             );
             const { url } = magicaRes;
-            let storedPath = url;
+            const storedPath = url;
             try {
               const ext = ((String(url).split('?')[0].match(/\.(png|jpe?g|webp)$/i) || [])[1] || 'png').toLowerCase();
               const fname = `storyboard_${storyboard.id}_page_${pageIdx}_regen_${Date.now()}.${ext}`;
               await downloadFile(url, path.join(uploadsDir, fname));
-              storedPath = `/uploads/${fname}`;
             } catch (dlErr) {}
 
             imagePaths[pageIdx] = storedPath;
