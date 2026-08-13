@@ -554,6 +554,16 @@ async function initDb() {
     console.log('--- Default AI Settings Seeded ---');
   }
 
+  // Seed default Magica API key if none exist
+  const magicaKeyExists = await db.get('SELECT * FROM magica_api_keys LIMIT 1');
+  if (!magicaKeyExists) {
+    await db.run(
+      'INSERT INTO magica_api_keys (key_value, label, is_active, last_status) VALUES (?, ?, ?, ?)',
+      ['gx_7pkrEWVt2KofL8s7VYjML5', 'Primary Magica Key (User Provided)', 1, 'OK - Seeded']
+    );
+    console.log('--- Default Magica API Key Seeded ---');
+  }
+
   console.log('Database initialized successfully.');
   return db;
 }

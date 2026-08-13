@@ -67,7 +67,7 @@ async function assertPublicImageReachable(url, onLog) {
     throw new Error('URL gambar referensi bukan http(s) publik. Magica hanya menerima URL publik (bukan base64/lokal) — set PUBLIC_URL server ke domain yang dapat diakses internet.');
   }
   if (isNonPublicHost(url)) {
-    throw new Error(`URL gambar referensi tidak publik: ${url}. Magica tidak bisa mengambilnya. Set PUBLIC_URL ke domain publik (mis. https://story.devcurl.me), jangan localhost/IP privat.`);
+    log(`[Magica ⚠️] Peringatan: URL gambar referensi non-publik (${url}). Melanjutkan; jika Magica gagal mengambilnya, pastikan URL dapat diakses publik.`);
   }
   try {
     const controller = new AbortController();

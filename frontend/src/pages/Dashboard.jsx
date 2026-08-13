@@ -2297,11 +2297,8 @@ export default function Dashboard({ setTab }) {
                               Coba Lagi / Bersihkan
                             </button>
                           </div>
-                          <div className="bg-black/80 border border-[#2a2725] rounded-xl p-3 h-32 overflow-y-auto font-mono text-[9px] text-red-300/80 scrollbar-thin whitespace-pre-line leading-relaxed">
-                            {activeVideoTask && (activeVideoTask.taskId === latestVideo.task_id || activeVideoTask.status === 'failed')
-                              ? (activeVideoTask.logs || activeVideoTask.error || 'Terjadi kesalahan saat memproses Freebeat CLI.')
-                              : (latestVideo.logs || latestVideo.error_message || 'Pembuatan video gagal. Silakan klik "Coba Lagi / Bersihkan" untuk mencoba ulang dengan model atau prompt lain.')
-                            }
+                          <div className="bg-black/80 border border-red-500/40 rounded-xl p-3 h-36 overflow-y-auto font-mono text-[10px] text-red-200 scrollbar-thin whitespace-pre-line leading-relaxed">
+                            {activeVideoTask?.error || activeVideoTask?.logs || latestVideo?.error_message || latestVideo?.logs || 'Pembuatan video gagal. Terjadi kesalahan pada server Magica.'}
                           </div>
                         </div>
                       );
