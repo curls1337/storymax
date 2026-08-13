@@ -589,13 +589,18 @@ async function generateVideoMagica(apiKey, params = {}) {
     await assertPublicImageReachable(imgUrl, onLog);
   }
 
+  // A14: Support multiple reference images (e.g. scene image + character identity)
+  // for video models that support array inputs (like Seedance Reference).
+  const combinedImageUrls = [...(params.extraImageUrls || [])];
+  if (imgUrl) combinedImageUrls.unshift(imgUrl);
+
   const input = buildInput(fields, {
     prompt: params.prompt,
     aspect: params.aspectRatio,
     resolution: params.resolution,
     duration: params.duration,
     generateAudio: params.generateAudio === true, // explicit boolean — never let it be undefined
-    imageUrls: imgUrl ? [imgUrl] : [],
+    imageUrls: combinedImageUrls,
   });
   if (!('prompt' in input) && params.prompt) input.prompt = String(params.prompt);
 

@@ -101,6 +101,35 @@ function voToneLabel(tone) {
 // Returns null when no character is linked, or the character exists but every voice
 // field is empty (i.e. left as "Auto") — so behavior for un-configured characters is
 // completely unchanged.
+// A14: Fetches public URLs for a character's reference images to be used as
+// visual identity anchors during video generation.
+async function getCharacterReferenceUrls(db, storyboard) {
+  try {
+    if (!storyboard || !storyboard.character_id) return [];
+    const char = await db.get(
+      'SELECT reference_images, sheet_image_url FROM characters WHERE id = ?',
+      [storyboard.character_id]
+    );
+    if (!char) return [];
+    
+    const refs = [];
+    if (char.sheet_image_url) refs.push(char.sheet_image_url);
+    
+    let extra = [];
+    try { extra = JSON.parse(char.reference_images || '[]'); } catch (e) {}
+    if (Array.isArray(extra)) {
+      for (const img of extra) {
+        if (img && !refs.includes(img)) refs.push(img);
+      }
+    }
+    
+    // Convert to public URLs for Magica
+    return refs.map(r => magicaGen.toPublicUrl(r)).filter(Boolean);
+  } catch (e) {
+    return [];
+  }
+}
+
 async function getCharacterVoiceProfile(db, storyboard) {
   try {
     if (!storyboard || !storyboard.character_id) return null;
@@ -262,10 +291,24 @@ function getSceneNarration(storyboard, sceneIdx) {
   return 'Nikmati kualitas terbaik produk ini sekarang juga.';
 }
 
+// A14: Injects a visual identity anchor for the linked character into the video prompt.
+// This ensures the video model maintains the character's face/ethnicity/gender/hair
+// across the generated clip, matching the storyboard identity.
+function applyCharacterIdentity(prompt, characterId) {
+  if (!characterId) return prompt;
+  // Use a brief, high-priority identity anchor similar to the storyboard master prompt.
+  const anchor = '\n\nCHARACTER IDENTITY RULE: Maintain the EXACT SAME physical identity (face, gender, ethnicity, hair) for the main character in this scene as shown in the reference image. The character must remain recognizable and consistent throughout the clip.';
+  return prompt + anchor;
+}
+
 // Finalizes a video prompt's AUDIO. When hasVo is true, keep audio enabled and attach
 // narration directive if present. If hasVo is false, enforce no-speech. Apply backsound toggle.
-function applyAudioDirectives(basePrompt, { hasVo, narration, voLanguage, voTone, durationSec, backsound, voiceProfile, textOnScreen }) {
+function applyAudioDirectives(basePrompt, { hasVo, narration, voLanguage, voTone, durationSec, backsound, voiceProfile, textOnScreen, characterId }) {
   let t = stripVoiceover(basePrompt);
+  
+  // A14: Anchor visual identity if a character is linked
+  t = applyCharacterIdentity(t, characterId);
+  
   let effectiveNarration = narration;
   if (hasVo && !effectiveNarration) {
     const matchVo = basePrompt.match(/VO\s*:\s*([^.\n]+[.!?]?)/i)
@@ -332,7 +375,8 @@ async function previewEffectiveVideoPrompt(req, res) {
       durationSec: duration,
       backsound: Boolean(backsound),
       voiceProfile,
-      textOnScreen
+      textOnScreen,
+      characterId: storyboard.character_id
     });
 
     return res.json({
@@ -433,6 +477,7 @@ async function generateVideo(req, res) {
     const hasVo = Boolean(voiceOver);
     const sceneNarration = hasVo ? getSceneNarration(storyboard, sceneIdx) : '';
     const voiceProfile = await getCharacterVoiceProfile(db, storyboard);
+    const charRefUrls = await getCharacterReferenceUrls(db, storyboard);
 
     // Provider routing (Bagian 2): Magica single-video generation — bypasses the
     // Freebeat key requirement + inline CLI spawn entirely.
@@ -455,7 +500,7 @@ async function generateVideo(req, res) {
       
       (async () => {
         const onLog = (m) => { if (activeTasks[taskId]) activeTasks[taskId].logs += m + '\n'; };
-        const magicaPrompt = applyAudioDirectives(prompt, { hasVo, narration: sceneNarration, voLanguage: voCfg.voLanguage, voTone: voCfg.voTone, durationSec: duration, backsound, voiceProfile, textOnScreen });
+        const magicaPrompt = applyAudioDirectives(prompt, { hasVo, narration: sceneNarration, voLanguage: voCfg.voLanguage, voTone: voCfg.voTone, durationSec: duration, backsound, voiceProfile, textOnScreen, characterId: storyboard.character_id });
         // "Hasilkan Audio/Voiceover" is the native provider switch. Music is a
         // prompt policy only and must never turn audio on by itself.
         const nativeAudio = Boolean(generateAudio);
@@ -470,6 +515,7 @@ async function generateVideo(req, res) {
               return await magicaGen.generateVideoMagica(keyRec.key_value, {
                 prompt: magicaPrompt,
                 sceneImage,
+                extraImageUrls: charRefUrls,
                 generationType,
                 duration,
                 resolution,
@@ -566,7 +612,7 @@ async function generateVideo(req, res) {
         // VO is server-authoritative from the storyboard setting (single source of truth):
         // attach the VO directive when the storyboard has VO on & this scene has narration,
         // else enforce no-speech. Backsound stays a per-video toggle.
-        const finalPrompt = applyAudioDirectives(prompt, { hasVo, narration: sceneNarration, voLanguage: voCfg.voLanguage, voTone: voCfg.voTone, durationSec: duration, backsound, voiceProfile, textOnScreen });
+        const finalPrompt = applyAudioDirectives(prompt, { hasVo, narration: sceneNarration, voLanguage: voCfg.voLanguage, voTone: voCfg.voTone, durationSec: duration, backsound, voiceProfile, textOnScreen, characterId: storyboard.character_id });
         await db.run('UPDATE generated_videos SET prompt = ? WHERE id = ?', [finalPrompt, videoRecordId]);
 
         const spawnCmd = 'node';
@@ -1374,7 +1420,7 @@ async function runSingleVideoSpawn(vRecId, tId, kRec, pText, scImg, model, gener
 // Fire-and-forget Magica video render for ONE scene in a batch. Extracted so multiple
 // scenes can be launched in PARALLEL (not one-by-one), each using a DIFFERENT Magica
 // API key (round-robin key assignment happens in the caller).
-async function runSingleMagicaVideoSpawn({ mRecId, mTaskId, mk, promptText, sceneImage, originalCdnUrl, generationType, duration, resolution, aspectRatio, generateAudio, magicaModel, magicaMethod, mWhToken }) {
+async function runSingleMagicaVideoSpawn({ mRecId, mTaskId, mk, promptText, sceneImage, extraImageUrls, originalCdnUrl, generationType, duration, resolution, aspectRatio, generateAudio, magicaModel, magicaMethod, mWhToken }) {
   const db = getDb();
   const onLog = (m) => { if (activeTasks[mTaskId]) activeTasks[mTaskId].logs += m + '\n'; };
 
@@ -1387,7 +1433,7 @@ async function runSingleMagicaVideoSpawn({ mRecId, mTaskId, mk, promptText, scen
 
   try {
     const nativeAudio = Boolean(generateAudio);
-    const { url, credit } = await magicaGen.generateVideoMagica(mk.key_value, { prompt: promptText, sceneImage, originalCdnUrl, generationType, duration, resolution, aspectRatio, generateAudio: nativeAudio, nodeType: magicaModel, method: magicaMethod, onLog, webhook: magicaGen.buildWebhook('video', mRecId, mWhToken), onRunStart: (rid) => db.run('UPDATE generated_videos SET magica_run_id = ? WHERE id = ?', [rid, mRecId]).catch(() => {}) });
+    const { url, credit } = await magicaGen.generateVideoMagica(mk.key_value, { prompt: promptText, sceneImage, extraImageUrls, originalCdnUrl, generationType, duration, resolution, aspectRatio, generateAudio: nativeAudio, nodeType: magicaModel, method: magicaMethod, onLog, webhook: magicaGen.buildWebhook('video', mRecId, mWhToken), onRunStart: (rid) => db.run('UPDATE generated_videos SET magica_run_id = ? WHERE id = ?', [rid, mRecId]).catch(() => {}) });
     await db.run('UPDATE generated_videos SET video_url = ?, status = ?, used_credits = ?, logs = ? WHERE id = ?', [url, 'success', credit || 0, activeTasks[mTaskId]?.logs || '', mRecId]);
     if (activeTasks[mTaskId]) { activeTasks[mTaskId].status = 'success'; activeTasks[mTaskId].logs += '[Magica] Video selesai.\n'; }
     try { await db.run('UPDATE magica_api_keys SET last_status = ? WHERE id = ?', ['OK - ' + new Date().toLocaleString('id-ID'), mk.id]); } catch (e) {}
@@ -1522,7 +1568,8 @@ async function generateAllVideos(req, res) {
         const voCfg = resolveVoConfig(storyboard);
         const hasVo = Boolean(voiceOver);
         const sceneNarration = hasVo ? (getSceneNarration(storyboard, sceneIdx) || (matchingPrompt && matchingPrompt.narration ? String(matchingPrompt.narration).trim() : '')) : '';
-        promptText = applyAudioDirectives(promptText, { hasVo, narration: sceneNarration, voLanguage: voCfg.voLanguage, voTone: voCfg.voTone, durationSec: duration, backsound, voiceProfile, textOnScreen });
+        const charRefUrls = await getCharacterReferenceUrls(db, storyboard);
+        promptText = applyAudioDirectives(promptText, { hasVo, narration: sceneNarration, voLanguage: voCfg.voLanguage, voTone: voCfg.voTone, durationSec: duration, backsound, voiceProfile, textOnScreen, characterId: storyboard.character_id });
         const nativeAudio = Boolean(generateAudio);
 
         // Resolve scene image
@@ -1561,7 +1608,7 @@ async function generateAllVideos(req, res) {
 
           // Fire-and-forget: do NOT await this scene's generation — start the next
           // queued scene immediately so all pages render in parallel.
-          runSingleMagicaVideoSpawn({ mRecId, mTaskId, mk, promptText, sceneImage, originalCdnUrl, generationType, duration, resolution, aspectRatio, generateAudio: nativeAudio, magicaModel, magicaMethod, mWhToken });
+          runSingleMagicaVideoSpawn({ mRecId, mTaskId, mk, promptText, sceneImage, extraImageUrls: charRefUrls, originalCdnUrl, generationType, duration, resolution, aspectRatio, generateAudio: nativeAudio, magicaModel, magicaMethod, mWhToken });
 
           // Small courtesy stagger so simultaneous launches don't all hit Magica at
           // the exact same instant — this does NOT serialize generation itself.

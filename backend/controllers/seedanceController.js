@@ -267,7 +267,8 @@ async function createSeedanceVideo(req, res) {
             voTone: voCfg.voTone,
             durationSec: duration || 10,
             backsound: false,
-            voiceProfile
+            voiceProfile,
+            characterId: storyboard.character_id
           });
         }
       } catch (sbErr) {
