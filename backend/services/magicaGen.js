@@ -411,10 +411,7 @@ function buildInput(fields, vals) {
       }
     } else if (lname === 'n' || lname === 'num_images') {
       v = 1;
-    } else if (lname.includes('negative') && lname.includes('prompt')) {
-      v = String(vals.negativePrompt || '');
-      if (f.max) v = v.slice(0, f.max);
-    }
+
 
     if (v === undefined) {
       // Fill required fields we didn't map with their declared default so the API
@@ -599,7 +596,6 @@ async function generateVideoMagica(apiKey, params = {}) {
 
   const input = buildInput(fields, {
     prompt: params.prompt,
-    negativePrompt: params.negativePrompt,
     aspect: params.aspectRatio,
     resolution: params.resolution,
     duration: params.duration,

@@ -531,7 +531,6 @@ async function generateVideo(req, res) {
         // "Hasilkan Audio/Voiceover" is the native provider switch. Music is a
         // prompt policy only and must never turn audio on by itself.
         const nativeAudio = Boolean(generateAudio);
-        const negativePrompt = nativeAudio ? buildAudioNegativePrompt(voCfg.voLanguage) : '';
         await db.run('UPDATE generated_videos SET prompt = ? WHERE id = ?', [magicaPrompt, videoRecordId]);
         
         try {
@@ -542,7 +541,6 @@ async function generateVideo(req, res) {
               await db.run('UPDATE generated_videos SET magica_key_id = ? WHERE id = ?', [keyRec.id, videoRecordId]).catch(() => {});
               return await magicaGen.generateVideoMagica(keyRec.key_value, {
                 prompt: magicaPrompt,
-                negativePrompt,
                 sceneImage,
                 extraImageUrls: charRefUrls,
                 generationType,
@@ -1449,7 +1447,7 @@ async function runSingleVideoSpawn(vRecId, tId, kRec, pText, scImg, model, gener
 // Fire-and-forget Magica video render for ONE scene in a batch. Extracted so multiple
 // scenes can be launched in PARALLEL (not one-by-one), each using a DIFFERENT Magica
 // API key (round-robin key assignment happens in the caller).
-async function runSingleMagicaVideoSpawn({ mRecId, mTaskId, mk, promptText, negativePrompt, sceneImage, extraImageUrls, originalCdnUrl, generationType, duration, resolution, aspectRatio, generateAudio, magicaModel, magicaMethod, mWhToken }) {
+async function runSingleMagicaVideoSpawn({ mRecId, mTaskId, mk, promptText, sceneImage, extraImageUrls, originalCdnUrl, generationType, duration, resolution, aspectRatio, generateAudio, magicaModel, magicaMethod, mWhToken }) {
   const db = getDb();
   const onLog = (m) => { if (activeTasks[mTaskId]) activeTasks[mTaskId].logs += m + '\n'; };
 
@@ -1462,7 +1460,7 @@ async function runSingleMagicaVideoSpawn({ mRecId, mTaskId, mk, promptText, nega
 
   try {
     const nativeAudio = Boolean(generateAudio);
-    const { url, credit } = await magicaGen.generateVideoMagica(mk.key_value, { prompt: promptText, negativePrompt, sceneImage, extraImageUrls, originalCdnUrl, generationType, duration, resolution, aspectRatio, generateAudio: nativeAudio, nodeType: magicaModel, method: magicaMethod, onLog, webhook: magicaGen.buildWebhook('video', mRecId, mWhToken), onRunStart: (rid) => db.run('UPDATE generated_videos SET magica_run_id = ? WHERE id = ?', [rid, mRecId]).catch(() => {}) });
+    const { url, credit } = await magicaGen.generateVideoMagica(mk.key_value, { prompt: promptText, sceneImage, extraImageUrls, originalCdnUrl, generationType, duration, resolution, aspectRatio, generateAudio: nativeAudio, nodeType: magicaModel, method: magicaMethod, onLog, webhook: magicaGen.buildWebhook('video', mRecId, mWhToken), onRunStart: (rid) => db.run('UPDATE generated_videos SET magica_run_id = ? WHERE id = ?', [rid, mRecId]).catch(() => {}) });
     await db.run('UPDATE generated_videos SET video_url = ?, status = ?, used_credits = ?, logs = ? WHERE id = ?', [url, 'success', credit || 0, activeTasks[mTaskId]?.logs || '', mRecId]);
     if (activeTasks[mTaskId]) { activeTasks[mTaskId].status = 'success'; activeTasks[mTaskId].logs += '[Magica] Video selesai.\n'; }
     try { await db.run('UPDATE magica_api_keys SET last_status = ? WHERE id = ?', ['OK - ' + new Date().toLocaleString('id-ID'), mk.id]); } catch (e) {}
@@ -1600,7 +1598,6 @@ async function generateAllVideos(req, res) {
         const charRefUrls = await getCharacterReferenceUrls(db, storyboard);
         promptText = applyAudioDirectives(promptText, { hasVo, narration: sceneNarration, voLanguage: voCfg.voLanguage, voTone: voCfg.voTone, durationSec: duration, backsound, voiceProfile, textOnScreen, characterId: storyboard.character_id });
         const nativeAudio = Boolean(generateAudio);
-        const negativePrompt = nativeAudio ? buildAudioNegativePrompt(voCfg.voLanguage) : '';
 
         // Resolve scene image
         const pageIdx = sceneIdx;
@@ -1638,7 +1635,7 @@ async function generateAllVideos(req, res) {
 
           // Fire-and-forget: do NOT await this scene's generation — start the next
           // queued scene immediately so all pages render in parallel.
-          runSingleMagicaVideoSpawn({ mRecId, mTaskId, mk, promptText, negativePrompt, sceneImage, extraImageUrls: charRefUrls, originalCdnUrl, generationType, duration, resolution, aspectRatio, generateAudio: nativeAudio, magicaModel, magicaMethod, mWhToken });
+          runSingleMagicaVideoSpawn({ mRecId, mTaskId, mk, promptText, sceneImage, extraImageUrls: charRefUrls, originalCdnUrl, generationType, duration, resolution, aspectRatio, generateAudio: nativeAudio, magicaModel, magicaMethod, mWhToken });
 
           // Small courtesy stagger so simultaneous launches don't all hit Magica at
           // the exact same instant — this does NOT serialize generation itself.
@@ -1721,7 +1718,7 @@ async function generateAllVideos(req, res) {
         };
 
         // Spawn execution
-        runSingleVideoSpawn(videoRecordId, taskId, keyRecord, promptText, sceneImage, model, generationType, duration, resolution, aspectRatio, nativeAudio, storyboardId, negativePrompt);
+        runSingleVideoSpawn(videoRecordId, taskId, keyRecord, promptText, sceneImage, model, generationType, duration, resolution, aspectRatio, nativeAudio, storyboardId);
 
         // Small courtesy stagger so parallel AUTO starts don't hit the API at the exact
         // same instant. This does NOT serialize — the free-key gate controls parallelism.
