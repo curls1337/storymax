@@ -4,7 +4,7 @@ const http = require('http');
 const https = require('https');
 const { getDb } = require('../db');
 const { parseCookieOrTokenInput } = require('./adminController');
-const { resolveVoConfig, getSceneNarration, applyAudioDirectives, getCharacterVoiceProfile } = require('./videoController');
+const { resolveVoConfig, getSceneNarration, applyAudioDirectives, getCharacterVoiceProfile, buildAudioNegativePrompt } = require('./videoController');
 
 // Helper to download or read an image buffer from disk or remote URL
 function downloadOrReadImageBuffer(imageUrl) {
@@ -250,6 +250,7 @@ async function createSeedanceVideo(req, res) {
     // Apply Master Storyboard Settings & Audio Directives (VO Mode, Script, Character Voice Profile, No-Speech Rules)
     let finalPrompt = String(prompt).trim();
 
+    let negativePrompt = '';
     if (storyboardId) {
       try {
         const storyboard = await db.get('SELECT * FROM storyboards WHERE id = ?', [storyboardId]);
@@ -259,6 +260,10 @@ async function createSeedanceVideo(req, res) {
           const sceneNarration = voCfg.enableVo ? getSceneNarration(storyboard, sIdx) : '';
           const voiceProfile = await getCharacterVoiceProfile(db, storyboard);
           const hasVo = voCfg.enableVo;
+          
+          if (hasVo) {
+            negativePrompt = buildAudioNegativePrompt(voCfg.voLanguage);
+          }
 
           finalPrompt = applyAudioDirectives(finalPrompt, {
             hasVo,
@@ -296,6 +301,7 @@ async function createSeedanceVideo(req, res) {
       style: '',
       images: imagesArr,
       prompt: finalPrompt,
+      negative_prompt: negativePrompt,
       watermark: Number(watermark) || 0,
       name: name || '',
       aspectRatio: aspectRatio || '16:9',

@@ -180,6 +180,11 @@ function buildCharacterVoiceClause(voiceProfile) {
   return ` The narrator's voice should specifically match ${who}: ${parts.join(', ')}.`;
 }
 
+function buildAudioNegativePrompt(lang) {
+  const language = lang || 'Bahasa Indonesia';
+  return `foreign speech, phantom voices, murmuring, thai speech, chinese speech, japanese speech, vietnamese speech, gibberish, humming, singing, whispering, background noise, static, hiss, multiple voices, overlapping speech, different language than ${language}`;
+}
+
 function buildVoiceoverDirective(narration, lang, tone, durationSec, voiceProfile) {
   let line = String(narration || '').trim();
   if (!line) return '';
@@ -213,13 +218,13 @@ function buildVoiceoverDirective(narration, lang, tone, durationSec, voiceProfil
   // speech per-panel with odd pauses (sounds spelled-out). Explicitly tell the model
   // that on-screen text is silent/visual-only and to speak ONLY this narration line,
   // as one smooth continuous sentence.
-  return `\n\n[AUDIO DIRECTIVE — VOICE OVER]\nNarrator Type: Off-screen professional narrator\nLanguage: ${language}${delivery}${charLine}\nScript Content: "${line}"\n\nCRITICAL PERFORMANCE RULES:\n- VOICE CONSISTENCY: This clip is part of a series. You MUST use the exact same voice identity (same gender, age, and timbre) as used in all other scenes in this project. Do not change the voice between scenes.\n- Speak the "Script Content" EXACTLY as written, once, from start to finish.\n- Deliver as ONE smooth, natural, continuous conversational sentence in ${language}.\n- DO NOT read word-by-word. DO NOT spell out letters. DO NOT pause between every word. STOP speaking immediately once the sentence completes.\n- DO NOT vocalize any on-screen text, captions, or "Voiceover:" labels seen in the image; those are silent visual notes only.\n- Start speaking at 0s, pace evenly, and finish completely before the final second of the scene to avoid trailing or overlapping stutter.\n- END OF AUDIO: After the script completes, maintain ABSOLUTE SILENCE for the remainder of the clip. DO NOT hum, murmur, stutter, or generate any phantom speech/noise in any other language (e.g., NO Thai, NO Chinese, NO gibberish).\n- AUDIO OUTPUT MUST BE ACTIVE, CLEAN, AND CLEARLY AUDIBLE.`;
+  return `\n\n[AUDIO DIRECTIVE — VOICE OVER]\nNarrator Type: Off-screen professional narrator\nLanguage: ${language}${delivery}${charLine}\nScript Content: "${line}"\n\nCRITICAL PERFORMANCE RULES:\n- VOICE CONSISTENCY: This clip is part of a series. You MUST use the exact same voice identity (same gender, age, and timbre) as used in all other scenes in this project. Do not change the voice between scenes.\n- Speak the "Script Content" EXACTLY as written, once, from start to finish.\n- Deliver as ONE smooth, natural, continuous conversational sentence in ${language}.\n- DO NOT read word-by-word. DO NOT spell out letters. DO NOT pause between every word. STOP speaking immediately once the sentence completes.\n- DO NOT vocalize any on-screen text, captions, or "Voiceover:" labels seen in the image; those are silent visual notes only.\n- Start speaking at 0s, pace evenly, and finish completely before the final second of the scene to avoid trailing or overlapping stutter.\n- END OF AUDIO: After the script completes, maintain ABSOLUTE SILENCE for the remainder of the clip. [SILENCE] [STOP]. DO NOT hum, murmur, stutter, or generate any phantom speech/noise in any other language (e.g., NO Thai, NO Chinese, NO gibberish, NO Vietnamese, NO Japanese).\n- ZERO HALLUCINATION: If the scene continues after the script ends, DO NOT invent new dialogue. Keep the audio track clean and silent until the very last frame.\n- AUDIO OUTPUT MUST BE ACTIVE, CLEAN, AND CLEARLY AUDIBLE.`;
 }
 
 // When "backsound" (background music) is OFF, forbid any BGM/soundtrack so the video
 // keeps only natural diegetic audio. Does NOT trigger ASMR keyword.
 function applyNoBacksound(text) {
-  return `${String(text || '')}\n\nBACKGROUND MUSIC: none — do NOT add any background music, soundtrack, score or BGM. Keep clear voiceover speech and clean diegetic ambient audio.`;
+  return `${String(text || '')}\n\nBACKGROUND MUSIC: none — do NOT add any background music, soundtrack, score or BGM. Keep clear voiceover speech and clean diegetic ambient audio. Forbid any background noise, static, or phantom voices.`;
 }
 
 // Remove any appended voiceover block from a prompt WITHOUT adding a no-speech rule
@@ -526,6 +531,7 @@ async function generateVideo(req, res) {
         // "Hasilkan Audio/Voiceover" is the native provider switch. Music is a
         // prompt policy only and must never turn audio on by itself.
         const nativeAudio = Boolean(generateAudio);
+        const negativePrompt = nativeAudio ? buildAudioNegativePrompt(voCfg.voLanguage) : '';
         await db.run('UPDATE generated_videos SET prompt = ? WHERE id = ?', [magicaPrompt, videoRecordId]);
         
         try {
@@ -536,6 +542,7 @@ async function generateVideo(req, res) {
               await db.run('UPDATE generated_videos SET magica_key_id = ? WHERE id = ?', [keyRec.id, videoRecordId]).catch(() => {});
               return await magicaGen.generateVideoMagica(keyRec.key_value, {
                 prompt: magicaPrompt,
+                negativePrompt,
                 sceneImage,
                 extraImageUrls: charRefUrls,
                 generationType,
@@ -1216,7 +1223,7 @@ async function regenerateVideoMarketingCopy(req, res) {
   }
 }
 
-async function runSingleVideoSpawn(vRecId, tId, kRec, pText, scImg, model, generationType, duration, resolution, aspectRatio, generateAudio, storyboardId) {
+async function runSingleVideoSpawn(vRecId, tId, kRec, pText, scImg, model, generationType, duration, resolution, aspectRatio, generateAudio, storyboardId, negativePrompt) {
   // Provider routing (Bagian 2): render via Magica (Seedance) when the storyboard
   // owner prefers Magica. The Freebeat spawn path below is left untouched.
   try {
@@ -1234,7 +1241,7 @@ async function runSingleVideoSpawn(vRecId, tId, kRec, pText, scImg, model, gener
       onLog('[Provider] Membuat video via Magica (Seedance)...');
       try {
         const { url, credit } = await magicaGen.generateVideoMagica(mk.key_value, {
-          prompt: pText, sceneImage: scImg, generationType, duration, resolution, aspectRatio, generateAudio, onLog,
+          prompt: pText, negativePrompt, sceneImage: scImg, generationType, duration, resolution, aspectRatio, generateAudio, onLog,
         });
         await db0.run('UPDATE generated_videos SET video_url = ?, status = ?, used_credits = ?, logs = ? WHERE id = ?', [url, 'success', credit || 0, activeTasks[tId]?.logs || '', vRecId]);
         if (activeTasks[tId]) { activeTasks[tId].status = 'success'; activeTasks[tId].logs += '[Magica] Video selesai.\n'; }
@@ -1442,7 +1449,7 @@ async function runSingleVideoSpawn(vRecId, tId, kRec, pText, scImg, model, gener
 // Fire-and-forget Magica video render for ONE scene in a batch. Extracted so multiple
 // scenes can be launched in PARALLEL (not one-by-one), each using a DIFFERENT Magica
 // API key (round-robin key assignment happens in the caller).
-async function runSingleMagicaVideoSpawn({ mRecId, mTaskId, mk, promptText, sceneImage, extraImageUrls, originalCdnUrl, generationType, duration, resolution, aspectRatio, generateAudio, magicaModel, magicaMethod, mWhToken }) {
+async function runSingleMagicaVideoSpawn({ mRecId, mTaskId, mk, promptText, negativePrompt, sceneImage, extraImageUrls, originalCdnUrl, generationType, duration, resolution, aspectRatio, generateAudio, magicaModel, magicaMethod, mWhToken }) {
   const db = getDb();
   const onLog = (m) => { if (activeTasks[mTaskId]) activeTasks[mTaskId].logs += m + '\n'; };
 
@@ -1455,7 +1462,7 @@ async function runSingleMagicaVideoSpawn({ mRecId, mTaskId, mk, promptText, scen
 
   try {
     const nativeAudio = Boolean(generateAudio);
-    const { url, credit } = await magicaGen.generateVideoMagica(mk.key_value, { prompt: promptText, sceneImage, extraImageUrls, originalCdnUrl, generationType, duration, resolution, aspectRatio, generateAudio: nativeAudio, nodeType: magicaModel, method: magicaMethod, onLog, webhook: magicaGen.buildWebhook('video', mRecId, mWhToken), onRunStart: (rid) => db.run('UPDATE generated_videos SET magica_run_id = ? WHERE id = ?', [rid, mRecId]).catch(() => {}) });
+    const { url, credit } = await magicaGen.generateVideoMagica(mk.key_value, { prompt: promptText, negativePrompt, sceneImage, extraImageUrls, originalCdnUrl, generationType, duration, resolution, aspectRatio, generateAudio: nativeAudio, nodeType: magicaModel, method: magicaMethod, onLog, webhook: magicaGen.buildWebhook('video', mRecId, mWhToken), onRunStart: (rid) => db.run('UPDATE generated_videos SET magica_run_id = ? WHERE id = ?', [rid, mRecId]).catch(() => {}) });
     await db.run('UPDATE generated_videos SET video_url = ?, status = ?, used_credits = ?, logs = ? WHERE id = ?', [url, 'success', credit || 0, activeTasks[mTaskId]?.logs || '', mRecId]);
     if (activeTasks[mTaskId]) { activeTasks[mTaskId].status = 'success'; activeTasks[mTaskId].logs += '[Magica] Video selesai.\n'; }
     try { await db.run('UPDATE magica_api_keys SET last_status = ? WHERE id = ?', ['OK - ' + new Date().toLocaleString('id-ID'), mk.id]); } catch (e) {}
@@ -1593,6 +1600,7 @@ async function generateAllVideos(req, res) {
         const charRefUrls = await getCharacterReferenceUrls(db, storyboard);
         promptText = applyAudioDirectives(promptText, { hasVo, narration: sceneNarration, voLanguage: voCfg.voLanguage, voTone: voCfg.voTone, durationSec: duration, backsound, voiceProfile, textOnScreen, characterId: storyboard.character_id });
         const nativeAudio = Boolean(generateAudio);
+        const negativePrompt = nativeAudio ? buildAudioNegativePrompt(voCfg.voLanguage) : '';
 
         // Resolve scene image
         const pageIdx = sceneIdx;
@@ -1630,7 +1638,7 @@ async function generateAllVideos(req, res) {
 
           // Fire-and-forget: do NOT await this scene's generation — start the next
           // queued scene immediately so all pages render in parallel.
-          runSingleMagicaVideoSpawn({ mRecId, mTaskId, mk, promptText, sceneImage, extraImageUrls: charRefUrls, originalCdnUrl, generationType, duration, resolution, aspectRatio, generateAudio: nativeAudio, magicaModel, magicaMethod, mWhToken });
+          runSingleMagicaVideoSpawn({ mRecId, mTaskId, mk, promptText, negativePrompt, sceneImage, extraImageUrls: charRefUrls, originalCdnUrl, generationType, duration, resolution, aspectRatio, generateAudio: nativeAudio, magicaModel, magicaMethod, mWhToken });
 
           // Small courtesy stagger so simultaneous launches don't all hit Magica at
           // the exact same instant — this does NOT serialize generation itself.
@@ -1713,7 +1721,7 @@ async function generateAllVideos(req, res) {
         };
 
         // Spawn execution
-        runSingleVideoSpawn(videoRecordId, taskId, keyRecord, promptText, sceneImage, model, generationType, duration, resolution, aspectRatio, nativeAudio, storyboardId);
+        runSingleVideoSpawn(videoRecordId, taskId, keyRecord, promptText, sceneImage, model, generationType, duration, resolution, aspectRatio, nativeAudio, storyboardId, negativePrompt);
 
         // Small courtesy stagger so parallel AUTO starts don't hit the API at the exact
         // same instant. This does NOT serialize — the free-key gate controls parallelism.
@@ -2101,5 +2109,6 @@ module.exports = {
   resolveVoConfig,
   getSceneNarration,
   applyAudioDirectives,
-  getCharacterVoiceProfile
+  getCharacterVoiceProfile,
+  buildAudioNegativePrompt
 };
