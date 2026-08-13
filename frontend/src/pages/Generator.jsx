@@ -1351,7 +1351,14 @@ export default function Generator({ setTab, selectedCharacter }) {
                         {images.map((img, idx) => (
                           <div key={idx} className="snap-center shrink-0 w-[82%] sm:w-[47%] flex flex-col space-y-1.5 border border-[#2a2725] rounded-xl overflow-hidden bg-black/80 p-2 group relative">
                             <div className="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-black/40 flex items-center justify-center">
-                              <img src={getFullImageUrl(img)} alt={`Halaman ${idx+1}`} className="max-w-full max-h-full object-contain" />
+                              {img === 'failed' ? (
+                                <div className="flex flex-col items-center gap-1 opacity-40">
+                                  <AlertTriangle className="w-6 h-6 text-slate-400" />
+                                  <span className="text-[8px] font-bold uppercase tracking-widest text-slate-500 text-center px-2">Halaman Gagal</span>
+                                </div>
+                              ) : (
+                                <img src={getFullImageUrl(img)} alt={`Halaman ${idx+1}`} className="max-w-full max-h-full object-contain" />
+                              )}
                               <div className="absolute top-1.5 left-1.5 bg-black/80 text-[#cfae80] font-bold text-[7px] px-1.5 py-0.5 rounded-md border border-[#cfae80]/20">
                                 Halaman {idx + 1}
                               </div>
@@ -1390,6 +1397,11 @@ export default function Generator({ setTab, selectedCharacter }) {
                               <div className="max-w-md w-full bg-[#131211] border border-[#2a2725] rounded-xl p-4 h-36 overflow-y-auto text-[9px] text-slate-400 font-mono scrollbar-thin whitespace-pre-line leading-relaxed text-left">
                                 {regenLogs[0] || 'Mengantre...'}
                               </div>
+                            </div>
+                          ) : activeImg === 'failed' ? (
+                            <div className="flex flex-col items-center gap-3 opacity-40">
+                              <AlertTriangle className="w-12 h-12 text-slate-400" />
+                              <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Gagal Menggenerasi Halaman</span>
                             </div>
                           ) : (
                             <img src={getFullImageUrl(activeImg)} alt="Result" className="max-w-full max-h-[500px] object-contain" />

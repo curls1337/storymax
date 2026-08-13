@@ -296,6 +296,7 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
       }
     } catch (e) {}
     if (!task.imagePaths) task.imagePaths = [];
+    if (!task.originalCdnUrls) task.originalCdnUrls = [];
 
     for (let pageIdx = task.currentPageIdx; pageIdx < task.pageCount; pageIdx++) {
       task.currentPageIdx = pageIdx;
@@ -412,17 +413,15 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
             } catch (dlErr) {
               task.logs += `[WARNING][Halaman ${pageNum}] Gagal simpan lokal (${dlErr.message}); memakai URL CDN Magica (bisa kadaluarsa).\n`;
             }
-            if (!task.originalCdnUrls) task.originalCdnUrls = [];
-            task.originalCdnUrls.push(url);
-            task.imagePaths.push(magicaStored);
+            task.originalCdnUrls[pageIdx] = url;
+            task.imagePaths[pageIdx] = magicaStored;
             task.totalCreditsUsed = (task.totalCreditsUsed || 0) + credit;
             task.currentTaskInfo = null;
             task.logs += `[Halaman ${pageNum}] Selesai (Magica).\n`;
             await saveTaskState(db, storyboardId, task);
           } catch (mErr) {
             task.logs += `[WARNING][Halaman ${pageNum}] Magica gagal (${mErr.message}). Melanjutkan ke halaman berikutnya...\n`;
-            if (!task.imagePaths) task.imagePaths = [];
-            task.imagePaths[pageIdx] = null;
+            task.imagePaths[pageIdx] = 'failed';
             task.currentTaskInfo = null;
             await saveTaskState(db, storyboardId, task);
           }
@@ -731,8 +730,7 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
 
       } catch (pollErr) {
         task.logs += `[WARNING][Halaman ${pageNum}] Freebeat gagal (${pollErr.message}). Melanjutkan ke halaman berikutnya...\n`;
-        if (!task.imagePaths) task.imagePaths = [];
-        task.imagePaths[pageIdx] = null;
+        task.imagePaths[pageIdx] = 'failed';
         task.currentTaskInfo = null;
         await saveTaskState(db, storyboardId, task);
       }

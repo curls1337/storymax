@@ -1351,11 +1351,24 @@ export default function Dashboard({ setTab }) {
                       </div>
                     ) : (
                       <>
-                        <img
-                          src={getFullImageUrl(sb.image_path)}
-                          alt={sb.title}
-                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-                        />
+                        {(() => {
+                          const mainImg = getFullImageUrl(sb.image_path);
+                          if (!mainImg || sb.image_path === 'failed' || (Array.isArray(sb.image_path) && sb.image_path[0] === 'failed')) {
+                            return (
+                              <div className="flex flex-col items-center gap-1 opacity-40">
+                                <AlertTriangle className="w-4 h-4 text-slate-400" />
+                                <span className="text-[7px] font-bold uppercase tracking-widest text-slate-500">Asset Hilang</span>
+                              </div>
+                            );
+                          }
+                          return (
+                            <img
+                              src={mainImg}
+                              alt={sb.title}
+                              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                            />
+                          );
+                        })()}
                         {/* Subtle hover icon overlay */}
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
                           <div className="p-2 bg-[#cfae80] text-black rounded-full shadow-lg transform translate-y-2 group-hover:translate-y-0 transition-transform duration-350">
@@ -1499,11 +1512,25 @@ export default function Dashboard({ setTab }) {
                       </div>
                     </div>
                   ) : (
-                    <img
-                      src={getSpecificImageUrl(activeImg)}
-                      alt={selectedStoryboard.title}
-                      className="max-w-full max-h-[45vh] md:max-h-[60vh] object-contain rounded-2xl border border-[#2a2725]/60 shadow-inner"
-                    />
+                    {(() => {
+                      const imgUrl = getSpecificImageUrl(activeImg);
+                      if (!imgUrl || activeImg === 'failed') {
+                        return (
+                          <div className="flex flex-col items-center gap-2 opacity-50 bg-[#131211] border border-[#2a2725] rounded-2xl p-12">
+                            <AlertTriangle className="w-8 h-8 text-slate-400" />
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Asset Halaman Gagal Digenerasi</span>
+                            <p className="text-[9px] text-slate-600 text-center max-w-[200px]">Coba lakukan regenerasi halaman ini menggunakan tombol di bawah.</p>
+                          </div>
+                        );
+                      }
+                      return (
+                        <img
+                          src={imgUrl}
+                          alt={selectedStoryboard.title}
+                          className="max-w-full max-h-[45vh] md:max-h-[60vh] object-contain rounded-2xl border border-[#2a2725]/60 shadow-inner"
+                        />
+                      );
+                    })()}
                   )}
                 </div>
 
