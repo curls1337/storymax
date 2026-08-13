@@ -1512,7 +1512,7 @@ export default function Dashboard({ setTab }) {
                       </div>
                     </div>
                   ) : (
-                    {(() => {
+                    (() => {
                       const imgUrl = getSpecificImageUrl(activeImg);
                       if (!imgUrl || activeImg === 'failed') {
                         return (
@@ -1530,7 +1530,7 @@ export default function Dashboard({ setTab }) {
                           className="max-w-full max-h-[45vh] md:max-h-[60vh] object-contain rounded-2xl border border-[#2a2725]/60 shadow-inner"
                         />
                       );
-                    })()}
+                    })()
                   )}
                 </div>
 
