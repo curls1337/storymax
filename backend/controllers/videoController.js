@@ -515,14 +515,15 @@ async function generateVideo(req, res) {
       const initialKey = keys[0];
       const taskId = 'video_task_' + Date.now();
       const whToken = require('crypto').randomBytes(16).toString('hex');
+      const providerLabel = magicaModel ? `Magica:${magicaModel}` : 'Magica:Seedance';
       const insertResult = await db.run(
         `INSERT INTO generated_videos
          (storyboard_id, scene_idx, prompt, model, aspect_ratio, duration, resolution, status, task_id, api_key_id, magica_key_id, webhook_token)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [storyboardId, sceneIdx, prompt, 'magica:seedance', aspectRatio || null, duration || null, resolution || null, 'processing', taskId, null, initialKey.id, whToken]
+        [storyboardId, sceneIdx, prompt, providerLabel, aspectRatio || null, duration || null, resolution || null, 'processing', taskId, null, initialKey.id, whToken]
       );
       const videoRecordId = insertResult.lastID;
-      activeTasks[taskId] = { status: 'processing', apiKeyId: null, logs: '=== VIDEO STUDIO (MAGICA) ===\n\n[1/2] Mengirim perintah ke Magica (Seedance)...\n', result: null, error: null };
+      activeTasks[taskId] = { status: 'processing', apiKeyId: null, logs: `=== VIDEO STUDIO (MAGICA) ===\n\n[1/2] Mengirim perintah ke ${providerLabel}...\n`, result: null, error: null };
       res.json({ taskId, videoId: videoRecordId, status: 'processing' });
       
       (async () => {

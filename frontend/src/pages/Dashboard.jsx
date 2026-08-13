@@ -827,11 +827,16 @@ export default function Dashboard({ setTab }) {
       setVideos(vRes.data);
       
       setVideoTaskId(res.data.taskId);
-      setActiveVideoTask({ status: 'processing', logs: 'Menghubungi antrean Freebeat CLI...\n' });
+      const initialLog = userProvider === 'magica' 
+        ? 'Menyiapkan perintah untuk Magica Studio...\n' 
+        : 'Menghubungi antrean Freebeat CLI...\n';
+      setActiveVideoTask({ status: 'processing', logs: initialLog });
       setShowGenForm(false);
     } catch (err) {
       console.error("Error creating video:", err);
-      toast.error(err.response?.data?.message || 'Gagal memulai pembuatan video.');
+      const msg = err.response?.data?.message || err.response?.data?.error || 'Gagal memulai pembuatan video.';
+      toast.error(msg);
+      setVideoPromptError(msg);
     } finally {
       setIsGeneratingVideo(false);
     }

@@ -380,7 +380,7 @@ function buildInput(fields, vals) {
       if (f.max) v = v.slice(0, f.max);
     } else if (isImageArrayField(f)) {
       if (imageUrls.length) v = imageUrls.slice(0, f.maxImages || 10);
-      else if (f.required) v = [];
+      else if (f.required) continue; // Skip if required but no images (avoid 400 too_small)
     } else if (isSingleImageField(f)) {
       if (imageUrls[0]) v = imageUrls[0];
     } else if (lname === 'size') {
@@ -416,8 +416,11 @@ function buildInput(fields, vals) {
     if (v === undefined) {
       // Fill required fields we didn't map with their declared default so the API
       // never receives `undefined` for a required field.
-      if (f.required && f.default !== undefined) v = f.default;
-      else continue;
+      if (f.required) {
+        if (f.default !== undefined) v = f.default;
+        else if (dt === 'string[]' || dt === 'array') continue; // Don't send empty array if it might fail
+        else continue;
+      } else continue;
     }
     input[name] = v;
   }
@@ -564,12 +567,24 @@ async function generateVideoMagica(apiKey, params = {}) {
     : (params.fast ? 'seedance_2_0_fast' : 'seedance_2_0');
   const nodeType = params.nodeType || defaultNode;
   const models = await getModelsCached(apiKey);
-  const subModelId = resolveSubModel(models, nodeType, category);
+  let subModelId = resolveSubModel(models, nodeType, category);
+
+  const currentImgUrl = toPublicUrl(params.sceneImage, params.originalCdnUrl);
+  const imgUrl = currentImgUrl; 
+  
+  // Fallback: if we are in reference mode but have no images, try to fall back to text-to-video
+  // to avoid 400 errors from models that require at least one image in reference mode.
+  if (category !== 'text-to-video' && (!imgUrl && (!params.extraImageUrls || params.extraImageUrls.length === 0))) {
+    const textSubModel = resolveSubModel(models, nodeType, 'text-to-video');
+    if (textSubModel) {
+      onLog(`[Magica 🔄] Tidak ada gambar referensi; beralih ke mode text-to-video.`);
+      subModelId = textSubModel;
+      category = 'text-to-video';
+    }
+  }
 
   let fields = [];
   try { fields = ((await getSchemaCached(apiKey, subModelId || nodeType)) || {}).fields || []; } catch (e) {}
-
-  const imgUrl = toPublicUrl(params.sceneImage, params.originalCdnUrl);
   const hasImageField = fields.some((f) => isSingleImageField(f) || isImageArrayField(f));
   // Guard: an image/reference method MUST resolve to a submodel that actually declares an
   // image field. If it doesn't, the (model, method) pair is mismatched — e.g. a non-reference
@@ -581,7 +596,7 @@ async function generateVideoMagica(apiKey, params = {}) {
   // If the model HAS an image field but we have no public URL, FAIL FAST with a clear reason
   // instead of silently generating a video that ignores the storyboard (the "melenceng" bug).
   if (category !== 'text-to-video' && hasImageField && !imgUrl) {
-    throw new Error('Gambar panel tidak punya URL publik untuk Magica (set PUBLIC_URL di server, atau pakai storyboard hasil Magica). Tanpa gambar, video akan melenceng dari storyboard.');
+    onLog('[Magica ⚠️] Peringatan: Gambar panel tidak punya URL publik. Melanjutkan tanpa gambar referensi (hasil mungkin melenceng).');
   }
   // Reachability preflight: Magica needs a PUBLIC url it can actually fetch. Verify before
   // the run so a bad PUBLIC_URL fails clearly here rather than producing a melenceng video.
