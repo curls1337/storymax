@@ -346,7 +346,7 @@ function nearestNum(options, want) {
 
 function isImageArrayField(f) {
   const dt = f.dataType || f.type;
-  return dt === 'string[]' && /image/.test(lc(f.name)) && !/(video|audio)/.test(lc(f.name));
+  return (dt === 'string[]' || dt === 'array') && /image/.test(lc(f.name)) && !/(video|audio)/.test(lc(f.name));
 }
 
 // A SINGLE (non-array) image input field. Model field names vary — most use
@@ -400,11 +400,15 @@ function buildInput(fields, vals) {
         if (v === undefined) v = f.default;
       }
     } else if ((lname.includes('audio') || lname.includes('voice') || lname.includes('sound') || lname.includes('speech'))) {
-      // ALWAYS set audio/speech booleans explicitly, defaulting to OFF. If this field is omitted,
-      // native audio-visual models (e.g. Seedance) default to audio ON → the video gets
-      // backsound/ambient even when the user did NOT enable audio. Verified against the live
-      // API: generate_audio:false → 0 audio streams; omitted → 1 audio stream.
-      v = vals.generateAudio != null ? !!vals.generateAudio : false;
+      // Guard: only map to boolean if the field is NOT an array or string (e.g. audio_url or audio_urls).
+      // This prevents the "expected array, received boolean" error for models like Seedance.
+      if (dt !== 'string[]' && dt !== 'array' && dt !== 'string') {
+        // ALWAYS set audio/speech booleans explicitly, defaulting to OFF. If this field is omitted,
+        // native audio-visual models (e.g. Seedance) default to audio ON → the video gets
+        // backsound/ambient even when the user did NOT enable audio. Verified against the live
+        // API: generate_audio:false → 0 audio streams; omitted → 1 audio stream.
+        v = vals.generateAudio != null ? !!vals.generateAudio : false;
+      }
     } else if (lname === 'n' || lname === 'num_images') {
       v = 1;
     }
