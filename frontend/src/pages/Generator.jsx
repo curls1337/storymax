@@ -60,8 +60,8 @@ export default function Generator({ setTab, selectedCharacter }) {
   const [videoEngine, setVideoEngine] = useState('seedance');
   const [containerShape, setContainerShape] = useState('auto');
   const [duration, setDuration] = useState(30);
-  const [showFace, setShowFace] = useState(false);
-  const [faceMode, setFaceMode] = useState('faceless');
+  const [showFace, setShowFace] = useState(true);
+  const [faceMode, setFaceMode] = useState('full');
   const [currentCarouselIdx, setCurrentCarouselIdx] = useState(0);
   const [showLightbox, setShowLightbox] = useState(null);
   

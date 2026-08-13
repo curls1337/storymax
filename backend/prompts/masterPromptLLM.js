@@ -36,7 +36,7 @@ function trimToWordBoundary(str, maxLen) {
 async function generateMasterPromptWithAI(spec, ctx, db) {
   try {
     const {
-      subject = 'the product', concept = '', faceMode = spec.faceMode || 'faceless',
+      subject = 'the product', concept = '', faceMode = spec.faceMode || 'full',
       gridCount = 6, startScene = 1, totalDuration = 15, aspectRatio, model,
       pageNum = 1, pageCount = 1, hasRefImage = false, textOnScreen = false,
       voiceOver = false, voLanguage = 'Bahasa Indonesia', characterDescriptor = '',

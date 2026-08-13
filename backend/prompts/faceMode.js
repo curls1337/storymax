@@ -12,8 +12,13 @@ function normalizeFaceMode(faceMode, showFace, styleId) {
     }
   }
   if (faceMode === 'no_people' || faceMode === 'faceless' || faceMode === 'chin_max' || faceMode === 'full') return faceMode;
+  
+  // A14: Default to 'full' (Wajah Penuh) as requested by user.
+  // Legacy 'showFace' boolean is still respected if explicitly provided.
+  if (showFace === false) return 'faceless';
   if (showFace === true) return 'full';
-  return 'faceless';
+  
+  return 'full';
 }
 
 function faceClause(mode) {

@@ -94,7 +94,7 @@ function buildMasterPrompt(spec, ctx = {}) {
   const {
     subject = 'the product',
     concept = '',
-    faceMode = spec.faceMode || 'faceless',
+    faceMode = spec.faceMode || 'full',
     gridCount = 6,
     startScene = 1,
     totalDuration = 15,
