@@ -411,7 +411,7 @@ function buildInput(fields, vals) {
       }
     } else if (lname === 'n' || lname === 'num_images') {
       v = 1;
-
+    }
 
     if (v === undefined) {
       // Fill required fields we didn't map with their declared default so the API
