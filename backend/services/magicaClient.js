@@ -118,7 +118,8 @@ async function pollRun(apiKey, runId, opts = {}) {
       if (up === 'COMPLETED') {
         return { status: up, run, mediaUrls: extractMediaUrls(run), creditUsed: run.creditUsed };
       }
-      throw new Error(`Run Magica ${up}${run && run.error ? ': ' + (run.error.message || run.error) : ''}`);
+      const detail = run && run.error ? (typeof run.error === 'object' ? JSON.stringify(run.error) : String(run.error)) : '';
+      throw new Error(`Run Magica ${up}${detail ? ': ' + detail : ''}`);
     }
     if (Date.now() - start > timeoutMs) {
       throw new Error('Timeout menunggu hasil Magica.');
@@ -147,8 +148,8 @@ async function testConnection(apiKey) {
 
 function magicaError(r, fallback) {
   const d = r && r.data;
-  const msg = d && (d.message || d.error || (d.details && JSON.stringify(d.details)));
-  return `${fallback} (HTTP ${r ? r.status : '?'})${msg ? ': ' + msg : ''}`;
+  const detail = d ? (typeof d === 'object' ? JSON.stringify(d) : String(d)) : '';
+  return `${fallback} (HTTP ${r ? r.status : '?'})${detail ? ': ' + detail : ''}`;
 }
 
 module.exports = {

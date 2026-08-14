@@ -834,7 +834,8 @@ export default function Dashboard({ setTab }) {
       setShowGenForm(false);
     } catch (err) {
       console.error("Error creating video:", err);
-      const msg = err.response?.data?.message || err.response?.data?.error || 'Gagal memulai pembuatan video.';
+      const raw = err.response?.data;
+      const msg = raw ? (typeof raw === 'object' ? (raw.error || raw.message || JSON.stringify(raw)) : String(raw)) : (err.message || 'Gagal memulai pembuatan video.');
       toast.error(msg);
       setVideoPromptError(msg);
     } finally {
