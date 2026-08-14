@@ -252,6 +252,14 @@ async function executeWithMagicaFailover(db, preferredId, renderFn, onLog) {
         if (onLog) onLog(`[Magica Auto-Switch ⚠️] Key #${keyRecord.id} gagal: ${errStr}.`);
       }
 
+      // Stop immediately on fatal errors (Internal Server Error or content issues)
+      // Retry ONLY on balance/quota/network-related issues.
+      const isFatal = /INTERNAL_SERVER_ERROR|BAD_REQUEST|INVALID_REQUEST|CONTENT_FILTER|SAFETY/i.test(errStr);
+      if (isFatal) {
+        if (onLog) onLog(`[Magica 🛑] Menghentikan percobaan karena error fatal: ${errStr}`);
+        throw err;
+      }
+
       if (i < keys.length - 1) {
         if (onLog) onLog(`[Magica Auto-Switch 🔄] Otomatis beralih ke Key #${keys[i + 1].id} (Saldo: ${(keys[i + 1].balance / 1e6).toFixed(2)} kredit)...`);
       }
