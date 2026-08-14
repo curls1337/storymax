@@ -37,11 +37,12 @@ router.post('/', async (req, res) => {
     const type = ev.type;
 
     if (type === 'run.failed') {
-      const msg = String(ev.error || 'Run gagal (via webhook).').slice(0, 300);
+      const detail = ev.error ? (typeof ev.error === 'object' ? JSON.stringify(ev.error) : String(ev.error)) : 'Run gagal (via webhook).';
+      const msg = detail.slice(0, 500);
       if (md.kind === '3d') {
         await db.run("UPDATE generated_3d SET status='failed', error_message=?, logs=COALESCE(logs,'') || ? WHERE id=? AND status='processing'", [msg, `\n[webhook] GAGAL: ${msg}`, md.recId]);
       } else {
-        await db.run("UPDATE generated_videos SET status='failed', error_message=? WHERE id=? AND status='processing'", [msg, md.recId]);
+        await db.run("UPDATE generated_videos SET status='failed', error_message=?, logs=COALESCE(logs,'') || ? WHERE id=? AND status='processing'", [msg, `\n[webhook] GAGAL: ${msg}`, md.recId]);
       }
       return;
     }

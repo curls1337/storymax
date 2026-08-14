@@ -749,10 +749,11 @@ export default function Dashboard({ setTab }) {
           setVideoTaskId(latestVideo.task_id);
           setActiveVideoTask({ status: 'processing', logs: 'Menyambungkan kembali pemantauan...\n' });
         }
-      } else {
-        // Clear polling state for this scene since it's not processing!
-        setVideoTaskId(null);
-        setActiveVideoTask(null);
+      } else if (!latestVideo || latestVideo.status !== 'processing') {
+        // Only clear if we aren't currently tracking a live task
+        if (!videoTaskId) {
+          setActiveVideoTask(null);
+        }
       }
     }
   }, [modalCarouselIdx, selectedStoryboard, videos]);
@@ -2128,7 +2129,7 @@ export default function Dashboard({ setTab }) {
                   {/* VIDEO STUDIO (FREEBEAT VIDEO GENERATOR) */}
                   <div className="space-y-4">
                     <h3 className="text-[10px] font-bold uppercase tracking-widest text-[#cfae80] flex items-center gap-1.5">
-                      🎬 Video Studio (Freebeat)
+                      🎬 Video Studio ({userProvider === 'magica' ? 'Magica' : 'Freebeat'})
                     </h3>
 
                     {/* MERGED VIDEO SECTION */}
