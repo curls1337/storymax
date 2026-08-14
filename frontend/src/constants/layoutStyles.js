@@ -6,6 +6,8 @@ export default [
   { value: 'product_assembly', label: 'Product Assembly', desc: 'Bagian-bagian produk beterbangan menyatu secara presisi. Gaya futuristik & teknis.', category: 'Transformasi & Reveal', faceMode: 'faceless', icon: 'Combine' },
   { value: 'liquid_splash', label: 'Liquid / Splash Reveal', desc: 'Produk muncul dari cipratan cairan, asap, atau bubuk yang membeku. Artistik & segar.', category: 'Transformasi & Reveal', faceMode: 'faceless', icon: 'Droplets' },
   { value: 'unboxing', label: 'Cinematic Unboxing', desc: 'Pembukaan kemasan dramatis dengan fokus pada tekstur kotak dan reveal produk.', category: 'Transformasi & Reveal', faceMode: 'faceless', icon: 'PackageOpen' },
+  { value: 'asmr_unboxing_premium', label: 'ASMR Unboxing Premium', desc: 'Unboxing kelas atas dengan sarung tangan hitam, fokus pada detail makro dan bunyi memuaskan.', category: 'Transformasi & Reveal', faceMode: 'faceless', icon: 'Hand' },
+  { value: 'mechanic_transform_gauntlet', label: 'Mechanic Transformation (Gauntlet)', desc: 'Transformasi mekanis kompleks dari pod menjadi perangkat canggih. Fokus pada gir & plates.', category: 'Transformasi & Reveal', faceMode: 'faceless', icon: 'Cpu' },
   { value: 'before_after', label: 'Before–After', desc: 'Perbandingan visual langsung antara masalah (sebelum) dan solusi produk (sesudah).', category: 'Transformasi & Reveal', faceMode: 'chin_max', icon: 'GitCompareArrows' },
 
   // ── B. UGC & Social (Viral) ──
@@ -26,4 +28,5 @@ export default [
   { value: 'kawaii_playful', label: 'Kawaii / Playful Layout', desc: 'Gaya lucu dengan elemen stiker, warna pastel ceria, ikon imut, dan balon teks.', category: 'Cinematic & Art', faceMode: 'full', icon: 'Sparkles' },
   { value: 'luxury_mood', label: 'Luxury / Premium Mood', desc: 'Eksklusif, gelap, dramatis. Fokus pada kemewahan material dan pencahayaan misterius.', category: 'Cinematic & Art', faceMode: 'faceless', icon: 'Gem' },
   { value: 'product_hero', label: 'Product Hero Showcase', desc: 'Hero shot produk premium yang bersih dan fokus pada sudut pandang terbaik produk.', category: 'Cinematic & Art', faceMode: 'faceless', icon: 'Star' },
+  { value: 'cinematic_fpv_nature', label: 'Cinematic FPV Nature', desc: 'Gaya drone FPV kecepatan tinggi melewati pemandangan alam. Dinamis, luas, dan petualang.', category: 'Cinematic & Art', faceMode: 'faceless', icon: 'Wind' },
 ];

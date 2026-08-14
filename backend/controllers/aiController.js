@@ -380,6 +380,18 @@ Anda harus mengembalikan respon hanya dalam format JSON mentah dengan key 'title
       "Model Jam Tangan Mekanis Miniatur (roda gigi kuningan berputar halus)",
       "Headphone Nirkabel Premium (bantalan kulit empuk, headband aluminium)"
     ],
+    asmr_unboxing_premium: [
+      "Model Kit Sepeda Motor Suzuki Hayabusa (detail mesin mikro, cat metalik, sarung tangan hitam)",
+      "Sepatu Sneakers Edisi Terbatas (tekstur kulit, jahitan presisi, unboxing mewah)",
+      "Kamera Leica M-Series (lensa kristal, bodi kulit bertekstur, klik mekanis memuaskan)",
+      "Keyboard Mekanikal Custom (keycaps PBT, suara switch, detail kabel braided)"
+    ],
+    mechanic_transform_gauntlet: [
+      "Sarung Tangan Mekanik Premier League (interlocking plates, logo klub, transformasi pod)",
+      "Perangkat Cybernetic Arm (gir kuningan, piston hidrolik, unfolding plates)",
+      "Alat Medis Futuristik (mekanisme lipat otomatis, lampu indikator biru, bodi polimer putih)",
+      "Konsol Game Portabel Morphing (tombol muncul otomatis, layar geser mekanis)"
+    ],
     product_assembly: [
       "Jam Tangan Otomatis Tourbillon (komponen roda gigi melayang lalu menyatu)",
       "Sepatu Sneakers Techwear (komponen sol, kain, & tali melayang menyatu presisi)",
@@ -435,6 +447,12 @@ Anda harus mengembalikan respon hanya dalam format JSON mentah dengan key 'title
       "Remaja Bermain Skateboard di Jalanan Jepang (suasana sakura, gaya ilustrasi tangan)",
       "Karakter Pahlawan dengan Pedang Energi (efek cahaya dinamis, garis aksi tajam)",
       "Robot Mecha Bertarung di Kota Futuristik (detail mekanik, ledakan bergaya anime)"
+    ],
+    cinematic_fpv_nature: [
+      "Air Terjun Tropis Tersembunyi (FPV drone melewati celah batu, pelangi di kabut)",
+      "Hutan Pinus Berkabut (drone terbang rendah di atas sungai, sinar matahari menembus pohon)",
+      "Puncak Gunung Salju (FPV drone meluncur turun dari tebing, vista luas awan)",
+      "Garis Pantai Karang (drone mengejar ombak, tebing curam, air laut jernih)"
     ]
   };
 
