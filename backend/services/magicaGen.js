@@ -404,7 +404,11 @@ function buildInput(fields, vals) {
       }
     } else if (lname.includes('duration')) {
       if (vals.duration != null) {
-        v = nearestNum(opts, vals.duration);
+        // If options contain string values like 'auto', try coercing enum first before nearestNum
+        v = coerceEnum(opts, vals.duration, ['auto', 'Auto']);
+        if (v === undefined) {
+          v = nearestNum(opts, vals.duration);
+        }
         if (v === undefined) v = f.default;
       }
     } else if ((lname.includes('audio') || lname.includes('voice') || lname.includes('sound') || lname.includes('speech'))) {
