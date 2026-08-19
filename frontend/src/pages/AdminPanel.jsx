@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import api from '../utils/api';
-import { Users, Key, Plus, Trash2, ShieldAlert, Eye, EyeOff, Loader, Check, X, ShieldCheck, Terminal, UserPlus, Database, Sparkles, FolderOpen, HardDrive, DownloadCloud, Wallet, RefreshCw, Film } from 'lucide-react';
+import { Users, Key, Plus, Trash2, ShieldAlert, Eye, EyeOff, Loader, Check, X, ShieldCheck, Terminal, UserPlus, Database, Sparkles, FolderOpen, HardDrive, DownloadCloud, Wallet, RefreshCw, Film, Copy } from 'lucide-react';
 import { confirm } from '../utils/confirm';
 
 export default function AdminPanel() {
@@ -13,6 +13,10 @@ export default function AdminPanel() {
   const [selectedKeyIds, setSelectedKeyIds] = useState([]);
   const [magicaKeys, setMagicaKeys] = useState([]);
   const [selectedMagicaKeyIds, setSelectedMagicaKeyIds] = useState([]);
+  const [copiedMagicaEmails, setCopiedMagicaEmails] = useState(false);
+  const [copiedSingleEmail, setCopiedSingleEmail] = useState(null);
+  const [copiedSeedanceEmails, setCopiedSeedanceEmails] = useState(false);
+  const [copiedFreebeatEmails, setCopiedFreebeatEmails] = useState(false);
   const [newMagicaKeyVal, setNewMagicaKeyVal] = useState('');
   const [newMagicaKeyLabel, setNewMagicaKeyLabel] = useState('');
   const [magicaBulk, setMagicaBulk] = useState('');
@@ -527,6 +531,51 @@ const PRESET_AI_MODELS = [
     setSelectedMagicaKeyIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
+  };
+
+  const extractEmail = (text) => {
+    if (!text) return '';
+    const match = String(text).match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+    return match ? match[0] : String(text).trim();
+  };
+
+  const handleCopySelectedMagicaEmails = () => {
+    const selected = magicaKeys.filter((k) => selectedMagicaKeyIds.includes(k.id));
+    const emails = selected.map((k) => extractEmail(k.label)).filter(Boolean);
+    if (emails.length === 0) return;
+    navigator.clipboard.writeText(emails.join('\n'));
+    setCopiedMagicaEmails(true);
+    setMessage(`${emails.length} email Magica berhasil disalin ke clipboard!`);
+    setTimeout(() => setCopiedMagicaEmails(false), 2000);
+  };
+
+  const handleCopySingleEmail = (label) => {
+    const email = extractEmail(label);
+    if (!email) return;
+    navigator.clipboard.writeText(email);
+    setCopiedSingleEmail(label);
+    setMessage(`Email "${email}" disalin ke clipboard!`);
+    setTimeout(() => setCopiedSingleEmail(null), 2000);
+  };
+
+  const handleCopySelectedSeedanceEmails = () => {
+    const selected = seedanceCookies.filter((k) => selectedSeedanceCookieIds.includes(k.id));
+    const emails = selected.map((k) => extractEmail(k.label)).filter(Boolean);
+    if (emails.length === 0) return;
+    navigator.clipboard.writeText(emails.join('\n'));
+    setCopiedSeedanceEmails(true);
+    setMessage(`${emails.length} label/email SeedDance berhasil disalin ke clipboard!`);
+    setTimeout(() => setCopiedSeedanceEmails(false), 2000);
+  };
+
+  const handleCopySelectedFreebeatEmails = () => {
+    const selected = keys.filter((k) => selectedKeyIds.includes(k.id));
+    const emails = selected.map((k) => extractEmail(k.label)).filter(Boolean);
+    if (emails.length === 0) return;
+    navigator.clipboard.writeText(emails.join('\n'));
+    setCopiedFreebeatEmails(true);
+    setMessage(`${emails.length} label/email Freebeat berhasil disalin ke clipboard!`);
+    setTimeout(() => setCopiedFreebeatEmails(false), 2000);
   };
 
   const handleAddKey = async (e) => {
@@ -1212,13 +1261,24 @@ const PRESET_AI_MODELS = [
             <h3 className="text-[9px] font-bold text-white uppercase tracking-widest">Kolam Kunci Lisensi Freebeat</h3>
             <div className="flex gap-1.5 items-center">
               {selectedKeyIds.length > 0 && (
-                <button
-                  onClick={handleDeleteSelectedKeys}
-                  className="bg-red-950/40 border border-red-500/40 hover:bg-red-600 text-white font-bold py-1.5 px-3 rounded-lg flex items-center transition-all shadow-lg text-[9px] uppercase tracking-wider cursor-pointer animate-fadeIn"
-                >
-                  <Trash2 className="w-3.5 h-3.5 mr-1" />
-                  Hapus Terpilih ({selectedKeyIds.length})
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={handleCopySelectedFreebeatEmails}
+                    className="bg-[#cfae80]/20 border border-[#cfae80]/50 hover:bg-[#cfae80] hover:text-black text-[#e4ceaa] font-bold py-1.5 px-3 rounded-lg flex items-center transition-all shadow-lg text-[9px] uppercase tracking-wider cursor-pointer animate-fadeIn"
+                    title="Salin semua label/email yang dicentang"
+                  >
+                    {copiedFreebeatEmails ? <Check className="w-3.5 h-3.5 mr-1 text-green-400" /> : <Copy className="w-3.5 h-3.5 mr-1" />}
+                    {copiedFreebeatEmails ? 'Tersalin!' : `Copy Label (${selectedKeyIds.length})`}
+                  </button>
+                  <button
+                    onClick={handleDeleteSelectedKeys}
+                    className="bg-red-950/40 border border-red-500/40 hover:bg-red-600 text-white font-bold py-1.5 px-3 rounded-lg flex items-center transition-all shadow-lg text-[9px] uppercase tracking-wider cursor-pointer animate-fadeIn"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 mr-1" />
+                    Hapus Terpilih ({selectedKeyIds.length})
+                  </button>
+                </>
               )}
               <button
                 onClick={() => setShowBulkModal(true)}
@@ -1805,14 +1865,25 @@ const PRESET_AI_MODELS = [
             </div>
             <div className="flex flex-wrap gap-1.5 items-center shrink-0">
               {selectedMagicaKeyIds.length > 0 && (
-                <button
-                  type="button"
-                  onClick={handleDeleteSelectedMagica}
-                  className="bg-red-950/40 border border-red-500/40 hover:bg-red-600 text-white font-bold py-1.5 px-3 rounded-lg flex items-center transition-all shadow-lg text-[9px] uppercase tracking-wider cursor-pointer animate-fadeIn"
-                >
-                  <Trash2 className="w-3.5 h-3.5 mr-1" />
-                  Hapus Terpilih ({selectedMagicaKeyIds.length})
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={handleCopySelectedMagicaEmails}
+                    className="bg-[#a855f7]/20 border border-[#a855f7]/50 hover:bg-[#a855f7] hover:text-white text-[#d8b4fe] font-bold py-1.5 px-3 rounded-lg flex items-center transition-all shadow-lg text-[9px] uppercase tracking-wider cursor-pointer animate-fadeIn"
+                    title="Salin semua email dari key yang dicentang"
+                  >
+                    {copiedMagicaEmails ? <Check className="w-3.5 h-3.5 mr-1 text-green-400" /> : <Copy className="w-3.5 h-3.5 mr-1" />}
+                    {copiedMagicaEmails ? 'Tersalin!' : `Copy Email (${selectedMagicaKeyIds.length})`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDeleteSelectedMagica}
+                    className="bg-red-950/40 border border-red-500/40 hover:bg-red-600 text-white font-bold py-1.5 px-3 rounded-lg flex items-center transition-all shadow-lg text-[9px] uppercase tracking-wider cursor-pointer animate-fadeIn"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 mr-1" />
+                    Hapus Terpilih ({selectedMagicaKeyIds.length})
+                  </button>
+                </>
               )}
               {magicaKeys.length > 0 && (
                 <button
@@ -1858,15 +1929,28 @@ const PRESET_AI_MODELS = [
                 return (
                   <div key={k.id} className={`border rounded-lg p-2.5 flex flex-col gap-1.5 transition-all ${isSelected ? 'bg-[#a855f7]/15 border-[#a855f7]/50 shadow-md' : 'bg-black/30 border-[#2a2725]'}`}>
                     <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
                         <input
                           type="checkbox"
                           checked={isSelected}
                           onChange={() => handleToggleMagicaKeySelect(k.id)}
                           className="w-3.5 h-3.5 rounded border-[#2a2725] bg-black text-[#a855f7] focus:ring-0 cursor-pointer accent-[#a855f7] shrink-0"
                         />
-                        <div className="min-w-0">
-                          <p className="text-[10px] text-slate-200 font-semibold truncate" title={k.label}>{k.label}</p>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1 min-w-0">
+                            <p className="text-[10px] text-slate-200 font-semibold truncate" title={k.label}>{k.label}</p>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCopySingleEmail(k.label);
+                              }}
+                              title="Salin email ini"
+                              className="text-slate-500 hover:text-[#c99bfb] p-0.5 rounded transition-colors shrink-0 cursor-pointer"
+                            >
+                              {copiedSingleEmail === k.label ? <Check className="w-2.5 h-2.5 text-green-400" /> : <Copy className="w-2.5 h-2.5" />}
+                            </button>
+                          </div>
                           <p className="text-[9px] font-mono text-slate-500 truncate">{String(k.key_value || '').substring(0, 10)}••••</p>
                         </div>
                       </div>
@@ -1923,14 +2007,25 @@ const PRESET_AI_MODELS = [
             </div>
             <div className="flex flex-wrap gap-1.5 items-center shrink-0">
               {selectedSeedanceCookieIds.length > 0 && (
-                <button
-                  type="button"
-                  onClick={handleDeleteSelectedSeedance}
-                  className="bg-red-950/40 border border-red-500/40 hover:bg-red-600 text-white font-bold py-1.5 px-3 rounded-lg flex items-center transition-all shadow-lg text-[9px] uppercase tracking-wider cursor-pointer animate-fadeIn"
-                >
-                  <Trash2 className="w-3.5 h-3.5 mr-1" />
-                  Hapus Terpilih ({selectedSeedanceCookieIds.length})
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={handleCopySelectedSeedanceEmails}
+                    className="bg-[#06b6d4]/20 border border-[#06b6d4]/50 hover:bg-[#06b6d4] hover:text-white text-[#67e8f9] font-bold py-1.5 px-3 rounded-lg flex items-center transition-all shadow-lg text-[9px] uppercase tracking-wider cursor-pointer animate-fadeIn"
+                    title="Salin semua label/email yang dicentang"
+                  >
+                    {copiedSeedanceEmails ? <Check className="w-3.5 h-3.5 mr-1 text-green-400" /> : <Copy className="w-3.5 h-3.5 mr-1" />}
+                    {copiedSeedanceEmails ? 'Tersalin!' : `Copy Label (${selectedSeedanceCookieIds.length})`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDeleteSelectedSeedance}
+                    className="bg-red-950/40 border border-red-500/40 hover:bg-red-600 text-white font-bold py-1.5 px-3 rounded-lg flex items-center transition-all shadow-lg text-[9px] uppercase tracking-wider cursor-pointer animate-fadeIn"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 mr-1" />
+                    Hapus Terpilih ({selectedSeedanceCookieIds.length})
+                  </button>
+                </>
               )}
               {seedanceCookies.length > 0 && (
                 <button
@@ -1968,15 +2063,28 @@ const PRESET_AI_MODELS = [
                 return (
                   <div key={k.id} className={`border rounded-lg p-2.5 flex flex-col gap-1.5 transition-all ${isSelected ? 'bg-[#06b6d4]/15 border-[#06b6d4]/50 shadow-md' : 'bg-black/30 border-[#2a2725]'}`}>
                     <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
                         <input
                           type="checkbox"
                           checked={isSelected}
                           onChange={() => handleToggleSeedanceCookieSelect(k.id)}
                           className="w-3.5 h-3.5 rounded border-[#2a2725] bg-black text-[#06b6d4] focus:ring-0 cursor-pointer accent-[#06b6d4] shrink-0"
                         />
-                        <div className="min-w-0">
-                          <p className="text-[10px] text-slate-200 font-semibold truncate" title={k.label}>{k.label}</p>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1 min-w-0">
+                            <p className="text-[10px] text-slate-200 font-semibold truncate" title={k.label}>{k.label}</p>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCopySingleEmail(k.label);
+                              }}
+                              title="Salin label/email ini"
+                              className="text-slate-500 hover:text-[#67e8f9] p-0.5 rounded transition-colors shrink-0 cursor-pointer"
+                            >
+                              {copiedSingleEmail === k.label ? <Check className="w-2.5 h-2.5 text-green-400" /> : <Copy className="w-2.5 h-2.5" />}
+                            </button>
+                          </div>
                           <p className="text-[9px] font-mono text-slate-500 truncate">{String(k.key_value || '').substring(0, 15)}••••</p>
                         </div>
                       </div>
