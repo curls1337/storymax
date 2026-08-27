@@ -674,6 +674,7 @@ async function magicaChatCompletion(db, messages, opts = {}) {
     if (typeof c === 'object' && c.text) return String(c.text);
     return String(c || '');
   };
+  const msgs = Array.isArray(messages) ? messages : [];
   const system_prompt = msgs.filter((m) => m.role === 'system').map((m) => textOf(m.content)).join('\n\n');
   const prompt = msgs.filter((m) => m.role !== 'system')
     .map((m) => (m.role === 'assistant' ? 'Assistant: ' : '') + textOf(m.content)).join('\n\n');
@@ -686,8 +687,11 @@ async function magicaChatCompletion(db, messages, opts = {}) {
   const runId = await magica.runModel(key.key_value, nodeType, null, input);
   const done = await magica.pollRun(key.key_value, runId, { timeoutMs: opts.timeoutMs || 120000, intervalMs: 2000 });
   const out = done.run && done.run.output;
-  let text = out && (out.output || out.text || out.result || out.content);
+  let text = out && (out.output || out.text || out.result || out.content || (typeof out === 'string' ? out : null));
   if (Array.isArray(text)) text = text.join('');
+  if (typeof text === 'object' && text !== null) {
+    try { text = JSON.stringify(text); } catch (e) { text = String(text); }
+  }
   if (!text || !String(text).trim()) throw new Error('Respons LLM Magica kosong.');
   return String(text).trim();
 }
