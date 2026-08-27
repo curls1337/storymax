@@ -836,7 +836,9 @@ export default function Dashboard({ setTab }) {
       setVideos(vRes.data);
       
       setVideoTaskId(res.data.taskId);
-      const initialLog = userProvider === 'magica' 
+      const initialLog = userProvider === 'scenario'
+        ? 'Menyiapkan perintah untuk Scenario API...\n'
+        : userProvider === 'magica' 
         ? 'Menyiapkan perintah untuk Magica Studio...\n' 
         : 'Menghubungi antrean Freebeat CLI...\n';
       setActiveVideoTask({ status: 'processing', logs: initialLog });
@@ -2136,10 +2138,10 @@ export default function Dashboard({ setTab }) {
               {/* Right Column: Video Studio & Actions */}
               <div className={`w-full md:w-[30%] p-4 md:p-6 flex flex-col justify-between overflow-y-auto flex-grow scrollbar-thin pb-20 md:pb-6 ${activeMobileTab === 'video' ? 'flex' : 'hidden md:flex'}`}>
                 <div className="space-y-4">
-                  {/* VIDEO STUDIO (FREEBEAT VIDEO GENERATOR) */}
+                  {/* VIDEO STUDIO (VIDEO GENERATOR) */}
                   <div className="space-y-4">
                     <h3 className="text-[10px] font-bold uppercase tracking-widest text-[#cfae80] flex items-center gap-1.5">
-                      🎬 Video Studio ({userProvider === 'magica' ? 'Magica' : 'Freebeat'})
+                      🎬 Video Studio ({userProvider === 'scenario' ? 'Scenario' : (userProvider === 'magica' ? 'Magica' : 'Freebeat')})
                     </h3>
 
                     {/* MERGED VIDEO SECTION */}
@@ -2463,7 +2465,25 @@ export default function Dashboard({ setTab }) {
                             <ChevronLeft className="w-3.5 h-3.5" /> Kembali ke Video
                           </button>
                         )}
-                        {userProvider === 'magica' ? (
+                        {userProvider === 'scenario' ? (
+                          <div className="space-y-1">
+                            <label className="text-[8px] font-bold uppercase tracking-widest text-[#38bdf8]">API Key Scenario</label>
+                            <select
+                              value={scenarioKeyId}
+                              onChange={(e) => setScenarioKeyId(e.target.value)}
+                              className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] focus:outline-none focus:border-[#38bdf8] transition-all font-semibold"
+                            >
+                              <option value="auto">Pilih Otomatis (Auto-detect &amp; Failover)</option>
+                              {(((scenarioCatalog && scenarioCatalog.keys) || []).length)
+                                ? scenarioCatalog.keys.map(k => (
+                                  <option key={k.id} value={k.id}>
+                                    {k.label} (Key: {String(k.key_value || '').substring(0, 8)}••••)
+                                  </option>
+                                ))
+                                : <option value="" disabled>Belum ada API Key Scenario aktif (atur di Admin)</option>}
+                            </select>
+                          </div>
+                        ) : userProvider === 'magica' ? (
                           <div className="space-y-1">
                             <label className="text-[8px] font-bold uppercase tracking-widest text-[#a855f7]">API Key Magica</label>
                             <select value={magicaKeyId} onChange={(e) => setMagicaKeyId(e.target.value)} className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] focus:outline-none focus:border-[#a855f7] transition-all font-semibold">
@@ -2659,6 +2679,14 @@ export default function Dashboard({ setTab }) {
                               className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-1.5 py-1 text-white text-[9px] focus:outline-none focus:border-[#cfae80] font-semibold"
                             >
                               {(() => {
+                                if (userProvider === 'scenario') {
+                                  return (
+                                    <>
+                                      <option value="5">5s</option>
+                                      <option value="10">10s</option>
+                                    </>
+                                  );
+                                }
                                 if (userProvider === 'magica') {
                                   const mm = (magicaCatalog?.videoModels || []).find(x => x.nodeType === magicaVideoModel);
                                   const mt = mm && (mm.methods || []).find(x => x.category === magicaVideoMethod);
@@ -2682,6 +2710,15 @@ export default function Dashboard({ setTab }) {
                             >
                               {(() => {
                                 const isHdAllowed = currentUser && Number(currentUser.allow_hd_resolutions) === 1;
+                                if (userProvider === 'scenario') {
+                                  return (
+                                    <>
+                                      <option value="720p">720p</option>
+                                      {isHdAllowed && <option value="1080p">1080p</option>}
+                                      {isHdAllowed && <option value="4k">4K</option>}
+                                    </>
+                                  );
+                                }
                                 if (userProvider === 'magica') {
                                   const mm = (magicaCatalog?.videoModels || []).find(x => x.nodeType === magicaVideoModel);
                                   const mt = mm && (mm.methods || []).find(x => x.category === magicaVideoMethod);
@@ -2713,7 +2750,13 @@ export default function Dashboard({ setTab }) {
                               onChange={(e) => setVideoAspectRatio(e.target.value)}
                               className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-1.5 py-1 text-white text-[9px] focus:outline-none focus:border-[#cfae80] font-semibold"
                             >
-                              {userProvider === 'magica' ? (() => {
+                              {userProvider === 'scenario' ? (
+                                <>
+                                  <option value="16:9">16:9 (Landscape)</option>
+                                  <option value="9:16">9:16 (Portrait)</option>
+                                  <option value="1:1">1:1 (Square)</option>
+                                </>
+                              ) : userProvider === 'magica' ? (() => {
                                 const mm = (magicaCatalog?.videoModels || []).find(x => x.nodeType === magicaVideoModel);
                                 const mt = mm && (mm.methods || []).find(x => x.category === magicaVideoMethod);
                                 const ars = (mt && mt.aspectRatios) || ['auto'];
@@ -2749,7 +2792,7 @@ export default function Dashboard({ setTab }) {
                                   className="rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5"
                                 />
                                 <span className="text-[9px] font-bold uppercase tracking-wider text-slate-350">
-                                  Audio Native <span className="text-slate-500 normal-case font-normal">({audioUnavailable ? 'model Magica ini tidak menyediakan switch audio' : 'mengirim setting audio ke Magica/Freebeat'})</span>
+                                  Audio Native <span className="text-slate-500 normal-case font-normal">({audioUnavailable ? 'model ini tidak menyediakan switch audio' : 'mengirim setting audio ke provider'})</span>
                                 </span>
                               </label>
                               <label className={`flex items-center gap-2 select-none pb-1 ${(!videoGenerateAudio && !canForceVo) ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>

@@ -76,6 +76,7 @@ export default function Generator({ setTab, selectedCharacter }) {
   const [magicaImageModel, setMagicaImageModel] = useState('');
   const [scenarioCatalog, setScenarioCatalog] = useState(null);
   const [scenarioImageModel, setScenarioImageModel] = useState('model_openai-gpt-image-2');
+  const [scenarioKeyId, setScenarioKeyId] = useState('auto');
 
   const getEffectivePromptMax = () => {
     if (userProvider !== 'magica') return 10000;
@@ -518,6 +519,7 @@ export default function Generator({ setTab, selectedCharacter }) {
         magicaModel: userProvider === 'magica' ? magicaImageModel : undefined,
         magicaKeyId: userProvider === 'magica' ? magicaKeyId : undefined,
         scenarioModel: userProvider === 'scenario' ? scenarioImageModel : undefined,
+        scenarioKeyId: userProvider === 'scenario' ? scenarioKeyId : undefined,
         characterId: chosenCharacter ? chosenCharacter.id : undefined
       });
       const { taskId } = res.data;
@@ -1137,7 +1139,25 @@ export default function Generator({ setTab, selectedCharacter }) {
           {/* Tokopedia Mode only: Referensi Gambar (At the bottom) */}
           {mode === 'tokopedia' && renderRefImagesSection()}
 
-          {userProvider === 'magica' ? (
+          {userProvider === 'scenario' ? (
+            <div>
+              <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Pilih API Key Scenario</label>
+              <select
+                value={scenarioKeyId}
+                onChange={(e) => setScenarioKeyId(e.target.value)}
+                disabled={generating}
+                className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#38bdf8] transition-all text-xs"
+              >
+                <option value="auto">Pilih Otomatis (Auto-detect &amp; Failover)</option>
+                {(((scenarioCatalog && scenarioCatalog.keys) || []).length)
+                  ? scenarioCatalog.keys.map((k) => (
+                    <option key={k.id} value={k.id}>{k.label} (Key: {String(k.key_value || '').substring(0, 8)}••••)</option>
+                  ))
+                  : <option value="" disabled>Belum ada API Key Scenario aktif</option>}
+              </select>
+              <p className="text-[8px] text-slate-500 mt-1">Provider: Scenario API — "Auto" memilih key aktif dengan failover otomatis.</p>
+            </div>
+          ) : userProvider === 'magica' ? (
             <div>
               <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Pilih API Key Magica</label>
               <select

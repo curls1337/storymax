@@ -9,7 +9,12 @@ const router = express.Router();
 // Catalog endpoint (accessible by all authenticated users)
 router.get('/catalog', authenticateToken, async (req, res) => {
   try {
-    res.json(scenarioGen.SCENARIO_CATALOG);
+    const db = getDb();
+    const activeKeys = await db.all('SELECT id, key_value, label, is_active FROM scenario_api_keys WHERE is_active = 1 ORDER BY id ASC');
+    res.json({
+      ...scenarioGen.SCENARIO_CATALOG,
+      keys: activeKeys || []
+    });
   } catch (err) {
     res.status(500).json({ message: 'Gagal mengambil katalog model Scenario.', error: err.message });
   }
