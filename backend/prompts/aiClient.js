@@ -99,16 +99,12 @@ async function chatCompletion(messages, opts = {}) {
   const { db, temperature = 0.6, timeoutMs } = opts;
   const cfg = await getAiConfig(db);
 
-  // Route text-only requests to Magica when the admin selected it.
-  if (cfg.provider === 'magica' && !messagesHaveImage(messages)) {
-    try {
-      const magicaGen = require('../services/magicaGen');
-      return await magicaGen.magicaChatCompletion(db, messages, {
-        model: cfg.magicaModel, temperature, timeoutMs,
-      });
-    } catch (e) {
-      // Fall through to the default endpoint on any Magica failure (resilience).
-    }
+  // Route requests strictly to Magica when the admin selected it (NO fallback to Antigravity).
+  if (cfg.provider === 'magica') {
+    const magicaGen = require('../services/magicaGen');
+    return await magicaGen.magicaChatCompletion(db, messages, {
+      model: cfg.magicaModel, temperature, timeoutMs,
+    });
   }
 
   if (!cfg.token) throw new Error('No AI api_key configured');
@@ -125,26 +121,21 @@ async function chatCompletion(messages, opts = {}) {
 }
 
 // Drop-in for existing callers that build their own OpenAI payload and parse the raw
-// HTTP response. Returns { statusCode, body } shaped exactly like /chat/completions,
-// so caller parsing stays unchanged, while honoring the admin LLM-provider setting.
-// Magica is used only for text-only payloads; vision + failures use the default host.
+// HTTP response. Returns { statusCode, body } shaped exactly like /chat/completions.
+// When provider is 'magica', routes strictly to Magica LLM with zero fallback to Antigravity.
 async function llmChatViaSettings(payload, opts = {}) {
   const { db, timeoutMs } = opts;
   const cfg = await getAiConfig(db);
   const messages = (payload && payload.messages) || [];
 
-  if (cfg.provider === 'magica' && !messagesHaveImage(messages)) {
-    try {
-      const magicaGen = require('../services/magicaGen');
-      const content = await magicaGen.magicaChatCompletion(db, messages, {
-        model: cfg.magicaModel,
-        temperature: payload.temperature,
-        timeoutMs,
-      });
-      return { statusCode: 200, body: JSON.stringify({ choices: [{ message: { content } }] }) };
-    } catch (e) {
-      // fall through to the default endpoint
-    }
+  if (cfg.provider === 'magica') {
+    const magicaGen = require('../services/magicaGen');
+    const content = await magicaGen.magicaChatCompletion(db, messages, {
+      model: cfg.magicaModel,
+      temperature: payload.temperature,
+      timeoutMs,
+    });
+    return { statusCode: 200, body: JSON.stringify({ choices: [{ message: { content } }] }) };
   }
 
   return postJson(

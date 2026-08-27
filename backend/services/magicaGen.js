@@ -656,10 +656,24 @@ async function magicaChatCompletion(db, messages, opts = {}) {
   const key = await pickRandomMagicaKey(db);
   if (!key) throw new Error('Tidak ada API Key Magica aktif untuk LLM.');
   const nodeType = opts.model || 'gemini_3_5_flash';
-  const msgs = Array.isArray(messages) ? messages : [];
-  const textOf = (c) => Array.isArray(c)
-    ? c.filter((p) => p && (p.type === 'text' || typeof p === 'string')).map((p) => (typeof p === 'string' ? p : p.text)).join('\n')
-    : String(c || '');
+  const textOf = (c) => {
+    if (!c) return '';
+    if (typeof c === 'string') return c;
+    if (Array.isArray(c)) {
+      return c
+        .map((p) => {
+          if (!p) return '';
+          if (typeof p === 'string') return p;
+          if (p.type === 'text' && typeof p.text === 'string') return p.text;
+          if (p.text && typeof p.text === 'string') return p.text;
+          return '';
+        })
+        .filter(Boolean)
+        .join('\n');
+    }
+    if (typeof c === 'object' && c.text) return String(c.text);
+    return String(c || '');
+  };
   const system_prompt = msgs.filter((m) => m.role === 'system').map((m) => textOf(m.content)).join('\n\n');
   const prompt = msgs.filter((m) => m.role !== 'system')
     .map((m) => (m.role === 'assistant' ? 'Assistant: ' : '') + textOf(m.content)).join('\n\n');

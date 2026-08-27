@@ -1409,7 +1409,7 @@ const PRESET_AI_MODELS = [
 
             <div className={`rounded-xl p-3.5 space-y-3 transition-all ${aiLlmProvider === 'default' ? 'bg-[#cfae80]/5 border border-[#cfae80]/30' : 'bg-[#131211]/40 border border-[#2a2725]'}`}>
               <div className="text-[9.5px] font-bold uppercase tracking-wider text-[#cfae80] border-b border-[#2a2725] pb-1.5">
-                {aiLlmProvider === 'default' ? 'Pengaturan Terpilih: Proxy Endpoint & Model Antigravity' : 'Endpoint Fallback & Analisa Gambar (Vision)'}
+                {aiLlmProvider === 'default' ? 'Pengaturan Terpilih: Proxy Endpoint & Model Antigravity' : 'Pengaturan Proxy / Antigravity (Hanya aktif saat Provider = Default)'}
               </div>
 
               <div>
