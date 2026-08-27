@@ -17,7 +17,7 @@ async function getAllUsers(req, res) {
     //   storyboards flagged Magica + Magica videos + Meshy 3D.
     // Values are microcredits; the UI divides by 1e6 to show Magica credits.
     const users = await db.all(`
-      SELECT u.id, u.username, u.role, u.can_use_magica, u.can_use_seedance, u.allow_hd_resolutions, u.preferred_provider,
+      SELECT u.id, u.username, u.role, u.can_use_magica, u.can_use_scenario, u.can_use_seedance, u.allow_hd_resolutions, u.preferred_provider,
         (
           COALESCE((SELECT SUM(s.used_credits) FROM storyboards s WHERE s.user_id = u.id AND (s.generation_params NOT LIKE '%magica%' OR s.generation_params IS NULL) AND s.api_key_id IS NOT NULL), 0)
           + COALESCE((SELECT SUM(gv.used_credits) FROM generated_videos gv JOIN storyboards s2 ON s2.id = gv.storyboard_id WHERE s2.user_id = u.id AND gv.api_key_id IS NOT NULL AND (gv.model NOT LIKE 'magica:%' OR gv.model IS NULL)), 0)
@@ -1024,6 +1024,23 @@ async function setUserMagicaAccess(req, res) {
   }
 }
 
+async function setUserScenarioAccess(req, res) {
+  const { id } = req.params;
+  const { can_use_scenario } = req.body;
+  try {
+    const db = getDb();
+    const val = can_use_scenario ? 1 : 0;
+    await db.run('UPDATE users SET can_use_scenario = ? WHERE id = ?', [val, id]);
+    // If access is revoked, reset a 'scenario' preference back to Freebeat for that user.
+    if (!val) {
+      await db.run("UPDATE users SET preferred_provider = 'freebeat' WHERE id = ? AND preferred_provider = 'scenario'", [id]);
+    }
+    res.json({ message: 'Izin Scenario user diperbarui.', can_use_scenario: val });
+  } catch (error) {
+    res.status(500).json({ message: 'Error update izin Scenario user.', error: error.message });
+  }
+}
+
 async function setUserHdAccess(req, res) {
   const { id } = req.params;
   const { allow_hd_resolutions } = req.body;
@@ -1301,6 +1318,7 @@ module.exports = {
   testMagicaConnection,
   getMagicaBalances,
   setUserMagicaAccess,
+  setUserScenarioAccess,
   setUserHdAccess,
   setUserSeedanceAccess,
   getSeedanceCookies,

@@ -11,6 +11,7 @@ const { getDb } = require('../db');
 const { scrapeTokopedia } = require('../lib/scrapers/tokopedia');
 const { uploadsDir } = require('../config');
 const magicaGen = require('../services/magicaGen');
+const scenarioGen = require('../services/scenarioGen');
 const { activeTasks, saveTaskState } = require('../state/taskStore');
 const { getAvailableApiKey } = require('../services/keyPool');
 const { resolveFreebeatBase, freebeatSizeArgs } = require('../services/freebeat/cli');
@@ -42,7 +43,7 @@ async function getUserStoryboards(req, res) {
 }
 
 async function generateStoryboard(req, res) {
-  const { title, prompt, style, apiKeyId, refImageBase64, refImageUrl, refImages, gridCount, model, duration, showFace, faceMode, aspectRatio, enableVo, enableVoScript, enableVoImage, voMaxWords, voLanguage, voTone, videoEngine, containerShape, magicaModel, magicaKeyId, textOnScreen, characterId } = req.body;
+  const { title, prompt, style, apiKeyId, refImageBase64, refImageUrl, refImages, gridCount, model, duration, showFace, faceMode, aspectRatio, enableVo, enableVoScript, enableVoImage, voMaxWords, voLanguage, voTone, videoEngine, containerShape, magicaModel, magicaKeyId, scenarioModel, scenarioKeyId, textOnScreen, characterId } = req.body;
 
   if (!title || !prompt || !style || !apiKeyId) {
     return res.status(400).json({ message: 'Title, prompt, style, and API Key ID are required.' });
@@ -50,13 +51,18 @@ async function generateStoryboard(req, res) {
 
   const db = getDb();
 
-  // Provider routing: Magica users generate via the Magica key pool, so the Freebeat
-  // key requirement below does not apply to them.
-  const userRow = await db.get('SELECT preferred_provider AS pp, can_use_magica AS cum FROM users WHERE id = ?', [req.user.id]);
+  // Provider routing: Magica / Scenario users generate via their own key pool
+  const userRow = await db.get('SELECT preferred_provider AS pp, can_use_magica AS cum, can_use_scenario AS cus FROM users WHERE id = ?', [req.user.id]);
   const useMagica = !!(userRow && userRow.pp === 'magica' && userRow.cum);
+  const useScenario = !!(userRow && userRow.pp === 'scenario' && (userRow.cus === 1 || userRow.cus === null || userRow.cus === undefined));
 
   let keyRecord = null;
-  if (useMagica) {
+  if (useScenario) {
+    const sk = await scenarioGen.pickScenarioKey(db, scenarioKeyId);
+    if (!sk) {
+      return res.status(400).json({ message: 'Provider Anda = Scenario, tetapi belum ada API Key Scenario yang aktif. Hubungi admin atau tambahkan di Panel Admin.' });
+    }
+  } else if (useMagica) {
     // Image generation needs a key with >= 5 credits (keys below that are LLM-only).
     const mk = await magicaGen.pickMediaMagicaKey(db, magicaKeyId);
     if (!mk) {
@@ -121,6 +127,8 @@ async function generateStoryboard(req, res) {
     containerShape: containerShape || 'auto',
     magicaModel: magicaModel || null,
     magicaKeyId: magicaKeyId || null,
+    scenarioModel: scenarioModel || null,
+    scenarioKeyId: scenarioKeyId || null,
     textOnScreen: !!textOnScreen
   });
 
@@ -157,6 +165,8 @@ async function generateStoryboard(req, res) {
     containerShape: containerShape || 'auto',
     magicaModel: magicaModel || null,
     magicaKeyId: magicaKeyId || null,
+    scenarioModel: scenarioModel || null,
+    scenarioKeyId: scenarioKeyId || null,
     textOnScreen: !!textOnScreen,
     characterId: characterId || null,
     prompt,

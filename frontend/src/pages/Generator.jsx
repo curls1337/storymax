@@ -74,6 +74,8 @@ export default function Generator({ setTab, selectedCharacter }) {
   const [userProvider, setUserProvider] = useState('freebeat');
   const [magicaCatalog, setMagicaCatalog] = useState(null);
   const [magicaImageModel, setMagicaImageModel] = useState('');
+  const [scenarioCatalog, setScenarioCatalog] = useState(null);
+  const [scenarioImageModel, setScenarioImageModel] = useState('model_openai-gpt-image-2');
 
   const getEffectivePromptMax = () => {
     if (userProvider !== 'magica') return 10000;
@@ -265,6 +267,13 @@ export default function Generator({ setTab, selectedCharacter }) {
           const imgs = (c.data && c.data.imageModels) || [];
           const def = imgs.find((m) => m.nodeType === 'gpt_image_2') || imgs[0];
           if (def) setMagicaImageModel(def.nodeType);
+        }).catch(() => {});
+      } else if (pp === 'scenario') {
+        api.get('/scenario/catalog').then((c) => {
+          setScenarioCatalog(c.data);
+          const imgs = (c.data && c.data.imageModels) || [];
+          const def = imgs[0]?.id || 'model_openai-gpt-image-2';
+          setScenarioImageModel(def);
         }).catch(() => {});
       }
     }).catch(() => {});
@@ -508,6 +517,7 @@ export default function Generator({ setTab, selectedCharacter }) {
         textOnScreen,
         magicaModel: userProvider === 'magica' ? magicaImageModel : undefined,
         magicaKeyId: userProvider === 'magica' ? magicaKeyId : undefined,
+        scenarioModel: userProvider === 'scenario' ? scenarioImageModel : undefined,
         characterId: chosenCharacter ? chosenCharacter.id : undefined
       });
       const { taskId } = res.data;
@@ -961,8 +971,23 @@ export default function Generator({ setTab, selectedCharacter }) {
 
           {/* Model Generator AI */}
           <div>
-            <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Model Generator AI{userProvider === 'magica' ? ' (Magica)' : ''}</label>
-            {userProvider === 'magica' ? (
+            <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">
+              Model Generator AI{userProvider === 'scenario' ? ' (Scenario)' : (userProvider === 'magica' ? ' (Magica)' : '')}
+            </label>
+            {userProvider === 'scenario' ? (
+              <select value={scenarioImageModel} onChange={(e) => setScenarioImageModel(e.target.value)} className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#38bdf8] transition-all text-xs" disabled={generating}>
+                {((scenarioCatalog && scenarioCatalog.imageModels) || [
+                  { id: 'model_openai-gpt-image-2', name: 'OpenAI GPT Image 2' },
+                  { id: 'model_bfl-flux-2-dev', name: 'FLUX.2 Dev' },
+                  { id: 'model_bytedance-seedream-5-0-pro', name: 'ByteDance SeaDream 5.0 Pro' },
+                  { id: 'model_google-gemini-3-1-flash', name: 'Google Gemini 3.1 Flash' },
+                  { id: 'model_xai-grok-imagine-image-2-0', name: 'xAI Grok Imagine 2.0' },
+                  { id: 'model_ideogram-v4', name: 'Ideogram V4' }
+                ]).map((m) => (
+                  <option key={m.id} value={m.id}>{m.name}</option>
+                ))}
+              </select>
+            ) : userProvider === 'magica' ? (
               <select value={magicaImageModel} onChange={(e) => setMagicaImageModel(e.target.value)} className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#a855f7] transition-all text-xs" disabled={generating}>
                 {((magicaCatalog && magicaCatalog.imageModels) || []).map((m) => (
                   <option key={m.nodeType} value={m.nodeType}>{m.name}</option>

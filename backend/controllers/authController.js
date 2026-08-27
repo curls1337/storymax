@@ -74,13 +74,15 @@ async function login(req, res) {
 async function getMe(req, res) {
   try {
     const db = getDb();
-    const user = await db.get('SELECT id, username, role, can_use_magica, can_use_seedance, allow_hd_resolutions, preferred_provider FROM users WHERE id = ?', [req.user.id]);
+    const user = await db.get('SELECT id, username, role, can_use_magica, can_use_scenario, can_use_seedance, allow_hd_resolutions, preferred_provider FROM users WHERE id = ?', [req.user.id]);
     if (!user) {
       return res.status(404).json({ message: 'User not found.' });
     }
     if (user.role === 'admin') {
       user.allow_hd_resolutions = 1;
       user.can_use_seedance = 1;
+      user.can_use_magica = 1;
+      user.can_use_scenario = 1;
     }
     res.json(user);
   } catch (error) {
@@ -113,19 +115,21 @@ async function changePassword(req, res) {
   }
 }
 
-// User chooses their video/image provider (freebeat|magica). 'magica' is only
-// allowed when the admin has granted can_use_magica.
+// User chooses their video/image provider (freebeat|magica|scenario).
 async function setPreferredProvider(req, res) {
   const { provider } = req.body;
-  if (!['freebeat', 'magica'].includes(provider)) {
+  if (!['freebeat', 'magica', 'scenario'].includes(provider)) {
     return res.status(400).json({ message: 'Provider tidak valid.' });
   }
   try {
     const db = getDb();
-    const user = await db.get('SELECT id, can_use_magica FROM users WHERE id = ?', [req.user.id]);
+    const user = await db.get('SELECT id, can_use_magica, can_use_scenario FROM users WHERE id = ?', [req.user.id]);
     if (!user) return res.status(404).json({ message: 'User not found.' });
     if (provider === 'magica' && !user.can_use_magica) {
       return res.status(403).json({ message: 'Anda belum diberi izin memakai Magica oleh admin.' });
+    }
+    if (provider === 'scenario' && user.can_use_scenario === 0) {
+      return res.status(403).json({ message: 'Anda belum diberi izin memakai Scenario oleh admin.' });
     }
     await db.run('UPDATE users SET preferred_provider = ? WHERE id = ?', [provider, req.user.id]);
     res.json({ message: 'Provider diperbarui.', preferred_provider: provider });

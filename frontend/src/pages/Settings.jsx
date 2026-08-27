@@ -13,6 +13,7 @@ export default function Settings({ onLogout }) {
 
   const [preferredProvider, setPreferredProvider] = useState('freebeat');
   const [canUseMagica, setCanUseMagica] = useState(false);
+  const [canUseScenario, setCanUseScenario] = useState(true);
   const [providerSaving, setProviderSaving] = useState(false);
 
   const [googleStatus, setGoogleStatus] = useState(null); // { appConfigured, connected, email, name, picture }
@@ -23,6 +24,7 @@ export default function Settings({ onLogout }) {
     api.get('/auth/me')
       .then((res) => {
         setCanUseMagica(!!res.data.can_use_magica);
+        setCanUseScenario(res.data.can_use_scenario !== 0);
         setPreferredProvider(res.data.preferred_provider || 'freebeat');
       })
       .catch(() => {});
@@ -84,7 +86,8 @@ export default function Settings({ onLogout }) {
     try {
       await api.put('/auth/preferred-provider', { provider });
       setPreferredProvider(provider);
-      setMessage('Provider berhasil diubah ke ' + (provider === 'magica' ? 'Magica' : 'Freebeat') + '.');
+      const name = provider === 'scenario' ? 'Scenario API' : (provider === 'magica' ? 'Magica' : 'Freebeat');
+      setMessage('Provider berhasil diubah ke ' + name + '.');
     } catch (err) {
       setError(err.response?.data?.message || 'Gagal mengubah provider.');
     } finally {
@@ -136,29 +139,38 @@ export default function Settings({ onLogout }) {
             Provider Video &amp; Gambar
           </h3>
           <p className="text-slate-400 text-[10px] mt-2 mb-3 leading-relaxed">
-            Pilih layanan yang dipakai untuk membuat gambar &amp; video.
-            {!canUseMagica && ' (Magica belum diizinkan admin untuk akun Anda.)'}
+            Pilih layanan utama yang dipakai untuk membuat gambar storyboard &amp; video.
           </p>
-          <div className="grid grid-cols-2 gap-3 max-w-md">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <button
               type="button"
               onClick={() => handleChangeProvider('freebeat')}
               disabled={providerSaving}
-              className={`p-3 rounded-xl border text-left transition-all disabled:opacity-60 ${preferredProvider === 'freebeat' ? 'border-[#cfae80] bg-[#cfae80]/10' : 'border-[#2a2725] bg-black/40 hover:border-[#cfae80]/40'}`}
+              className={`p-3.5 rounded-xl border text-left transition-all disabled:opacity-60 ${preferredProvider === 'freebeat' ? 'border-[#cfae80] bg-[#cfae80]/10 shadow-[0_0_15px_rgba(207,174,128,0.15)]' : 'border-[#2a2725] bg-black/40 hover:border-[#cfae80]/40'}`}
             >
               <div className="text-xs font-bold text-white">Freebeat</div>
-              <div className="text-[9px] text-slate-400 mt-0.5">Default</div>
-              {preferredProvider === 'freebeat' && <div className="text-[8px] text-[#cfae80] font-bold uppercase tracking-widest mt-1.5">✓ Aktif</div>}
+              <div className="text-[9px] text-slate-400 mt-0.5">CLI / Seedance 2.5 Bridge</div>
+              {preferredProvider === 'freebeat' && <div className="text-[8px] text-[#cfae80] font-bold uppercase tracking-widest mt-2">✓ Aktif</div>}
             </button>
             <button
               type="button"
               onClick={() => handleChangeProvider('magica')}
               disabled={providerSaving || !canUseMagica}
-              className={`p-3 rounded-xl border text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed ${preferredProvider === 'magica' ? 'border-[#a855f7] bg-[#a855f7]/10' : 'border-[#2a2725] bg-black/40 hover:border-[#a855f7]/40'}`}
+              className={`p-3.5 rounded-xl border text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed ${preferredProvider === 'magica' ? 'border-[#a855f7] bg-[#a855f7]/10 shadow-[0_0_15px_rgba(168,85,247,0.15)]' : 'border-[#2a2725] bg-black/40 hover:border-[#a855f7]/40'}`}
             >
               <div className="text-xs font-bold text-white flex items-center gap-1"><Sparkles className="w-3 h-3 text-[#a855f7]" /> Magica</div>
-              <div className="text-[9px] text-slate-400 mt-0.5">{canUseMagica ? 'Tersedia' : 'Perlu izin admin'}</div>
-              {preferredProvider === 'magica' && <div className="text-[8px] text-[#a855f7] font-bold uppercase tracking-widest mt-1.5">✓ Aktif</div>}
+              <div className="text-[9px] text-slate-400 mt-0.5">{canUseMagica ? 'REST API Pool' : 'Perlu izin admin'}</div>
+              {preferredProvider === 'magica' && <div className="text-[8px] text-[#a855f7] font-bold uppercase tracking-widest mt-2">✓ Aktif</div>}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleChangeProvider('scenario')}
+              disabled={providerSaving || !canUseScenario}
+              className={`p-3.5 rounded-xl border text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed ${preferredProvider === 'scenario' ? 'border-[#38bdf8] bg-[#38bdf8]/10 shadow-[0_0_15px_rgba(56,189,248,0.15)]' : 'border-[#2a2725] bg-black/40 hover:border-[#38bdf8]/40'}`}
+            >
+              <div className="text-xs font-bold text-white flex items-center gap-1"><Sparkles className="w-3 h-3 text-[#38bdf8]" /> Scenario</div>
+              <div className="text-[9px] text-slate-400 mt-0.5">{canUseScenario ? 'GPT Image / FLUX / Seedance' : 'Perlu izin admin'}</div>
+              {preferredProvider === 'scenario' && <div className="text-[8px] text-[#38bdf8] font-bold uppercase tracking-widest mt-2">✓ Aktif</div>}
             </button>
           </div>
         </div>

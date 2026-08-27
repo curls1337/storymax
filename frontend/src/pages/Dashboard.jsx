@@ -68,10 +68,6 @@ export default function Dashboard({ setTab }) {
         api.get('/magica/catalog').then((c) => {
           setMagicaCatalog(c.data);
           const vids = (c.data && c.data.videoModels) || [];
-          // Default to REFERENCE-to-video: the storyboard (grid sheet) is used as LOOSE
-          // guidance and does NOT appear literally in the video → natural results that
-          // follow the storyboard. (image-to-video would lock the storyboard GRID as the
-          // literal first frame, so the grid shows up / "melenceng".)
           const refPref = ['seedance_2_0_reference', 'seedance_2_0_fast_reference', 'happy_horse_reference'];
           const def = refPref.map((nt) => vids.find((m) => m.nodeType === nt)).find(Boolean)
             || vids.find((m) => (m.methods || []).some((x) => x.category === 'reference-to-video'))
@@ -83,6 +79,13 @@ export default function Dashboard({ setTab }) {
               || (def.methods || [])[0];
             if (pref) setMagicaVideoMethod(pref.category);
           }
+        }).catch(() => {});
+      } else if (pp === 'scenario') {
+        api.get('/scenario/catalog').then((c) => {
+          setScenarioCatalog(c.data);
+          const vids = (c.data && c.data.videoModels) || [];
+          const def = vids[0]?.id || 'model_bytedance-seedance-2-0';
+          setScenarioVideoModel(def);
         }).catch(() => {});
       }
     }).catch(() => {});
@@ -315,6 +318,9 @@ export default function Dashboard({ setTab }) {
   const [magicaVideoModel, setMagicaVideoModel] = useState('');
   const [magicaVideoMethod, setMagicaVideoMethod] = useState('');
   const [magicaKeyId, setMagicaKeyId] = useState('auto');
+  const [scenarioCatalog, setScenarioCatalog] = useState(null);
+  const [scenarioVideoModel, setScenarioVideoModel] = useState('model_bytedance-seedance-2-0');
+  const [scenarioKeyId, setScenarioKeyId] = useState('auto');
   const [vidEstimate, setVidEstimate] = useState(null);
   const [effectivePromptPreview, setEffectivePromptPreview] = useState({ loading: false, prompt: '', error: '', audio: null });
 
@@ -820,7 +826,9 @@ export default function Dashboard({ setTab }) {
         apiKeyId: selectedApiKeyId || 'auto',
         magicaModel: userProvider === 'magica' ? magicaVideoModel : undefined,
         magicaMethod: userProvider === 'magica' ? magicaVideoMethod : undefined,
-        magicaKeyId: userProvider === 'magica' ? magicaKeyId : undefined
+        magicaKeyId: userProvider === 'magica' ? magicaKeyId : undefined,
+        scenarioModel: userProvider === 'scenario' ? scenarioVideoModel : undefined,
+        scenarioKeyId: userProvider === 'scenario' ? scenarioKeyId : undefined
       });
 
       // Refresh the video list to include the new 'processing' record
@@ -868,7 +876,9 @@ export default function Dashboard({ setTab }) {
         apiKeyId: selectedApiKeyId || 'auto',
         magicaModel: userProvider === 'magica' ? magicaVideoModel : undefined,
         magicaMethod: userProvider === 'magica' ? magicaVideoMethod : undefined,
-        magicaKeyId: userProvider === 'magica' ? magicaKeyId : undefined
+        magicaKeyId: userProvider === 'magica' ? magicaKeyId : undefined,
+        scenarioModel: userProvider === 'scenario' ? scenarioVideoModel : undefined,
+        scenarioKeyId: userProvider === 'scenario' ? scenarioKeyId : undefined
       });
 
       // Refresh the video list to include processing statuses
@@ -2537,8 +2547,28 @@ export default function Dashboard({ setTab }) {
 
                         {/* Model — only those supporting the chosen method */}
                         <div className="space-y-1">
-                          <label className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80]">Pilih Model Video (mendukung metode ini)</label>
-                          {userProvider === 'magica' ? (
+                          <label className="text-[8px] font-bold uppercase tracking-widest text-[#cfae80]">
+                            Pilih Model Video{userProvider === 'scenario' ? ' (Scenario)' : (userProvider === 'magica' ? ' (Magica)' : '')}
+                          </label>
+                          {userProvider === 'scenario' ? (
+                            <select
+                              value={scenarioVideoModel}
+                              onChange={(e) => setScenarioVideoModel(e.target.value)}
+                              className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] focus:outline-none focus:border-[#38bdf8] transition-all font-semibold"
+                            >
+                              {((scenarioCatalog && scenarioCatalog.videoModels) || [
+                                { id: 'model_bytedance-seedance-2-0', name: 'ByteDance Seedance 2.0' },
+                                { id: 'model_bytedance-seedance-2-5', name: 'ByteDance Seedance 2.5' },
+                                { id: 'model_kling-v3-i2v-pro', name: 'Kling 3.0 I2V Pro' },
+                                { id: 'model_wan-2-7-i2v', name: 'Wan 2.7 I2V' },
+                                { id: 'model_ltx-2-5-pro', name: 'LTX 2.5 Pro' },
+                                { id: 'model_minimax-h3', name: 'MiniMax Hailuo H3' },
+                                { id: 'model_pixverse-v6-t2v', name: 'PixVerse V6' }
+                              ]).map(m => (
+                                <option key={m.id} value={m.id}>{m.name}</option>
+                              ))}
+                            </select>
+                          ) : userProvider === 'magica' ? (
                             <select
                               value={magicaVideoModel}
                               onChange={(e) => setMagicaVideoModel(e.target.value)}

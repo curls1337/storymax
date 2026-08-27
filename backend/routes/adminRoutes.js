@@ -6,7 +6,7 @@ const {
   getStorageFiles, deleteStorageFile,
   backupDatabase, restoreDatabase, restoreChunkDatabase, getRestoreStatus,
   getMagicaKeys, addMagicaKey, addMagicaKeysBulk, toggleMagicaKey, deleteMagicaKey, deleteMagicaKeysBulk,
-  testMagicaConnection, getMagicaBalances, setUserMagicaAccess, setUserHdAccess, setUserSeedanceAccess,
+  testMagicaConnection, getMagicaBalances, setUserMagicaAccess, setUserScenarioAccess, setUserHdAccess, setUserSeedanceAccess,
   getSeedanceCookies, addSeedanceCookie, addSeedanceCookiesBulk, toggleSeedanceCookie, deleteSeedanceCookie, deleteSeedanceCookiesBulk, testSeedanceCookieConnection
 } = require('../controllers/adminController');
 const { authenticateToken, requireAdmin } = require('../middleware/authMiddleware');
@@ -63,6 +63,7 @@ router.put('/magica/keys/:id/toggle', toggleMagicaKey);
 router.delete('/magica/keys/:id', deleteMagicaKey);
 router.post('/magica/test', testMagicaConnection);
 router.put('/users/:id/magica-access', setUserMagicaAccess);
+router.put('/users/:id/scenario-access', setUserScenarioAccess);
 router.put('/users/:id/hd-access', setUserHdAccess);
 router.put('/users/:id/seedance-access', setUserSeedanceAccess);
 

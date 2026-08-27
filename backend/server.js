@@ -34,6 +34,7 @@ const magicaWebhookRoutes = require('./routes/magicaWebhook');
 const googleAuthRoutes = require('./routes/googleAuthRoutes');
 const characterRoutes = require('./routes/characterRoutes');
 const seedanceRoutes = require('./routes/seedanceRoutes');
+const scenarioRoutes = require('./routes/scenarioRoutes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
@@ -42,6 +43,7 @@ app.use('/api/characters', characterRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/videos', videoRoutes);
 app.use('/api/seedance', seedanceRoutes);
+app.use('/api/scenario', scenarioRoutes);
 // Public Magica webhook (no JWT) — MUST be mounted before the authenticated /api/magica router.
 app.use('/api/magica/webhook', magicaWebhookRoutes);
 app.use('/api/magica', magicaRoutes);

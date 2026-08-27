@@ -63,6 +63,20 @@ async function initDb() {
     )
   `);
 
+  // Create Scenario API Keys Table — SEPARATE pool (API Key + API Secret)
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS scenario_api_keys (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      key_value TEXT NOT NULL,
+      secret_value TEXT NOT NULL,
+      label TEXT NOT NULL,
+      is_active INTEGER DEFAULT 1,
+      last_status TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(key_value, secret_value)
+    )
+  `);
+
   // Create SeedDance 2.5 Web Cookies / AuthTokens Table
   await db.exec(`
     CREATE TABLE IF NOT EXISTS seedance_cookies (
@@ -238,6 +252,11 @@ async function initDb() {
   // preferred_provider in Settings (only 'magica' when allowed).
   try {
     await db.exec("ALTER TABLE users ADD COLUMN can_use_magica INTEGER DEFAULT 0");
+  } catch (e) {
+    // Column already exists, safe to ignore
+  }
+  try {
+    await db.exec("ALTER TABLE users ADD COLUMN can_use_scenario INTEGER DEFAULT 1");
   } catch (e) {
     // Column already exists, safe to ignore
   }

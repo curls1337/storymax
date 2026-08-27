@@ -15,6 +15,7 @@ const { formatTime } = require('../prompts/grid');
 const { safeClampPrompt } = require('../prompts/clamp');
 const { freebeatSizeArgs } = require('../services/freebeat/cli');
 const magicaGen = require('../services/magicaGen');
+const scenarioGen = require('../services/scenarioGen');
 const { getStyleSpec } = require('../prompts/styleLibrary');
 const { buildMasterPrompt } = require('../prompts/masterPrompt');
 const { generateMasterPromptWithAI } = require('../prompts/masterPromptLLM');
@@ -57,10 +58,11 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
 
   try {
     const storyboardIsMagica = await magicaGen.isMagicaForStoryboard(db, storyboardId);
+    const storyboardIsScenario = await scenarioGen.isScenarioForStoryboard(db, storyboardId);
     const keyRecord = await db.get('SELECT * FROM api_keys WHERE id = ?', [task.apiKeyId]);
-    // Freebeat needs a valid key; Magica users render via their own pool, so a missing
+    // Freebeat needs a valid key; Magica/Scenario users render via their own pool, so a missing
     // Freebeat key must NOT fail the job for them.
-    if (!storyboardIsMagica && (!keyRecord || !keyRecord.is_active)) {
+    if (!storyboardIsMagica && !storyboardIsScenario && (!keyRecord || !keyRecord.is_active)) {
       task.status = 'failed';
       task.error = 'Selected API Key is invalid or inactive.';
       task.logs += '[ERROR] Selected API Key is invalid or inactive.\n';
@@ -283,8 +285,18 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
     // allowed), render each page via Magica GPT Image 2 instead of the Freebeat CLI.
     // The Freebeat spawn below is skipped per-page for Magica; Freebeat code untouched.
     let isMagica = false, magicaApiKey = null;
+    let isScenario = false;
     try {
-      if (await magicaGen.isMagicaForStoryboard(db, storyboardId)) {
+      if (await scenarioGen.isScenarioForStoryboard(db, storyboardId)) {
+        const sk = await scenarioGen.pickScenarioKey(db, task.scenarioKeyId);
+        if (sk) {
+          isScenario = true;
+          task.logs += `[Provider] Render gambar via Scenario API (${task.scenarioModel || 'model_openai-gpt-image-2'}) — key #${sk.id} (${sk.label}).\n`;
+        } else {
+          task.logs += '[Provider] Belum ada API Key Scenario yang aktif. Tambahkan key di Admin → API Scenario.\n';
+        }
+        await saveTaskState(db, storyboardId, task);
+      } else if (await magicaGen.isMagicaForStoryboard(db, storyboardId)) {
         const mk = await magicaGen.pickMediaMagicaKey(db, task.magicaKeyId);
         if (mk) {
           isMagica = true; magicaApiKey = mk.key_value;
@@ -373,6 +385,46 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
 
         task.logs += `[Halaman ${pageNum}] Prompt (${promptSource}): ${pagePrompt.substring(0, 120)}...\n`;
         await saveTaskState(db, storyboardId, task);
+
+        // Scenario render for this page
+        if (isScenario) {
+          try {
+            const { result: scRes } = await scenarioGen.executeWithScenarioFailover(
+              db,
+              async (keyRec) => {
+                let refImg = pageRefPath;
+                if (task.characterId && task.finalRefImagePath) refImg = task.finalRefImagePath;
+                return await scenarioGen.generateOneImageScenario(keyRec, pagePrompt, {
+                  aspectRatio: task.aspectRatio,
+                  model: task.scenarioModel || 'model_openai-gpt-image-2',
+                  referenceImage: refImg,
+                  onLog: (m) => { task.logs += m + '\n'; }
+                });
+              },
+              { onLog: (m) => { task.logs += m + '\n'; }, specificKeyId: task.scenarioKeyId }
+            );
+
+            const { url, credit } = scRes;
+            try {
+              const ext = ((String(url).split('?')[0].match(/\.(png|jpe?g|webp)$/i) || [])[1] || 'png').toLowerCase();
+              const fname = `storyboard_${storyboardId}_page_${pageIdx}_${Date.now()}.${ext}`;
+              await downloadFile(url, path.join(uploadsDir, fname));
+              task.logs += `[Halaman ${pageNum}] Backup lokal tersimpan di /uploads/${fname}\n`;
+            } catch (dlErr) {}
+            task.originalCdnUrls[pageIdx] = url;
+            task.imagePaths[pageIdx] = url;
+            task.totalCreditsUsed = (task.totalCreditsUsed || 0) + credit;
+            task.currentTaskInfo = null;
+            task.logs += `[Halaman ${pageNum}] Selesai (Scenario).\n`;
+            await saveTaskState(db, storyboardId, task);
+          } catch (scErr) {
+            task.logs += `[WARNING][Halaman ${pageNum}] Scenario gagal (${scErr.message}). Melanjutkan ke halaman berikutnya...\n`;
+            task.imagePaths[pageIdx] = 'failed';
+            task.currentTaskInfo = null;
+            await saveTaskState(db, storyboardId, task);
+          }
+          continue;
+        }
 
         // Magica render for this page — uses failover loop to retry next key if one is empty/error
         if (isMagica) {
@@ -855,6 +907,7 @@ async function regenerateStoryboardPage(req, res) {
     const pageCount = imagePaths.length;
 
     const storyboardIsMagica = await magicaGen.isMagicaForStoryboard(db, storyboard.id);
+    const storyboardIsScenario = await scenarioGen.isScenarioForStoryboard(db, storyboard.id);
 
     // Retrieve API Key
     let keyRecord = null;
@@ -869,7 +922,7 @@ async function regenerateStoryboardPage(req, res) {
       }
     }
 
-    if (!storyboardIsMagica && !keyRecord) {
+    if (!storyboardIsMagica && !storyboardIsScenario && !keyRecord) {
       return res.status(400).json({ message: 'Tidak ada API Key Freebeat yang aktif atau valid untuk regenerasi.' });
     }
 
@@ -934,6 +987,41 @@ async function regenerateStoryboardPage(req, res) {
         const promptSource = pagePrompt ? 'LLM' : 'deterministik';
         if (!pagePrompt) pagePrompt = buildMasterPrompt(spec, genCtx);
         pagePrompt = pagePrompt.replace(/"/g, "'");
+
+        if (await scenarioGen.isScenarioForStoryboard(db, storyboard.id)) {
+          activeTasks[taskId].logs += `[2/3] Memproses regenerasi Halaman ${pageIdx + 1} via Scenario...\n`;
+          try {
+            const { result: scRes } = await scenarioGen.executeWithScenarioFailover(
+              db,
+              async (keyRec) => {
+                return await scenarioGen.generateOneImageScenario(keyRec, pagePrompt, {
+                  aspectRatio,
+                  referenceImage: finalRefImagePath,
+                  model: genParams.scenarioModel || 'model_openai-gpt-image-2',
+                  onLog: (m) => { activeTasks[taskId].logs += m + '\n'; }
+                });
+              },
+              { onLog: (m) => { activeTasks[taskId].logs += m + '\n'; }, specificKeyId: genParams.scenarioKeyId }
+            );
+            const { url } = scRes;
+            try {
+              const ext = ((String(url).split('?')[0].match(/\.(png|jpe?g|webp)$/i) || [])[1] || 'png').toLowerCase();
+              const fname = `storyboard_${storyboard.id}_page_${pageIdx}_regen_${Date.now()}.${ext}`;
+              await downloadFile(url, path.join(uploadsDir, fname));
+            } catch (dlErr) {}
+            imagePaths[pageIdx] = url;
+            await db.run('UPDATE storyboards SET image_urls = ? WHERE id = ?', [JSON.stringify(imagePaths), storyboard.id]);
+            activeTasks[taskId].status = 'completed';
+            activeTasks[taskId].result = { imageUrl: url, pageIdx };
+            activeTasks[taskId].logs += `[3/3] Selesai! Halaman ${pageIdx + 1} berhasil diregenerasi (Scenario).\n`;
+            return;
+          } catch (err) {
+            activeTasks[taskId].status = 'failed';
+            activeTasks[taskId].error = err.message;
+            activeTasks[taskId].logs += `[ERROR] Regenerasi Scenario gagal: ${err.message}\n`;
+            return;
+          }
+        }
 
         if (await magicaGen.isMagicaForStoryboard(db, storyboard.id)) {
           activeTasks[taskId].logs += `[2/3] Memproses regenerasi Halaman ${pageIdx + 1} via Magica...\n`;

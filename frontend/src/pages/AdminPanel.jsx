@@ -31,6 +31,14 @@ export default function AdminPanel() {
   const [seedanceBulk, setSeedanceBulk] = useState('');
   const [seedanceTest, setSeedanceTest] = useState(null);
   const [seedanceTestLoading, setSeedanceTestLoading] = useState(false);
+  const [scenarioKeys, setScenarioKeys] = useState([]);
+  const [selectedScenarioKeyIds, setSelectedScenarioKeyIds] = useState([]);
+  const [newScenarioKeyVal, setNewScenarioKeyVal] = useState('');
+  const [newScenarioSecretVal, setNewScenarioSecretVal] = useState('');
+  const [newScenarioKeyLabel, setNewScenarioKeyLabel] = useState('');
+  const [scenarioBulk, setScenarioBulk] = useState('');
+  const [scenarioTest, setScenarioTest] = useState(null);
+  const [scenarioTestLoading, setScenarioTestLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [sortBy, setSortBy] = useState('date_desc');
@@ -444,6 +452,14 @@ const PRESET_AI_MODELS = [
     } catch (err) { setError(err.response?.data?.message || 'Gagal mengubah izin Magica user.'); }
   };
 
+  const handleToggleUserScenario = async (u) => {
+    setError(''); setMessage('');
+    try {
+      await api.put(`/admin/users/${u.id}/scenario-access`, { can_use_scenario: u.can_use_scenario !== 0 ? 0 : 1 });
+      fetchUsers();
+    } catch (err) { setError(err.response?.data?.message || 'Gagal mengubah izin Scenario user.'); }
+  };
+
   const handleToggleUserHd = async (u) => {
     setError(''); setMessage('');
     try {
@@ -452,9 +468,113 @@ const PRESET_AI_MODELS = [
     } catch (err) { setError(err.response?.data?.message || 'Gagal mengubah izin HD user.'); }
   };
 
+  const fetchScenarioKeys = async () => {
+    try {
+      const res = await api.get('/scenario/keys');
+      setScenarioKeys(res.data || []);
+      setSelectedScenarioKeyIds([]);
+    } catch (err) {
+      console.error('Gagal mengambil Scenario keys:', err);
+    }
+  };
+
+  const handleAddScenarioKey = async (e) => {
+    e.preventDefault();
+    setError(''); setMessage('');
+    if (!newScenarioKeyVal.trim() || !newScenarioSecretVal.trim() || !newScenarioKeyLabel.trim()) {
+      setError('Label, API Key, dan API Secret Scenario wajib diisi.');
+      return;
+    }
+    try {
+      await api.post('/scenario/keys', {
+        key_value: newScenarioKeyVal.trim(),
+        secret_value: newScenarioSecretVal.trim(),
+        label: newScenarioKeyLabel.trim()
+      });
+      setMessage('Scenario API Key & Secret berhasil ditambahkan.');
+      setNewScenarioKeyVal('');
+      setNewScenarioSecretVal('');
+      setNewScenarioKeyLabel('');
+      fetchScenarioKeys();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Gagal menambah Scenario API Key.');
+    }
+  };
+
+  const handleScenarioBulk = async (e) => {
+    e.preventDefault();
+    setError(''); setMessage('');
+    if (!scenarioBulk.trim()) { setError('Data bulk kosong.'); return; }
+    try {
+      const res = await api.post('/scenario/keys/bulk', { data: scenarioBulk });
+      setMessage(res.data.message || 'Bulk import Scenario keys selesai.');
+      setScenarioBulk('');
+      fetchScenarioKeys();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Gagal bulk import Scenario keys.');
+    }
+  };
+
+  const handleToggleScenarioKey = async (id, currentStatus) => {
+    setError(''); setMessage('');
+    try {
+      await api.put(`/scenario/keys/${id}/toggle`, { is_active: currentStatus === 1 ? 0 : 1 });
+      fetchScenarioKeys();
+    } catch (err) { setError('Gagal mengubah status Scenario key.'); }
+  };
+
+  const handleDeleteScenarioKey = async (id) => {
+    if (!(await confirm({ title: 'Hapus Scenario API Key ini?', message: 'Key akan dihapus permanen dari kolam Scenario.', confirmText: 'Hapus', danger: true }))) return;
+    setError(''); setMessage('');
+    try {
+      await api.delete(`/scenario/keys/${id}`);
+      setMessage('Scenario API Key dihapus.');
+      setSelectedScenarioKeyIds((prev) => prev.filter((x) => x !== id));
+      fetchScenarioKeys();
+    } catch (err) { setError(err.response?.data?.message || 'Gagal menghapus Scenario key.'); }
+  };
+
+  const handleDeleteSelectedScenario = async () => {
+    if (selectedScenarioKeyIds.length === 0) return;
+    if (!(await confirm({ title: 'Hapus Scenario API Key terpilih?', message: `${selectedScenarioKeyIds.length} key akan dihapus.`, confirmText: `Hapus ${selectedScenarioKeyIds.length}`, danger: true }))) return;
+    try {
+      await api.post('/scenario/keys/bulk-delete', { ids: selectedScenarioKeyIds });
+      setMessage(`${selectedScenarioKeyIds.length} Scenario API Key dihapus.`);
+      setSelectedScenarioKeyIds([]);
+      fetchScenarioKeys();
+    } catch (err) { setError(err.response?.data?.message || 'Gagal menghapus Scenario key terpilih.'); }
+  };
+
+  const handleTestScenarioKey = async (keyRec) => {
+    setScenarioTestLoading(true); setScenarioTest(null); setError(''); setMessage('');
+    try {
+      const res = await api.post('/scenario/keys/test', keyRec ? { id: keyRec.id } : { key_value: newScenarioKeyVal, secret_value: newScenarioSecretVal });
+      setScenarioTest(res.data);
+      setMessage(res.data.message || 'Koneksi Scenario API OK!');
+      fetchScenarioKeys();
+    } catch (err) {
+      setScenarioTest(null);
+      setError(err.response?.data?.message || 'Koneksi Scenario API gagal.');
+    } finally {
+      setScenarioTestLoading(false);
+    }
+  };
+
+  const handleToggleScenarioKeySelect = (id) => {
+    setSelectedScenarioKeyIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  };
+
+  const scenarioSelectAll = () => {
+    if (selectedScenarioKeyIds.length === scenarioKeys.length) {
+      setSelectedScenarioKeyIds([]);
+    } else {
+      setSelectedScenarioKeyIds(scenarioKeys.map((k) => k.id));
+    }
+  };
+
   const loadData = async () => {
     setLoading(true);
-    await Promise.all([fetchUsers(), fetchKeys(), fetchMagicaKeys(), fetchSeedanceCookies(), fetchAiSettings(), fetchGoogleSettings(), fetchFiles()]);
+    await Promise.all([fetchUsers(), fetchKeys(), fetchMagicaKeys(), fetchScenarioKeys(), fetchSeedanceCookies(), fetchAiSettings(), fetchGoogleSettings(), fetchFiles()]);
     setLoading(false);
   };
 
@@ -888,6 +1008,17 @@ const PRESET_AI_MODELS = [
           API Magica ({magicaKeys.length})
         </button>
         <button
+          onClick={() => { setActiveTab('scenario'); setError(''); setMessage(''); }}
+          className={`py-2.5 px-3.5 flex items-center font-bold text-[9px] uppercase tracking-wider border-b-2 transition-all shrink-0 relative ${
+            activeTab === 'scenario'
+              ? 'border-[#cfae80] text-white'
+              : 'border-transparent text-slate-400 hover:text-white'
+          }`}
+        >
+          <Sparkles className="w-3.5 h-3.5 mr-1.5 text-[#38bdf8]" />
+          API Scenario ({scenarioKeys.length})
+        </button>
+        <button
           onClick={() => { setActiveTab('seedance'); setError(''); setMessage(''); }}
           className={`py-2.5 px-3.5 flex items-center font-bold text-[9px] uppercase tracking-wider border-b-2 transition-all shrink-0 relative ${
             activeTab === 'seedance'
@@ -1213,6 +1344,13 @@ const PRESET_AI_MODELS = [
                         className={`py-1 px-2 rounded-md text-[9px] font-bold uppercase tracking-wider transition-all cursor-pointer border ${u.can_use_magica ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/25' : 'bg-black/40 text-slate-500 border-[#2a2725] hover:text-slate-300'}`}
                       >
                         Magica: {u.can_use_magica ? 'ON' : 'OFF'}
+                      </button>
+                      <button
+                        onClick={() => handleToggleUserScenario(u)}
+                        title="Izin memakai provider Scenario"
+                        className={`py-1 px-2 rounded-md text-[9px] font-bold uppercase tracking-wider transition-all cursor-pointer border ${u.can_use_scenario !== 0 ? 'bg-sky-500/15 text-sky-300 border-sky-500/30 hover:bg-sky-500/25' : 'bg-black/40 text-slate-500 border-[#2a2725] hover:text-slate-300'}`}
+                      >
+                        Scenario: {u.can_use_scenario !== 0 ? 'ON' : 'OFF'}
                       </button>
                       <button
                         onClick={() => handleToggleUserSeedance(u)}
@@ -1989,6 +2127,127 @@ const PRESET_AI_MODELS = [
             </form>
           </div>
 
+        </div>
+      )}
+
+      {activeTab === 'scenario' && (
+        <div className="bg-[#1a1918]/60 border border-[#2a2725] rounded-2xl p-4 md:p-6 relative backdrop-blur-md">
+          <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#38bdf8]/25 to-transparent"></div>
+
+          <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3 mb-4 border-b border-[#2a2725] pb-3">
+            <div>
+              <h3 className="text-[10px] font-bold text-white uppercase tracking-widest flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-[#38bdf8]" /> Kolam API Key &amp; Secret Scenario
+              </h3>
+              <p className="text-slate-400 text-[10px] mt-1 leading-relaxed">
+                Provider mandiri ke-3 (GPT Image 2, FLUX 2, Seedance 2.5, Kling V3, Wan 2.7). Otentikasi menggunakan pasangan <strong>API Key</strong> dan <strong>API Secret</strong>.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-1.5 items-center shrink-0">
+              {selectedScenarioKeyIds.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleDeleteSelectedScenario}
+                  className="bg-red-950/40 border border-red-500/40 hover:bg-red-600 text-white font-bold py-1.5 px-3 rounded-lg flex items-center transition-all shadow-lg text-[9px] uppercase tracking-wider cursor-pointer animate-fadeIn"
+                >
+                  <Trash2 className="w-3.5 h-3.5 mr-1" />
+                  Hapus Terpilih ({selectedScenarioKeyIds.length})
+                </button>
+              )}
+              {scenarioKeys.length > 0 && (
+                <button
+                  type="button"
+                  onClick={scenarioSelectAll}
+                  className="bg-black/40 border border-[#2a2725] hover:bg-[#38bdf8] hover:text-black text-slate-300 font-bold py-1.5 px-3 rounded-lg flex items-center transition-all text-[9px] uppercase tracking-wider cursor-pointer select-none"
+                >
+                  {selectedScenarioKeyIds.length === scenarioKeys.length ? 'Batal Centang' : `Centang Semua (${scenarioKeys.length})`}
+                </button>
+              )}
+              <button
+                onClick={() => handleTestScenarioKey(scenarioKeys[0])}
+                disabled={scenarioTestLoading || scenarioKeys.length === 0}
+                className="bg-[#38bdf8]/10 border border-[#38bdf8]/30 hover:bg-[#38bdf8] hover:text-black text-[#7dd3fc] font-bold py-1.5 px-3 rounded-lg flex items-center gap-1 text-[9px] uppercase tracking-wider cursor-pointer disabled:opacity-50"
+              >
+                {scenarioTestLoading ? <Loader className="animate-spin w-3.5 h-3.5" /> : <Check className="w-3.5 h-3.5" />} Tes Koneksi Key #1
+              </button>
+            </div>
+          </div>
+
+          {/* Key Cards Grid */}
+          <div className="bg-[#131211]/50 border border-[#38bdf8]/25 rounded-xl p-4 mb-4">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <p className="text-slate-350 text-[9px] font-bold uppercase tracking-widest flex items-center gap-1.5">
+                <Wallet className="w-3.5 h-3.5 text-[#38bdf8]" /> Daftar Kunci Scenario Terdaftar ({scenarioKeys.length})
+              </p>
+              <button onClick={fetchScenarioKeys} className="bg-[#38bdf8]/10 border border-[#38bdf8]/30 hover:bg-[#38bdf8] hover:text-black text-[#7dd3fc] font-bold py-1.5 px-3 rounded-lg flex items-center gap-1 text-[9px] uppercase tracking-wider cursor-pointer shrink-0">
+                <RefreshCw className="w-3.5 h-3.5" /> Refresh
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
+              {scenarioKeys.length === 0 ? (
+                <p className="col-span-full text-center text-slate-500 italic text-[10px] uppercase tracking-wider py-4">
+                  Belum ada API Key Scenario. Tambahkan di form bawah.
+                </p>
+              ) : scenarioKeys.map((k) => {
+                const isSelected = selectedScenarioKeyIds.includes(k.id);
+                return (
+                  <div key={k.id} className={`border rounded-lg p-2.5 flex flex-col gap-1.5 transition-all ${isSelected ? 'bg-[#38bdf8]/15 border-[#38bdf8]/50 shadow-md' : 'bg-black/30 border-[#2a2725]'}`}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleToggleScenarioKeySelect(k.id)}
+                          className="w-3.5 h-3.5 rounded border-[#2a2725] bg-black text-[#38bdf8] focus:ring-0 cursor-pointer accent-[#38bdf8] shrink-0"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[10px] text-slate-200 font-semibold truncate" title={k.label}>{k.label}</p>
+                          <p className="text-[9px] font-mono text-slate-500 truncate">Key: {String(k.key_value || '').substring(0, 10)}••••</p>
+                          <p className="text-[8px] font-mono text-slate-600 truncate">Sec: {String(k.secret_value || '').substring(0, 6)}••••</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleTestScenarioKey(k)}
+                        disabled={scenarioTestLoading}
+                        className="px-2 py-1 rounded bg-[#38bdf8]/10 border border-[#38bdf8]/30 hover:bg-[#38bdf8] hover:text-black text-[#7dd3fc] text-[8px] font-bold uppercase tracking-wider transition-all cursor-pointer shrink-0"
+                        title="Tes key ini"
+                      >
+                        Tes
+                      </button>
+                    </div>
+                    {k.last_status ? <p className="text-[8px] text-slate-400 truncate pl-5.5" title={k.last_status}>📋 {k.last_status}</p> : null}
+                    <div className="flex items-center gap-1.5 pt-1">
+                      <button onClick={() => handleToggleScenarioKey(k.id, k.is_active)} className={`flex-1 px-2 py-1.5 rounded-md text-[8px] font-bold tracking-wider uppercase border transition-all cursor-pointer ${k.is_active === 1 ? 'bg-green-950/20 text-green-300 border-green-500/20 hover:bg-green-600 hover:text-white' : 'bg-slate-900/40 text-slate-500 border-slate-800 hover:bg-slate-700 hover:text-white'}`}>{k.is_active === 1 ? 'Aktif' : 'Nonaktif'}</button>
+                      <button onClick={() => handleDeleteScenarioKey(k.id)} title="Hapus key" className="px-2.5 py-1.5 rounded-md bg-red-950/15 border border-red-500/20 text-red-400 hover:bg-red-600 hover:text-white transition-all cursor-pointer"><Trash2 className="w-3 h-3" /></button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {scenarioTest && (
+            <div className="bg-sky-950/20 border border-sky-500/25 text-sky-200 p-3 rounded-xl text-[11px] mb-4">
+              ✅ {scenarioTest.message} · Model publik tersedia: <strong>{scenarioTest.modelsCount || 0}</strong>.
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+            <form onSubmit={handleAddScenarioKey} className="bg-[#131211]/50 border border-[#2a2725] rounded-xl p-3 space-y-2">
+              <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest">Tambah Pasangan Key &amp; Secret</label>
+              <input type="text" value={newScenarioKeyLabel} onChange={(e)=>setNewScenarioKeyLabel(e.target.value)} placeholder="Label (mis. Scenario 1)" className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-3 py-2 text-white text-xs focus:outline-none focus:border-[#38bdf8]" />
+              <input type="text" value={newScenarioKeyVal} onChange={(e)=>setNewScenarioKeyVal(e.target.value)} placeholder="API Key (mis. api_sK6...)" className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-3 py-2 text-white text-xs font-mono focus:outline-none focus:border-[#38bdf8]" />
+              <input type="password" value={newScenarioSecretVal} onChange={(e)=>setNewScenarioSecretVal(e.target.value)} placeholder="API Secret (mis. Ewwvh...)" className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-3 py-2 text-white text-xs font-mono focus:outline-none focus:border-[#38bdf8]" />
+              <button type="submit" className="bg-[#38bdf8] hover:bg-[#0284c7] text-black font-bold py-2 px-3 rounded-lg text-[9px] uppercase tracking-wider flex items-center gap-1 cursor-pointer"><Plus className="w-3.5 h-3.5" /> Tambah Scenario Key</button>
+            </form>
+            <form onSubmit={handleScenarioBulk} className="bg-[#131211]/50 border border-[#2a2725] rounded-xl p-3 space-y-2">
+              <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest">Bulk Import (Format: apiKey:apiSecret,Label atau apiKey:apiSecret per baris)</label>
+              <textarea value={scenarioBulk} onChange={(e)=>setScenarioBulk(e.target.value)} rows={4} placeholder={"api_key1:api_sec1,Scenario Key 1\napi_key2:api_sec2,Scenario Key 2"} className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-3 py-2 text-white text-[11px] font-mono resize-none focus:outline-none focus:border-[#38bdf8]" />
+              <button type="submit" className="bg-black/40 border border-[#2a2725] hover:bg-[#38bdf8] hover:text-black text-slate-300 font-bold py-2 px-3 rounded-lg text-[9px] uppercase tracking-wider flex items-center gap-1 cursor-pointer"><Database className="w-3.5 h-3.5" /> Import Bulk</button>
+            </form>
+          </div>
         </div>
       )}
 

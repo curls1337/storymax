@@ -21,6 +21,7 @@ if (process.platform !== 'win32') {
 const { getDb } = require('../db');
 const { activeTasks } = require('./storyboardController');
 const magicaGen = require('../services/magicaGen');
+const scenarioGen = require('../services/scenarioGen');
 const { llmChatViaSettings } = require('../prompts/aiClient');
 
 async function checkAndDisableKeyIfOutofCredits(db, apiKeyId, errorText, taskObj) {
@@ -441,7 +442,9 @@ async function generateVideo(req, res) {
     apiKeyId,
     magicaModel,
     magicaMethod,
-    magicaKeyId
+    magicaKeyId,
+    scenarioModel,
+    scenarioKeyId
   } = req.body;
 
   if (!storyboardId || sceneIdx === undefined || !prompt || !model || !generationType) {
@@ -505,6 +508,62 @@ async function generateVideo(req, res) {
     const sceneNarration = hasVo ? getSceneNarration(storyboard, sceneIdx) : '';
     const voiceProfile = await getCharacterVoiceProfile(db, storyboard);
     const charRefUrls = await getCharacterReferenceUrls(db, storyboard);
+
+    // Provider routing: Scenario single-video generation
+    if (await scenarioGen.isScenarioForStoryboard(db, storyboardId)) {
+      const keys = await scenarioGen.getAllActiveScenarioKeys(db, scenarioKeyId);
+      if (!keys || !keys.length) return res.status(400).json({ message: 'Tidak ada API Key Scenario yang aktif. Tambahkan di Panel Admin.' });
+      
+      const initialKey = keys[0];
+      const taskId = 'video_task_' + Date.now();
+      const providerLabel = scenarioModel ? `Scenario:${scenarioModel}` : 'Scenario:Seedance 2.0';
+      const insertResult = await db.run(
+        `INSERT INTO generated_videos
+         (storyboard_id, scene_idx, prompt, model, aspect_ratio, duration, resolution, status, task_id, api_key_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [storyboardId, sceneIdx, prompt, providerLabel, aspectRatio || null, duration || null, finalResolution || null, 'processing', taskId, null]
+      );
+      const videoRecordId = insertResult.lastID;
+      activeTasks[taskId] = { status: 'processing', apiKeyId: null, logs: `=== VIDEO STUDIO (SCENARIO) ===\n\n[1/2] Mengirim perintah ke ${providerLabel}...\n`, result: null, error: null };
+      res.json({ taskId, videoId: videoRecordId, status: 'processing' });
+      
+      (async () => {
+        const onLog = (m) => { if (activeTasks[taskId]) activeTasks[taskId].logs += m + '\n'; };
+        const scPrompt = applyAudioDirectives(prompt, { hasVo, narration: sceneNarration, voLanguage: voCfg.voLanguage, voTone: voCfg.voTone, durationSec: duration, backsound, voiceProfile, textOnScreen, characterId: storyboard.character_id });
+        const nativeAudio = Boolean(generateAudio);
+        await db.run('UPDATE generated_videos SET prompt = ? WHERE id = ?', [scPrompt, videoRecordId]);
+        
+        try {
+          const { result: scRes } = await scenarioGen.executeWithScenarioFailover(
+            db,
+            async (keyRec) => {
+              return await scenarioGen.generateVideoScenario(keyRec, {
+                prompt: scPrompt,
+                sceneImage,
+                referenceImages: charRefUrls,
+                generationType,
+                duration: duration || 5,
+                resolution: finalResolution || '720p',
+                aspectRatio: aspectRatio || '16:9',
+                generateAudio: nativeAudio,
+                model: scenarioModel || 'model_bytedance-seedance-2-0',
+                onLog
+              });
+            },
+            { onLog, specificKeyId: scenarioKeyId }
+          );
+
+          const { url, credit } = scRes;
+          await db.run('UPDATE generated_videos SET video_url = ?, status = ?, used_credits = ?, logs = ? WHERE id = ?', [url, 'success', credit || 0, activeTasks[taskId]?.logs || '', videoRecordId]);
+          if (activeTasks[taskId]) { activeTasks[taskId].status = 'success'; activeTasks[taskId].logs += '[Scenario] Video selesai.\n'; }
+        } catch (scErr) {
+          onLog('[ERROR] Scenario gagal: ' + scErr.message);
+          if (activeTasks[taskId]) { activeTasks[taskId].status = 'failed'; activeTasks[taskId].error = scErr.message; }
+          await db.run('UPDATE generated_videos SET status = ?, error_message = ?, logs = ? WHERE id = ?', ['failed', scErr.message, activeTasks[taskId]?.logs || '', videoRecordId]);
+        }
+      })();
+      return;
+    }
 
     // Provider routing (Bagian 2): Magica single-video generation — bypasses the
     // Freebeat key requirement + inline CLI spawn entirely.
@@ -1223,6 +1282,35 @@ async function regenerateVideoMarketingCopy(req, res) {
 }
 
 async function runSingleVideoSpawn(vRecId, tId, kRec, pText, scImg, model, generationType, duration, resolution, aspectRatio, generateAudio, storyboardId, negativePrompt) {
+  // Provider routing: render via Scenario when storyboard owner prefers Scenario
+  try {
+    const db0 = getDb();
+    if (await scenarioGen.isScenarioForStoryboard(db0, storyboardId)) {
+      const onLog = (m) => { if (activeTasks[tId]) activeTasks[tId].logs = (activeTasks[tId].logs || '') + m + '\n'; };
+      const sk = await scenarioGen.pickScenarioKey(db0, null);
+      if (!sk) {
+        const msg = 'Tidak ada API Key Scenario yang aktif.';
+        onLog('[ERROR] ' + msg);
+        if (activeTasks[tId]) { activeTasks[tId].status = 'failed'; activeTasks[tId].error = msg; }
+        await db0.run('UPDATE generated_videos SET status = ?, error_message = ?, logs = ? WHERE id = ?', ['failed', msg, activeTasks[tId]?.logs || '', vRecId]);
+        return;
+      }
+      onLog('[Provider] Membuat video via Scenario API...');
+      try {
+        const { url, credit } = await scenarioGen.generateVideoScenario(sk, {
+          prompt: pText, sceneImage: scImg, generationType, duration, resolution, aspectRatio, generateAudio, model: model || 'model_bytedance-seedance-2-0', onLog
+        });
+        await db0.run('UPDATE generated_videos SET video_url = ?, status = ?, used_credits = ?, logs = ? WHERE id = ?', [url, 'success', credit || 0, activeTasks[tId]?.logs || '', vRecId]);
+        if (activeTasks[tId]) { activeTasks[tId].status = 'success'; activeTasks[tId].logs += '[Scenario] Video selesai.\n'; }
+      } catch (scErr) {
+        onLog('[ERROR] Scenario gagal: ' + scErr.message);
+        if (activeTasks[tId]) { activeTasks[tId].status = 'failed'; activeTasks[tId].error = scErr.message; }
+        await db0.run('UPDATE generated_videos SET status = ?, error_message = ?, logs = ? WHERE id = ?', ['failed', scErr.message, activeTasks[tId]?.logs || '', vRecId]);
+      }
+      return;
+    }
+  } catch (e) {}
+
   // Provider routing (Bagian 2): render via Magica (Seedance) when the storyboard
   // owner prefers Magica. The Freebeat spawn path below is left untouched.
   try {
@@ -1487,7 +1575,9 @@ async function generateAllVideos(req, res) {
     apiKeyId,
     magicaModel,
     magicaMethod,
-    magicaKeyId
+    magicaKeyId,
+    scenarioModel,
+    scenarioKeyId
   } = req.body;
 
   if (!storyboardId || !model || !generationType) {
@@ -1564,6 +1654,7 @@ async function generateAllVideos(req, res) {
       // via its own key pool, cycling through a DIFFERENT key per scene (round-robin) —
       // no more one-by-one sequential Magica rendering. Determined once for the batch.
       const isMagica = await magicaGen.isMagicaForStoryboard(getDb(), storyboardId);
+      const isScenario = await scenarioGen.isScenarioForStoryboard(getDb(), storyboardId);
 
       for (let sceneIdx = 0; sceneIdx < totalScenes; sceneIdx++) {
         // Re-read DB connection
@@ -1609,6 +1700,42 @@ async function generateAllVideos(req, res) {
             const parsedCdn = JSON.parse(storyboard.original_cdn_urls);
             if (Array.isArray(parsedCdn) && parsedCdn[pageIdx]) originalCdnUrl = parsedCdn[pageIdx];
           } catch (e) {}
+        }
+
+        // Scenario batch scene
+        if (isScenario) {
+          const sAllKeys = await scenarioGen.getAllActiveScenarioKeys(db, scenarioKeyId);
+          const sk = sAllKeys.length ? sAllKeys[sceneIdx % sAllKeys.length] : null;
+          const sTaskId = 'video_task_' + Date.now() + '_' + sceneIdx;
+          const sProviderLabel = scenarioModel ? `scenario:${scenarioModel}` : 'scenario:seedance';
+          const sIns = await db.run(
+            `INSERT INTO generated_videos (storyboard_id, scene_idx, prompt, model, aspect_ratio, duration, resolution, status, task_id, api_key_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [storyboardId, sceneIdx, promptText, sProviderLabel, aspectRatio || null, duration || null, finalBatchResolution || null, 'processing', sTaskId, null]
+          );
+          const sRecId = sIns.lastID;
+          activeTasks[sTaskId] = { status: 'processing', storyboardId, apiKeyId: null, logs: `=== VIDEO (SCENARIO) scene ${sceneIdx + 1} (Key #${sk ? sk.id : '-'}) ===\n`, result: null, error: null };
+
+          if (!sk) {
+            const msg = 'Tidak ada API Key Scenario yang aktif.';
+            activeTasks[sTaskId].status = 'failed'; activeTasks[sTaskId].error = msg;
+            await db.run('UPDATE generated_videos SET status = ?, error_message = ?, logs = ? WHERE id = ?', ['failed', msg, activeTasks[sTaskId].logs, sRecId]);
+          } else {
+            (async () => {
+              const onLog = (m) => { if (activeTasks[sTaskId]) activeTasks[sTaskId].logs += m + '\n'; };
+              try {
+                const { url, credit } = await scenarioGen.generateVideoScenario(sk, {
+                  prompt: promptText, sceneImage, referenceImages: charRefUrls, originalCdnUrl, generationType, duration: duration || 5, resolution: finalBatchResolution || '720p', aspectRatio: aspectRatio || '16:9', generateAudio: nativeAudio, model: scenarioModel || 'model_bytedance-seedance-2-0', onLog
+                });
+                await db.run('UPDATE generated_videos SET video_url = ?, status = ?, used_credits = ?, logs = ? WHERE id = ?', [url, 'success', credit || 0, activeTasks[sTaskId]?.logs || '', sRecId]);
+                if (activeTasks[sTaskId]) { activeTasks[sTaskId].status = 'success'; activeTasks[sTaskId].logs += '[Scenario] Video selesai.\n'; }
+              } catch (scErr) {
+                onLog('[ERROR] Scenario gagal: ' + scErr.message);
+                if (activeTasks[sTaskId]) { activeTasks[sTaskId].status = 'failed'; activeTasks[sTaskId].error = scErr.message; }
+                await db.run('UPDATE generated_videos SET status = ?, error_message = ?, logs = ? WHERE id = ?', ['failed', scErr.message, activeTasks[sTaskId]?.logs || '', sRecId]);
+              }
+            })();
+          }
+          continue;
         }
 
         // Magica batch scene — PARALLEL: fired off immediately (not awaited) so ALL
