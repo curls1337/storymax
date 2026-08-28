@@ -289,6 +289,7 @@ export default function Dashboard({ setTab }) {
   const [scenarioCatalog, setScenarioCatalog] = useState(null);
   const [scenarioVideoModel, setScenarioVideoModel] = useState('model_bytedance-seedance-2-0');
   const [scenarioKeyId, setScenarioKeyId] = useState('auto');
+  const [vidEstimate, setVidEstimate] = useState(null);
   const [effectivePromptPreview, setEffectivePromptPreview] = useState({ loading: false, prompt: '', error: '', audio: null });
 
   useEffect(() => {
