@@ -2615,19 +2615,26 @@ export default function Dashboard({ setTab }) {
                                 className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] focus:outline-none focus:border-[#38bdf8] transition-all font-semibold"
                               >
                                 {((scenarioCatalog && scenarioCatalog.videoModels) || [
-                                  { id: 'model_google-omni-flash', name: 'Gemini Omni (Google)' },
-                                  { id: 'model_xai-grok-imagine-video-1-5', name: 'Grok Imagine Video 1.5 (xAI)' },
-                                  { id: 'model_bytedance-seedance-2-5', name: 'Seedance 2.5 (ByteDance)' },
-                                  { id: 'model_bytedance-seedance-2-0', name: 'Seedance 2.0 (ByteDance)' },
-                                  { id: 'model_bytedance-seedance-2-0-fast', name: 'Seedance 2.0 Fast (ByteDance)' },
-                                  { id: 'model_kling-v3-omni-video', name: 'Kling V3 Omni Video' },
-                                  { id: 'model_kling-v3-i2v-pro', name: 'Kling V3 I2V Pro' },
-                                  { id: 'model_wan-2-7-i2v', name: 'Wan 2.7 I2V' },
-                                  { id: 'model_veo3-1-fast', name: 'Google Veo 3.1 Fast' },
-                                  { id: 'model_veo3-1-lite', name: 'Google Veo 3.1 Lite' },
-                                  { id: 'model_minimax-h3', name: 'Minimax H3' },
-                                  { id: 'model_ltx-2-5-pro', name: 'LTX 2.5 Pro' },
-                                  { id: 'model_pixverse-v6-t2v', name: 'PixVerse V6' }
+                                  { id: 'model_bytedance-seedance-2-5', name: 'Seedance 2.5 (ByteDance)', plan: 'Pro / Team Plan' },
+                                  { id: 'model_minimax-h3', name: 'Minimax H3 (Hailuo)', plan: 'Pro / Team Plan' },
+                                  { id: 'model_google-omni-flash', name: 'Gemini Omni (Google)', plan: 'Semua Plan' },
+                                  { id: 'model_bytedance-seedance-2-0-mini', name: 'Seedance 2.0 Mini (ByteDance)', plan: 'Pro / Team Plan' },
+                                  { id: 'model_runway-aleph-2', name: 'Runway Aleph 2 (Runway)', plan: 'Pro / Team Plan' },
+                                  { id: 'model_xai-grok-imagine-video-1-5', name: 'Grok Imagine Video 1.5 (xAI)', plan: 'Semua Plan' },
+                                  { id: 'model_pruna-p-avatar', name: 'P-Video Avatar Lipsync (Pruna)', plan: 'Semua Plan' },
+                                  { id: 'model_kling-v3-i2v-pro', name: 'Kling V3 I2V Pro (Kling)', plan: 'Pro / Team Plan' },
+                                  { id: 'model_kling-v3-omni-video', name: 'Kling V3 Omni Video (Kling)', plan: 'Pro / Team Plan' },
+                                  { id: 'model_bytedance-seedance-2-0', name: 'Seedance 2.0 (ByteDance)', plan: 'Pro / Team Plan' },
+                                  { id: 'model_bytedance-seedance-2-0-fast', name: 'Seedance 2.0 Fast (ByteDance)', plan: 'Pro / Team Plan' },
+                                  { id: 'model_wan-2-7-i2v', name: 'Wan 2.7 I2V (Alibaba)', plan: 'Pro / Team Plan' },
+                                  { id: 'model_wan-2-5-i2v', name: 'Wan 2.5 I2V (Alibaba)', plan: 'Pro / Team Plan' },
+                                  { id: 'model_ltx-2-5-pro', name: 'LTX-2.5 Pro (Lightricks)', plan: 'Pro / Team Plan' },
+                                  { id: 'model_ltx-2-5-fast', name: 'LTX-2.5 Fast (Lightricks)', plan: 'Pro / Team Plan' },
+                                  { id: 'model_veo3-1-fast', name: 'Google Veo 3.1 Fast (Google)', plan: 'Semua Plan' },
+                                  { id: 'model_veo3-1-lite', name: 'Google Veo 3.1 Lite (Google)', plan: 'Semua Plan' },
+                                  { id: 'model_veo3-1', name: 'Google Veo 3.1 (Google)', plan: 'Pro / Team Plan' },
+                                  { id: 'model_p-video', name: 'P-Video (Pruna)', plan: 'Semua Plan' },
+                                  { id: 'model_pixverse-v6-t2v', name: 'Pixverse V6 (PixVerse)', plan: 'Pro / Team Plan' }
                                 ]).map(m => (
                                   <option key={m.id} value={m.id}>
                                     {m.name} {m.plan ? `(${m.plan})` : ''}

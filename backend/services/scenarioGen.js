@@ -248,12 +248,68 @@ const SCENARIO_CATALOG = {
   ],
   videoModels: [
     {
+      id: 'model_bytedance-seedance-2-5',
+      name: 'Seedance 2.5 (ByteDance)',
+      tier: 50,
+      plan: 'Pro / Team Plan',
+      tags: ['Featured', 'Latest', 'I2V', 'Audio'],
+      durations: [-1, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20, 25, 30],
+      resolutions: ['480p', '720p', '1080p', '4k'],
+      aspectRatios: ['adaptive', '16:9', '9:16', '1:1', '4:3', '3:4', '21:9'],
+      hasAudio: true,
+      defaultDuration: 5,
+      defaultResolution: '720p',
+      defaultAspectRatio: 'adaptive'
+    },
+    {
+      id: 'model_minimax-h3',
+      name: 'Minimax H3 (Hailuo)',
+      tier: 50,
+      plan: 'Pro / Team Plan',
+      tags: ['Featured', 'Realistic', 'Cinematic'],
+      durations: [6, 10],
+      resolutions: ['768P', '2K'],
+      aspectRatios: ['adaptive', '16:9', '9:16', '1:1', '4:3', '3:4', '21:9'],
+      hasAudio: false,
+      defaultDuration: 6,
+      defaultResolution: '768P',
+      defaultAspectRatio: 'adaptive'
+    },
+    {
       id: 'model_google-omni-flash',
       name: 'Gemini Omni (Google)',
       tier: 25,
       plan: 'Semua Plan',
-      tags: ['Featured', 'Google', 'Omni', 'Semua Plan'],
+      tags: ['Featured', 'Google', 'Omni'],
       durations: [5, 8, 10],
+      resolutions: ['720p', '1080p'],
+      aspectRatios: ['16:9', '9:16'],
+      hasAudio: false,
+      defaultDuration: 5,
+      defaultResolution: '720p',
+      defaultAspectRatio: '16:9'
+    },
+    {
+      id: 'model_bytedance-seedance-2-0-mini',
+      name: 'Seedance 2.0 Mini (ByteDance)',
+      tier: 50,
+      plan: 'Pro / Team Plan',
+      tags: ['Featured', 'Fast', 'ByteDance'],
+      durations: [-1, 4, 5, 6, 7, 8, 9, 10, 12, 15],
+      resolutions: ['480p', '720p'],
+      aspectRatios: ['adaptive', '16:9', '9:16', '1:1', '4:3', '3:4', '21:9'],
+      hasAudio: true,
+      defaultDuration: 5,
+      defaultResolution: '720p',
+      defaultAspectRatio: 'adaptive'
+    },
+    {
+      id: 'model_runway-aleph-2',
+      name: 'Runway Aleph 2 (Runway)',
+      tier: 50,
+      plan: 'Pro / Team Plan',
+      tags: ['Featured', 'Runway', 'Cinematic'],
+      durations: [5, 10],
       resolutions: ['720p', '1080p'],
       aspectRatios: ['16:9', '9:16'],
       hasAudio: false,
@@ -266,7 +322,7 @@ const SCENARIO_CATALOG = {
       name: 'Grok Imagine Video 1.5 (xAI)',
       tier: 0,
       plan: 'Semua Plan',
-      tags: ['Fast', 'xAI', 'Audio', 'Semua Plan'],
+      tags: ['Featured', 'xAI', 'Fast', 'Audio'],
       durations: [5, 6, 8, 10],
       resolutions: ['480p', '720p', '1080p'],
       aspectRatios: ['16:9', '9:16', '1:1'],
@@ -276,25 +332,53 @@ const SCENARIO_CATALOG = {
       defaultAspectRatio: '16:9'
     },
     {
-      id: 'model_bytedance-seedance-2-5',
-      name: 'Seedance 2.5 (ByteDance)',
-      tier: 50,
-      plan: 'Pro / Team Plan',
-      tags: ['Latest', 'I2V', 'T2V', 'Audio', 'Pro Plan'],
-      durations: [-1, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20, 25, 30],
-      resolutions: ['480p', '720p', '1080p', '4k'],
-      aspectRatios: ['adaptive', '16:9', '9:16', '1:1', '4:3', '3:4', '21:9'],
+      id: 'model_pruna-p-avatar',
+      name: 'P-Video Avatar Lipsync (Pruna)',
+      tier: 25,
+      plan: 'Semua Plan',
+      tags: ['Featured', 'Avatar', 'Lipsync'],
+      durations: [5, 10, 15],
+      resolutions: ['720p', '1080p'],
+      aspectRatios: ['9:16', '16:9', '1:1'],
       hasAudio: true,
       defaultDuration: 5,
       defaultResolution: '720p',
-      defaultAspectRatio: 'adaptive'
+      defaultAspectRatio: '9:16'
+    },
+    {
+      id: 'model_kling-v3-i2v-pro',
+      name: 'Kling V3 I2V Pro (Kling)',
+      tier: 50,
+      plan: 'Pro / Team Plan',
+      tags: ['Featured', 'Motion', 'High Fidelity', 'Audio'],
+      durations: [3, 4, 5, 6, 7, 8, 9, 10, 15],
+      resolutions: ['720p', '1080p'],
+      aspectRatios: ['16:9', '9:16', '1:1'],
+      hasAudio: true,
+      defaultDuration: 5,
+      defaultResolution: '720p',
+      defaultAspectRatio: '16:9'
+    },
+    {
+      id: 'model_kling-v3-omni-video',
+      name: 'Kling V3 Omni Video (Kling)',
+      tier: 50,
+      plan: 'Pro / Team Plan',
+      tags: ['Omni', 'Motion', 'Audio'],
+      durations: [5, 10],
+      resolutions: ['720p', '1080p'],
+      aspectRatios: ['16:9', '9:16', '1:1'],
+      hasAudio: true,
+      defaultDuration: 5,
+      defaultResolution: '720p',
+      defaultAspectRatio: '16:9'
     },
     {
       id: 'model_bytedance-seedance-2-0',
       name: 'Seedance 2.0 (ByteDance)',
       tier: 50,
       plan: 'Pro / Team Plan',
-      tags: ['I2V', 'T2V', 'Audio', 'Pro Plan'],
+      tags: ['I2V', 'T2V', 'Audio'],
       durations: [-1, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
       resolutions: ['480p', '720p', '1080p', '4k'],
       aspectRatios: ['adaptive', '16:9', '9:16', '1:1', '4:3', '3:4', '21:9'],
@@ -308,7 +392,7 @@ const SCENARIO_CATALOG = {
       name: 'Seedance 2.0 Fast (ByteDance)',
       tier: 50,
       plan: 'Pro / Team Plan',
-      tags: ['Fast', 'I2V', 'Audio', 'Pro Plan'],
+      tags: ['Fast', 'I2V', 'Audio'],
       durations: [-1, 4, 5, 6, 7, 8, 9, 10, 12, 15],
       resolutions: ['480p', '720p'],
       aspectRatios: ['adaptive', '16:9', '9:16', '1:1', '4:3', '3:4', '21:9'],
@@ -318,39 +402,11 @@ const SCENARIO_CATALOG = {
       defaultAspectRatio: 'adaptive'
     },
     {
-      id: 'model_kling-v3-omni-video',
-      name: 'Kling V3 Omni Video',
-      tier: 50,
-      plan: 'Pro / Team Plan',
-      tags: ['Omni', 'Motion', 'Audio', 'Pro Plan'],
-      durations: [5, 10],
-      resolutions: ['720p', '1080p'],
-      aspectRatios: ['16:9', '9:16', '1:1'],
-      hasAudio: true,
-      defaultDuration: 5,
-      defaultResolution: '720p',
-      defaultAspectRatio: '16:9'
-    },
-    {
-      id: 'model_kling-v3-i2v-pro',
-      name: 'Kling V3 I2V Pro',
-      tier: 50,
-      plan: 'Pro / Team Plan',
-      tags: ['High Fidelity', 'Motion', 'Audio', 'Pro Plan'],
-      durations: [3, 4, 5, 6, 7, 8, 9, 10, 15],
-      resolutions: ['720p', '1080p'],
-      aspectRatios: ['16:9', '9:16', '1:1'],
-      hasAudio: true,
-      defaultDuration: 5,
-      defaultResolution: '720p',
-      defaultAspectRatio: '16:9'
-    },
-    {
       id: 'model_wan-2-7-i2v',
       name: 'Wan 2.7 I2V (Alibaba)',
       tier: 50,
       plan: 'Pro / Team Plan',
-      tags: ['Smooth Motion', 'Cinematic', 'Pro Plan'],
+      tags: ['Smooth Motion', 'Cinematic'],
       durations: [5, 10],
       resolutions: ['720p', '1080p'],
       aspectRatios: ['16:9', '9:16', '1:1'],
@@ -360,11 +416,53 @@ const SCENARIO_CATALOG = {
       defaultAspectRatio: '16:9'
     },
     {
+      id: 'model_wan-2-5-i2v',
+      name: 'Wan 2.5 I2V (Alibaba)',
+      tier: 50,
+      plan: 'Pro / Team Plan',
+      tags: ['Alibaba', 'Animation'],
+      durations: [5, 10],
+      resolutions: ['720p', '1080p'],
+      aspectRatios: ['16:9', '9:16', '1:1'],
+      hasAudio: false,
+      defaultDuration: 5,
+      defaultResolution: '720p',
+      defaultAspectRatio: '16:9'
+    },
+    {
+      id: 'model_ltx-2-5-pro',
+      name: 'LTX-2.5 Pro (Lightricks)',
+      tier: 50,
+      plan: 'Pro / Team Plan',
+      tags: ['Pro', 'Fast', 'Audio'],
+      durations: [6, 8, 10],
+      resolutions: ['720p', '1080p'],
+      aspectRatios: ['auto', '16:9', '9:16'],
+      hasAudio: true,
+      defaultDuration: 6,
+      defaultResolution: '720p',
+      defaultAspectRatio: '16:9'
+    },
+    {
+      id: 'model_ltx-2-5-fast',
+      name: 'LTX-2.5 Fast (Lightricks)',
+      tier: 50,
+      plan: 'Pro / Team Plan',
+      tags: ['Fast', 'Lightricks', 'Audio'],
+      durations: [6, 8, 10],
+      resolutions: ['720p', '1080p'],
+      aspectRatios: ['auto', '16:9', '9:16'],
+      hasAudio: true,
+      defaultDuration: 6,
+      defaultResolution: '720p',
+      defaultAspectRatio: '16:9'
+    },
+    {
       id: 'model_veo3-1-fast',
       name: 'Google Veo 3.1 Fast (Google)',
       tier: 25,
       plan: 'Semua Plan',
-      tags: ['Featured', 'Google', 'Audio', 'Semua Plan'],
+      tags: ['Google', 'Audio'],
       durations: [4, 6, 8],
       resolutions: ['720p', '1080p'],
       aspectRatios: ['16:9', '9:16'],
@@ -378,7 +476,7 @@ const SCENARIO_CATALOG = {
       name: 'Google Veo 3.1 Lite (Google)',
       tier: 25,
       plan: 'Semua Plan',
-      tags: ['Google', 'Fast', 'Audio', 'Semua Plan'],
+      tags: ['Google', 'Fast', 'Audio'],
       durations: [4, 6, 8],
       resolutions: ['720p', '1080p'],
       aspectRatios: ['16:9', '9:16'],
@@ -388,39 +486,39 @@ const SCENARIO_CATALOG = {
       defaultAspectRatio: '16:9'
     },
     {
-      id: 'model_minimax-h3',
-      name: 'Minimax H3 (Hailuo)',
+      id: 'model_veo3-1',
+      name: 'Google Veo 3.1 (Google)',
       tier: 50,
       plan: 'Pro / Team Plan',
-      tags: ['Realistic', 'Cinematic', 'Pro Plan'],
-      durations: [6, 10],
-      resolutions: ['768P', '2K'],
-      aspectRatios: ['adaptive', '16:9', '9:16', '1:1', '4:3', '3:4', '21:9'],
-      hasAudio: false,
-      defaultDuration: 6,
-      defaultResolution: '768P',
-      defaultAspectRatio: 'adaptive'
-    },
-    {
-      id: 'model_ltx-2-5-pro',
-      name: 'LTX-2.5 Pro',
-      tier: 50,
-      plan: 'Pro / Team Plan',
-      tags: ['Pro', 'Fast', 'Audio', 'Pro Plan'],
-      durations: [6, 8, 10],
+      tags: ['Google', 'Cinematic', 'Audio'],
+      durations: [4, 6, 8],
       resolutions: ['720p', '1080p'],
-      aspectRatios: ['auto', '16:9', '9:16'],
+      aspectRatios: ['16:9', '9:16'],
       hasAudio: true,
       defaultDuration: 6,
       defaultResolution: '720p',
       defaultAspectRatio: '16:9'
     },
     {
+      id: 'model_p-video',
+      name: 'P-Video (Pruna)',
+      tier: 0,
+      plan: 'Semua Plan',
+      tags: ['Pruna', 'Fast'],
+      durations: [5, 8],
+      resolutions: ['720p', '1080p'],
+      aspectRatios: ['16:9', '9:16', '1:1'],
+      hasAudio: false,
+      defaultDuration: 5,
+      defaultResolution: '720p',
+      defaultAspectRatio: '16:9'
+    },
+    {
       id: 'model_pixverse-v6-t2v',
-      name: 'Pixverse V6',
+      name: 'Pixverse V6 (PixVerse)',
       tier: 50,
       plan: 'Pro / Team Plan',
-      tags: ['Dynamic Animation', 'Pro Plan'],
+      tags: ['Dynamic Animation'],
       durations: [5, 8],
       resolutions: ['720p', '1080p'],
       aspectRatios: ['16:9', '9:16', '1:1'],
@@ -507,22 +605,30 @@ async function generateVideoScenario(keyRecord, options = {}) {
   } else if (modelId === 'model_xai-grok-imagine-video-1-5') {
     params.duration = duration === -1 ? 5 : Number(duration);
     params.aspectRatio = aspectRatio === 'adaptive' || aspectRatio === 'auto' ? '16:9' : aspectRatio;
-    params.resolution = resolution;
-  } else if (modelId === 'model_kling-v3-omni-video' || modelId === 'model_kling-v3-i2v-pro') {
-    params.duration = modelId === 'model_kling-v3-i2v-pro' ? String(duration === -1 ? '5' : duration) : (duration === -1 ? 5 : Number(duration));
+    params.resolution = resolution || '720p';
+  } else if (modelId === 'model_kling-v3-i2v-pro') {
+    params.duration = String(duration === -1 ? '5' : duration);
     params.aspectRatio = aspectRatio === 'adaptive' || aspectRatio === 'auto' ? '16:9' : aspectRatio;
     params.generateAudio = generateAudio;
-  } else if (modelId === 'model_minimax-h3') {
+  } else if (modelId === 'model_kling-v3-omni-video') {
+    params.duration = duration === -1 ? 5 : Number(duration);
+    params.aspectRatio = aspectRatio === '9:16' ? '9:16' : (aspectRatio === '1:1' ? '1:1' : '16:9');
+    params.generateAudio = generateAudio;
+  } else if (modelId.includes('minimax')) {
     params.duration = duration === -1 ? 6 : Number(duration);
     params.resolution = resolution === '1080p' || resolution === '4k' ? '2K' : '768P';
     params.aspectRatio = aspectRatio;
-  } else if (modelId === 'model_pixverse-v6-t2v') {
+  } else if (modelId.includes('pixverse')) {
     params.duration = duration === -1 ? 5 : Number(duration);
     params.resolution = resolution;
     params.aspectRatio = aspectRatio;
     params.generateAudioSwitch = generateAudio;
+  } else if (modelId.includes('p-avatar')) {
+    params.voiceScript = params.prompt;
+    params.videoPrompt = params.prompt;
+    params.resolution = resolution || '720p';
   } else {
-    // Seedance 2.5, Seedance 2.0, Seedance Fast, Wan, LTX, Veo 3.1
+    // Seedance 2.5, Seedance 2.0, Seedance Fast, Seedance Mini, Wan 2.7, Wan 2.5, LTX Pro, LTX Fast, Veo 3.1
     params.aspectRatio = aspectRatio;
     params.duration = duration === -1 ? -1 : Number(duration);
     params.resolution = resolution;
@@ -532,9 +638,9 @@ async function generateVideoScenario(keyRecord, options = {}) {
   // First frame / scene image
   const assetId = await ensureScenarioAssetId(keyRecord, options.sceneImage, options.originalCdnUrl, onLog);
   if (assetId) {
-    if (modelId === 'model_kling-v3-i2v-pro' || modelId === 'model_kling-v3-omni-video') {
+    if (modelId.includes('kling')) {
       params.startImage = assetId;
-    } else if (modelId === 'model_minimax-h3') {
+    } else if (modelId.includes('minimax')) {
       params.firstFrameImage = assetId;
     } else {
       params.image = assetId;
