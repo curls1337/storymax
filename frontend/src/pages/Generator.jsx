@@ -279,21 +279,6 @@ export default function Generator({ setTab, selectedCharacter }) {
         }).catch(() => {});
       }
     }).catch(() => {});
-
-  // Sync Scenario catalog when scenarioKeyId changes
-  useEffect(() => {
-    if (userProvider !== 'scenario') return;
-    api.get(`/scenario/catalog?keyId=${scenarioKeyId || 'auto'}`).then((c) => {
-      setScenarioCatalog(c.data);
-      const imgs = (c.data && c.data.imageModels) || [];
-      const supp = imgs.filter(m => m.isSupported !== false);
-      const cur = imgs.find(m => m.id === scenarioImageModel);
-      if (!cur || cur.isSupported === false) {
-        const firstSupp = supp[0] || imgs[0];
-        if (firstSupp) setScenarioImageModel(firstSupp.id);
-      }
-    }).catch(() => {});
-  }, [userProvider, scenarioKeyId]);
     const savedTaskId = localStorage.getItem('activeTaskId');
     if (savedTaskId) {
       setCurrentTaskId(savedTaskId);
@@ -318,6 +303,21 @@ export default function Generator({ setTab, selectedCharacter }) {
     } catch (e) {}
     return () => { if (pollIntervalRef.current) clearInterval(pollIntervalRef.current); };
   }, []);
+
+  // Sync Scenario catalog when scenarioKeyId changes
+  useEffect(() => {
+    if (userProvider !== 'scenario') return;
+    api.get(`/scenario/catalog?keyId=${scenarioKeyId || 'auto'}`).then((c) => {
+      setScenarioCatalog(c.data);
+      const imgs = (c.data && c.data.imageModels) || [];
+      const supp = imgs.filter(m => m.isSupported !== false);
+      const cur = imgs.find(m => m.id === scenarioImageModel);
+      if (!cur || cur.isSupported === false) {
+        const firstSupp = supp[0] || imgs[0];
+        if (firstSupp) setScenarioImageModel(firstSupp.id);
+      }
+    }).catch(() => {});
+  }, [userProvider, scenarioKeyId]);
 
   // Live Magica cost estimate for ONE storyboard image (per gambar).
   useEffect(() => {
