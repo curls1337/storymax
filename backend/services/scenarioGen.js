@@ -179,7 +179,7 @@ async function executeWithScenarioFailover(db, fn, { onLog, specificKeyId } = {}
     } catch (err) {
       lastError = err;
       const errStr = String(err.message || err);
-      const isAuthOrQuota = /unauthorized|401|403|quota|credit|insufficient|limit/i.test(errStr);
+      const isAuthOrQuota = /unauthorized|401|403|429|quota|credit|insufficient|limit/i.test(errStr);
       if (isAuthOrQuota) {
         try {
           await db.run('UPDATE scenario_api_keys SET is_active = 0, last_status = ? WHERE id = ?', [`Error: ${errStr.slice(0, 60)}`, keyRecord.id]);
