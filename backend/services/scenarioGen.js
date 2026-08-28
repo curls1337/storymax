@@ -179,18 +179,38 @@ async function executeWithScenarioFailover(db, fn, { onLog, specificKeyId } = {}
     } catch (err) {
       lastError = err;
       const errStr = String(err.message || err);
-      const isAuthOrQuota = /unauthorized|401|403|429|quota|credit|insufficient|limit/i.test(errStr);
-      if (isAuthOrQuota) {
+      
+      const isPermanentlyInvalid = /unauthorized|401|invalid api key|api_key_invalid/i.test(errStr);
+      const isPlanRestriction = /not allowed to use this model|403/i.test(errStr);
+      const isQuotaLimit = /429|quota|credit|insufficient|reached your plan's limit/i.test(errStr);
+
+      if (isPermanentlyInvalid) {
+        // Key salah / dicabut -> nonaktifkan
         try {
-          await db.run('UPDATE scenario_api_keys SET is_active = 0, last_status = ? WHERE id = ?', [`Error: ${errStr.slice(0, 60)}`, keyRecord.id]);
+          await db.run('UPDATE scenario_api_keys SET is_active = 0, last_status = ? WHERE id = ?', [`Invalid Key: ${errStr.slice(0, 50)}`, keyRecord.id]);
         } catch (e) {}
-        if (onLog) onLog(`[Scenario Auto-Switch ⚠️] Key #${keyRecord.id} dinonaktifkan: ${errStr}`);
+        if (onLog) onLog(`[Scenario Auto-Switch ⚠️] Key #${keyRecord.id} tidak valid & dinonaktifkan: ${errStr}`);
+      } else if (isPlanRestriction) {
+        // Model butuh paket lebih tinggi -> JANGAN nonaktifkan key, key masih bisa untuk model lain!
+        try {
+          await db.run('UPDATE scenario_api_keys SET last_status = ? WHERE id = ?', [`Model butuh Pro plan`, keyRecord.id]);
+        } catch (e) {}
+        if (onLog) onLog(`[Scenario ℹ️] Key #${keyRecord.id} tidak memiliki akses ke model ini (butuh Pro Plan).`);
+      } else if (isQuotaLimit) {
+        // Kuota habis -> update status
+        try {
+          await db.run('UPDATE scenario_api_keys SET last_status = ? WHERE id = ?', [`Limit: ${errStr.slice(0, 50)}`, keyRecord.id]);
+        } catch (e) {}
+        if (onLog) onLog(`[Scenario ⚠️] Key #${keyRecord.id} mencapai batas kuota: ${errStr}`);
       } else {
-        if (onLog) onLog(`[Scenario ⚠️] Key #${keyRecord.id} gagal: ${errStr}`);
+        try {
+          await db.run('UPDATE scenario_api_keys SET last_status = ? WHERE id = ?', [`Error: ${errStr.slice(0, 50)}`, keyRecord.id]);
+        } catch (e) {}
+        if (onLog) onLog(`[Scenario ⚠️] Key #${keyRecord.id} error: ${errStr}`);
       }
 
       if (i < keys.length - 1 && onLog) {
-        onLog(`[Scenario Auto-Switch 🔄] Beralih ke Key #${keys[i + 1].id}...`);
+        onLog(`[Scenario Auto-Switch 🔄] Mencoba Key #${keys[i + 1].id}...`);
       }
     }
   }
