@@ -122,7 +122,7 @@ async function executeWithScenarioFailover(db, fn, { onLog, specificKeyId } = {}
 }
 
 /**
- * Curated list of popular Scenario models for Images & Videos
+ * Curated list of popular Scenario models for Images & Videos with exact allowed settings
  */
 const SCENARIO_CATALOG = {
   imageModels: [
@@ -135,13 +135,90 @@ const SCENARIO_CATALOG = {
     { id: 'model_flux-1-schnell', name: 'FLUX 1 Schnell', tags: ['Ultra Fast'] }
   ],
   videoModels: [
-    { id: 'model_bytedance-seedance-2-0', name: 'Seedance 2.0 (ByteDance)', tags: ['I2V', 'T2V', 'Audio', 'Featured'] },
-    { id: 'model_bytedance-seedance-2-5', name: 'Seedance 2.5 (ByteDance)', tags: ['Latest', 'I2V', 'Audio'] },
-    { id: 'model_kling-v3-i2v-pro', name: 'Kling V3 I2V Pro', tags: ['High Fidelity', 'Motion'] },
-    { id: 'model_wan-2-7-i2v', name: 'Wan 2.7 I2V (Alibaba)', tags: ['Smooth Motion', 'Cinematic'] },
-    { id: 'model_ltx-2-5-pro', name: 'LTX-2.5 Pro', tags: ['Pro', 'Fast'] },
-    { id: 'model_minimax-h3', name: 'Minimax H3 (Hailuo)', tags: ['Realistic'] },
-    { id: 'model_pixverse-v6-t2v', name: 'Pixverse V6', tags: ['Dynamic Animation'] }
+    {
+      id: 'model_bytedance-seedance-2-0',
+      name: 'Seedance 2.0 (ByteDance)',
+      tags: ['I2V', 'T2V', 'Audio', 'Featured'],
+      durations: [-1, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+      resolutions: ['480p', '720p', '1080p', '4k'],
+      aspectRatios: ['adaptive', '16:9', '9:16', '1:1', '4:3', '3:4', '21:9'],
+      hasAudio: true,
+      defaultDuration: 5,
+      defaultResolution: '720p',
+      defaultAspectRatio: 'adaptive'
+    },
+    {
+      id: 'model_bytedance-seedance-2-5',
+      name: 'Seedance 2.5 (ByteDance)',
+      tags: ['Latest', 'I2V', 'T2V', 'Audio'],
+      durations: [-1, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20, 25, 30],
+      resolutions: ['480p', '720p', '1080p', '4k'],
+      aspectRatios: ['adaptive', '16:9', '9:16', '1:1', '4:3', '3:4', '21:9'],
+      hasAudio: true,
+      defaultDuration: 5,
+      defaultResolution: '720p',
+      defaultAspectRatio: 'adaptive'
+    },
+    {
+      id: 'model_kling-v3-i2v-pro',
+      name: 'Kling V3 I2V Pro',
+      tags: ['High Fidelity', 'Motion', 'Audio'],
+      durations: [3, 4, 5, 6, 7, 8, 9, 10, 15],
+      resolutions: ['720p', '1080p'],
+      aspectRatios: ['16:9', '9:16', '1:1'],
+      hasAudio: true,
+      defaultDuration: 5,
+      defaultResolution: '720p',
+      defaultAspectRatio: '16:9'
+    },
+    {
+      id: 'model_wan-2-7-i2v',
+      name: 'Wan 2.7 I2V (Alibaba)',
+      tags: ['Smooth Motion', 'Cinematic'],
+      durations: [5, 10],
+      resolutions: ['720p', '1080p'],
+      aspectRatios: ['16:9', '9:16', '1:1'],
+      hasAudio: false,
+      defaultDuration: 5,
+      defaultResolution: '720p',
+      defaultAspectRatio: '16:9'
+    },
+    {
+      id: 'model_ltx-2-5-pro',
+      name: 'LTX-2.5 Pro',
+      tags: ['Pro', 'Fast'],
+      durations: [5, 10],
+      resolutions: ['720p', '1080p'],
+      aspectRatios: ['16:9', '9:16', '1:1'],
+      hasAudio: false,
+      defaultDuration: 5,
+      defaultResolution: '720p',
+      defaultAspectRatio: '16:9'
+    },
+    {
+      id: 'model_minimax-h3',
+      name: 'Minimax H3 (Hailuo)',
+      tags: ['Realistic', 'Cinematic'],
+      durations: [6, 10],
+      resolutions: ['768P', '2K'],
+      aspectRatios: ['adaptive', '16:9', '9:16', '1:1', '4:3', '3:4', '21:9'],
+      hasAudio: false,
+      defaultDuration: 6,
+      defaultResolution: '768P',
+      defaultAspectRatio: 'adaptive'
+    },
+    {
+      id: 'model_pixverse-v6-t2v',
+      name: 'Pixverse V6',
+      tags: ['Dynamic Animation'],
+      durations: [5, 8],
+      resolutions: ['720p', '1080p'],
+      aspectRatios: ['16:9', '9:16', '1:1'],
+      hasAudio: false,
+      defaultDuration: 5,
+      defaultResolution: '720p',
+      defaultAspectRatio: '16:9'
+    }
   ]
 };
 

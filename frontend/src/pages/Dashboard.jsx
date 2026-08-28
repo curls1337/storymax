@@ -345,6 +345,27 @@ export default function Dashboard({ setTab }) {
     if (mt.hasAudio === false && videoGenerateAudio) setVideoGenerateAudio(false);
   }, [userProvider, magicaCatalog, magicaVideoModel, magicaVideoMethod]);
 
+  // Auto-switch defaults when selected Scenario video model changes
+  useEffect(() => {
+    if (userProvider !== 'scenario' || !scenarioCatalog) return;
+    const sm = (scenarioCatalog.videoModels || []).find(m => m.id === scenarioVideoModel);
+    if (!sm) return;
+    if (Array.isArray(sm.durations) && sm.durations.length && !sm.durations.map(String).includes(String(videoDuration))) {
+      setVideoDuration(String(sm.defaultDuration !== undefined ? sm.defaultDuration : sm.durations[0]));
+    }
+    if (Array.isArray(sm.resolutions) && sm.resolutions.length && !sm.resolutions.includes(videoResolution)) {
+      setVideoResolution(sm.resolutions.includes('720p') ? '720p' : sm.resolutions[0]);
+    }
+    if (Array.isArray(sm.aspectRatios) && sm.aspectRatios.length && !sm.aspectRatios.includes(videoAspectRatio)) {
+      setVideoAspectRatio(sm.aspectRatios.includes('9:16') ? '9:16' : (sm.aspectRatios.includes('adaptive') ? 'adaptive' : sm.aspectRatios[0]));
+    }
+    if (sm.hasAudio === false && videoGenerateAudio) setVideoGenerateAudio(false);
+  }, [userProvider, scenarioCatalog, scenarioVideoModel]);
+
+  const scenarioVM = (userProvider === 'scenario' && scenarioCatalog)
+    ? (scenarioCatalog.videoModels || []).find(m => m.id === scenarioVideoModel) || null
+    : null;
+
   // The currently selected Magica video method object (with its allowed duration/
   // resolution/aspect options). Used to keep the controlled selects valid.
   const magicaVMt = (userProvider === 'magica' && magicaCatalog)
@@ -2674,18 +2695,16 @@ export default function Dashboard({ setTab }) {
                           <div className="space-y-1">
                             <label className="text-[8px] font-bold uppercase tracking-widest text-slate-500">Durasi</label>
                             <select
-                              value={magicaVMt ? (inOpts(magicaVMt.durations, videoDuration) ? videoDuration : String((magicaVMt.durations || [5])[0])) : videoDuration}
+                              value={scenarioVM ? (scenarioVM.durations?.map(String).includes(String(videoDuration)) ? videoDuration : String(scenarioVM.defaultDuration !== undefined ? scenarioVM.defaultDuration : 5)) : (magicaVMt ? (inOpts(magicaVMt.durations, videoDuration) ? videoDuration : String((magicaVMt.durations || [5])[0])) : videoDuration)}
                               onChange={(e) => setVideoDuration(e.target.value)}
                               className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-1.5 py-1 text-white text-[9px] focus:outline-none focus:border-[#cfae80] font-semibold"
                             >
                               {(() => {
                                 if (userProvider === 'scenario') {
-                                  return (
-                                    <>
-                                      <option value="5">5s</option>
-                                      <option value="10">10s</option>
-                                    </>
-                                  );
+                                  const durs = scenarioVM?.durations || [-1, 4, 5, 6, 7, 8, 9, 10, 12, 15];
+                                  return durs.map(d => (
+                                    <option key={d} value={d}>{d === -1 ? 'Auto (Adaptif)' : `${d}s`}</option>
+                                  ));
                                 }
                                 if (userProvider === 'magica') {
                                   const mm = (magicaCatalog?.videoModels || []).find(x => x.nodeType === magicaVideoModel);
@@ -2704,20 +2723,20 @@ export default function Dashboard({ setTab }) {
                           <div className="space-y-1">
                             <label className="text-[8px] font-bold uppercase tracking-widest text-slate-500">Resolusi</label>
                             <select
-                              value={magicaVMt ? ((magicaVMt.resolutions && magicaVMt.resolutions.length) ? (inOpts(magicaVMt.resolutions, videoResolution) ? videoResolution : magicaVMt.resolutions[0]) : '') : videoResolution}
+                              value={scenarioVM ? (scenarioVM.resolutions?.includes(videoResolution) ? videoResolution : (scenarioVM.defaultResolution || '720p')) : (magicaVMt ? ((magicaVMt.resolutions && magicaVMt.resolutions.length) ? (inOpts(magicaVMt.resolutions, videoResolution) ? videoResolution : magicaVMt.resolutions[0]) : '') : videoResolution)}
                               onChange={(e) => setVideoResolution(e.target.value)}
                               className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-1.5 py-1 text-white text-[9px] focus:outline-none focus:border-[#cfae80] font-semibold"
                             >
                               {(() => {
                                 const isHdAllowed = currentUser && Number(currentUser.allow_hd_resolutions) === 1;
                                 if (userProvider === 'scenario') {
-                                  return (
-                                    <>
-                                      <option value="720p">720p</option>
-                                      {isHdAllowed && <option value="1080p">1080p</option>}
-                                      {isHdAllowed && <option value="4k">4K</option>}
-                                    </>
-                                  );
+                                  let res = scenarioVM?.resolutions || ['480p', '720p', '1080p', '4k'];
+                                  if (!isHdAllowed) {
+                                    res = res.filter(r => !/1080|4k|2160|2k/i.test(String(r)));
+                                  }
+                                  return res.map(r => (
+                                    <option key={r} value={r}>{r}</option>
+                                  ));
                                 }
                                 if (userProvider === 'magica') {
                                   const mm = (magicaCatalog?.videoModels || []).find(x => x.nodeType === magicaVideoModel);
@@ -2746,17 +2765,18 @@ export default function Dashboard({ setTab }) {
                           <div className="space-y-1">
                             <label className="text-[8px] font-bold uppercase tracking-widest text-slate-500">Rasio</label>
                             <select
-                              value={magicaVMt ? (inOpts(magicaVMt.aspectRatios, videoAspectRatio) ? videoAspectRatio : ((magicaVMt.aspectRatios || ['auto'])[0])) : videoAspectRatio}
+                              value={scenarioVM ? (scenarioVM.aspectRatios?.includes(videoAspectRatio) ? videoAspectRatio : (scenarioVM.defaultAspectRatio || 'adaptive')) : (magicaVMt ? (inOpts(magicaVMt.aspectRatios, videoAspectRatio) ? videoAspectRatio : ((magicaVMt.aspectRatios || ['auto'])[0])) : videoAspectRatio)}
                               onChange={(e) => setVideoAspectRatio(e.target.value)}
                               className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-1.5 py-1 text-white text-[9px] focus:outline-none focus:border-[#cfae80] font-semibold"
                             >
-                              {userProvider === 'scenario' ? (
-                                <>
-                                  <option value="16:9">16:9 (Landscape)</option>
-                                  <option value="9:16">9:16 (Portrait)</option>
-                                  <option value="1:1">1:1 (Square)</option>
-                                </>
-                              ) : userProvider === 'magica' ? (() => {
+                              {userProvider === 'scenario' ? (() => {
+                                const ars = scenarioVM?.aspectRatios || ['adaptive', '16:9', '9:16', '1:1', '4:3', '3:4', '21:9'];
+                                return ars.map(a => (
+                                  <option key={a} value={a}>
+                                    {a === 'adaptive' || a === 'auto' ? 'Auto (Adaptive)' : a === '16:9' ? '16:9 (Landscape)' : a === '9:16' ? '9:16 (Portrait)' : a === '1:1' ? '1:1 (Square)' : a === '21:9' ? '21:9 (Ultrawide)' : a}
+                                  </option>
+                                ));
+                              })() : userProvider === 'magica' ? (() => {
                                 const mm = (magicaCatalog?.videoModels || []).find(x => x.nodeType === magicaVideoModel);
                                 const mt = mm && (mm.methods || []).find(x => x.category === magicaVideoMethod);
                                 const ars = (mt && mt.aspectRatios) || ['auto'];
@@ -2776,10 +2796,12 @@ export default function Dashboard({ setTab }) {
                         {(() => {
                           const mm = userProvider === 'magica' ? (magicaCatalog?.videoModels || []).find(x => x.nodeType === magicaVideoModel) : null;
                           const mt = mm && (mm.methods || []).find(x => x.category === magicaVideoMethod);
-                          const audioUnavailable = Boolean(userProvider === 'magica' && mt && mt.hasAudio === false);
-                          // For Magica, we allow checking Voice Over even if Audio Native is unavailable,
-                          // because we can still send the VO instructions via the text prompt.
-                          const canForceVo = userProvider === 'magica';
+                          const sm = userProvider === 'scenario' ? scenarioVM : null;
+                          const audioUnavailable = Boolean(
+                            (userProvider === 'magica' && mt && mt.hasAudio === false) ||
+                            (userProvider === 'scenario' && sm && sm.hasAudio === false)
+                          );
+                          const canForceVo = userProvider === 'magica' || userProvider === 'scenario';
 
                           return (
                             <>
