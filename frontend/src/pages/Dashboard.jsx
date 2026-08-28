@@ -60,54 +60,6 @@ export default function Dashboard({ setTab }) {
   }, []);
 
   useEffect(() => {
-    api.get('/auth/me').then((r) => {
-      setCurrentUser(r.data);
-      const pp = r.data.preferred_provider || 'freebeat';
-      setUserProvider(pp);
-      if (pp === 'magica') {
-        api.get('/magica/catalog').then((c) => {
-          setMagicaCatalog(c.data);
-          const vids = (c.data && c.data.videoModels) || [];
-          const refPref = ['seedance_2_0_reference', 'seedance_2_0_fast_reference', 'happy_horse_reference'];
-          const def = refPref.map((nt) => vids.find((m) => m.nodeType === nt)).find(Boolean)
-            || vids.find((m) => (m.methods || []).some((x) => x.category === 'reference-to-video'))
-            || vids.find((m) => m.nodeType === 'seedance_2_0') || vids[0];
-          if (def) {
-            setMagicaVideoModel(def.nodeType);
-            const pref = (def.methods || []).find((x) => x.category === 'reference-to-video')
-              || (def.methods || []).find((x) => x.category === 'image-to-video')
-              || (def.methods || [])[0];
-            if (pref) setMagicaVideoMethod(pref.category);
-          }
-        }).catch(() => {});
-      } else if (pp === 'scenario') {
-        api.get(`/scenario/catalog?keyId=${scenarioKeyId || 'auto'}`).then((c) => {
-          setScenarioCatalog(c.data);
-          const vids = (c.data && c.data.videoModels) || [];
-          const supp = vids.filter(m => m.isSupported !== false);
-          const def = supp[0]?.id || vids[0]?.id || 'model_veo3-1-fast';
-          setScenarioVideoModel(def);
-        }).catch(() => {});
-      }
-    }).catch(() => {});
-  }, []);
-
-  // Sync Scenario catalog when scenarioKeyId or userProvider changes
-  useEffect(() => {
-    if (userProvider !== 'scenario') return;
-    api.get(`/scenario/catalog?keyId=${scenarioKeyId || 'auto'}`).then((c) => {
-      setScenarioCatalog(c.data);
-      const vids = (c.data && c.data.videoModels) || [];
-      const supp = vids.filter(m => m.isSupported !== false);
-      const cur = vids.find(m => m.id === scenarioVideoModel);
-      if (!cur || cur.isSupported === false) {
-        const firstSupp = supp[0] || vids[0];
-        if (firstSupp) setScenarioVideoModel(firstSupp.id);
-      }
-    }).catch(() => {});
-  }, [userProvider, scenarioKeyId]);
-
-  useEffect(() => {
     const hasProcessing = storyboards.some(sb => sb.status === 'processing');
     let interval;
     if (hasProcessing) {
@@ -337,8 +289,55 @@ export default function Dashboard({ setTab }) {
   const [scenarioCatalog, setScenarioCatalog] = useState(null);
   const [scenarioVideoModel, setScenarioVideoModel] = useState('model_bytedance-seedance-2-0');
   const [scenarioKeyId, setScenarioKeyId] = useState('auto');
-  const [vidEstimate, setVidEstimate] = useState(null);
   const [effectivePromptPreview, setEffectivePromptPreview] = useState({ loading: false, prompt: '', error: '', audio: null });
+
+  useEffect(() => {
+    api.get('/auth/me').then((r) => {
+      setCurrentUser(r.data);
+      const pp = r.data.preferred_provider || 'freebeat';
+      setUserProvider(pp);
+      if (pp === 'magica') {
+        api.get('/magica/catalog').then((c) => {
+          setMagicaCatalog(c.data);
+          const vids = (c.data && c.data.videoModels) || [];
+          const refPref = ['seedance_2_0_reference', 'seedance_2_0_fast_reference', 'happy_horse_reference'];
+          const def = refPref.map((nt) => vids.find((m) => m.nodeType === nt)).find(Boolean)
+            || vids.find((m) => (m.methods || []).some((x) => x.category === 'reference-to-video'))
+            || vids.find((m) => m.nodeType === 'seedance_2_0') || vids[0];
+          if (def) {
+            setMagicaVideoModel(def.nodeType);
+            const pref = (def.methods || []).find((x) => x.category === 'reference-to-video')
+              || (def.methods || []).find((x) => x.category === 'image-to-video')
+              || (def.methods || [])[0];
+            if (pref) setMagicaVideoMethod(pref.category);
+          }
+        }).catch(() => {});
+      } else if (pp === 'scenario') {
+        api.get(`/scenario/catalog?keyId=${scenarioKeyId || 'auto'}`).then((c) => {
+          setScenarioCatalog(c.data);
+          const vids = (c.data && c.data.videoModels) || [];
+          const supp = vids.filter(m => m.isSupported !== false);
+          const def = supp[0]?.id || vids[0]?.id || 'model_veo3-1-fast';
+          setScenarioVideoModel(def);
+        }).catch(() => {});
+      }
+    }).catch(() => {});
+  }, []);
+
+  // Sync Scenario catalog when scenarioKeyId or userProvider changes
+  useEffect(() => {
+    if (userProvider !== 'scenario') return;
+    api.get(`/scenario/catalog?keyId=${scenarioKeyId || 'auto'}`).then((c) => {
+      setScenarioCatalog(c.data);
+      const vids = (c.data && c.data.videoModels) || [];
+      const supp = vids.filter(m => m.isSupported !== false);
+      const cur = vids.find(m => m.id === scenarioVideoModel);
+      if (!cur || cur.isSupported === false) {
+        const firstSupp = supp[0] || vids[0];
+        if (firstSupp) setScenarioVideoModel(firstSupp.id);
+      }
+    }).catch(() => {});
+  }, [userProvider, scenarioKeyId]);
 
   // When the Magica video model/method changes, clamp duration/resolution/aspect and
   // the audio toggle to exactly what THAT model supports (each Magica model differs).
