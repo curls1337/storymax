@@ -41,42 +41,27 @@ function toPublicUrl(p, cdnFallback) {
 }
 
 /**
- * Ensure an image is accessible by Scenario API.
- * If the image is stored locally (or base is localhost/non-public), it directly
- * uploads the image file to Scenario Cloud Assets via POST /v1/assets and returns
- * the public Scenario CDN asset URL.
+ * Ensure an image is converted to a valid Scenario Asset ID (asset_...).
+ * Scenario custom generation endpoints require an assetId for file inputs.
  */
-async function ensureScenarioAccessibleUrl(keyRecord, imagePathOrUrl, cdnFallback, onLog) {
+async function ensureScenarioAssetId(keyRecord, imagePathOrUrl, cdnFallback, onLog) {
   const log = typeof onLog === 'function' ? onLog : () => {};
   if (!imagePathOrUrl && !cdnFallback) return null;
 
-  // 1. If cdnFallback or imagePathOrUrl is already a real public external HTTP(S) URL
-  const candidates = [imagePathOrUrl, cdnFallback].filter(Boolean);
-  for (const c of candidates) {
-    const s = String(c).trim();
-    if (/^https?:\/\//i.test(s) && !isNonPublicHost(s)) {
-      return s;
-    }
-  }
+  const raw = String(imagePathOrUrl || cdnFallback || '').trim();
+  if (raw.startsWith('asset_')) return raw;
 
-  // 2. If PUBLIC_URL is defined and is public domain
-  const pub = toPublicUrl(imagePathOrUrl, cdnFallback);
-  if (pub && /^https?:\/\//i.test(pub) && !isNonPublicHost(pub)) {
-    return pub;
-  }
-
-  // 3. Image is stored locally on disk -> read file and upload directly to Scenario Cloud Assets!
+  // 1. Try to resolve local file first
   let localFile = null;
-  const rawPath = String(imagePathOrUrl || cdnFallback || '');
-  if (path.isAbsolute(rawPath) && fs.existsSync(rawPath)) {
-    localFile = rawPath;
+  if (path.isAbsolute(raw) && fs.existsSync(raw)) {
+    localFile = raw;
   } else {
-    const filename = path.basename(rawPath);
+    const filename = path.basename(raw.split('?')[0]);
     const possiblePaths = [
       path.join(uploadsDir, filename),
       path.join(uploadsDir, 'previews', filename),
       path.join(__dirname, '..', 'public', 'uploads', filename),
-      path.join(__dirname, '..', rawPath.replace(/^\//, ''))
+      path.join(__dirname, '..', raw.replace(/^\//, '').split('?')[0])
     ];
     for (const p of possiblePaths) {
       if (fs.existsSync(p) && fs.statSync(p).isFile()) {
@@ -88,24 +73,50 @@ async function ensureScenarioAccessibleUrl(keyRecord, imagePathOrUrl, cdnFallbac
 
   if (localFile) {
     try {
-      log(`[Scenario 📤] Mengunggah gambar referensi (${path.basename(localFile)}) ke Scenario Cloud Assets...`);
+      log(`[Scenario 📤] Mengunggah gambar (${path.basename(localFile)}) ke Scenario Cloud Assets...`);
       const buf = fs.readFileSync(localFile);
       const ext = path.extname(localFile).toLowerCase();
       const mime = ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : (ext === '.webp' ? 'image/webp' : 'image/png');
       const dataUri = `data:${mime};base64,${buf.toString('base64')}`;
       const uploadRes = await scenarioClient.uploadAsset(keyRecord.key_value, keyRecord.secret_value, dataUri, path.basename(localFile));
-      const assetUrl = uploadRes?.asset?.url;
-      if (assetUrl) {
-        log(`[Scenario ✅] Gambar berhasil diunggah ke Scenario Asset Cloud.`);
-        return assetUrl;
+      const assetId = uploadRes?.asset?.id;
+      if (assetId) {
+        log(`[Scenario ✅] Asset siap (ID: ${assetId}).`);
+        return assetId;
       }
     } catch (uErr) {
-      log(`[Scenario ⚠️] Gagal upload asset: ${uErr.message}`);
+      log(`[Scenario ⚠️] Gagal upload local asset: ${uErr.message}`);
     }
   }
 
-  // Fallback to toPublicUrl
-  return pub || rawPath;
+  // 2. If remote URL (cdnFallback or raw is http)
+  const candidates = [cdnFallback, imagePathOrUrl].filter(Boolean);
+  for (const c of candidates) {
+    const s = String(c).trim();
+    if (/^https?:\/\//i.test(s) && !isNonPublicHost(s)) {
+      try {
+        log(`[Scenario 🌐] Mengambil gambar dari CDN dan mendaftarkan ke Scenario Asset...`);
+        const ab = await fetch(s).then(r => {
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          return r.arrayBuffer();
+        });
+        const buf = Buffer.from(ab);
+        const ext = path.extname(s.split('?')[0]).toLowerCase();
+        const mime = ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : (ext === '.webp' ? 'image/webp' : 'image/png');
+        const dataUri = `data:${mime};base64,${buf.toString('base64')}`;
+        const uploadRes = await scenarioClient.uploadAsset(keyRecord.key_value, keyRecord.secret_value, dataUri, 'cdn_image.png');
+        const assetId = uploadRes?.asset?.id;
+        if (assetId) {
+          log(`[Scenario ✅] CDN Asset siap (ID: ${assetId}).`);
+          return assetId;
+        }
+      } catch (fErr) {
+        log(`[Scenario ⚠️] Gagal fetch CDN asset: ${fErr.message}`);
+      }
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -197,8 +208,7 @@ const SCENARIO_CATALOG = {
     { id: 'model_bytedance-seedream-5-0-pro', name: 'Seedream 5.0 Pro (ByteDance)', tags: ['Fast', 'Stylized'] },
     { id: 'model_google-gemini-3-1-flash', name: 'Gemini 3.1 Flash (Google)', tags: ['Multimodal', 'Prompt Adherence'] },
     { id: 'model_xai-grok-imagine-image-2-0', name: 'Grok Imagine 2.0 (xAI)', tags: ['2K', 'Artistic'] },
-    { id: 'model_ideogram-v4', name: 'Ideogram V4', tags: ['Typography', 'Design'] },
-    { id: 'model_flux-1-schnell', name: 'FLUX 1 Schnell', tags: ['Ultra Fast'] }
+    { id: 'model_ideogram-v4', name: 'Ideogram V4', tags: ['Typography', 'Design'] }
   ],
   videoModels: [
     {
@@ -253,11 +263,11 @@ const SCENARIO_CATALOG = {
       id: 'model_ltx-2-5-pro',
       name: 'LTX-2.5 Pro',
       tags: ['Pro', 'Fast'],
-      durations: [5, 10],
+      durations: [6, 8, 10],
       resolutions: ['720p', '1080p'],
-      aspectRatios: ['16:9', '9:16', '1:1'],
-      hasAudio: false,
-      defaultDuration: 5,
+      aspectRatios: ['auto', '16:9', '9:16'],
+      hasAudio: true,
+      defaultDuration: 6,
       defaultResolution: '720p',
       defaultAspectRatio: '16:9'
     },
@@ -304,9 +314,9 @@ async function generateOneImageScenario(keyRecord, prompt, options = {}) {
   };
 
   // Add reference images if provided and valid
-  const refUrl = await ensureScenarioAccessibleUrl(keyRecord, options.referenceImage || options.sceneImage, options.originalCdnUrl, onLog);
-  if (refUrl) {
-    params.image = refUrl;
+  const assetId = await ensureScenarioAssetId(keyRecord, options.referenceImage || options.sceneImage, options.originalCdnUrl, onLog);
+  if (assetId) {
+    params.image = assetId;
   }
 
   const submitRes = await scenarioClient.generateCustom(keyRecord.key_value, keyRecord.secret_value, modelId, params);
@@ -346,37 +356,67 @@ async function generateVideoScenario(keyRecord, options = {}) {
   const onLog = typeof options.onLog === 'function' ? options.onLog : () => {};
   const modelId = options.model || options.nodeType || 'model_bytedance-seedance-2-0';
   const aspectRatio = options.aspectRatio || '16:9';
-  const duration = options.duration ? Number(options.duration) : 5;
+  const duration = options.duration !== undefined ? options.duration : 5;
   const resolution = options.resolution || '720p';
   const generateAudio = options.generateAudio !== undefined ? !!options.generateAudio : true;
 
   onLog(`[Scenario] Memulai generasi video dengan model "${modelId}" (Durasi: ${duration}s, Rasio: ${aspectRatio}, Resolusi: ${resolution})...`);
 
   const params = {
-    prompt: String(options.prompt || '').trim(),
-    aspectRatio,
-    duration,
-    resolution,
-    generateAudio
+    prompt: String(options.prompt || '').trim()
   };
 
+  // Model-specific parameter mapping
+  if (modelId === 'model_kling-v3-i2v-pro') {
+    params.duration = String(duration === -1 ? '5' : duration);
+    params.aspectRatio = aspectRatio === 'adaptive' || aspectRatio === 'auto' ? '16:9' : aspectRatio;
+    params.generateAudio = generateAudio;
+  } else if (modelId === 'model_minimax-h3') {
+    params.duration = duration === -1 ? 6 : Number(duration);
+    params.resolution = resolution === '1080p' || resolution === '4k' ? '2K' : '768P';
+    params.aspectRatio = aspectRatio;
+  } else if (modelId === 'model_pixverse-v6-t2v') {
+    params.duration = duration === -1 ? 5 : Number(duration);
+    params.resolution = resolution;
+    params.aspectRatio = aspectRatio;
+    params.generateAudioSwitch = generateAudio;
+  } else {
+    // Seedance, Wan, LTX, etc.
+    params.aspectRatio = aspectRatio;
+    params.duration = duration === -1 ? -1 : Number(duration);
+    params.resolution = resolution;
+    params.generateAudio = generateAudio;
+  }
+
   // First frame / scene image
-  const imgUrl = await ensureScenarioAccessibleUrl(keyRecord, options.sceneImage, options.originalCdnUrl, onLog);
-  if (imgUrl) {
-    params.image = imgUrl;
+  const assetId = await ensureScenarioAssetId(keyRecord, options.sceneImage, options.originalCdnUrl, onLog);
+  if (assetId) {
+    if (modelId === 'model_kling-v3-i2v-pro') {
+      params.startImage = assetId;
+    } else if (modelId === 'model_minimax-h3') {
+      params.firstFrameImage = assetId;
+    } else {
+      params.image = assetId;
+    }
   }
 
   // Last frame image if provided
   if (options.lastFrameImage) {
-    const lastUrl = await ensureScenarioAccessibleUrl(keyRecord, options.lastFrameImage, null, onLog);
-    if (lastUrl) params.lastFrameImage = lastUrl;
+    const lastAssetId = await ensureScenarioAssetId(keyRecord, options.lastFrameImage, null, onLog);
+    if (lastAssetId) {
+      if (modelId === 'model_kling-v3-i2v-pro') {
+        params.endImage = lastAssetId;
+      } else {
+        params.lastFrameImage = lastAssetId;
+      }
+    }
   }
 
   // Reference images array (multimodal mode)
   if (options.referenceImages && Array.isArray(options.referenceImages) && options.referenceImages.length > 0) {
     const refs = [];
     for (const r of options.referenceImages) {
-      const u = await ensureScenarioAccessibleUrl(keyRecord, r, null, onLog);
+      const u = await ensureScenarioAssetId(keyRecord, r, null, onLog);
       if (u) refs.push(u);
     }
     if (refs.length > 0) {
@@ -384,6 +424,8 @@ async function generateVideoScenario(keyRecord, options = {}) {
       // In Seedance multimodal mode, image (first frame) is mutually exclusive with referenceImages
       if (params.referenceImages.length > 0 && !params.lastFrameImage) {
         delete params.image;
+        delete params.startImage;
+        delete params.firstFrameImage;
       }
     }
   }
