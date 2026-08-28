@@ -165,6 +165,19 @@ async function pollJobUntilDone(apiKey, apiSecret, jobId, {
   throw new Error(`Scenario generation timed out after ${Math.round(timeoutMs / 1000)}s (job: ${jobId})`);
 }
 
+/**
+ * Upload an image asset (base64 data URI) directly to Scenario Cloud Assets
+ */
+async function uploadAsset(apiKey, apiSecret, imageDataUri, name = 'image.png') {
+  return await request(apiKey, apiSecret, '/assets', {
+    method: 'POST',
+    body: {
+      image: imageDataUri,
+      name: name || 'image.png'
+    }
+  });
+}
+
 module.exports = {
   SCENARIO_API_BASE,
   toAuthHeader,
@@ -174,5 +187,6 @@ module.exports = {
   generateCustom,
   getJob,
   getAsset,
+  uploadAsset,
   pollJobUntilDone
 };

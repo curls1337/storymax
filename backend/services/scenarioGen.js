@@ -1,12 +1,21 @@
-// Scenario API generation service for Storymax (Images & Videos)
-// Keeps Scenario logic cleanly isolated from Freebeat & Magica.
-
 const path = require('path');
 const fs = require('fs');
 const scenarioClient = require('./scenarioClient');
+const { uploadsDir } = require('../config');
 
 function publicBase() {
   return (process.env.PUBLIC_URL || process.env.APP_URL || '').replace(/\/$/, '');
+}
+
+function isNonPublicHost(u) {
+  try {
+    const h = new URL(u).hostname;
+    if (!h || h === 'localhost' || !h.includes('.')) return true;
+    if (/^127\./.test(h) || h === '0.0.0.0' || h === '::1') return true;
+    if (/^10\./.test(h) || /^192\.168\./.test(h) || /^169\.254\./.test(h)) return true;
+    if (/^172\.(1[6-9]|2\d|3[01])\./.test(h)) return true;
+    return false;
+  } catch (e) { return true; }
 }
 
 // Convert local stored path into an internet-reachable public URL
@@ -31,15 +40,72 @@ function toPublicUrl(p, cdnFallback) {
   return null;
 }
 
-function isNonPublicHost(u) {
-  try {
-    const h = new URL(u).hostname;
-    if (!h || h === 'localhost' || !h.includes('.')) return true;
-    if (/^127\./.test(h) || h === '0.0.0.0' || h === '::1') return true;
-    if (/^10\./.test(h) || /^192\.168\./.test(h) || /^169\.254\./.test(h)) return true;
-    if (/^172\.(1[6-9]|2\d|3[01])\./.test(h)) return true;
-    return false;
-  } catch (e) { return true; }
+/**
+ * Ensure an image is accessible by Scenario API.
+ * If the image is stored locally (or base is localhost/non-public), it directly
+ * uploads the image file to Scenario Cloud Assets via POST /v1/assets and returns
+ * the public Scenario CDN asset URL.
+ */
+async function ensureScenarioAccessibleUrl(keyRecord, imagePathOrUrl, cdnFallback, onLog) {
+  const log = typeof onLog === 'function' ? onLog : () => {};
+  if (!imagePathOrUrl && !cdnFallback) return null;
+
+  // 1. If cdnFallback or imagePathOrUrl is already a real public external HTTP(S) URL
+  const candidates = [imagePathOrUrl, cdnFallback].filter(Boolean);
+  for (const c of candidates) {
+    const s = String(c).trim();
+    if (/^https?:\/\//i.test(s) && !isNonPublicHost(s)) {
+      return s;
+    }
+  }
+
+  // 2. If PUBLIC_URL is defined and is public domain
+  const pub = toPublicUrl(imagePathOrUrl, cdnFallback);
+  if (pub && /^https?:\/\//i.test(pub) && !isNonPublicHost(pub)) {
+    return pub;
+  }
+
+  // 3. Image is stored locally on disk -> read file and upload directly to Scenario Cloud Assets!
+  let localFile = null;
+  const rawPath = String(imagePathOrUrl || cdnFallback || '');
+  if (path.isAbsolute(rawPath) && fs.existsSync(rawPath)) {
+    localFile = rawPath;
+  } else {
+    const filename = path.basename(rawPath);
+    const possiblePaths = [
+      path.join(uploadsDir, filename),
+      path.join(uploadsDir, 'previews', filename),
+      path.join(__dirname, '..', 'public', 'uploads', filename),
+      path.join(__dirname, '..', rawPath.replace(/^\//, ''))
+    ];
+    for (const p of possiblePaths) {
+      if (fs.existsSync(p) && fs.statSync(p).isFile()) {
+        localFile = p;
+        break;
+      }
+    }
+  }
+
+  if (localFile) {
+    try {
+      log(`[Scenario 📤] Mengunggah gambar referensi (${path.basename(localFile)}) ke Scenario Cloud Assets...`);
+      const buf = fs.readFileSync(localFile);
+      const ext = path.extname(localFile).toLowerCase();
+      const mime = ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : (ext === '.webp' ? 'image/webp' : 'image/png');
+      const dataUri = `data:${mime};base64,${buf.toString('base64')}`;
+      const uploadRes = await scenarioClient.uploadAsset(keyRecord.key_value, keyRecord.secret_value, dataUri, path.basename(localFile));
+      const assetUrl = uploadRes?.asset?.url;
+      if (assetUrl) {
+        log(`[Scenario ✅] Gambar berhasil diunggah ke Scenario Asset Cloud.`);
+        return assetUrl;
+      }
+    } catch (uErr) {
+      log(`[Scenario ⚠️] Gagal upload asset: ${uErr.message}`);
+    }
+  }
+
+  // Fallback to toPublicUrl
+  return pub || rawPath;
 }
 
 /**
@@ -238,7 +304,7 @@ async function generateOneImageScenario(keyRecord, prompt, options = {}) {
   };
 
   // Add reference images if provided and valid
-  const refUrl = toPublicUrl(options.referenceImage || options.sceneImage);
+  const refUrl = await ensureScenarioAccessibleUrl(keyRecord, options.referenceImage || options.sceneImage, options.originalCdnUrl, onLog);
   if (refUrl) {
     params.image = refUrl;
   }
@@ -295,20 +361,24 @@ async function generateVideoScenario(keyRecord, options = {}) {
   };
 
   // First frame / scene image
-  const imgUrl = toPublicUrl(options.sceneImage, options.originalCdnUrl);
+  const imgUrl = await ensureScenarioAccessibleUrl(keyRecord, options.sceneImage, options.originalCdnUrl, onLog);
   if (imgUrl) {
     params.image = imgUrl;
   }
 
   // Last frame image if provided
   if (options.lastFrameImage) {
-    const lastUrl = toPublicUrl(options.lastFrameImage);
+    const lastUrl = await ensureScenarioAccessibleUrl(keyRecord, options.lastFrameImage, null, onLog);
     if (lastUrl) params.lastFrameImage = lastUrl;
   }
 
   // Reference images array (multimodal mode)
   if (options.referenceImages && Array.isArray(options.referenceImages) && options.referenceImages.length > 0) {
-    const refs = options.referenceImages.map(r => toPublicUrl(r)).filter(Boolean);
+    const refs = [];
+    for (const r of options.referenceImages) {
+      const u = await ensureScenarioAccessibleUrl(keyRecord, r, null, onLog);
+      if (u) refs.push(u);
+    }
     if (refs.length > 0) {
       params.referenceImages = refs.slice(0, 9);
       // In Seedance multimodal mode, image (first frame) is mutually exclusive with referenceImages

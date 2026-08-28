@@ -499,6 +499,18 @@ async function generateVideo(req, res) {
       return res.status(400).json({ message: 'Gambar scene tidak ditemukan.' });
     }
 
+    let origCdnUrls = [];
+    try {
+      if (storyboard.original_cdn_urls && storyboard.original_cdn_urls.startsWith('[')) {
+        origCdnUrls = JSON.parse(storyboard.original_cdn_urls);
+      } else {
+        origCdnUrls = storyboard.original_cdn_urls ? [storyboard.original_cdn_urls] : [];
+      }
+    } catch (e) {
+      origCdnUrls = storyboard.original_cdn_urls ? [storyboard.original_cdn_urls] : [];
+    }
+    const origCdn = origCdnUrls[sceneIdx];
+
     // Voice Over is an explicit per-video prompt policy. The storyboard supplies the
     // narration text plus language/tone defaults; Audio Native controls the provider only.
     const voCfg = resolveVoConfig(storyboard);
@@ -540,6 +552,7 @@ async function generateVideo(req, res) {
               return await scenarioGen.generateVideoScenario(keyRec, {
                 prompt: scPrompt,
                 sceneImage,
+                originalCdnUrl: origCdn,
                 referenceImages: charRefUrls,
                 generationType,
                 duration: duration || 5,
