@@ -1184,22 +1184,20 @@ export default function Generator({ setTab, selectedCharacter }) {
                   className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#38bdf8] transition-all text-xs"
                 >
                   {((scenarioCatalog && scenarioCatalog.imageModels) || [
-                    { id: 'model_bfl-flux-2-klein-9b', name: 'FLUX 2 Klein 9B', isSupported: true },
-                    { id: 'model_microsoft-mai-image-2-5', name: 'MAI Image 2.5', isSupported: true },
-                    { id: 'model_openai-gpt-image-2', name: 'GPT Image 2 (OpenAI)', isSupported: false, badge: 'Perlu Pro Plan' },
-                    { id: 'model_bfl-flux-2-dev', name: 'FLUX 2 Dev', isSupported: false, badge: 'Perlu Pro Plan' },
-                    { id: 'model_bytedance-seedream-5-0-pro', name: 'Seedream 5.0 Pro', isSupported: false, badge: 'Perlu Pro Plan' }
+                    { id: 'model_bfl-flux-2-klein-9b', name: 'FLUX 2 Klein 9B' },
+                    { id: 'model_microsoft-mai-image-2-5', name: 'MAI Image 2.5' },
+                    { id: 'model_openai-gpt-image-2', name: 'GPT Image 2 (OpenAI)' },
+                    { id: 'model_bfl-flux-2-dev', name: 'FLUX 2 Dev' },
+                    { id: 'model_bytedance-seedream-5-0-pro', name: 'Seedream 5.0 Pro' },
+                    { id: 'model_google-gemini-3-1-flash', name: 'Gemini 3.1 Flash' },
+                    { id: 'model_xai-grok-imagine-image-2-0', name: 'Grok Imagine 2.0' },
+                    { id: 'model_ideogram-v4', name: 'Ideogram V4' }
                   ]).map(m => (
-                    <option key={m.id} value={m.id} disabled={m.isSupported === false}>
-                      {m.name} {m.isSupported === false ? `(🔒 ${m.badge || 'Terkunci'})` : `(✅ ${m.plan || 'Didukung'})`}
+                    <option key={m.id} value={m.id}>
+                      {m.name} {m.plan ? `(${m.plan})` : ''}
                     </option>
                   ))}
                 </select>
-                {scenarioCatalog?.tierName && (
-                  <p className="text-[8px] text-sky-400/80 mt-1">
-                    Paket Terdeteksi: <span className="font-bold text-sky-300">{scenarioCatalog.tierName}</span>
-                  </p>
-                )}
               </div>
             </div>
           ) : userProvider === 'magica' ? (

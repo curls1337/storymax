@@ -2615,26 +2615,25 @@ export default function Dashboard({ setTab }) {
                                 className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] focus:outline-none focus:border-[#38bdf8] transition-all font-semibold"
                               >
                                 {((scenarioCatalog && scenarioCatalog.videoModels) || [
-                                  { id: 'model_veo3-1-fast', name: 'Google Veo 3.1 Fast', isSupported: true },
-                                  { id: 'model_veo3-1-lite', name: 'Google Veo 3.1 Lite', isSupported: true },
-                                  { id: 'model_bytedance-seedance-2-0', name: 'Seedance 2.0 (ByteDance)', isSupported: false, badge: 'Perlu Pro Plan' },
-                                  { id: 'model_bytedance-seedance-2-5', name: 'Seedance 2.5 (ByteDance)', isSupported: false, badge: 'Perlu Pro Plan' },
-                                  { id: 'model_kling-v3-i2v-pro', name: 'Kling V3 I2V Pro', isSupported: false, badge: 'Perlu Pro Plan' },
-                                  { id: 'model_wan-2-7-i2v', name: 'Wan 2.7 I2V', isSupported: false, badge: 'Perlu Pro Plan' },
-                                  { id: 'model_ltx-2-5-pro', name: 'LTX 2.5 Pro', isSupported: false, badge: 'Perlu Pro Plan' },
-                                  { id: 'model_minimax-h3', name: 'Minimax H3', isSupported: false, badge: 'Perlu Pro Plan' },
-                                  { id: 'model_pixverse-v6-t2v', name: 'PixVerse V6', isSupported: false, badge: 'Perlu Pro Plan' }
+                                  { id: 'model_google-omni-flash', name: 'Gemini Omni (Google)' },
+                                  { id: 'model_xai-grok-imagine-video-1-5', name: 'Grok Imagine Video 1.5 (xAI)' },
+                                  { id: 'model_bytedance-seedance-2-5', name: 'Seedance 2.5 (ByteDance)' },
+                                  { id: 'model_bytedance-seedance-2-0', name: 'Seedance 2.0 (ByteDance)' },
+                                  { id: 'model_bytedance-seedance-2-0-fast', name: 'Seedance 2.0 Fast (ByteDance)' },
+                                  { id: 'model_kling-v3-omni-video', name: 'Kling V3 Omni Video' },
+                                  { id: 'model_kling-v3-i2v-pro', name: 'Kling V3 I2V Pro' },
+                                  { id: 'model_wan-2-7-i2v', name: 'Wan 2.7 I2V' },
+                                  { id: 'model_veo3-1-fast', name: 'Google Veo 3.1 Fast' },
+                                  { id: 'model_veo3-1-lite', name: 'Google Veo 3.1 Lite' },
+                                  { id: 'model_minimax-h3', name: 'Minimax H3' },
+                                  { id: 'model_ltx-2-5-pro', name: 'LTX 2.5 Pro' },
+                                  { id: 'model_pixverse-v6-t2v', name: 'PixVerse V6' }
                                 ]).map(m => (
-                                  <option key={m.id} value={m.id} disabled={m.isSupported === false}>
-                                    {m.name} {m.isSupported === false ? `(🔒 ${m.badge || 'Terkunci'})` : `(✅ ${m.plan || 'Didukung'})`}
+                                  <option key={m.id} value={m.id}>
+                                    {m.name} {m.plan ? `(${m.plan})` : ''}
                                   </option>
                                 ))}
                               </select>
-                              {scenarioCatalog?.tierName && (
-                                <p className="text-[8px] text-sky-400/80 mt-1">
-                                  Paket Terdeteksi: <span className="font-bold text-sky-300">{scenarioCatalog.tierName}</span>
-                                </p>
-                              )}
                             </div>
                           ) : userProvider === 'magica' ? (
                             <select
