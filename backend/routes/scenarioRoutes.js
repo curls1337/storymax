@@ -10,10 +10,48 @@ const router = express.Router();
 router.get('/catalog', authenticateToken, async (req, res) => {
   try {
     const db = getDb();
-    const activeKeys = await db.all('SELECT id, key_value, label, is_active FROM scenario_api_keys WHERE is_active = 1 ORDER BY id ASC');
+    const specificKeyId = req.query.keyId;
+    const activeKeys = await db.all('SELECT id, key_value, secret_value, label, is_active FROM scenario_api_keys WHERE is_active = 1 ORDER BY id ASC');
+    
+    let targetKey = null;
+    if (specificKeyId && specificKeyId !== 'auto') {
+      targetKey = activeKeys.find(k => String(k.id) === String(specificKeyId));
+    }
+    if (!targetKey && activeKeys.length > 0) {
+      targetKey = activeKeys[0];
+    }
+
+    let detectedTier = 50;
+    if (targetKey && targetKey.key_value && targetKey.secret_value) {
+      detectedTier = await scenarioGen.detectKeyTier(targetKey.key_value, targetKey.secret_value);
+    }
+
+    const publicKeys = activeKeys.map(k => ({
+      id: k.id,
+      key_value: k.key_value,
+      label: k.label,
+      is_active: k.is_active
+    }));
+
+    // Tag models with supported status based on active key plan tier
+    const imageModels = scenarioGen.SCENARIO_CATALOG.imageModels.map(m => ({
+      ...m,
+      isSupported: (m.tier || 0) <= detectedTier,
+      badge: (m.tier || 0) > detectedTier ? `Perlu ${m.plan}` : 'Didukung'
+    }));
+
+    const videoModels = scenarioGen.SCENARIO_CATALOG.videoModels.map(m => ({
+      ...m,
+      isSupported: (m.tier || 0) <= detectedTier,
+      badge: (m.tier || 0) > detectedTier ? `Perlu ${m.plan}` : 'Didukung'
+    }));
+
     res.json({
-      ...scenarioGen.SCENARIO_CATALOG,
-      keys: activeKeys || []
+      detectedTier,
+      tierName: detectedTier >= 50 ? 'Pro / Team Plan' : 'Starter / Standard Plan',
+      keys: publicKeys,
+      imageModels,
+      videoModels
     });
   } catch (err) {
     res.status(500).json({ message: 'Gagal mengambil katalog model Scenario.', error: err.message });

@@ -198,23 +198,89 @@ async function executeWithScenarioFailover(db, fn, { onLog, specificKeyId } = {}
   throw lastError || new Error('Semua API Key Scenario di pool gagal digunakan.');
 }
 
+const tierCache = new Map();
+
 /**
- * Curated list of popular Scenario models for Images & Videos with exact allowed settings
+ * Automatically detect the maximum subscription access tier for a Scenario API key.
+ * Tier 25 = Starter / Standard / Free
+ * Tier 50 = Pro / Team (Unlocks Seedance, Kling, Wan, GPT Image 2, etc.)
+ */
+async function detectKeyTier(apiKey, apiSecret) {
+  const cacheKey = `${apiKey}:${apiSecret}`;
+  if (tierCache.has(cacheKey)) {
+    const cached = tierCache.get(cacheKey);
+    if (Date.now() - cached.ts < 1800000) return cached.tier; // 30 min cache
+  }
+
+  let detectedTier = 50;
+  try {
+    // Quick probe on tier 50 model (Seedance 2.0)
+    await scenarioClient.generateCustom(apiKey, apiSecret, 'model_bytedance-seedance-2-0', {
+      prompt: 'probe', duration: 5
+    });
+    detectedTier = 50;
+  } catch (e) {
+    if (e.status === 403 && /plan/i.test(e.message || '')) {
+      detectedTier = 25; // Standard / Starter tier
+    } else {
+      // 429 quota or other validation error means plan permission is OK (Tier 50)
+      detectedTier = 50;
+    }
+  }
+
+  tierCache.set(cacheKey, { tier: detectedTier, ts: Date.now() });
+  return detectedTier;
+}
+
+/**
+ * Curated list of popular Scenario models for Images & Videos with exact allowed settings and plan tiers
  */
 const SCENARIO_CATALOG = {
   imageModels: [
-    { id: 'model_openai-gpt-image-2', name: 'GPT Image 2 (OpenAI)', tags: ['Featured', 'High Quality', 'Editing'] },
-    { id: 'model_bfl-flux-2-dev', name: 'FLUX 2 Dev (Black Forest Labs)', tags: ['Photorealism', 'Detail'] },
-    { id: 'model_bytedance-seedream-5-0-pro', name: 'Seedream 5.0 Pro (ByteDance)', tags: ['Fast', 'Stylized'] },
-    { id: 'model_google-gemini-3-1-flash', name: 'Gemini 3.1 Flash (Google)', tags: ['Multimodal', 'Prompt Adherence'] },
-    { id: 'model_xai-grok-imagine-image-2-0', name: 'Grok Imagine 2.0 (xAI)', tags: ['2K', 'Artistic'] },
-    { id: 'model_ideogram-v4', name: 'Ideogram V4', tags: ['Typography', 'Design'] }
+    { id: 'model_openai-gpt-image-2', name: 'GPT Image 2 (OpenAI)', tier: 50, plan: 'Pro / Team Plan', tags: ['Featured', 'High Quality', 'Editing'] },
+    { id: 'model_bfl-flux-2-dev', name: 'FLUX 2 Dev (Black Forest Labs)', tier: 50, plan: 'Pro / Team Plan', tags: ['Photorealism', 'Detail'] },
+    { id: 'model_bytedance-seedream-5-0-pro', name: 'Seedream 5.0 Pro (ByteDance)', tier: 50, plan: 'Pro / Team Plan', tags: ['Fast', 'Stylized'] },
+    { id: 'model_google-gemini-3-1-flash', name: 'Gemini 3.1 Flash (Google)', tier: 50, plan: 'Pro / Team Plan', tags: ['Multimodal', 'Prompt Adherence'] },
+    { id: 'model_xai-grok-imagine-image-2-0', name: 'Grok Imagine 2.0 (xAI)', tier: 50, plan: 'Pro / Team Plan', tags: ['2K', 'Artistic'] },
+    { id: 'model_ideogram-v4', name: 'Ideogram V4', tier: 50, plan: 'Pro / Team Plan', tags: ['Typography', 'Design'] },
+    { id: 'model_bfl-flux-2-klein-9b', name: 'FLUX 2 Klein 9B', tier: 25, plan: 'Semua Plan', tags: ['Starter', 'Fast'] },
+    { id: 'model_microsoft-mai-image-2-5', name: 'MAI Image 2.5', tier: 25, plan: 'Semua Plan', tags: ['Starter', 'Standard'] }
   ],
   videoModels: [
     {
+      id: 'model_veo3-1-fast',
+      name: 'Google Veo 3.1 Fast (Google)',
+      tier: 25,
+      plan: 'Semua Plan (Starter & Pro)',
+      tags: ['Featured', 'Google', 'Audio', 'Semua Plan'],
+      durations: [4, 6, 8],
+      resolutions: ['720p', '1080p'],
+      aspectRatios: ['16:9', '9:16'],
+      hasAudio: true,
+      defaultDuration: 6,
+      defaultResolution: '720p',
+      defaultAspectRatio: '16:9'
+    },
+    {
+      id: 'model_veo3-1-lite',
+      name: 'Google Veo 3.1 Lite (Google)',
+      tier: 25,
+      plan: 'Semua Plan (Starter & Pro)',
+      tags: ['Google', 'Fast', 'Audio', 'Semua Plan'],
+      durations: [4, 6, 8],
+      resolutions: ['720p', '1080p'],
+      aspectRatios: ['16:9', '9:16'],
+      hasAudio: true,
+      defaultDuration: 6,
+      defaultResolution: '720p',
+      defaultAspectRatio: '16:9'
+    },
+    {
       id: 'model_bytedance-seedance-2-0',
       name: 'Seedance 2.0 (ByteDance)',
-      tags: ['I2V', 'T2V', 'Audio', 'Featured'],
+      tier: 50,
+      plan: 'Pro / Team Plan',
+      tags: ['I2V', 'T2V', 'Audio', 'Pro Plan'],
       durations: [-1, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
       resolutions: ['480p', '720p', '1080p', '4k'],
       aspectRatios: ['adaptive', '16:9', '9:16', '1:1', '4:3', '3:4', '21:9'],
@@ -226,7 +292,9 @@ const SCENARIO_CATALOG = {
     {
       id: 'model_bytedance-seedance-2-5',
       name: 'Seedance 2.5 (ByteDance)',
-      tags: ['Latest', 'I2V', 'T2V', 'Audio'],
+      tier: 50,
+      plan: 'Pro / Team Plan',
+      tags: ['Latest', 'I2V', 'T2V', 'Audio', 'Pro Plan'],
       durations: [-1, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20, 25, 30],
       resolutions: ['480p', '720p', '1080p', '4k'],
       aspectRatios: ['adaptive', '16:9', '9:16', '1:1', '4:3', '3:4', '21:9'],
@@ -238,7 +306,9 @@ const SCENARIO_CATALOG = {
     {
       id: 'model_kling-v3-i2v-pro',
       name: 'Kling V3 I2V Pro',
-      tags: ['High Fidelity', 'Motion', 'Audio'],
+      tier: 50,
+      plan: 'Pro / Team Plan',
+      tags: ['High Fidelity', 'Motion', 'Audio', 'Pro Plan'],
       durations: [3, 4, 5, 6, 7, 8, 9, 10, 15],
       resolutions: ['720p', '1080p'],
       aspectRatios: ['16:9', '9:16', '1:1'],
@@ -250,7 +320,9 @@ const SCENARIO_CATALOG = {
     {
       id: 'model_wan-2-7-i2v',
       name: 'Wan 2.7 I2V (Alibaba)',
-      tags: ['Smooth Motion', 'Cinematic'],
+      tier: 50,
+      plan: 'Pro / Team Plan',
+      tags: ['Smooth Motion', 'Cinematic', 'Pro Plan'],
       durations: [5, 10],
       resolutions: ['720p', '1080p'],
       aspectRatios: ['16:9', '9:16', '1:1'],
@@ -262,7 +334,9 @@ const SCENARIO_CATALOG = {
     {
       id: 'model_ltx-2-5-pro',
       name: 'LTX-2.5 Pro',
-      tags: ['Pro', 'Fast'],
+      tier: 50,
+      plan: 'Pro / Team Plan',
+      tags: ['Pro', 'Fast', 'Audio', 'Pro Plan'],
       durations: [6, 8, 10],
       resolutions: ['720p', '1080p'],
       aspectRatios: ['auto', '16:9', '9:16'],
@@ -274,7 +348,9 @@ const SCENARIO_CATALOG = {
     {
       id: 'model_minimax-h3',
       name: 'Minimax H3 (Hailuo)',
-      tags: ['Realistic', 'Cinematic'],
+      tier: 50,
+      plan: 'Pro / Team Plan',
+      tags: ['Realistic', 'Cinematic', 'Pro Plan'],
       durations: [6, 10],
       resolutions: ['768P', '2K'],
       aspectRatios: ['adaptive', '16:9', '9:16', '1:1', '4:3', '3:4', '21:9'],
@@ -286,7 +362,9 @@ const SCENARIO_CATALOG = {
     {
       id: 'model_pixverse-v6-t2v',
       name: 'Pixverse V6',
-      tags: ['Dynamic Animation'],
+      tier: 50,
+      plan: 'Pro / Team Plan',
+      tags: ['Dynamic Animation', 'Pro Plan'],
       durations: [5, 8],
       resolutions: ['720p', '1080p'],
       aspectRatios: ['16:9', '9:16', '1:1'],
@@ -466,6 +544,7 @@ module.exports = {
   getAllActiveScenarioKeys,
   pickScenarioKey,
   executeWithScenarioFailover,
+  detectKeyTier,
   SCENARIO_CATALOG,
   generateOneImageScenario,
   generateVideoScenario

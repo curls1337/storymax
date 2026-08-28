@@ -81,15 +81,31 @@ export default function Dashboard({ setTab }) {
           }
         }).catch(() => {});
       } else if (pp === 'scenario') {
-        api.get('/scenario/catalog').then((c) => {
+        api.get(`/scenario/catalog?keyId=${scenarioKeyId || 'auto'}`).then((c) => {
           setScenarioCatalog(c.data);
           const vids = (c.data && c.data.videoModels) || [];
-          const def = vids[0]?.id || 'model_bytedance-seedance-2-0';
+          const supp = vids.filter(m => m.isSupported !== false);
+          const def = supp[0]?.id || vids[0]?.id || 'model_veo3-1-fast';
           setScenarioVideoModel(def);
         }).catch(() => {});
       }
     }).catch(() => {});
   }, []);
+
+  // Sync Scenario catalog when scenarioKeyId or userProvider changes
+  useEffect(() => {
+    if (userProvider !== 'scenario') return;
+    api.get(`/scenario/catalog?keyId=${scenarioKeyId || 'auto'}`).then((c) => {
+      setScenarioCatalog(c.data);
+      const vids = (c.data && c.data.videoModels) || [];
+      const supp = vids.filter(m => m.isSupported !== false);
+      const cur = vids.find(m => m.id === scenarioVideoModel);
+      if (!cur || cur.isSupported === false) {
+        const firstSupp = supp[0] || vids[0];
+        if (firstSupp) setScenarioVideoModel(firstSupp.id);
+      }
+    }).catch(() => {});
+  }, [userProvider, scenarioKeyId]);
 
   useEffect(() => {
     const hasProcessing = storyboards.some(sb => sb.status === 'processing');
@@ -2592,23 +2608,34 @@ export default function Dashboard({ setTab }) {
                             Pilih Model Video{userProvider === 'scenario' ? ' (Scenario)' : (userProvider === 'magica' ? ' (Magica)' : '')}
                           </label>
                           {userProvider === 'scenario' ? (
-                            <select
-                              value={scenarioVideoModel}
-                              onChange={(e) => setScenarioVideoModel(e.target.value)}
-                              className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] focus:outline-none focus:border-[#38bdf8] transition-all font-semibold"
-                            >
-                              {((scenarioCatalog && scenarioCatalog.videoModels) || [
-                                { id: 'model_bytedance-seedance-2-0', name: 'ByteDance Seedance 2.0' },
-                                { id: 'model_bytedance-seedance-2-5', name: 'ByteDance Seedance 2.5' },
-                                { id: 'model_kling-v3-i2v-pro', name: 'Kling 3.0 I2V Pro' },
-                                { id: 'model_wan-2-7-i2v', name: 'Wan 2.7 I2V' },
-                                { id: 'model_ltx-2-5-pro', name: 'LTX 2.5 Pro' },
-                                { id: 'model_minimax-h3', name: 'MiniMax Hailuo H3' },
-                                { id: 'model_pixverse-v6-t2v', name: 'PixVerse V6' }
-                              ]).map(m => (
-                                <option key={m.id} value={m.id}>{m.name}</option>
-                              ))}
-                            </select>
+                            <div>
+                              <select
+                                value={scenarioVideoModel}
+                                onChange={(e) => setScenarioVideoModel(e.target.value)}
+                                className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[10px] focus:outline-none focus:border-[#38bdf8] transition-all font-semibold"
+                              >
+                                {((scenarioCatalog && scenarioCatalog.videoModels) || [
+                                  { id: 'model_veo3-1-fast', name: 'Google Veo 3.1 Fast', isSupported: true },
+                                  { id: 'model_veo3-1-lite', name: 'Google Veo 3.1 Lite', isSupported: true },
+                                  { id: 'model_bytedance-seedance-2-0', name: 'Seedance 2.0 (ByteDance)', isSupported: false, badge: 'Perlu Pro Plan' },
+                                  { id: 'model_bytedance-seedance-2-5', name: 'Seedance 2.5 (ByteDance)', isSupported: false, badge: 'Perlu Pro Plan' },
+                                  { id: 'model_kling-v3-i2v-pro', name: 'Kling V3 I2V Pro', isSupported: false, badge: 'Perlu Pro Plan' },
+                                  { id: 'model_wan-2-7-i2v', name: 'Wan 2.7 I2V', isSupported: false, badge: 'Perlu Pro Plan' },
+                                  { id: 'model_ltx-2-5-pro', name: 'LTX 2.5 Pro', isSupported: false, badge: 'Perlu Pro Plan' },
+                                  { id: 'model_minimax-h3', name: 'Minimax H3', isSupported: false, badge: 'Perlu Pro Plan' },
+                                  { id: 'model_pixverse-v6-t2v', name: 'PixVerse V6', isSupported: false, badge: 'Perlu Pro Plan' }
+                                ]).map(m => (
+                                  <option key={m.id} value={m.id} disabled={m.isSupported === false}>
+                                    {m.name} {m.isSupported === false ? `(🔒 ${m.badge || 'Terkunci'})` : `(✅ ${m.plan || 'Didukung'})`}
+                                  </option>
+                                ))}
+                              </select>
+                              {scenarioCatalog?.tierName && (
+                                <p className="text-[8px] text-sky-400/80 mt-1">
+                                  Paket Terdeteksi: <span className="font-bold text-sky-300">{scenarioCatalog.tierName}</span>
+                                </p>
+                              )}
+                            </div>
                           ) : userProvider === 'magica' ? (
                             <select
                               value={magicaVideoModel}

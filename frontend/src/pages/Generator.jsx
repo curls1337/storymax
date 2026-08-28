@@ -270,14 +270,30 @@ export default function Generator({ setTab, selectedCharacter }) {
           if (def) setMagicaImageModel(def.nodeType);
         }).catch(() => {});
       } else if (pp === 'scenario') {
-        api.get('/scenario/catalog').then((c) => {
+        api.get(`/scenario/catalog?keyId=${scenarioKeyId || 'auto'}`).then((c) => {
           setScenarioCatalog(c.data);
           const imgs = (c.data && c.data.imageModels) || [];
-          const def = imgs[0]?.id || 'model_openai-gpt-image-2';
+          const supp = imgs.filter(m => m.isSupported !== false);
+          const def = supp[0]?.id || imgs[0]?.id || 'model_bfl-flux-2-klein-9b';
           setScenarioImageModel(def);
         }).catch(() => {});
       }
     }).catch(() => {});
+
+  // Sync Scenario catalog when scenarioKeyId changes
+  useEffect(() => {
+    if (userProvider !== 'scenario') return;
+    api.get(`/scenario/catalog?keyId=${scenarioKeyId || 'auto'}`).then((c) => {
+      setScenarioCatalog(c.data);
+      const imgs = (c.data && c.data.imageModels) || [];
+      const supp = imgs.filter(m => m.isSupported !== false);
+      const cur = imgs.find(m => m.id === scenarioImageModel);
+      if (!cur || cur.isSupported === false) {
+        const firstSupp = supp[0] || imgs[0];
+        if (firstSupp) setScenarioImageModel(firstSupp.id);
+      }
+    }).catch(() => {});
+  }, [userProvider, scenarioKeyId]);
     const savedTaskId = localStorage.getItem('activeTaskId');
     if (savedTaskId) {
       setCurrentTaskId(savedTaskId);
@@ -1140,22 +1156,51 @@ export default function Generator({ setTab, selectedCharacter }) {
           {mode === 'tokopedia' && renderRefImagesSection()}
 
           {userProvider === 'scenario' ? (
-            <div>
-              <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Pilih API Key Scenario</label>
-              <select
-                value={scenarioKeyId}
-                onChange={(e) => setScenarioKeyId(e.target.value)}
-                disabled={generating}
-                className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#38bdf8] transition-all text-xs"
-              >
-                <option value="auto">Pilih Otomatis (Auto-detect &amp; Failover)</option>
-                {(((scenarioCatalog && scenarioCatalog.keys) || []).length)
-                  ? scenarioCatalog.keys.map((k) => (
-                    <option key={k.id} value={k.id}>{k.label} (Key: {String(k.key_value || '').substring(0, 8)}••••)</option>
-                  ))
-                  : <option value="" disabled>Belum ada API Key Scenario aktif</option>}
-              </select>
-              <p className="text-[8px] text-slate-500 mt-1">Provider: Scenario API — "Auto" memilih key aktif dengan failover otomatis.</p>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Pilih API Key Scenario</label>
+                <select
+                  value={scenarioKeyId}
+                  onChange={(e) => setScenarioKeyId(e.target.value)}
+                  disabled={generating}
+                  className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#38bdf8] transition-all text-xs"
+                >
+                  <option value="auto">Pilih Otomatis (Auto-detect &amp; Failover)</option>
+                  {(((scenarioCatalog && scenarioCatalog.keys) || []).length)
+                    ? scenarioCatalog.keys.map((k) => (
+                      <option key={k.id} value={k.id}>{k.label} (Key: {String(k.key_value || '').substring(0, 8)}••••)</option>
+                    ))
+                    : <option value="" disabled>Belum ada API Key Scenario aktif</option>}
+                </select>
+                <p className="text-[8px] text-slate-500 mt-1">Provider: Scenario API — "Auto" memilih key aktif dengan failover otomatis.</p>
+              </div>
+
+              <div>
+                <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Pilih Model Gambar (Scenario)</label>
+                <select
+                  value={scenarioImageModel}
+                  onChange={(e) => setScenarioImageModel(e.target.value)}
+                  disabled={generating}
+                  className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#38bdf8] transition-all text-xs"
+                >
+                  {((scenarioCatalog && scenarioCatalog.imageModels) || [
+                    { id: 'model_bfl-flux-2-klein-9b', name: 'FLUX 2 Klein 9B', isSupported: true },
+                    { id: 'model_microsoft-mai-image-2-5', name: 'MAI Image 2.5', isSupported: true },
+                    { id: 'model_openai-gpt-image-2', name: 'GPT Image 2 (OpenAI)', isSupported: false, badge: 'Perlu Pro Plan' },
+                    { id: 'model_bfl-flux-2-dev', name: 'FLUX 2 Dev', isSupported: false, badge: 'Perlu Pro Plan' },
+                    { id: 'model_bytedance-seedream-5-0-pro', name: 'Seedream 5.0 Pro', isSupported: false, badge: 'Perlu Pro Plan' }
+                  ]).map(m => (
+                    <option key={m.id} value={m.id} disabled={m.isSupported === false}>
+                      {m.name} {m.isSupported === false ? `(🔒 ${m.badge || 'Terkunci'})` : `(✅ ${m.plan || 'Didukung'})`}
+                    </option>
+                  ))}
+                </select>
+                {scenarioCatalog?.tierName && (
+                  <p className="text-[8px] text-sky-400/80 mt-1">
+                    Paket Terdeteksi: <span className="font-bold text-sky-300">{scenarioCatalog.tierName}</span>
+                  </p>
+                )}
+              </div>
             </div>
           ) : userProvider === 'magica' ? (
             <div>
