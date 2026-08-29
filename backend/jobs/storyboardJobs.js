@@ -405,13 +405,12 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
               db,
               async (keyRec) => {
                 const refUrls = [];
-                if (task.characterId && task.finalRefImagePath) {
-                  refUrls.push(task.finalRefImagePath);
-                  if (task.productRefImagePath) refUrls.push(task.productRefImagePath);
-                } else if (Array.isArray(task.rawRefImagePaths) && task.rawRefImagePaths.length > 0) {
+                if (Array.isArray(task.rawRefImagePaths) && task.rawRefImagePaths.length > 0) {
                   refUrls.push(...task.rawRefImagePaths);
-                } else if (pageRefPath) {
-                  refUrls.push(pageRefPath);
+                } else {
+                  if (task.finalRefImagePath) refUrls.push(task.finalRefImagePath);
+                  if (task.productRefImagePath && !refUrls.includes(task.productRefImagePath)) refUrls.push(task.productRefImagePath);
+                  if (pageRefPath && !refUrls.includes(pageRefPath)) refUrls.push(pageRefPath);
                 }
 
                 return await scenarioGen.generateOneImageScenario(keyRec, pagePrompt, {
@@ -981,11 +980,13 @@ async function regenerateStoryboardPage(req, res) {
         // Resolve reference image path from active_task_data
         let finalRefImagePath = '';
         let productRefImagePath = '';
+        let rawRefPaths = [];
         try {
           if (storyboard.active_task_data) {
             const taskData = JSON.parse(storyboard.active_task_data);
             finalRefImagePath = taskData.finalRefImagePath || '';
             productRefImagePath = taskData.productRefImagePath || '';
+            rawRefPaths = taskData.rawRefImagePaths || [];
           }
         } catch (e) {}
 
@@ -1023,8 +1024,12 @@ async function regenerateStoryboardPage(req, res) {
               db,
               async (keyRec) => {
                 const refUrls = [];
-                if (finalRefImagePath) refUrls.push(finalRefImagePath);
-                if (productRefImagePath) refUrls.push(productRefImagePath);
+                if (Array.isArray(rawRefPaths) && rawRefPaths.length > 0) {
+                  refUrls.push(...rawRefPaths);
+                } else {
+                  if (finalRefImagePath) refUrls.push(finalRefImagePath);
+                  if (productRefImagePath && !refUrls.includes(productRefImagePath)) refUrls.push(productRefImagePath);
+                }
 
                 return await scenarioGen.generateOneImageScenario(keyRec, pagePrompt, {
                   aspectRatio,
