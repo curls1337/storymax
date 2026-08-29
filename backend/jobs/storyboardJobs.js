@@ -128,7 +128,35 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
       await saveTaskState(db, storyboardId, task);
     }
 
-    // 2. Save Reference Images if starting fresh
+    // 2. Resolve Provider Routing (Scenario / Magica / Freebeat) for this storyboard
+    let isMagica = false, magicaApiKey = null;
+    let isScenario = false, scenarioKeyRecord = null;
+    try {
+      if (await scenarioGen.isScenarioForStoryboard(db, storyboardId)) {
+        const sk = await scenarioGen.pickScenarioKey(db, task.scenarioKeyId);
+        if (sk) {
+          isScenario = true;
+          scenarioKeyRecord = sk;
+          task.scenarioKeyId = sk.id;
+          task.logs += `[Provider] Render gambar via Scenario API (${task.scenarioModel || 'model_openai-gpt-image-2'}) — key #${sk.id} (${sk.label}).\n`;
+        } else {
+          task.logs += '[Provider] Belum ada API Key Scenario yang aktif. Tambahkan key di Admin → API Scenario.\n';
+        }
+        await saveTaskState(db, storyboardId, task);
+      } else if (await magicaGen.isMagicaForStoryboard(db, storyboardId)) {
+        const mk = await magicaGen.pickMediaMagicaKey(db, task.magicaKeyId);
+        if (mk) {
+          isMagica = true; magicaApiKey = mk.key_value;
+          task.magicaKeyId = mk.id;
+          task.logs += `[Provider] Render gambar via Magica (GPT Image 2) — key #${mk.id} (saldo ~${(mk.balance / 1e6).toFixed(2)} kredit).\n`;
+        } else {
+          task.logs += '[Provider] Tidak ada API Key Magica dengan saldo cukup (>= 5 kredit) untuk gambar. Key di bawah 5 kredit hanya untuk LLM. Isi ulang / tambah key. Memakai Freebeat bila tersedia.\n';
+        }
+        await saveTaskState(db, storyboardId, task);
+      }
+    } catch (e) {}
+
+    // 3. Save Reference Images if starting fresh
     if (task.finalRefImagePath === undefined) {
       const savedRefMeta = []; // { path, isCharacterRef }
       let refImagesList = task.refImages || [];
@@ -217,31 +245,6 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
           savedRefMeta.push({ path: refImagePath.replace(/\\/g, '/'), isCharacterRef: !!item.isCharacterRef });
         }
       }
-
-      // Provider routing (Scenario / Magica / Freebeat)
-      let isMagica = false, magicaApiKey = null;
-      let isScenario = false;
-      try {
-        if (await scenarioGen.isScenarioForStoryboard(db, storyboardId)) {
-          const sk = await scenarioGen.pickScenarioKey(db, task.scenarioKeyId);
-          if (sk) {
-            isScenario = true;
-            task.logs += `[Provider] Render gambar via Scenario API (${task.scenarioModel || 'model_openai-gpt-image-2'}) — key #${sk.id} (${sk.label}).\n`;
-          } else {
-            task.logs += '[Provider] Belum ada API Key Scenario yang aktif. Tambahkan key di Admin → API Scenario.\n';
-          }
-          await saveTaskState(db, storyboardId, task);
-        } else if (await magicaGen.isMagicaForStoryboard(db, storyboardId)) {
-          const mk = await magicaGen.pickMediaMagicaKey(db, task.magicaKeyId);
-          if (mk) {
-            isMagica = true; magicaApiKey = mk.key_value;
-            task.logs += `[Provider] Render gambar via Magica (GPT Image 2) — key #${mk.id} (saldo ~${(mk.balance / 1e6).toFixed(2)} kredit).\n`;
-          } else {
-            task.logs += '[Provider] Tidak ada API Key Magica dengan saldo cukup (>= 5 kredit) untuk gambar. Key di bawah 5 kredit hanya untuk LLM. Isi ulang / tambah key. Memakai Freebeat bila tersedia.\n';
-          }
-          await saveTaskState(db, storyboardId, task);
-        }
-      } catch (e) {}
 
       // A14: keep the Consistent Character's own photo as the SOLE visual edit
       // reference instead of stitching it into a side-by-side collage with any
@@ -398,7 +401,7 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
         // Scenario render for this page
         if (isScenario) {
           try {
-            const { result: scRes } = await scenarioGen.executeWithScenarioFailover(
+            const { result: scRes, keyRecord: usedKey } = await scenarioGen.executeWithScenarioFailover(
               db,
               async (keyRec) => {
                 const refUrls = [];
@@ -421,6 +424,13 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
               },
               { onLog: (m) => { task.logs += m + '\n'; }, specificKeyId: task.scenarioKeyId }
             );
+
+            if (usedKey && usedKey.id) {
+              try {
+                await db.run('UPDATE scenario_api_keys SET usage_count = COALESCE(usage_count, 0) + 1, last_status = ? WHERE id = ?', ['OK - ' + new Date().toLocaleString('id-ID'), usedKey.id]);
+                await db.run('UPDATE storyboards SET scenario_key_id = ? WHERE id = ?', [usedKey.id, storyboardId]);
+              } catch (e) {}
+            }
 
             const { url, credit } = scRes;
             try {

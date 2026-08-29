@@ -66,7 +66,15 @@ router.use(requireAdmin);
 router.get('/keys', async (req, res) => {
   try {
     const db = getDb();
-    const rows = await db.all('SELECT id, key_value, secret_value, label, is_active, last_status, created_at FROM scenario_api_keys ORDER BY id DESC');
+    const rows = await db.all(`
+      SELECT k.id, k.key_value, k.secret_value, k.label, k.is_active, k.last_status, k.created_at,
+             k.usage_count, k.consumption_cu, k.plan_name,
+             (COALESCE((SELECT COUNT(*) FROM storyboards s WHERE s.scenario_key_id = k.id), 0) +
+              COALESCE((SELECT COUNT(*) FROM generated_videos v WHERE v.scenario_key_id = k.id), 0) +
+              COALESCE(k.usage_count, 0)) AS total_usage
+      FROM scenario_api_keys k
+      ORDER BY k.id DESC
+    `);
     res.json(rows || []);
   } catch (err) {
     res.status(500).json({ message: 'Gagal mengambil daftar Scenario API keys.', error: err.message });
@@ -238,12 +246,16 @@ router.post('/keys/test', async (req, res) => {
     const testRes = await scenarioClient.testConnection(key, secret);
     if (testRes.ok) {
       if (id) {
-        await db.run('UPDATE scenario_api_keys SET last_status = ? WHERE id = ?', ['OK - ' + new Date().toLocaleString('id-ID'), id]);
+        await db.run(
+          'UPDATE scenario_api_keys SET last_status = ?, consumption_cu = ?, plan_name = ? WHERE id = ?',
+          ['OK - ' + new Date().toLocaleString('id-ID'), testRes.consumption || 0, testRes.plan || 'cu-basic', id]
+        );
       }
       return res.json({
         ok: true,
         message: 'Koneksi Scenario API Berhasil!',
-        consumption: testRes.consumption
+        consumption: testRes.consumption,
+        plan: testRes.plan
       });
     } else {
       if (id) {

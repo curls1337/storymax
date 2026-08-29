@@ -2212,11 +2212,29 @@ const PRESET_AI_MODELS = [
                         onClick={() => handleTestScenarioKey(k)}
                         disabled={scenarioTestLoading}
                         className="px-2 py-1 rounded bg-[#38bdf8]/10 border border-[#38bdf8]/30 hover:bg-[#38bdf8] hover:text-black text-[#7dd3fc] text-[8px] font-bold uppercase tracking-wider transition-all cursor-pointer shrink-0"
-                        title="Tes key ini"
+                        title="Tes & Cek Kuota CU Key Ini"
                       >
-                        Tes
+                        Tes / Cek CU
                       </button>
                     </div>
+
+                    {/* Stats & Usage Badges */}
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-[#2a2725]/60 pl-5.5">
+                      <span className="inline-flex items-center gap-1 bg-[#38bdf8]/10 text-[#7dd3fc] border border-[#38bdf8]/20 px-1.5 py-0.5 rounded text-[8px] font-bold tracking-wider">
+                        ⚡ {k.total_usage || 0}x Digunakan
+                      </span>
+                      {k.consumption_cu != null ? (
+                        <span className="inline-flex items-center gap-1 bg-amber-950/20 text-amber-300 border border-amber-500/20 px-1.5 py-0.5 rounded text-[8px] font-bold tracking-wider" title="Total Creative Units yang telah terpakai di Scenario Cloud">
+                          🌐 {k.consumption_cu} CU Terpakai
+                        </span>
+                      ) : null}
+                      {k.plan_name ? (
+                        <span className="inline-flex items-center gap-1 bg-purple-950/20 text-purple-300 border border-purple-500/20 px-1.5 py-0.5 rounded text-[8px] font-bold tracking-wider uppercase">
+                          📦 {k.plan_name}
+                        </span>
+                      ) : null}
+                    </div>
+
                     {k.last_status ? <p className="text-[8px] text-slate-400 truncate pl-5.5" title={k.last_status}>📋 {k.last_status}</p> : null}
                     <div className="flex items-center gap-1.5 pt-1">
                       <button onClick={() => handleToggleScenarioKey(k.id, k.is_active)} className={`flex-1 px-2 py-1.5 rounded-md text-[8px] font-bold tracking-wider uppercase border transition-all cursor-pointer ${k.is_active === 1 ? 'bg-green-950/20 text-green-300 border-green-500/20 hover:bg-green-600 hover:text-white' : 'bg-slate-900/40 text-slate-500 border-slate-800 hover:bg-slate-700 hover:text-white'}`}>{k.is_active === 1 ? 'Aktif' : 'Nonaktif'}</button>

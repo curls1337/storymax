@@ -47,25 +47,28 @@ async function request(apiKey, apiSecret, path, options = {}) {
 }
 
 /**
- * Test credentials validity against /projects and /models/public
+ * Test credentials validity against /projects, /teams, and /models/public
  */
 async function testConnection(apiKey, apiSecret) {
   try {
-    const [projRes, pubModelsRes] = await Promise.allSettled([
+    const [projRes, teamsRes, pubModelsRes] = await Promise.allSettled([
       request(apiKey, apiSecret, '/projects', { method: 'GET' }),
+      request(apiKey, apiSecret, '/teams', { method: 'GET' }),
       request(apiKey, apiSecret, '/models/public?pageSize=1', { method: 'GET' })
     ]);
 
-    if (pubModelsRes.status === 'fulfilled' || projRes.status === 'fulfilled') {
+    if (pubModelsRes.status === 'fulfilled' || projRes.status === 'fulfilled' || teamsRes.status === 'fulfilled') {
       const consumption = projRes.status === 'fulfilled' && projRes.value?.projects?.[0]?.consumption;
+      const plan = teamsRes.status === 'fulfilled' && teamsRes.value?.teams?.[0]?.plan;
       return {
         ok: true,
         consumption: typeof consumption === 'number' ? consumption : 0,
+        plan: plan || 'cu-basic',
         message: 'Koneksi Scenario API Berhasil'
       };
     }
 
-    const err = pubModelsRes.reason || projRes.reason;
+    const err = pubModelsRes.reason || projRes.reason || teamsRes.reason;
     throw err || new Error('Gagal memverifikasi API Key & Secret');
   } catch (err) {
     return {

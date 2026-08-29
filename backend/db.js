@@ -548,6 +548,17 @@ async function initDb() {
     try { await db.exec(`ALTER TABLE user_google_exports ADD COLUMN ${col} ${type}`); } catch (e) { /* exists */ }
   }
 
+  // Scenario API usage tracking & plan fields
+  for (const [col, type] of [
+    ['usage_count', 'INTEGER DEFAULT 0'],
+    ['consumption_cu', 'INTEGER DEFAULT 0'],
+    ['plan_name', 'TEXT'],
+  ]) {
+    try { await db.exec(`ALTER TABLE scenario_api_keys ADD COLUMN ${col} ${type}`); } catch (e) { /* exists */ }
+  }
+  try { await db.exec('ALTER TABLE storyboards ADD COLUMN scenario_key_id INTEGER'); } catch (e) { /* exists */ }
+  try { await db.exec('ALTER TABLE generated_videos ADD COLUMN scenario_key_id INTEGER'); } catch (e) { /* exists */ }
+
   // Seed default admin if no users exist
   const adminExists = await db.get('SELECT * FROM users WHERE role = "admin"');
   if (!adminExists && SEED_DEFAULT_ADMIN) {
