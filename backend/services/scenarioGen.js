@@ -666,19 +666,30 @@ async function generateVideoScenario(keyRecord, options = {}) {
     params.generateAudio = generateAudio;
   }
 
-  // First frame / scene image
-  const assetId = await ensureScenarioAssetId(keyRecord, options.sceneImage, options.originalCdnUrl, onLog);
-  if (assetId) {
-    if (modelId.includes('kling')) {
-      params.startImage = assetId;
-    } else if (modelId.includes('minimax')) {
-      params.firstFrameImage = assetId;
-    } else {
-      params.image = assetId;
+  // 1. Reference-to-Video mode: uses the Storyboard scene image itself as the single visual reference asset
+  if (options.generationType === 'reference') {
+    const targetRef = options.sceneImage || options.originalCdnUrl || (Array.isArray(options.referenceImages) ? options.referenceImages[0] : null);
+    if (targetRef) {
+      const refAssetId = await ensureScenarioAssetId(keyRecord, targetRef, options.originalCdnUrl, onLog);
+      if (refAssetId) {
+        params.referenceImages = [refAssetId];
+      }
+    }
+  } else if (options.generationType !== 'text') {
+    // 2. Image-to-Video mode: first frame is the Storyboard scene image
+    const assetId = await ensureScenarioAssetId(keyRecord, options.sceneImage, options.originalCdnUrl, onLog);
+    if (assetId) {
+      if (modelId.includes('kling')) {
+        params.startImage = assetId;
+      } else if (modelId.includes('minimax')) {
+        params.firstFrameImage = assetId;
+      } else {
+        params.image = assetId;
+      }
     }
   }
 
-  // Last frame image if provided
+  // 3. Last frame image if provided (Transition-to-Video mode)
   if (options.lastFrameImage) {
     const lastAssetId = await ensureScenarioAssetId(keyRecord, options.lastFrameImage, null, onLog);
     if (lastAssetId) {
@@ -687,21 +698,6 @@ async function generateVideoScenario(keyRecord, options = {}) {
       } else {
         params.lastFrameImage = lastAssetId;
       }
-    }
-  }
-
-  // Reference images array (only in explicit Reference-to-Video mode; standard Image-to-Video animates the Storyboard scene image)
-  if (options.generationType === 'reference' && options.referenceImages && Array.isArray(options.referenceImages) && options.referenceImages.length > 0) {
-    const refs = [];
-    for (const r of options.referenceImages) {
-      const u = await ensureScenarioAssetId(keyRecord, r, null, onLog);
-      if (u) refs.push(u);
-    }
-    if (refs.length > 0) {
-      params.referenceImages = refs.slice(0, 7);
-      delete params.image;
-      delete params.startImage;
-      delete params.firstFrameImage;
     }
   }
 
