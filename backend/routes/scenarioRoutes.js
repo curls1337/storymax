@@ -11,7 +11,15 @@ router.get('/catalog', authenticateToken, async (req, res) => {
   try {
     const db = getDb();
     const specificKeyId = req.query.keyId;
-    const activeKeys = await db.all('SELECT id, key_value, secret_value, label, is_active FROM scenario_api_keys WHERE is_active = 1 ORDER BY id ASC');
+    const activeKeys = await db.all(`
+      SELECT k.id, k.key_value, k.secret_value, k.label, k.is_active, k.usage_count, k.consumption_cu, k.plan_name,
+             (COALESCE((SELECT COUNT(*) FROM storyboards s WHERE s.scenario_key_id = k.id), 0) +
+              COALESCE((SELECT COUNT(*) FROM generated_videos v WHERE v.scenario_key_id = k.id), 0) +
+              COALESCE(k.usage_count, 0)) AS total_usage
+      FROM scenario_api_keys k
+      WHERE k.is_active = 1
+      ORDER BY k.id ASC
+    `);
     
     let targetKey = null;
     if (specificKeyId && specificKeyId !== 'auto') {
@@ -30,7 +38,10 @@ router.get('/catalog', authenticateToken, async (req, res) => {
       id: k.id,
       key_value: k.key_value,
       label: k.label,
-      is_active: k.is_active
+      is_active: k.is_active,
+      total_usage: k.total_usage || 0,
+      consumption_cu: k.consumption_cu,
+      plan_name: k.plan_name || 'Standard'
     }));
 
     // Tag models with supported status based on active key plan tier

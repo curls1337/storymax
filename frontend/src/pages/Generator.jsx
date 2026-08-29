@@ -1168,7 +1168,9 @@ export default function Generator({ setTab, selectedCharacter, setSelectedCharac
                   <option value="auto">Pilih Otomatis (Auto-detect &amp; Failover)</option>
                   {(((scenarioCatalog && scenarioCatalog.keys) || []).length)
                     ? scenarioCatalog.keys.map((k) => (
-                      <option key={k.id} value={k.id}>{k.label} (Key: {String(k.key_value || '').substring(0, 8)}••••)</option>
+                      <option key={k.id} value={k.id}>
+                        {k.label} (Key: {String(k.key_value || '').substring(0, 8)}•••• | ⚡ {k.total_usage || 0}x Digunakan{k.consumption_cu != null ? ` · 🌐 ${k.consumption_cu} CU` : ''})
+                      </option>
                     ))
                     : <option value="" disabled>Belum ada API Key Scenario aktif</option>}
                 </select>
