@@ -102,29 +102,52 @@ function voToneLabel(tone) {
 // Returns null when no character is linked, or the character exists but every voice
 // field is empty (i.e. left as "Auto") — so behavior for un-configured characters is
 // completely unchanged.
-// A14: Fetches public URLs for a character's reference images to be used as
+// A14: Fetches public URLs / paths for a character's and product reference images to be used as
 // visual identity anchors during video generation.
 async function getCharacterReferenceUrls(db, storyboard) {
   try {
-    if (!storyboard || !storyboard.character_id) return [];
-    const char = await db.get(
-      'SELECT reference_images, sheet_image_url FROM characters WHERE id = ?',
-      [storyboard.character_id]
-    );
-    if (!char) return [];
-    
     const refs = [];
-    if (char.sheet_image_url) refs.push(char.sheet_image_url);
     
-    let extra = [];
-    try { extra = JSON.parse(char.reference_images || '[]'); } catch (e) {}
-    if (Array.isArray(extra)) {
-      for (const img of extra) {
-        if (img && !refs.includes(img)) refs.push(img);
+    // 1. Character references
+    if (storyboard && storyboard.character_id) {
+      const char = await db.get(
+        'SELECT reference_images, sheet_image_url FROM characters WHERE id = ?',
+        [storyboard.character_id]
+      );
+      if (char) {
+        if (char.sheet_image_url) refs.push(char.sheet_image_url);
+        let extra = [];
+        try { extra = JSON.parse(char.reference_images || '[]'); } catch (e) {}
+        if (Array.isArray(extra)) {
+          for (const img of extra) {
+            if (img && !refs.includes(img)) refs.push(img);
+          }
+        }
       }
     }
+
+    // 2. Product references from storyboard active_task_data
+    if (storyboard && storyboard.active_task_data) {
+      try {
+        const td = JSON.parse(storyboard.active_task_data);
+        if (Array.isArray(td.rawRefImagePaths)) {
+          for (const p of td.rawRefImagePaths) {
+            if (p && !refs.includes(p)) refs.push(p);
+          }
+        }
+        if (td.productRefImagePath && !refs.includes(td.productRefImagePath)) {
+          refs.push(td.productRefImagePath);
+        }
+        if (Array.isArray(td.refImages)) {
+          for (const item of td.refImages) {
+            const val = item?.url || item?.base64;
+            if (val && !refs.includes(val)) refs.push(val);
+          }
+        }
+      } catch (e) {}
+    }
     
-    // Convert to public URLs for Magica
+    // Convert to public URLs for Magica / Scenario
     return refs.map(r => magicaGen.toPublicUrl(r)).filter(Boolean);
   } catch (e) {
     return [];

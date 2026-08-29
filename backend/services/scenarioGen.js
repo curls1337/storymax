@@ -698,9 +698,9 @@ async function generateVideoScenario(keyRecord, options = {}) {
       if (u) refs.push(u);
     }
     if (refs.length > 0) {
-      params.referenceImages = refs.slice(0, 9);
-      // In Seedance multimodal mode, image (first frame) is mutually exclusive with referenceImages
-      if (params.referenceImages.length > 0 && !params.lastFrameImage) {
+      params.referenceImages = refs.slice(0, 7);
+      // Only delete first frame image if generationType is explicitly 'reference' (pure text+reference, no first frame)
+      if (options.generationType === 'reference' && !options.sceneImage) {
         delete params.image;
         delete params.startImage;
         delete params.firstFrameImage;
