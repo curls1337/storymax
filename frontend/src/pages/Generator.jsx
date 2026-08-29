@@ -47,7 +47,7 @@ function pagesForDuration(engine, durationValue) {
   return (hit && hit.pages) || 1;
 }
 
-export default function Generator({ setTab, selectedCharacter }) {
+export default function Generator({ setTab, selectedCharacter, setSelectedCharacter }) {
   const [mode, setMode] = useState('tokopedia');
   const [title, setTitle] = useState('');
   const [prompt, setPrompt] = useState('');

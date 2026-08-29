@@ -218,6 +218,31 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
         }
       }
 
+      // Provider routing (Scenario / Magica / Freebeat)
+      let isMagica = false, magicaApiKey = null;
+      let isScenario = false;
+      try {
+        if (await scenarioGen.isScenarioForStoryboard(db, storyboardId)) {
+          const sk = await scenarioGen.pickScenarioKey(db, task.scenarioKeyId);
+          if (sk) {
+            isScenario = true;
+            task.logs += `[Provider] Render gambar via Scenario API (${task.scenarioModel || 'model_openai-gpt-image-2'}) — key #${sk.id} (${sk.label}).\n`;
+          } else {
+            task.logs += '[Provider] Belum ada API Key Scenario yang aktif. Tambahkan key di Admin → API Scenario.\n';
+          }
+          await saveTaskState(db, storyboardId, task);
+        } else if (await magicaGen.isMagicaForStoryboard(db, storyboardId)) {
+          const mk = await magicaGen.pickMediaMagicaKey(db, task.magicaKeyId);
+          if (mk) {
+            isMagica = true; magicaApiKey = mk.key_value;
+            task.logs += `[Provider] Render gambar via Magica (GPT Image 2) — key #${mk.id} (saldo ~${(mk.balance / 1e6).toFixed(2)} kredit).\n`;
+          } else {
+            task.logs += '[Provider] Tidak ada API Key Magica dengan saldo cukup (>= 5 kredit) untuk gambar. Key di bawah 5 kredit hanya untuk LLM. Isi ulang / tambah key. Memakai Freebeat bila tersedia.\n';
+          }
+          await saveTaskState(db, storyboardId, task);
+        }
+      } catch (e) {}
+
       // A14: keep the Consistent Character's own photo as the SOLE visual edit
       // reference instead of stitching it into a side-by-side collage with any
       // OTHER reference image the user also uploaded (e.g. a product/scene
@@ -287,37 +312,10 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
       await saveTaskState(db, storyboardId, task);
     }
 
-    task.logs += `[2/4] Mengirim perintah generate ke Freebeat secara sekuensial (Satu per satu)...\n`;
+    task.logs += `[2/4] Memulai proses render halaman storyboard...\n`;
     await saveTaskState(db, storyboardId, task);
 
     let currentError = null;
-
-    // Provider routing (Bagian 2): if the storyboard owner prefers Magica (and is
-    // allowed), render each page via Magica GPT Image 2 instead of the Freebeat CLI.
-    // The Freebeat spawn below is skipped per-page for Magica; Freebeat code untouched.
-    let isMagica = false, magicaApiKey = null;
-    let isScenario = false;
-    try {
-      if (await scenarioGen.isScenarioForStoryboard(db, storyboardId)) {
-        const sk = await scenarioGen.pickScenarioKey(db, task.scenarioKeyId);
-        if (sk) {
-          isScenario = true;
-          task.logs += `[Provider] Render gambar via Scenario API (${task.scenarioModel || 'model_openai-gpt-image-2'}) — key #${sk.id} (${sk.label}).\n`;
-        } else {
-          task.logs += '[Provider] Belum ada API Key Scenario yang aktif. Tambahkan key di Admin → API Scenario.\n';
-        }
-        await saveTaskState(db, storyboardId, task);
-      } else if (await magicaGen.isMagicaForStoryboard(db, storyboardId)) {
-        const mk = await magicaGen.pickMediaMagicaKey(db, task.magicaKeyId);
-        if (mk) {
-          isMagica = true; magicaApiKey = mk.key_value;
-          task.logs += `[Provider] Render gambar via Magica (GPT Image 2) — key #${mk.id} (saldo ~${(mk.balance / 1e6).toFixed(2)} kredit).\n`;
-        } else {
-          task.logs += '[Provider] Tidak ada API Key Magica dengan saldo cukup (>= 5 kredit) untuk gambar. Key di bawah 5 kredit hanya untuk LLM. Isi ulang / tambah key. Memakai Freebeat bila tersedia.\n';
-        }
-        await saveTaskState(db, storyboardId, task);
-      }
-    } catch (e) {}
     if (!task.imagePaths) task.imagePaths = [];
     if (!task.originalCdnUrls) task.originalCdnUrls = [];
 
