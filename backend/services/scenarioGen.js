@@ -690,8 +690,8 @@ async function generateVideoScenario(keyRecord, options = {}) {
     }
   }
 
-  // Reference images array (multimodal mode)
-  if (options.referenceImages && Array.isArray(options.referenceImages) && options.referenceImages.length > 0) {
+  // Reference images array (only in explicit Reference-to-Video mode; standard Image-to-Video animates the Storyboard scene image)
+  if (options.generationType === 'reference' && options.referenceImages && Array.isArray(options.referenceImages) && options.referenceImages.length > 0) {
     const refs = [];
     for (const r of options.referenceImages) {
       const u = await ensureScenarioAssetId(keyRecord, r, null, onLog);
@@ -699,12 +699,9 @@ async function generateVideoScenario(keyRecord, options = {}) {
     }
     if (refs.length > 0) {
       params.referenceImages = refs.slice(0, 7);
-      // Only delete first frame image if generationType is explicitly 'reference' (pure text+reference, no first frame)
-      if (options.generationType === 'reference' && !options.sceneImage) {
-        delete params.image;
-        delete params.startImage;
-        delete params.firstFrameImage;
-      }
+      delete params.image;
+      delete params.startImage;
+      delete params.firstFrameImage;
     }
   }
 
