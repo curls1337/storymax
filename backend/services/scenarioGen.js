@@ -666,8 +666,12 @@ async function generateVideoScenario(keyRecord, options = {}) {
     params.generateAudio = generateAudio;
   }
 
-  // 1. Reference-to-Video mode: uses the Storyboard scene image itself as the single visual reference asset
-  if (options.generationType === 'reference') {
+  // For Gemini Omni, Seedance, and Omni models, passing the storyboard scene as referenceImages
+  // allows the model to generate a clean, full-screen live action video based on the storyboard
+  // without locking onto the 6-panel grid border / poster chrome at frame 0.0.
+  const isMultimodalRefModel = modelId === 'model_google-omni-flash' || modelId.includes('seedance') || modelId.includes('omni');
+
+  if (options.generationType === 'reference' || (options.generationType === 'image' && isMultimodalRefModel)) {
     const targetRef = options.sceneImage || options.originalCdnUrl || (Array.isArray(options.referenceImages) ? options.referenceImages[0] : null);
     if (targetRef) {
       const refAssetId = await ensureScenarioAssetId(keyRecord, targetRef, options.originalCdnUrl, onLog);
@@ -676,7 +680,7 @@ async function generateVideoScenario(keyRecord, options = {}) {
       }
     }
   } else if (options.generationType !== 'text') {
-    // 2. Image-to-Video mode: first frame is the Storyboard scene image
+    // 2. Strict First-Frame Image-to-Video models (e.g. Minimax, Kling I2V Pro, Wan I2V)
     const assetId = await ensureScenarioAssetId(keyRecord, options.sceneImage, options.originalCdnUrl, onLog);
     if (assetId) {
       if (modelId.includes('kling')) {
