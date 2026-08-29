@@ -565,10 +565,21 @@ async function generateOneImageScenario(keyRecord, prompt, options = {}) {
     aspectRatio
   };
 
-  // Add reference images if provided and valid
-  const assetId = await ensureScenarioAssetId(keyRecord, options.referenceImage || options.sceneImage, options.originalCdnUrl, onLog);
-  if (assetId) {
-    params.image = assetId;
+  // Add reference images (supports multiple separate reference images array)
+  const rawRefs = options.refUrls || options.referenceImages || (options.referenceImage ? [options.referenceImage] : (options.sceneImage ? [options.sceneImage] : []));
+  const assetIds = [];
+  
+  for (const ref of rawRefs) {
+    if (!ref) continue;
+    const aId = await ensureScenarioAssetId(keyRecord, ref, options.originalCdnUrl, onLog);
+    if (aId && !assetIds.includes(aId)) {
+      assetIds.push(aId);
+    }
+  }
+
+  if (assetIds.length > 0) {
+    params.referenceImages = assetIds;
+    params.image = assetIds[0]; // for models expecting single 'image' parameter
   }
 
   const submitRes = await scenarioClient.generateCustom(keyRecord.key_value, keyRecord.secret_value, modelId, params);

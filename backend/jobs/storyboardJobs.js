@@ -231,25 +231,31 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
       // for the PRODUCT text descriptor below (never mixed into the identity photo).
       const characterPaths = savedRefMeta.filter(m => m.isCharacterRef).map(m => m.path);
       const otherPaths = savedRefMeta.filter(m => !m.isCharacterRef).map(m => m.path);
+      task.rawRefImagePaths = savedRefMeta.map(m => m.path);
 
       let finalRefImagePath = '';
       let productRefImagePath = '';
 
       if (characterPaths.length > 0) {
         finalRefImagePath = characterPaths[0];
-        task.logs += `Ref Karakter : ${path.basename(finalRefImagePath)} (dipakai langsung sebagai acuan wajah, tidak digabung kolase)\n`;
+        task.logs += `Ref Karakter : ${path.basename(finalRefImagePath)} (dipakai langsung sebagai acuan wajah)\n`;
         if (otherPaths.length === 1) {
           productRefImagePath = otherPaths[0];
-          task.logs += `Ref Produk   : ${path.basename(productRefImagePath)} (dipakai hanya untuk deskripsi produk)\n\n`;
+          task.logs += `Ref Produk   : ${path.basename(productRefImagePath)} (dipakai untuk deskripsi produk)\n\n`;
         } else if (otherPaths.length > 1) {
-          task.logs += `[1.5/4] Menggabungkan ${otherPaths.length} gambar referensi produk menjadi 1 kolase (khusus deskripsi produk)...\n`;
-          try {
-            productRefImagePath = await stitchImagesSideBySide(otherPaths, publicDir);
-            task.logs += `Kolase referensi produk berhasil dibuat.\n\n`;
-          } catch (stitchErr) {
-            console.error('Failed to stitch product reference images:', stitchErr);
-            task.logs += `[WARNING] Gagal menggabungkan gambar referensi produk: ${stitchErr.message}. Menggunakan gambar pertama sebagai fallback.\n\n`;
+          if (isScenario || isMagica) {
             productRefImagePath = otherPaths[0];
+            task.logs += `Ref Produk   : ${otherPaths.length} gambar referensi produk (dikirim terpisah sebagai multi-reference ke ${isScenario ? 'Scenario' : 'Magica'})\n\n`;
+          } else {
+            task.logs += `[1.5/4] Menggabungkan ${otherPaths.length} gambar referensi produk menjadi 1 kolase (khusus deskripsi produk)...\n`;
+            try {
+              productRefImagePath = await stitchImagesSideBySide(otherPaths, publicDir);
+              task.logs += `Kolase referensi produk berhasil dibuat.\n\n`;
+            } catch (stitchErr) {
+              console.error('Failed to stitch product reference images:', stitchErr);
+              task.logs += `[WARNING] Gagal menggabungkan gambar referensi produk: ${stitchErr.message}. Menggunakan gambar pertama sebagai fallback.\n\n`;
+              productRefImagePath = otherPaths[0];
+            }
           }
         } else {
           task.logs += `\n`;
@@ -259,14 +265,19 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
         task.logs += `Ref Gambar   : ${path.basename(finalRefImagePath)}\n\n`;
       } else if (otherPaths.length > 1) {
         task.logs += `Ref Gambar Asli: ${otherPaths.map(p => path.basename(p)).join(', ')}\n`;
-        task.logs += `[1.5/4] Menggabungkan ${otherPaths.length} gambar referensi menjadi 1 kolase side-by-side untuk Freebeat...\n`;
-        try {
-          finalRefImagePath = await stitchImagesSideBySide(otherPaths, publicDir);
-          task.logs += `Kolase referensi berhasil dibuat.\n\n`;
-        } catch (stitchErr) {
-          console.error('Failed to stitch reference images:', stitchErr);
-          task.logs += `[WARNING] Gagal menggabungkan gambar referensi: ${stitchErr.message}. Menggunakan gambar pertama sebagai fallback.\n\n`;
+        if (isScenario || isMagica) {
           finalRefImagePath = otherPaths[0];
+          task.logs += `[1.5/4] ${otherPaths.length} gambar referensi akan dikirim langsung secara terpisah (multi-reference) ke ${isScenario ? 'Scenario' : 'Magica'}.\n\n`;
+        } else {
+          task.logs += `[1.5/4] Menggabungkan ${otherPaths.length} gambar referensi menjadi 1 kolase side-by-side untuk Freebeat...\n`;
+          try {
+            finalRefImagePath = await stitchImagesSideBySide(otherPaths, publicDir);
+            task.logs += `Kolase referensi berhasil dibuat.\n\n`;
+          } catch (stitchErr) {
+            console.error('Failed to stitch reference images:', stitchErr);
+            task.logs += `[WARNING] Gagal menggabungkan gambar referensi: ${stitchErr.message}. Menggunakan gambar pertama sebagai fallback.\n\n`;
+            finalRefImagePath = otherPaths[0];
+          }
         }
       } else {
         task.logs += `Ref Gambar   : Tidak ada\n\n`;
@@ -392,12 +403,21 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
             const { result: scRes } = await scenarioGen.executeWithScenarioFailover(
               db,
               async (keyRec) => {
-                let refImg = pageRefPath;
-                if (task.characterId && task.finalRefImagePath) refImg = task.finalRefImagePath;
+                const refUrls = [];
+                if (task.characterId && task.finalRefImagePath) {
+                  refUrls.push(task.finalRefImagePath);
+                  if (task.productRefImagePath) refUrls.push(task.productRefImagePath);
+                } else if (Array.isArray(task.rawRefImagePaths) && task.rawRefImagePaths.length > 0) {
+                  refUrls.push(...task.rawRefImagePaths);
+                } else if (pageRefPath) {
+                  refUrls.push(pageRefPath);
+                }
+
                 return await scenarioGen.generateOneImageScenario(keyRec, pagePrompt, {
                   aspectRatio: task.aspectRatio,
                   model: task.scenarioModel || 'model_openai-gpt-image-2',
-                  referenceImage: refImg,
+                  refUrls: refUrls.length ? refUrls : undefined,
+                  referenceImage: !refUrls.length ? pageRefPath : undefined,
                   onLog: (m) => { task.logs += m + '\n'; }
                 });
               },
@@ -994,9 +1014,14 @@ async function regenerateStoryboardPage(req, res) {
             const { result: scRes } = await scenarioGen.executeWithScenarioFailover(
               db,
               async (keyRec) => {
+                const refUrls = [];
+                if (finalRefImagePath) refUrls.push(finalRefImagePath);
+                if (productRefImagePath) refUrls.push(productRefImagePath);
+
                 return await scenarioGen.generateOneImageScenario(keyRec, pagePrompt, {
                   aspectRatio,
-                  referenceImage: finalRefImagePath,
+                  refUrls: refUrls.length ? refUrls : undefined,
+                  referenceImage: !refUrls.length ? (finalRefImagePath || undefined) : undefined,
                   model: genParams.scenarioModel || 'model_openai-gpt-image-2',
                   onLog: (m) => { activeTasks[taskId].logs += m + '\n'; }
                 });

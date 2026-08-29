@@ -4,6 +4,7 @@ const { getDb } = require('../db');
 const { uploadsDir } = require('../config');
 const { chatCompletion } = require('../prompts/aiClient');
 const magicaGen = require('../services/magicaGen');
+const scenarioGen = require('../services/scenarioGen');
 const { getAvailableApiKey } = require('../services/keyPool');
 const { freebeatSizeArgs } = require('../services/freebeat/cli');
 const { downloadFile } = require('../services/download');
@@ -658,9 +659,10 @@ async function generateCharacterSheetImage(req, res) {
     }
 
     const db = getDb();
-    const userRow = await db.get('SELECT preferred_provider AS pp, can_use_magica AS cum FROM users WHERE id = ?', [req.user.id]);
+    const userRow = await db.get('SELECT preferred_provider AS pp, can_use_magica AS cum, can_use_scenario AS cus FROM users WHERE id = ?', [req.user.id]);
     
     // Determine primary provider to try
+    const wantScenario = provider === 'scenario' || (!provider && userRow && userRow.pp === 'scenario');
     const wantMagica = provider === 'magica' || (!provider && userRow && userRow.pp === 'magica' && userRow.cum);
     
     // Item 2: accept up to MAX_REFERENCE_IMAGES reference photos (multi-angle) via the new
@@ -673,12 +675,40 @@ async function generateCharacterSheetImage(req, res) {
       return saved;
     }).filter(Boolean);
 
-    // Convert local /uploads/... relative paths to public HTTP URLs for Magica
+    // Convert local /uploads/... relative paths to public HTTP URLs for Magica / Scenario
     const publicBaseUrl = process.env.PUBLIC_URL || (req.protocol + '://' + req.get('host'));
     const targetRefUrls = savedPaths.map((p) => (p.startsWith('/uploads/') ? `${publicBaseUrl.replace(/\/$/, '')}${p}` : p));
     const targetRefUrl = targetRefUrls[0] || null; // kept for readability where only one ref matters
 
-    // Attempt 1: Magica if requested or preferred
+    // Attempt 1: Scenario if requested or preferred
+    if (wantScenario) {
+      try {
+        const { result: scRes } = await scenarioGen.executeWithScenarioFailover(
+          db,
+          async (keyRec) => {
+            return await scenarioGen.generateOneImageScenario(keyRec, prompt, {
+              aspectRatio: aspectRatio || '3:4',
+              model: req.body.scenarioModel || 'model_openai-gpt-image-2',
+              refUrls: targetRefUrls
+            });
+          },
+          { specificKeyId: req.body.scenarioKeyId }
+        );
+
+        if (scRes && scRes.url) {
+          let storedUrl = scRes.url;
+          const fname = `refsheet_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.png`;
+          const downloaded = await downloadFileWithRetry(scRes.url, path.join(uploadsDir, fname));
+          if (downloaded) storedUrl = `/uploads/${fname}`;
+
+          return res.json({ success: true, imageUrl: storedUrl });
+        }
+      } catch (scErr) {
+        console.warn('[SheetImage] Scenario attempt failed:', scErr.message);
+      }
+    }
+
+    // Attempt 2: Magica if requested or preferred
     if (wantMagica) {
       try {
         const mk = await magicaGen.pickMediaMagicaKey(db, magicaKeyId);
