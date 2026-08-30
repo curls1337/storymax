@@ -71,11 +71,11 @@ export default function Generator({ setTab, selectedCharacter, setSelectedCharac
   const dropdownRef = useRef(null);
   
   const [selectedRefImages, setSelectedRefImages] = useState([]);
-  const [userProvider, setUserProvider] = useState('freebeat');
+  const [userProvider, setUserProvider] = useState('scenario');
   const [magicaCatalog, setMagicaCatalog] = useState(null);
   const [magicaImageModel, setMagicaImageModel] = useState('');
   const [scenarioCatalog, setScenarioCatalog] = useState(null);
-  const [scenarioImageModel, setScenarioImageModel] = useState('model_openai-gpt-image-2');
+  const [scenarioImageModel, setScenarioImageModel] = useState('model_bfl-flux-2-klein-9b');
   const [scenarioKeyId, setScenarioKeyId] = useState('auto');
 
   const getEffectivePromptMax = () => {
@@ -259,25 +259,13 @@ export default function Generator({ setTab, selectedCharacter, setSelectedCharac
 
   useEffect(() => {
     fetchKeys();
-    api.get('/auth/me').then((r) => {
-      const pp = r.data.preferred_provider || 'freebeat';
-      setUserProvider(pp);
-      if (pp === 'magica') {
-        api.get('/magica/catalog').then((c) => {
-          setMagicaCatalog(c.data);
-          const imgs = (c.data && c.data.imageModels) || [];
-          const def = imgs.find((m) => m.nodeType === 'gpt_image_2') || imgs[0];
-          if (def) setMagicaImageModel(def.nodeType);
-        }).catch(() => {});
-      } else if (pp === 'scenario') {
-        api.get(`/scenario/catalog?keyId=${scenarioKeyId || 'auto'}`).then((c) => {
-          setScenarioCatalog(c.data);
-          const imgs = (c.data && c.data.imageModels) || [];
-          const supp = imgs.filter(m => m.isSupported !== false);
-          const def = supp[0]?.id || imgs[0]?.id || 'model_bfl-flux-2-klein-9b';
-          setScenarioImageModel(def);
-        }).catch(() => {});
-      }
+    setUserProvider('scenario');
+    api.get(`/scenario/catalog?keyId=${scenarioKeyId || 'auto'}`).then((c) => {
+      setScenarioCatalog(c.data);
+      const imgs = (c.data && c.data.imageModels) || [];
+      const supp = imgs.filter(m => m.isSupported !== false);
+      const def = supp[0]?.id || imgs[0]?.id || 'model_bfl-flux-2-klein-9b';
+      setScenarioImageModel(def);
     }).catch(() => {});
     const savedTaskId = localStorage.getItem('activeTaskId');
     if (savedTaskId) {

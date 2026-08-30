@@ -274,6 +274,8 @@ export default function App() {
               {tab === 'characters' && <div className="w-1.5 h-1.5 rounded-full bg-[#cfae80] shadow-sm shadow-[#cfae80]"></div>}
             </button>
 
+            {/* Temporarily hidden: SeedDance (Freebeat) & Studio 3D (Magica) */}
+            {/*
             {canUseSeedance && (
               <button
                 onClick={() => { setTab('seedance'); setSidebarOpen(false); }}
@@ -305,6 +307,7 @@ export default function App() {
               </span>
               {tab === '3d' && <div className="w-1.5 h-1.5 rounded-full bg-[#a855f7] shadow-sm shadow-[#a855f7]"></div>}
             </button>
+            */}
 
             <button
               onClick={() => { setTab('settings'); setSidebarOpen(false); }}
@@ -405,6 +408,8 @@ export default function App() {
           <Sparkles className="w-4.5 h-4.5" />
           <span className="text-[7.5px] font-bold uppercase tracking-widest mt-0.5">AI Gen</span>
         </button>
+        {/* Temporarily hidden: SeedDance (Freebeat) & Studio 3D (Magica) */}
+        {/*
         {canUseSeedance && (
           <button 
             onClick={() => setTab('seedance')} 
@@ -416,6 +421,7 @@ export default function App() {
             <span className="text-[7.5px] font-bold uppercase tracking-widest mt-0.5">Seed 2.5</span>
           </button>
         )}
+        */}
         <button 
           onClick={() => setTab('characters')} 
           className={`flex flex-col items-center justify-center gap-1 w-16 py-1.5 transition-all duration-200 ${
@@ -425,6 +431,7 @@ export default function App() {
           <UserCheck className="w-4.5 h-4.5" />
           <span className="text-[7.5px] font-bold uppercase tracking-widest mt-0.5">Karakter</span>
         </button>
+        {/*
         <button
           onClick={() => setTab('3d')}
           className={`flex flex-col items-center justify-center gap-1 w-16 py-1.5 transition-all duration-200 ${
@@ -434,6 +441,7 @@ export default function App() {
           <Box className="w-4.5 h-4.5" />
           <span className="text-[7.5px] font-bold uppercase tracking-widest mt-0.5">3D</span>
         </button>
+        */}
         <button
           onClick={() => setTab('settings')}
           className={`flex flex-col items-center justify-center gap-1 w-16 py-1.5 transition-all duration-200 ${

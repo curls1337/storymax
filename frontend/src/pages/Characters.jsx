@@ -748,7 +748,8 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
                     />
                   </div>
 
-                  {/* Model & Engine AI Selection */}
+                  {/* Temporarily hidden: Freebeat & Magica Provider Selector */}
+                  {/*
                   <div className="space-y-2.5 bg-[#121110] p-3.5 rounded-xl border border-[#2a2725]">
                     <label className="text-xs font-bold uppercase tracking-wider text-[#cfae80] flex items-center justify-between">
                       <span>Engine & Model AI Renderer</span>
@@ -756,7 +757,6 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
                     </label>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                      {/* Provider Selector */}
                       <div>
                         <span className="text-[10px] text-slate-400 font-semibold mb-1 block">Provider Render:</span>
                         <select
@@ -768,72 +768,9 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
                           <option value="magica">Magica AI (8K)</option>
                         </select>
                       </div>
-
-                      {/* Model Selector (Magica) */}
-                      {selectedProvider === 'magica' ? (
-                        <div>
-                          <span className="text-[10px] text-slate-400 font-semibold mb-1 block">Model Magica:</span>
-                          <select
-                            value={magicaModel}
-                            onChange={(e) => setMagicaModel(e.target.value)}
-                            className="w-full bg-[#1a1918] border border-[#3a3633] rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-[#cfae80]/60 font-medium"
-                          >
-                            {magicaCatalog?.imageModels?.length > 0 ? (
-                              magicaCatalog.imageModels.map((m) => (
-                                <option key={m.nodeType} value={m.nodeType}>
-                                  {m.name || m.nodeType}
-                                </option>
-                              ))
-                            ) : (
-                              <>
-                                <option value="nano_fast">Nano Fast (Cepat)</option>
-                                <option value="gpt_image_2">GPT Image 2 (Detail)</option>
-                                <option value="flux">Flux Realism (8K)</option>
-                                <option value="seedance_2_0_fast">Seedance 2.0 Fast</option>
-                              </>
-                            )}
-                          </select>
-                        </div>
-                      ) : null}
-
-                      {/* API Key Selector */}
-                      <div className={selectedProvider !== 'magica' ? 'sm:col-span-2' : ''}>
-                        <span className="text-[10px] text-slate-400 font-semibold mb-1 block">
-                          Pilih API Key ({selectedProvider === 'magica' ? 'Magica' : 'Freebeat'}):
-                        </span>
-                        {selectedProvider === 'magica' ? (
-                          <select
-                            value={magicaKeyId}
-                            onChange={(e) => setMagicaKeyId(e.target.value)}
-                            className="w-full bg-[#1a1918] border border-[#3a3633] rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-[#cfae80]/60 font-medium"
-                          >
-                            <option value="auto">Pilih Otomatis (Auto-detect)</option>
-                            {((magicaCatalog && magicaCatalog.keys) || []).map((k) => {
-                              const low = k.balance != null && k.balance < 1000000;
-                              return (
-                                <option key={k.id} value={k.id} disabled={low}>
-                                  {k.label} {k.formatted != null ? `(⚡ ${k.formatted} kredit)` : ''} {low ? '— Saldo tipis' : ''}
-                                </option>
-                              );
-                            })}
-                          </select>
-                        ) : (
-                          <select
-                            value={apiKeyId}
-                            onChange={(e) => setApiKeyId(e.target.value)}
-                            className="w-full bg-[#1a1918] border border-[#3a3633] rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-[#cfae80]/60 font-medium"
-                          >
-                            <option value="auto">Pilih Otomatis (Acak)</option>
-                            {apiKeys.map((k) => (
-                              <option key={k.id} value={k.id}>
-                                {k.name || `Key #${k.id} (${k.key_value ? k.key_value.slice(0, 8) + '...' : ''})`}
-                              </option>
-                            ))}
-                          </select>
-                        )}
-                      </div>
                     </div>
                   </div>
+                  */}
 
                   {/* Optional Reference Image Upload */}
                   <div className="space-y-2">
@@ -1340,7 +1277,8 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
                     </div>
                   )}
 
-                  {/* Provider & Model & API Key Selection inside Modal 3 */}
+                  {/* Temporarily hidden: Freebeat & Magica Provider Selection in Modal */}
+                  {/*
                   <div className="w-full max-w-lg bg-[#121110]/80 p-3.5 rounded-xl border border-[#3a3633] space-y-2 text-left">
                     <label className="text-[11px] font-bold uppercase tracking-wider text-[#cfae80]">
                       Pilih Engine & Model AI
@@ -1357,70 +1295,9 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
                           <option value="magica">Magica AI (8K)</option>
                         </select>
                       </div>
-                      {selectedProvider === 'magica' ? (
-                        <div>
-                          <span className="text-[10px] text-slate-400 font-semibold mb-1 block">Model Magica:</span>
-                          <select
-                            value={magicaModel}
-                            onChange={(e) => setMagicaModel(e.target.value)}
-                            className="w-full bg-[#1a1918] border border-[#3a3633] rounded-lg px-2.5 py-1.5 text-slate-200 text-xs focus:outline-none focus:border-[#cfae80]/60 font-medium"
-                          >
-                            {magicaCatalog?.imageModels?.length > 0 ? (
-                              magicaCatalog.imageModels.map((m) => (
-                                <option key={m.nodeType} value={m.nodeType}>
-                                  {m.name || m.nodeType}
-                                </option>
-                              ))
-                            ) : (
-                              <>
-                                <option value="nano_fast">Nano Fast (Cepat)</option>
-                                <option value="gpt_image_2">GPT Image 2 (Detail)</option>
-                                <option value="flux">Flux Realism (8K)</option>
-                                <option value="seedance_2_0_fast">Seedance 2.0 Fast</option>
-                              </>
-                            )}
-                          </select>
-                        </div>
-                      ) : null}
-
-                      {/* API Key Selector */}
-                      <div className={selectedProvider !== 'magica' ? 'sm:col-span-2' : ''}>
-                        <span className="text-[10px] text-slate-400 font-semibold mb-1 block">
-                          Pilih API Key ({selectedProvider === 'magica' ? 'Magica' : 'Freebeat'}):
-                        </span>
-                        {selectedProvider === 'magica' ? (
-                          <select
-                            value={magicaKeyId}
-                            onChange={(e) => setMagicaKeyId(e.target.value)}
-                            className="w-full bg-[#1a1918] border border-[#3a3633] rounded-lg px-2.5 py-1.5 text-slate-200 text-xs focus:outline-none focus:border-[#cfae80]/60 font-medium"
-                          >
-                            <option value="auto">Pilih Otomatis (Auto-detect)</option>
-                            {((magicaCatalog && magicaCatalog.keys) || []).map((k) => {
-                              const low = k.balance != null && k.balance < 1000000;
-                              return (
-                                <option key={k.id} value={k.id} disabled={low}>
-                                  {k.label} {k.formatted != null ? `(⚡ ${k.formatted} kredit)` : ''} {low ? '— Saldo tipis' : ''}
-                                </option>
-                              );
-                            })}
-                          </select>
-                        ) : (
-                          <select
-                            value={apiKeyId}
-                            onChange={(e) => setApiKeyId(e.target.value)}
-                            className="w-full bg-[#1a1918] border border-[#3a3633] rounded-lg px-2.5 py-1.5 text-slate-200 text-xs focus:outline-none focus:border-[#cfae80]/60 font-medium"
-                          >
-                            <option value="auto">Pilih Otomatis (Acak)</option>
-                            {apiKeys.map((k) => (
-                              <option key={k.id} value={k.id}>
-                                {k.name || `Key #${k.id} (${k.key_value ? k.key_value.slice(0, 8) + '...' : ''})`}
-                              </option>
-                            ))}
-                          </select>
-                        )}
-                      </div>
                     </div>
                   </div>
+                  */}
 
                   <button
                     onClick={() => handleGenerateSheetForExistingCharacter(showSheetViewer)}

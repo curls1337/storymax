@@ -986,6 +986,19 @@ const PRESET_AI_MODELS = [
           Manajemen User ({users.length})
         </button>
         <button
+          onClick={() => { setActiveTab('scenario'); setError(''); setMessage(''); }}
+          className={`py-2.5 px-3.5 flex items-center font-bold text-[9px] uppercase tracking-wider border-b-2 transition-all shrink-0 relative ${
+            activeTab === 'scenario'
+              ? 'border-[#cfae80] text-white'
+              : 'border-transparent text-slate-400 hover:text-white'
+          }`}
+        >
+          <Sparkles className="w-3.5 h-3.5 mr-1.5 text-[#38bdf8]" />
+          API Scenario ({scenarioKeys.length})
+        </button>
+        {/* Temporarily hidden: Freebeat keys, Magica, SeedDance */}
+        {/*
+        <button
           onClick={() => { setActiveTab('keys'); setError(''); setMessage(''); }}
           className={`py-2.5 px-3.5 flex items-center font-bold text-[9px] uppercase tracking-wider border-b-2 transition-all shrink-0 relative ${
             activeTab === 'keys'
@@ -1008,17 +1021,6 @@ const PRESET_AI_MODELS = [
           API Magica ({magicaKeys.length})
         </button>
         <button
-          onClick={() => { setActiveTab('scenario'); setError(''); setMessage(''); }}
-          className={`py-2.5 px-3.5 flex items-center font-bold text-[9px] uppercase tracking-wider border-b-2 transition-all shrink-0 relative ${
-            activeTab === 'scenario'
-              ? 'border-[#cfae80] text-white'
-              : 'border-transparent text-slate-400 hover:text-white'
-          }`}
-        >
-          <Sparkles className="w-3.5 h-3.5 mr-1.5 text-[#38bdf8]" />
-          API Scenario ({scenarioKeys.length})
-        </button>
-        <button
           onClick={() => { setActiveTab('seedance'); setError(''); setMessage(''); }}
           className={`py-2.5 px-3.5 flex items-center font-bold text-[9px] uppercase tracking-wider border-b-2 transition-all shrink-0 relative ${
             activeTab === 'seedance'
@@ -1029,6 +1031,7 @@ const PRESET_AI_MODELS = [
           <Film className="w-3.5 h-3.5 mr-1.5 text-[#06b6d4]" />
           SeedDance 2.5 ({seedanceCookies.length})
         </button>
+        */}
         <button
           onClick={() => { setActiveTab('ai-settings'); setError(''); setMessage(''); }}
           className={`py-2.5 px-3.5 flex items-center font-bold text-[9px] uppercase tracking-wider border-b-2 transition-all shrink-0 relative ${
@@ -1312,9 +1315,7 @@ const PRESET_AI_MODELS = [
                   <th className="py-2.5 px-3">ID</th>
                   <th className="py-2.5 px-3">Username</th>
                   <th className="py-2.5 px-3">Role</th>
-                  <th className="py-2.5 px-3">Kredit Terpakai</th>
-                  <th className="py-2.5 px-3">Magica Terpakai</th>
-                  <th className="py-2.5 px-3 text-right">Aksi</th>
+                  <th className="py-2.5 px-3 text-right">Aksi &amp; Izin</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#222435] text-xs font-medium">
@@ -1331,33 +1332,13 @@ const PRESET_AI_MODELS = [
                         {u.role}
                       </span>
                     </td>
-                    <td className="py-2.5 px-3 font-mono text-[#cfae80] font-bold text-[11px]">
-                      ⚡ {u.total_credits || 0}
-                    </td>
-                    <td className="py-2.5 px-3 font-mono text-[#a855f7] font-bold text-[11px]" title="Total kredit Magica terpakai (gambar + video + 3D)">
-                      ⚡ {((Number(u.magica_credits_micro) || 0) / 1e6).toFixed(2)}
-                    </td>
                     <td className="py-2.5 px-3 text-right space-x-1.5 whitespace-nowrap">
-                      <button
-                        onClick={() => handleToggleUserMagica(u)}
-                        title="Izin memakai provider Magica"
-                        className={`py-1 px-2 rounded-md text-[9px] font-bold uppercase tracking-wider transition-all cursor-pointer border ${u.can_use_magica ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/25' : 'bg-black/40 text-slate-500 border-[#2a2725] hover:text-slate-300'}`}
-                      >
-                        Magica: {u.can_use_magica ? 'ON' : 'OFF'}
-                      </button>
                       <button
                         onClick={() => handleToggleUserScenario(u)}
                         title="Izin memakai provider Scenario"
                         className={`py-1 px-2 rounded-md text-[9px] font-bold uppercase tracking-wider transition-all cursor-pointer border ${u.can_use_scenario !== 0 ? 'bg-sky-500/15 text-sky-300 border-sky-500/30 hover:bg-sky-500/25' : 'bg-black/40 text-slate-500 border-[#2a2725] hover:text-slate-300'}`}
                       >
                         Scenario: {u.can_use_scenario !== 0 ? 'ON' : 'OFF'}
-                      </button>
-                      <button
-                        onClick={() => handleToggleUserSeedance(u)}
-                        title="Izin mengakses Studio SeedDance 2.5"
-                        className={`py-1 px-2 rounded-md text-[9px] font-bold uppercase tracking-wider transition-all cursor-pointer border ${u.can_use_seedance !== 0 ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30 hover:bg-cyan-500/25' : 'bg-black/40 text-slate-500 border-[#2a2725] hover:text-slate-300'}`}
-                      >
-                        SeedDance 2.5: {u.can_use_seedance !== 0 ? 'ON' : 'OFF'}
                       </button>
                       <button
                         onClick={() => handleToggleUserHd(u)}
@@ -1519,31 +1500,9 @@ const PRESET_AI_MODELS = [
                 className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white text-xs font-semibold focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all"
               >
                 <option value="default">Default Proxy (Endpoint OpenAI-Compatible / Antigravity)</option>
-                <option value="magica">Magica (Kolam Key Magica — acak)</option>
               </select>
-              <p className="text-[8px] text-slate-500 mt-1">Provider terpilih akan otomatis menjadi jalur utama generasi prompt teks.</p>
+              <p className="text-[8px] text-slate-500 mt-1">Endpoint proxy aktif untuk generasi skrip dan prompt storyboard.</p>
             </div>
-
-            {aiLlmProvider === 'magica' && (
-              <div className="bg-[#a855f7]/10 border border-[#a855f7]/30 rounded-xl p-3.5 space-y-3 animate-fadeIn">
-                <div className="text-[9.5px] font-bold uppercase tracking-wider text-[#d8b4fe] border-b border-[#a855f7]/20 pb-1.5">
-                  Pengaturan Terpilih: Provider Magica
-                </div>
-                <div>
-                  <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Model LLM Magica</label>
-                  <select
-                    value={aiMagicaLlmModel}
-                    onChange={(e) => setAiMagicaLlmModel(e.target.value)}
-                    className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white text-xs font-semibold focus:outline-none focus:border-[#a855f7] transition-all"
-                  >
-                    {magicaLlmModels.length
-                      ? magicaLlmModels.map((m) => (<option key={m.nodeType} value={m.nodeType}>{m.name}</option>))
-                      : <option value={aiMagicaLlmModel}>{aiMagicaLlmModel} (tambah API Key Magica untuk daftar penuh)</option>}
-                  </select>
-                  <p className="text-[8px] text-slate-400 mt-1">API Key Magica dipilih acak dari kolam aktif setiap kali prompt di-generate.</p>
-                </div>
-              </div>
-            )}
 
             <div className={`rounded-xl p-3.5 space-y-3 transition-all ${aiLlmProvider === 'default' ? 'bg-[#cfae80]/5 border border-[#cfae80]/30' : 'bg-[#131211]/40 border border-[#2a2725]'}`}>
               <div className="text-[9.5px] font-bold uppercase tracking-wider text-[#cfae80] border-b border-[#2a2725] pb-1.5">

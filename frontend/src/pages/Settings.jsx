@@ -131,47 +131,27 @@ export default function Settings({ onLogout }) {
       </div>
 
       <div className="space-y-4 md:space-y-6">
-        {/* Provider Card */}
+        {/* Provider Card - Freebeat & Magica hidden, Scenario active */}
         <div className="bg-[#1a1918]/60 border border-[#2a2725] rounded-2xl p-4 md:p-6 relative backdrop-blur-md">
-          <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#a855f7]/25 to-transparent"></div>
+          <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#38bdf8]/25 to-transparent"></div>
           <h3 className="text-[9px] font-bold text-white uppercase tracking-widest mb-1 flex items-center border-b border-[#2a2725] pb-2">
-            <Sparkles className="w-3.5 h-3.5 mr-1.5 text-[#a855f7]" />
-            Provider Video &amp; Gambar
+            <Sparkles className="w-3.5 h-3.5 mr-1.5 text-[#38bdf8]" />
+            Provider AI Aktif
           </h3>
           <p className="text-slate-400 text-[10px] mt-2 mb-3 leading-relaxed">
-            Pilih layanan utama yang dipakai untuk membuat gambar storyboard &amp; video.
+            Layanan AI utama saat ini difokuskan pada Scenario AI untuk pembuatan gambar storyboard &amp; video.
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <button
-              type="button"
-              onClick={() => handleChangeProvider('freebeat')}
-              disabled={providerSaving}
-              className={`p-3.5 rounded-xl border text-left transition-all disabled:opacity-60 ${preferredProvider === 'freebeat' ? 'border-[#cfae80] bg-[#cfae80]/10 shadow-[0_0_15px_rgba(207,174,128,0.15)]' : 'border-[#2a2725] bg-black/40 hover:border-[#cfae80]/40'}`}
-            >
-              <div className="text-xs font-bold text-white">Freebeat</div>
-              <div className="text-[9px] text-slate-400 mt-0.5">CLI / Seedance 2.5 Bridge</div>
-              {preferredProvider === 'freebeat' && <div className="text-[8px] text-[#cfae80] font-bold uppercase tracking-widest mt-2">✓ Aktif</div>}
-            </button>
-            <button
-              type="button"
-              onClick={() => handleChangeProvider('magica')}
-              disabled={providerSaving || !canUseMagica}
-              className={`p-3.5 rounded-xl border text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed ${preferredProvider === 'magica' ? 'border-[#a855f7] bg-[#a855f7]/10 shadow-[0_0_15px_rgba(168,85,247,0.15)]' : 'border-[#2a2725] bg-black/40 hover:border-[#a855f7]/40'}`}
-            >
-              <div className="text-xs font-bold text-white flex items-center gap-1"><Sparkles className="w-3 h-3 text-[#a855f7]" /> Magica</div>
-              <div className="text-[9px] text-slate-400 mt-0.5">{canUseMagica ? 'REST API Pool' : 'Perlu izin admin'}</div>
-              {preferredProvider === 'magica' && <div className="text-[8px] text-[#a855f7] font-bold uppercase tracking-widest mt-2">✓ Aktif</div>}
-            </button>
-            <button
-              type="button"
-              onClick={() => handleChangeProvider('scenario')}
-              disabled={providerSaving || !canUseScenario}
-              className={`p-3.5 rounded-xl border text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed ${preferredProvider === 'scenario' ? 'border-[#38bdf8] bg-[#38bdf8]/10 shadow-[0_0_15px_rgba(56,189,248,0.15)]' : 'border-[#2a2725] bg-black/40 hover:border-[#38bdf8]/40'}`}
-            >
-              <div className="text-xs font-bold text-white flex items-center gap-1"><Sparkles className="w-3 h-3 text-[#38bdf8]" /> Scenario</div>
-              <div className="text-[9px] text-slate-400 mt-0.5">{canUseScenario ? 'GPT Image / FLUX / Seedance' : 'Perlu izin admin'}</div>
-              {preferredProvider === 'scenario' && <div className="text-[8px] text-[#38bdf8] font-bold uppercase tracking-widest mt-2">✓ Aktif</div>}
-            </button>
+          <div className="grid grid-cols-1 sm:grid-cols-1 gap-3 max-w-sm">
+            <div className="p-3.5 rounded-xl border border-[#38bdf8] bg-[#38bdf8]/10 shadow-[0_0_15px_rgba(56,189,248,0.15)] text-left">
+              <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-[#38bdf8]" />
+                Scenario AI
+              </div>
+              <div className="text-[9px] text-slate-400 mt-0.5">GPT Image / FLUX / Seedance Video</div>
+              <div className="text-[8px] text-[#38bdf8] font-bold uppercase tracking-widest mt-2 flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3" /> Aktif
+              </div>
+            </div>
           </div>
         </div>
 
