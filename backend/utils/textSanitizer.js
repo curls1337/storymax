@@ -1,76 +1,79 @@
 // textSanitizer.js
 // Utility to clean e-commerce store noise (WhatsApp numbers, emails, store policies,
 // unboxing video requirements, warranty claims, COD/free-shipping claims, social URLs, etc.)
-// from user drafts, scraped Tokopedia text, and AI responses.
+// from user drafts, scraped Tokopedia text, and AI responses without destroying valid product specs.
 
-const PHONE_REGEX = /(?:(?:wa|whatsapp|hubungi|call|telp|telepon|hp|chat\s+admin|contact|cs|hotline)\s*[:\-]?\s*)?(?:\+?62|08|02\d)[\s\-.]*(?:\d[\s\-.]*){7,13}\d/gi;
+const PHONE_REGEX = /(?:(?:wa|whatsapp|hubungi|call|telp|telepon|hp|chat[ \t]+admin|contact|cs|hotline)[ \t]*[:\-]?\s*)?(?:\+?62|08|02\d)[\s\-.]*(?:\d[\s\-.]*){7,13}\d/gi;
 const EMAIL_REGEX = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
 const URL_REGEX = /https?:\/\/[^\s)]+/gi;
-const SOCIAL_HANDLE_REGEX = /(?:ig|instagram|tiktok|facebook|fb|tokopedia|shopee|lazada|blibli)\s*[:\-]?\s*@?[a-zA-Z0-9_.-]+/gi;
+
+// Safe Social Handle Regex: Requires word-boundary \b and explicit separators/at-signs for short handles (ig/fb)
+// to prevent false positives on valid words like "original", "digital", "design", "higienis", "signifikan", etc.
+const SOCIAL_HANDLE_REGEX = /\b(?:instagram|tiktok|facebook|tokopedia|shopee|lazada|blibli)\b[ \t]*[:\-]?\s*@?[a-zA-Z0-9_.-]+|\b(?:ig|fb)\b[ \t]*[:\-]?\s*@[a-zA-Z0-9_.-]+|\b(?:ig|fb)\b[ \t]*[:\-]\s*@?[a-zA-Z0-9_.-]+/gi;
 
 // Section header lines that indicate purely store/transactional sections
-const STORE_HEADER_LINE_REGEX = /^(?:info\s*toko|syarat\s*(?:retur|garansi|komplain)|ketentuan\s*(?:toko|garansi|retur)|kebijakan\s*(?:toko|pengembalian)|catatan\s*toko|jadwal\s*operasional|kontak\s*kami|layanan\s*pelanggan|follow\s*kami|media\s*sosial|pengiriman\s*&\s*ongkir|perhatian|note|pemberitahuan)\b[^\n]*:?$/im;
+const STORE_HEADER_LINE_REGEX = /^(?:info[ \t]*toko|syarat[ \t]*(?:retur|garansi|komplain)|ketentuan[ \t]*(?:toko|garansi|retur)|kebijakan[ \t]*(?:toko|pengembalian)|catatan[ \t]*toko|jadwal[ \t]*operasional|kontak[ \t]*kami|layanan[ \t]*pelanggan|follow[ \t]*kami|media[ \t]*sosial|pengiriman[ \t]*&[ \t]*ongkir|perhatian|note|pemberitahuan)\b.*$/i;
 
 const NOISE_PATTERNS = [
   // Video unboxing & complaint policies
-  /(?:wajib|mohon|harus|tolong)?\s*(?:membuat|ada|sertakan|lampirkan)?\s*video\s*unboxing[^\n.]*/gi,
-  /(?:tidak\s*(?:menerima|bisa)\s*)?komplain\s*(?:tanpa|wajib)\s*video[^\n.]*/gi,
-  /bintang\s*[1-5][^\n.]*(?:garansi|hangus|blokir|auto\s*block|komplain|ulasan|bintang)?[^\n.]*/gi,
-  /syarat\s*(?:dan\s*ketentuan\s*)?(?:retur|klaim|garansi)[^\n.]*/gi,
-  /kebijakan\s*(?:retur|pengembalian|toko)[^\n.]*/gi,
-  /ongkir\s*retur\s*ditanggung[^\n.]*/gi,
-  /retur\s*barang\s*(?:maksimal|syarat)[^\n.]*/gi,
+  /(?:wajib|mohon|harus|tolong)?[ \t]*(?:membuat|ada|sertakan|lampirkan)?[ \t]*video[ \t]*unboxing[^\n.]*/gi,
+  /(?:tidak[ \t]*(?:menerima|bisa)[ \t]*)?komplain[ \t]*(?:tanpa|wajib)[ \t]*video[^\n.]*/gi,
+  /\bbintang[ \t]*[1-5][^\n.]*(?:garansi|hangus|blokir|auto[ \t]*block|komplain|ulasan|bintang)?[^\n.]*/gi,
+  /\bsyarat[ \t]*(?:dan[ \t]*ketentuan[ \t]*)?(?:retur|klaim|garansi)[^\n.]*/gi,
+  /\bkebijakan[ \t]*(?:retur|pengembalian|toko)[^\n.]*/gi,
+  /\bongkir[ \t]*retur[ \t]*ditanggung[^\n.]*/gi,
+  /\bretur[ \t]*barang[ \t]*(?:maksimal|syarat)[^\n.]*/gi,
 
   // Store warranties & claims
-  /garansi\s*(?:resmi|toko|distributor)?\s*\d*\s*(?:tahun|bulan|hari|bln|thn)?(?:\s*klaim[^\n.]*)?/gi,
-  /klaim\s*garansi\s*(?:mudah|resmi|langsung)[^\n.]*/gi,
+  /\b(?:ber)?garansi[ \t]*(?:resmi|toko|distributor|pabrik)?[ \t]*\d*[ \t]*(?:tahun|bulan|hari|bln|thn)?(?:[ \t]*klaim[^\n.]*)?/gi,
+  /\bklaim[ \t]*garansi[ \t]*(?:mudah|resmi|langsung)[^\n.]*/gi,
 
   // Shipping & store operations
-  /(?:pengiriman|kirim|dikirim)\s*dari\s*[a-zA-Z0-9\s,.-]+(?=\n|$|\.)/gi,
-  /jadwal\s*pengiriman[^\n.]*/gi,
-  /jam\s*operasional(?:\s*toko)?[^\n.]*/gi,
-  /buka\s*toko\s*senin[^\n.]*/gi,
-  /senin\s*-\s*(?:sabtu|minggu)[^\n.]*/gi,
-  /kurir\s*(?:toko|instan|sameday|cargo|anteraja|sicepat|jne|j&t)[^\n.]*/gi,
-  /resi\s*(?:otomatis|update\s*malam)[^\n.]*/gi,
-  /pickup\s*(?:jam|pukul)?\s*\d+[^\n.]*/gi,
-  /ready\s*stock\s*siap\s*kirim[^\n.]*/gi,
-  /stok\s*ready\s*silakan\s*order[^\n.]*/gi,
+  /\b(?:pengiriman|kirim|dikirim)[ \t]*dari[ \t]*[a-zA-Z0-9 \t,.-]+(?=\n|$|\.)/gi,
+  /\bjadwal[ \t]*pengiriman[^\n.]*/gi,
+  /\bjam[ \t]*operasional(?:[ \t]*toko)?[^\n.]*/gi,
+  /\bbuka[ \t]*toko[ \t]*senin[^\n.]*/gi,
+  /\bsenin[ \t]*-[ \t]*(?:sabtu|minggu)[^\n.]*/gi,
+  /\bkurir[ \t]*(?:toko|instan|sameday|cargo|anteraja|sicepat|jne|j&t)[^\n.]*/gi,
+  /\bresi[ \t]*(?:otomatis|update[ \t]*malam)[^\n.]*/gi,
+  /\bpickup[ \t]*(?:jam|pukul)?[ \t]*\d+[^\n.]*/gi,
+  /\bready[ \t]*stock[ \t]*siap[ \t]*kirim[^\n.]*/gi,
+  /\bstok[ \t]*ready[ \t]*silakan[ \t]*order[^\n.]*/gi,
 
   // Free shipping & COD
-  /(?:gratis|free)\s*ongkir(?:\s*(?:ekstra|se-indonesia|seluruh\s*indonesia|x-tra))?[^\n.]*/gi,
-  /(?:bisa|melayani|support|fitur)?\s*cod(?:\s*(?:\/|atau)?\s*bayar\s*di\s*tempat)?[^\n.]*/gi,
-  /bayar\s*di\s*tempat\s*(?:\(cod\))?[^\n.]*/gi,
+  /\b(?:gratis|free)[ \t]*ongkir(?:[ \t]*(?:ekstra|se-indonesia|seluruh[ \t]*indonesia|x-tra))?[^\n.]*/gi,
+  /\b(?:bisa|melayani|support|fitur)?[ \t]*cod(?:[ \t]*(?:\/|atau)?[ \t]*bayar[ \t]*di[ \t]*tempat)?[^\n.]*/gi,
+  /\bbayar[ \t]*di[ \t]*tempat[ \t]*(?:\(cod\))?[^\n.]*/gi,
 
   // Packaging info
-  /(?:packing|paket)\s*(?:aman|rapi|standar|ekstra|bubble\s*wrap)[^\n.]*/gi,
-  /free\s*(?:bubble\s*wrap|kardus|dus|box\s*tambahan)[^\n.]*/gi,
-  /(?:sudah|free)?\s*termasuk\s*bubble\s*wrap[^\n.]*/gi,
-  /tambahan\s*bubble\s*wrap[^\n.]*/gi,
-  /buble\s*wrap\s*tebal[^\n.]*/gi,
+  /\b(?:packing|paket)[ \t]*(?:aman|rapi|standar|ekstra|bubble[ \t]*wrap)[^\n.]*/gi,
+  /\bfree[ \t]*(?:bubble[ \t]*wrap|kardus|dus|box[ \t]*tambahan)[^\n.]*/gi,
+  /\b(?:sudah|free)?[ \t]*termasuk[ \t]*bubble[ \t]*wrap[^\n.]*/gi,
+  /\btambahan[ \t]*bubble[ \t]*wrap[^\n.]*/gi,
+  /\bbuble[ \t]*wrap[ \t]*tebal[^\n.]*/gi,
 
   // Marketplace CTAs & reseller notes
-  /checkout\s*(?:sekarang|hari\s*ini|yuk|juga)[^\n.]*/gi,
-  /klik\s*(?:keranjang\s*kuning|beli\s*sekarang|checkout|tombol\s*beli)[^\n.]*/gi,
-  /masukkan\s*keranjang\s*belanja[^\n.]*/gi,
-  /voucher\s*diskon[^\n.]*/gi,
-  /cashback\s*(?:ekstra|100%|jumbo|terbesar)[^\n.]*/gi,
-  /flash\s*sale\s*(?:terbatas|hari\s*ini)?[^\n.]*/gi,
-  /diskon\s*kilat[^\n.]*/gi,
-  /promo\s*(?:terbatas|gajian|spesial|spesial\s*toko)[^\n.]*/gi,
-  /dilarang\s*(?:copas|curi|copy|mengambil)\s*(?:deskripsi|gambar|foto)[^\n.]*/gi,
-  /reseller\s*(?:welcome|dan\s*dropshipper)[^\n.]*/gi,
-  /dropship\s*(?:aman|welcome)[^\n.]*/gi,
-  /(?:alamat\s*toko|lokasi\s*toko|store\s*offline|toko\s*fisik)\s*[:\-]?\s*[^\n]+/gi,
+  /\bcheckout[ \t]*(?:sekarang|hari[ \t]*ini|yuk|juga)[^\n.]*/gi,
+  /\bklik[ \t]*(?:keranjang[ \t]*kuning|beli[ \t]*sekarang|checkout|tombol[ \t]*beli)[^\n.]*/gi,
+  /\bmasukkan[ \t]*keranjang[ \t]*belanja[^\n.]*/gi,
+  /\bvoucher[ \t]*diskon[^\n.]*/gi,
+  /\bcashback[ \t]*(?:ekstra|100%|jumbo|terbesar)[^\n.]*/gi,
+  /\bflash[ \t]*sale[ \t]*(?:terbatas|hari[ \t]*ini)?[^\n.]*/gi,
+  /\bdiskon[ \t]*kilat[^\n.]*/gi,
+  /\bpromo[ \t]*(?:terbatas|gajian|spesial|spesial[ \t]*toko)[^\n.]*/gi,
+  /\bdilarang[ \t]*(?:copas|curi|copy|mengambil)[ \t]*(?:deskripsi|gambar|foto)[^\n.]*/gi,
+  /\breseller[ \t]*(?:welcome|dan[ \t]*dropshipper)[^\n.]*/gi,
+  /\bdropship[ \t]*(?:aman|welcome)[^\n.]*/gi,
+  /\b(?:alamat[ \t]*toko|lokasi[ \t]*toko|store[ \t]*offline|toko[ \t]*fisik)[ \t]*[:\-]?[ \t]*[^\n]+/gi,
 
   // Residual contact / CTA leads
-  /(?:hubungi\s*cs(?:\s*kami)?|chat\s*admin|follow\s*(?:ig|instagram|kami)?|kunjungi\s*(?:toko|link)?|silakan\s*order)\b[^\n.]*/gi,
+  /\b(?:hubungi[ \t]*cs(?:[ \t]*kami)?|chat[ \t]*admin|follow[ \t]*(?:ig|instagram|kami)?|kunjungi[ \t]*(?:toko|link)?|silakan[ \t]*order)\b[^\n.]*/gi,
 ];
 
 function sanitizeStoreNoise(text) {
   if (!text || typeof text !== 'string') return '';
 
-  let cleaned = text;
+  let cleaned = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 
   // 1. Remove URLs
   cleaned = cleaned.replace(URL_REGEX, '');
