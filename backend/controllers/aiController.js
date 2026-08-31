@@ -30,6 +30,7 @@ async function resolveImageDataUrl(refImage) {
 const LAYOUT_STYLES = require('../constants/layoutStyles');
 const { resolveStyleId, getStyleSpec } = require('../prompts/styleLibrary');
 const { llmChatViaSettings } = require('../prompts/aiClient');
+const { sanitizeStoreNoise } = require('../utils/textSanitizer');
 
 // Styles whose VIDEO should get the full cinematic atmosphere (haze + subtle lens
 // flare + shallow DOF). Every other style stays clean & crisp (DOF only, no
@@ -154,13 +155,16 @@ function generateRandomIdea(req, res) {
 }
 
 async function generateAiAssistant(req, res, forcedMode) {
-  const { concept, style, videoEngine, gridCount, duration, aspectRatio, mode: requestedMode = 'expand', refImages = [], refImage, characterId } = req.body || {};
+  const { title, concept, style, videoEngine, gridCount, duration, aspectRatio, mode: requestedMode = 'expand', refImages = [], refImage, characterId } = req.body || {};
   const mode = forcedMode || requestedMode;
   const isRandomIdea = mode === 'random_idea';
   const rawReferenceInputs = Array.isArray(refImages) ? refImages : [];
   const legacyReferences = rawReferenceInputs.length ? rawReferenceInputs : (refImage ? [refImage] : []);
-  if (!isRandomIdea && !String(concept || '').trim() && legacyReferences.length === 0) {
-    return res.status(400).json({ message: 'Tulis AI memerlukan ide teks atau minimal satu gambar referensi.' });
+  const cleanTitle = sanitizeStoreNoise(String(title || ''));
+  const cleanConcept = sanitizeStoreNoise(String(concept || ''));
+
+  if (!isRandomIdea && !cleanConcept && !cleanTitle && legacyReferences.length === 0) {
+    return res.status(400).json({ message: 'Tulis AI memerlukan ide teks, judul proyek, atau minimal satu gambar referensi.' });
   }
   if (!['expand', 'random_idea'].includes(mode)) {
     return res.status(400).json({ message: 'Mode AI Assistant tidak valid.' });
@@ -327,8 +331,10 @@ PENTING & LARANGAN KERAS:
    - Panel Tengah: Perkembangan Aksi Nyata 1 & Aksi/Fitur Utama 2 (gunakan sudut kamera berbeda: Wide Shot, Medium Shot, Macro Close-Up).
    - Panel Terakhir: Hasil Akhir / Resolusi Cerita + (HANYA jika ide memang tentang produk) Call To Action (CTA) Menjual.
    - DILARANG KERAS mengulang sudut kamera atau aksi visual yang sama di antar panel!
-5. PEMBERSIHAN TEKS SAMPAH TOKO (NOISE STRIPPING):
-   - DILARANG KERAS memasukkan teks garansi, syarat video unboxing, nomor WhatsApp, alamat pengiriman, atau kebijakan retur toko.
+5. PEMBERSIHAN TOTAL SAMPAH INFORMASI TOKO / TRANSAKSI MARKETPLACE:
+   - DILARANG KERAS memunculkan nomor kontak/WhatsApp/telepon, email, link URL marketplace/sosial media (IG/TikTok), alamat toko fisik, nama kurir/ekspedisi.
+   - DILARANG KERAS memunculkan kata-kata transaksional toko seperti: garansi resmi, syarat video unboxing, retur/komplain, COD/bayar di tempat, gratis ongkir, bubble wrap tebal, voucher diskon, checkout sekarang, atau keranjang kuning.
+   - Hasil 'title' dan 'description' HANYA memuat informasi subjek produk, fitur/spesifikasi fisik, aksi visual, dan manfaat nyata bagi audiens.
 6. HANYA TEKS VISUAL MURNI:
    - DILARANG KERAS menyertakan awalan meta-header teknis seperti "storyboard seedance...", "cube_box_transform:", atau nama layout di dalam teks 'description'.
 7. PANJANG TEKS: Total panjang 'description' HARUS DI BAWAH 10000 karakter. Jangan bertele-tele.
@@ -488,9 +494,16 @@ Gunakan kombinasi pengarahan matriks ideasi acak berikut:
 - Pergerakan Kamera & Aksi: ${pickAction}`;
     }
     } else {
-      userMessageContent = String(concept || '').trim()
-        ? `Ide Kasar Pengguna: ${String(concept).trim()}`
-        : 'Tidak ada brief teks. Bangun storyboard hanya dari objek yang benar-benar terlihat pada gambar referensi.';
+      const userParts = [];
+      if (cleanTitle) {
+        userParts.push(`Judul Produk Saat Ini (gunakan sebagai referensi nama/brand/varian produk yang akurat): ${cleanTitle}`);
+      }
+      if (cleanConcept) {
+        userParts.push(`Ide Kasar Pengguna:\n${cleanConcept}`);
+      } else if (!cleanTitle) {
+        userParts.push('Tidak ada brief teks. Bangun storyboard hanya dari objek yang benar-benar terlihat pada gambar referensi.');
+      }
+      userMessageContent = userParts.join('\n\n');
     }
 
     // Calculate pageCount and totalPanels based on video engine and duration
@@ -638,31 +651,33 @@ Gunakan kombinasi pengarahan matriks ideasi acak berikut:
     const parsed = parseAiJson(content);
     if (parsed && (parsed.title || parsed.description)) {
       const selectedLayout = LAYOUT_STYLES.some(s => s.value === parsed.layout) ? parsed.layout : 'premium_vertical_row';
-      let cleanDesc = String(parsed.description || concept).trim();
+      let cleanDesc = sanitizeStoreNoise(String(parsed.description || cleanConcept)).trim();
       cleanDesc = cleanDesc.replace(/^storyboard\s+[^:\n]+:\s*/i, '').trim();
       cleanDesc = cleanDesc.replace(/^storyboard\s+.*?\d+\s*panel[^\n:]*:\s*/i, '').trim();
       cleanDesc = cleanDesc.replace(/^[a-z0-9_-]+:\s*(panel\s+terasa|panel\s+1|halaman)/i, '$1').trim();
 
+      const finalTitle = sanitizeStoreNoise(String(parsed.title || cleanTitle || 'Untitled AI Project')).trim();
+
       return res.json({
         mode: isRandomIdea ? 'random_idea' : 'expand',
-        title: parsed.title || 'Untitled AI Project',
+        title: finalTitle,
         description: cleanDesc,
         layout: selectedLayout,
-        referenceSummary: hasVisualReferences && !visualFallbackUsed ? String(parsed.referenceSummary || '').trim() : '',
+        referenceSummary: hasVisualReferences && !visualFallbackUsed ? sanitizeStoreNoise(String(parsed.referenceSummary || '')).trim() : '',
         referenceCount: resolvedReferenceImages.length,
         referenceAnalysisStatus: hasVisualReferences ? (visualFallbackUsed ? 'text_fallback' : 'analyzed') : 'not_requested',
         ideaSeed
       });
     } else {
       console.warn('[writePrompt Fallback]: LLM returned plain text:', content.substring(0, 100));
-      let cleanDesc = content.trim();
+      let cleanDesc = sanitizeStoreNoise(content).trim();
       cleanDesc = cleanDesc.replace(/^storyboard\s+[^:\n]+:\s*/i, '').trim();
       cleanDesc = cleanDesc.replace(/^storyboard\s+.*?\d+\s*panel[^\n:]*:\s*/i, '').trim();
 
       return res.json({
         mode: isRandomIdea ? 'random_idea' : 'expand',
-        title: String(concept || (isRandomIdea ? 'Ide Acak' : 'Project')).substring(0, 25).trim(),
-        description: cleanDesc || String(concept || ''),
+        title: sanitizeStoreNoise(String(cleanTitle || cleanConcept || (isRandomIdea ? 'Ide Acak' : 'Project'))).substring(0, 25).trim(),
+        description: cleanDesc || String(cleanConcept || ''),
         layout: 'premium_vertical_row',
         referenceSummary: '',
         referenceCount: resolvedReferenceImages.length,

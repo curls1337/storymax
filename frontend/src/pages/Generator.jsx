@@ -426,11 +426,17 @@ export default function Generator({ setTab, selectedCharacter, setSelectedCharac
       .map(item => item?.value || item?.url)
       .filter(Boolean)
       .slice(0, 3);
-    // Tulis AI expands the user's brief and attached visual references. Minta Ide is
-    // deliberately independent: it uses only an optional keyword, never the old draft.
-    const targetConcept = mode === 'expand' ? (aiInput.trim() || prompt.trim()) : aiInput.trim();
-    if (mode === 'expand' && !targetConcept && referenceImages.length === 0) {
-      setAiError('Tulis AI memerlukan ide teks atau minimal satu gambar referensi.');
+    // Tulis AI expands the user's brief, title, and attached visual references.
+    // If both aiInput and existing prompt are present, combine them so aiInput acts as priority guidance.
+    // Minta Ide is deliberately independent: it uses only an optional keyword, never the old draft.
+    const targetConcept = mode === 'expand'
+      ? (aiInput.trim() && prompt.trim()
+          ? `Arahan Tambahan:\n${aiInput.trim()}\n\nDeskripsi / Ide Produk Sebelumnya:\n${prompt.trim()}`
+          : (aiInput.trim() || prompt.trim()))
+      : aiInput.trim();
+
+    if (mode === 'expand' && !targetConcept && !title.trim() && referenceImages.length === 0) {
+      setAiError('Tulis AI memerlukan ide teks, judul proyek, atau minimal satu gambar referensi.');
       return;
     }
     setAiLoading(true);
@@ -442,6 +448,7 @@ export default function Generator({ setTab, selectedCharacter, setSelectedCharac
     try {
       const endpoint = mode === 'random_idea' ? '/ai/random-idea' : '/ai/write-prompt';
       const res = await api.post(endpoint, {
+        title: mode === 'expand' ? title.trim() : undefined,
         concept: targetConcept,
         style: autoLayout ? 'auto' : style,
         videoEngine,
