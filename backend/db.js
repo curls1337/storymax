@@ -316,6 +316,13 @@ async function initDb() {
     // Column already exists, safe to ignore
   }
 
+  // Ensure page_prompts_manifest column exists for full master prompt auditing per page
+  try {
+    await db.exec('ALTER TABLE storyboards ADD COLUMN page_prompts_manifest TEXT');
+  } catch (e) {
+    // Column already exists, safe to ignore
+  }
+
   // Create AI Settings Table
   await db.exec(`
     CREATE TABLE IF NOT EXISTS ai_settings (

@@ -337,9 +337,9 @@ PENTING & LARANGAN KERAS:
     if (styleExists) {
       systemInstruction = `Anda adalah seorang Creative Director & Sutradara Visual World-Class yang SANGAT SETIA pada ide asli pengguna — Anda MENGEMBANGKAN, bukan MENGGANTI, ide yang pengguna tulis.
 Jika "Ide Kasar Pengguna" terlihat seperti salinan deskripsi toko (seperti Tokopedia/Shopee) yang berantakan, tugas utama Anda adalah MEMBERSIHKANNYA terlebih dahulu: buang informasi pengiriman, garansi, nomor WA, dan kebijakan toko. Fokuslah hanya pada FITUR UTAMA PRODUK dan MANFAATNYA bagi pengguna.
-Tugas Anda adalah memfasilitasi ideasi storyboard kreatif pengguna berdasarkan PERSIS apa yang pengguna tulis di "Ide Kasar Pengguna", dan menghasilkan:
+Tugas Anda adalah memfasilitasi ideasi rencana storyboard kreatif (creative brief / storyboard plan) pengguna berdasarkan PERSIS apa yang pengguna tulis di "Ide Kasar Pengguna", dan menghasilkan:
 1. 'title': Judul Proyek yang padat dan sinematik, SESUAI TEMA ASLI ide pengguna (jika ide pengguna memang tentang sebuah produk, contoh: "Sonifer 5-in-1 Hand Blender Pro"; jika BUKAN tentang produk, buat judul yang mencerminkan tema/cerita aslinya — JANGAN memaksakan nama produk yang tidak ada. Maksimal 5 kata).
-2. 'description': Deskripsi Storyboard rinci yang siap digunakan sebagai prompt AI (berisi detail visual, alur aksi, sudut kamera), SETIA mengikuti ide asli pengguna tanpa menambahkan produk/elemen yang tidak diminta, dan secara khusus diselaraskan dan cocok dengan gaya layout storyboard: "${style}".
+2. 'description': Rencana naskah storyboard rinci per panel (Creative Brief / Storyboard Plan per panel berisi visual, aksi, dan sudut kamera) yang setia mengikuti ide asli pengguna tanpa menambahkan produk/elemen fiktif, diselaraskan dengan gaya layout storyboard: "${style}". (Catatan: Ini adalah rencana/brief naskah, bukan master prompt final yang nanti dirakit oleh engine prompt per halaman).
 3. 'layout': Wajib bernilai "${style}" (karena pengguna telah memilih gaya ini).
 
 ${strictRules}
@@ -354,9 +354,9 @@ Anda harus mengembalikan respon hanya dalam format JSON mentah dengan key 'title
     } else {
       systemInstruction = `Anda adalah seorang Creative Director & Sutradara Visual World-Class yang SANGAT SETIA pada ide asli pengguna — Anda MENGEMBANGKAN, bukan MENGGANTI, ide yang pengguna tulis.
 Jika "Ide Kasar Pengguna" terlihat seperti salinan deskripsi toko (seperti Tokopedia/Shopee) yang berantakan, tugas utama Anda adalah MEMBERSIHKANNYA terlebih dahulu: buang informasi pengiriman, garansi, nomor WA, dan kebijakan toko. Fokuslah hanya pada FITUR UTAMA PRODUK dan MANFAATNYA bagi pengguna.
-Tugas Anda adalah memfasilitasi ideasi storyboard kreatif pengguna berdasarkan PERSIS apa yang pengguna tulis di "Ide Kasar Pengguna", dan menghasilkan:
+Tugas Anda adalah memfasilitasi ideasi rencana storyboard kreatif (creative brief / storyboard plan) pengguna berdasarkan PERSIS apa yang pengguna tulis di "Ide Kasar Pengguna", dan menghasilkan:
 1. 'title': Judul Proyek yang padat dan sinematik, SESUAI TEMA ASLI ide pengguna (jika ide pengguna memang tentang sebuah produk, contoh: "Sonifer 5-in-1 Hand Blender Pro"; jika BUKAN tentang produk, buat judul yang mencerminkan tema/cerita aslinya — JANGAN memaksakan nama produk yang tidak ada. Maksimal 5 kata).
-2. 'description': Deskripsi Storyboard rinci yang siap digunakan sebagai prompt AI (berisi detail visual, alur aksi, sudut kamera), SETIA mengikuti ide asli pengguna tanpa menambahkan produk/elemen yang tidak diminta.
+2. 'description': Rencana naskah storyboard rinci per panel (Creative Brief / Storyboard Plan per panel berisi visual, aksi, dan sudut kamera) yang setia mengikuti ide asli pengguna tanpa menambahkan produk/elemen fiktif. (Catatan: Ini adalah rencana/brief naskah, bukan master prompt final yang nanti dirakit oleh engine prompt per halaman).
 3. 'layout': Memilih satu Gaya Layout Storyboard yang PALING COCOK dan paling presisi untuk ide/konsep tersebut dari daftar gaya berikut:
 ${layoutListText}
 

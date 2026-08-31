@@ -395,8 +395,19 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
         pagePrompt = pagePrompt.replace(/"/g, "'");
         pagePrompt = safeClampPrompt(pagePrompt, 1995);
 
+        task.pagePromptsManifest = task.pagePromptsManifest || [];
+        task.pagePromptsManifest[pageIdx] = {
+          pageNum,
+          promptSource,
+          fullPrompt: pagePrompt,
+          createdAt: new Date().toISOString(),
+        };
+
         task.logs += `[Halaman ${pageNum}] Prompt (${promptSource}): ${pagePrompt.substring(0, 120)}...\n`;
         await saveTaskState(db, storyboardId, task);
+        try {
+          await db.run('UPDATE storyboards SET page_prompts_manifest = ? WHERE id = ?', [JSON.stringify(task.pagePromptsManifest), storyboardId]);
+        } catch (manifestErr) {}
 
         // Scenario render for this page
         if (isScenario) {
@@ -829,8 +840,8 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
     const dbPathString = JSON.stringify(task.imagePaths);
     const originalCdnString = JSON.stringify(task.originalCdnUrls || []);
     await db.run(
-      'UPDATE storyboards SET image_path = ?, original_cdn_urls = ?, used_credits = ?, status = ? WHERE id = ?',
-      [dbPathString, originalCdnString, task.totalCreditsUsed, 'success', storyboardId]
+      'UPDATE storyboards SET image_path = ?, original_cdn_urls = ?, used_credits = ?, status = ?, page_prompts_manifest = ? WHERE id = ?',
+      [dbPathString, originalCdnString, task.totalCreditsUsed, 'success', JSON.stringify(task.pagePromptsManifest || []), storyboardId]
     );
     
     const isVoActive = (task.enableVoScript !== undefined ? !!task.enableVoScript : false) ||
@@ -1017,6 +1028,20 @@ async function regenerateStoryboardPage(req, res) {
         if (!pagePrompt) pagePrompt = buildMasterPrompt(spec, genCtx);
         pagePrompt = pagePrompt.replace(/"/g, "'");
 
+        let manifest = [];
+        try {
+          if (storyboard.page_prompts_manifest) {
+            manifest = JSON.parse(storyboard.page_prompts_manifest);
+          }
+        } catch (e) {}
+        if (!Array.isArray(manifest)) manifest = [];
+        manifest[pageIdx] = {
+          pageNum: pageIdx + 1,
+          promptSource,
+          fullPrompt: pagePrompt,
+          createdAt: new Date().toISOString(),
+        };
+
         if (await scenarioGen.isScenarioForStoryboard(db, storyboard.id)) {
           activeTasks[taskId].logs += `[2/3] Memproses regenerasi Halaman ${pageIdx + 1} via Scenario...\n`;
           try {
@@ -1048,7 +1073,7 @@ async function regenerateStoryboardPage(req, res) {
               await downloadFile(url, path.join(uploadsDir, fname));
             } catch (dlErr) {}
             imagePaths[pageIdx] = url;
-            await db.run('UPDATE storyboards SET image_urls = ? WHERE id = ?', [JSON.stringify(imagePaths), storyboard.id]);
+            await db.run('UPDATE storyboards SET image_urls = ?, page_prompts_manifest = ? WHERE id = ?', [JSON.stringify(imagePaths), JSON.stringify(manifest), storyboard.id]);
             activeTasks[taskId].status = 'completed';
             activeTasks[taskId].result = { imageUrl: url, pageIdx };
             activeTasks[taskId].logs += `[3/3] Selesai! Halaman ${pageIdx + 1} berhasil diregenerasi (Scenario).\n`;
@@ -1092,7 +1117,7 @@ async function regenerateStoryboardPage(req, res) {
 
             const updatedPathsString = JSON.stringify(imagePaths);
             const updatedCdnString = JSON.stringify(origCdn);
-            await db.run('UPDATE storyboards SET image_path = ?, original_cdn_urls = ? WHERE id = ?', [updatedPathsString, updatedCdnString, storyboard.id]);
+            await db.run('UPDATE storyboards SET image_path = ?, original_cdn_urls = ?, page_prompts_manifest = ? WHERE id = ?', [updatedPathsString, updatedCdnString, JSON.stringify(manifest), storyboard.id]);
 
             activeTasks[taskId].status = 'success';
             activeTasks[taskId].logs += `=== REGENERASI MAGICA SELESAI ===\nHalaman ${pageIdx + 1} berhasil diperbarui!\n`;
@@ -1265,7 +1290,7 @@ async function regenerateStoryboardPage(req, res) {
 
                           // Update database
                           const updatedPathsString = JSON.stringify(imagePaths);
-                          await db.run('UPDATE storyboards SET image_path = ? WHERE id = ?', [updatedPathsString, storyboard.id]);
+                          await db.run('UPDATE storyboards SET image_path = ?, page_prompts_manifest = ? WHERE id = ?', [updatedPathsString, JSON.stringify(manifest), storyboard.id]);
 
                           activeTasks[taskId].status = 'success';
                           activeTasks[taskId].logs += `=== REGENERASI SELESAI ===\nHalaman ${pageIdx + 1} berhasil diperbarui!\n`;
