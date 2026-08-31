@@ -271,7 +271,7 @@ async function initDb() {
     // Column already exists, safe to ignore
   }
   try {
-    await db.exec("ALTER TABLE users ADD COLUMN preferred_provider TEXT DEFAULT 'freebeat'");
+    await db.exec("ALTER TABLE users ADD COLUMN preferred_provider TEXT DEFAULT 'scenario'");
   } catch (e) {
     // Column already exists, safe to ignore
   }
@@ -599,6 +599,13 @@ async function initDb() {
       ['gx_7pkrEWVt2KofL8s7VYjML5', 'Primary Magica Key (User Provided)', 1, 'OK - Seeded']
     );
     console.log('--- Default Magica API Key Seeded ---');
+  }
+
+  // Auto-migrate all existing users to Scenario provider and ensure can_use_scenario = 1
+  try {
+    await db.run("UPDATE users SET preferred_provider = 'scenario', can_use_scenario = 1 WHERE preferred_provider != 'scenario' OR preferred_provider IS NULL OR can_use_scenario != 1 OR can_use_scenario IS NULL");
+  } catch (e) {
+    // safe to ignore
   }
 
   console.log('Database initialized successfully.');

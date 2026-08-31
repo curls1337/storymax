@@ -128,9 +128,9 @@ async function isScenarioForStoryboard(db, storyboardId) {
       'SELECT u.preferred_provider AS pp, u.can_use_scenario AS cus FROM storyboards s JOIN users u ON u.id = s.user_id WHERE s.id = ?',
       [storyboardId]
     );
-    return !!(row && row.pp === 'scenario' && (row.cus === 1 || row.cus === null || row.cus === undefined));
+    return row ? (row.pp !== 'magica') : true;
   } catch (e) {
-    return false;
+    return true;
   }
 }
 

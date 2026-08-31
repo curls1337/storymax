@@ -661,9 +661,9 @@ async function generateCharacterSheetImage(req, res) {
     const db = getDb();
     const userRow = await db.get('SELECT preferred_provider AS pp, can_use_magica AS cum, can_use_scenario AS cus FROM users WHERE id = ?', [req.user.id]);
     
-    // Determine primary provider to try
-    const wantScenario = provider === 'scenario' || (!provider && userRow && userRow.pp === 'scenario');
+    // Determine primary provider to try: default to scenario unless explicitly magica
     const wantMagica = provider === 'magica' || (!provider && userRow && userRow.pp === 'magica' && userRow.cum);
+    const wantScenario = !wantMagica;
     
     // Item 2: accept up to MAX_REFERENCE_IMAGES reference photos (multi-angle) via the new
     // `refUrls` array, while staying fully compatible with the legacy single

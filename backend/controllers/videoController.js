@@ -212,9 +212,9 @@ function buildAudioNegativePrompt(lang) {
 function buildVoiceoverDirective(narration, lang, tone, durationSec, voiceProfile) {
   let line = String(narration || '').trim();
   if (!line) return '';
-  // Sanitize text for clear TTS & video models: strip quotes, brackets, and convert 'x' to 'dan'
+  // Sanitize text for clear TTS & video models: strip quotes, brackets, and convert standalone 'x' to 'dan'
   line = line.replace(/^['"\s]+|['"\s]+$/g, '');
-  line = line.replace(/(\w+)\s*x\s*(\w+)/gi, '$1 dan $2');
+  line = line.replace(/(\w+)\s+x\s+(\w+)/gi, '$1 dan $2');
   line = line.replace(/#/g, '');
   if (!line) return '';
 

@@ -107,7 +107,7 @@ export default function Characters({ setTab, onSelectCharacterForStoryboard }) {
     fetchCharacters();
     api.get('/storyboards/keys').then(r => setApiKeys(r.data || [])).catch(() => {});
     api.get('/auth/me').then((r) => {
-      const pp = r.data.preferred_provider || 'freebeat';
+      const pp = (r.data && r.data.preferred_provider === 'magica') ? 'magica' : 'scenario';
       setSelectedProvider(pp);
       api.get('/magica/catalog').then((c) => {
         setMagicaCatalog(c.data);

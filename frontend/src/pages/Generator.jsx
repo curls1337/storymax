@@ -991,16 +991,18 @@ export default function Generator({ setTab, selectedCharacter, setSelectedCharac
             {userProvider === 'scenario' ? (
               <select value={scenarioImageModel} onChange={(e) => setScenarioImageModel(e.target.value)} className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#38bdf8] transition-all text-xs" disabled={generating}>
                 {((scenarioCatalog && scenarioCatalog.imageModels) || [
-                  { id: 'model_openai-gpt-image-2', name: 'OpenAI GPT Image 2' },
-                  { id: 'model_bfl-flux-2-dev', name: 'FLUX.2 Dev' },
-                  { id: 'model_bfl-flux-2-klein-9b', name: 'FLUX 2 Klein 9B' },
-                  { id: 'model_microsoft-mai-image-2-5', name: 'MAI Image 2.5' },
-                  { id: 'model_bytedance-seedream-5-0-pro', name: 'ByteDance SeaDream 5.0 Pro' },
-                  { id: 'model_google-gemini-3-1-flash', name: 'Google Gemini 3.1 Flash' },
-                  { id: 'model_xai-grok-imagine-image-2-0', name: 'xAI Grok Imagine 2.0' },
-                  { id: 'model_ideogram-v4', name: 'Ideogram V4' }
+                  { id: 'model_openai-gpt-image-2', name: 'GPT Image 2 (OpenAI)', plan: 'Semua Plan' },
+                  { id: 'model_bfl-flux-2-dev', name: 'FLUX 2 Dev (Black Forest Labs)', plan: 'Pro / Team Plan' },
+                  { id: 'model_bytedance-seedream-5-0-pro', name: 'Seedream 5.0 Pro (ByteDance)', plan: 'Pro / Team Plan' },
+                  { id: 'model_google-gemini-3-1-flash', name: 'Gemini 3.1 Flash (Google)', plan: 'Pro / Team Plan' },
+                  { id: 'model_xai-grok-imagine-image-2-0', name: 'Grok Imagine 2.0 (xAI)', plan: 'Pro / Team Plan' },
+                  { id: 'model_ideogram-v4', name: 'Ideogram V4', plan: 'Pro / Team Plan' },
+                  { id: 'model_bfl-flux-2-klein-9b', name: 'FLUX 2 Klein 9B', plan: 'Semua Plan' },
+                  { id: 'model_microsoft-mai-image-2-5', name: 'MAI Image 2.5', plan: 'Semua Plan' }
                 ]).map((m) => (
-                  <option key={m.id} value={m.id}>{m.name}</option>
+                  <option key={m.id} value={m.id}>
+                    {m.name} {m.plan ? `(${m.plan})` : ''}
+                  </option>
                 ))}
               </select>
             ) : userProvider === 'magica' ? (

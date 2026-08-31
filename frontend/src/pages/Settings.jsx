@@ -25,7 +25,7 @@ export default function Settings({ onLogout }) {
       .then((res) => {
         setCanUseMagica(!!res.data.can_use_magica);
         setCanUseScenario(res.data.can_use_scenario !== 0);
-        setPreferredProvider(res.data.preferred_provider || 'freebeat');
+        setPreferredProvider(res.data.preferred_provider || 'scenario');
       })
       .catch(() => {});
   }, []);

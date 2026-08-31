@@ -32,20 +32,28 @@ function fallbackSplit(concept, pageCount, secondsPerPage = 15, independentScene
     return Array.from({ length: pageCount }, (_, i) => {
       const start = i * secondsPerPage;
       const end = (i + 1) * secondsPerPage;
-      return `Momen/aktivitas keseharian tersendiri ${i + 1}/${pageCount} (detik ${start}-${end}, karakter yang sama, momen berdiri sendiri, BUKAN lanjutan dari halaman lain): ${concept}`;
+      return `Fokus pada bagian MOMEN/AKTIVITAS KESEHARIAN ${i + 1} dari ${pageCount} (detik ${start}-${end}, karakter yang sama, momen berdiri sendiri, BUKAN lanjutan dari halaman lain) dari konsep cerita berikut: ${concept}`;
     });
   }
   return Array.from({ length: pageCount }, (_, i) => {
     const role = i === 0
-      ? 'pengenalan / hook & awal penggunaan'
-      : (i === pageCount - 1 ? 'hasil akhir & call to action' : 'tahap pengembangan / demo');
+      ? 'Fokus pada bagian PEMBUKA/pengenalan produk & hook awal'
+      : (i === pageCount - 1
+          ? 'Fokus pada bagian PENUTUP/hasil akhir & call to action'
+          : `Fokus pada bagian PENGGUNAAN/demo produk & tahapan aksi lanjutan (Bagian ${i + 1} dari ${pageCount})`);
     const start = i * secondsPerPage;
     const end = (i + 1) * secondsPerPage;
     const stage = i === 0
-      ? `Bagian ${i + 1}/${pageCount} (detik ${start}-${end}, ${role}):`
-      : `Bagian ${i + 1}/${pageCount} (detik ${start}-${end}, lanjutan LANGSUNG dari akhir Bagian ${i} — waktu berlanjut, JANGAN ulangi pembukaan, ${role}):`;
+      ? `Halaman ${i + 1} dari ${pageCount} (detik ${start}-${end}) — ${role} dari cerita berikut:`
+      : `Halaman ${i + 1} dari ${pageCount} (detik ${start}-${end}, lanjutan langsung dari akhir Halaman ${i} — waktu berlanjut, jangan ulangi pembukaan) — ${role} dari cerita berikut:`;
     return `${stage} ${concept}`;
   });
+}
+
+function buildFallbackConceptForPage(concept, pageIdx, pageCount, secondsPerPage = 15, independentScenes = false) {
+  if (pageCount <= 1) return concept;
+  const list = fallbackSplit(concept, pageCount, secondsPerPage, independentScenes);
+  return list[pageIdx] || concept;
 }
 
 function splitByExplicitPanels(concept, pageCount) {
@@ -198,24 +206,41 @@ Contoh (2 halaman — subjek & setting dikunci sama, ADA handoff DI AWAL kalimat
 
     // Honor the admin LLM-provider setting (Magica for text-only, else default host).
     const { llmChatViaSettings } = require('./aiClient');
-    const response = await llmChatViaSettings(payload, { db, timeoutMs: 45000 });
 
-    if (response.statusCode !== 200) {
-      console.warn('[AI Split] API failed with status:', response.statusCode, response.body);
-      return fallbackSplit(concept, pageCount, secondsPerPage, independentScenes);
-    }
+    const MAX_RETRIES = 2;
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        if (attempt > 0) {
+          console.log(`[AI Split] Mencoba ulang request AI Split (percobaan ${attempt + 1}/${MAX_RETRIES + 1})...`);
+          await new Promise(r => setTimeout(r, 1500 * attempt));
+        }
 
-    const resJson = JSON.parse(response.body);
-    const content = resJson.choices?.[0]?.message?.content || '';
-    let cleanText = content.trim();
-    if (cleanText.startsWith('```')) {
-      cleanText = cleanText.replace(/^```[a-zA-Z]*\n?/, '').replace(/\n?```$/, '');
-    }
+        const response = await llmChatViaSettings(payload, { db, timeoutMs: 45000 });
 
-    const parsed = JSON.parse(cleanText.trim());
-    if (parsed && Array.isArray(parsed.pages) && parsed.pages.length === pageCount) {
-      console.log('[AI Split] Successfully split prompts:', parsed.pages);
-      return parsed.pages;
+        if (response.statusCode !== 200) {
+          console.warn(`[AI Split] API status ${response.statusCode} (percobaan ${attempt + 1}/${MAX_RETRIES + 1}):`, response.body);
+          if (attempt < MAX_RETRIES) continue;
+          return fallbackSplit(concept, pageCount, secondsPerPage, independentScenes);
+        }
+
+        const resJson = JSON.parse(response.body);
+        const content = resJson.choices?.[0]?.message?.content || '';
+        let cleanText = content.trim();
+        if (cleanText.startsWith('```')) {
+          cleanText = cleanText.replace(/^```[a-zA-Z]*\n?/, '').replace(/\n?```$/, '');
+        }
+
+        const parsed = JSON.parse(cleanText.trim());
+        if (parsed && Array.isArray(parsed.pages) && parsed.pages.length === pageCount) {
+          console.log('[AI Split] Successfully split prompts:', parsed.pages);
+          return parsed.pages;
+        }
+
+        if (attempt < MAX_RETRIES) continue;
+      } catch (callErr) {
+        console.warn(`[AI Split] Percobaan ${attempt + 1} gagal:`, callErr.message);
+        if (attempt < MAX_RETRIES) continue;
+      }
     }
 
     return fallbackSplit(concept, pageCount, secondsPerPage, independentScenes);
@@ -225,4 +250,4 @@ Contoh (2 halaman — subjek & setting dikunci sama, ADA handoff DI AWAL kalimat
   }
 }
 
-module.exports = { splitStoryboardPromptWithAI };
+module.exports = { splitStoryboardPromptWithAI, fallbackSplit, buildFallbackConceptForPage };

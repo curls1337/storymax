@@ -9,7 +9,7 @@ const { uploadsDir } = require('../config');
 const { activeTasks, saveTaskState } = require('../state/taskStore');
 const { checkAndDisableKeyIfOutofCredits } = require('../services/keyPool');
 const { downloadFile } = require('../services/download');
-const { splitStoryboardPromptWithAI } = require('../prompts/splitPrompt');
+const { splitStoryboardPromptWithAI, buildFallbackConceptForPage } = require('../prompts/splitPrompt');
 const { buildEnhancedPrompt } = require('../prompts/buildEnhancedPrompt'); // legacy (kept)
 const { formatTime } = require('../prompts/grid');
 const { safeClampPrompt } = require('../prompts/clamp');
@@ -113,12 +113,11 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
       const subPrompts = await splitStoryboardPromptWithAI(task.prompt, task.pageCount, db, task.secondsPerPage, task.style);
       task.subPrompts = subPrompts;
       
-      // Fallback pages are the raw concept (page count 1) or the concept with an
-      // appended "(Bagian …)" annotation — both start with the original prompt.
-      // The AI splitter rewrites each page, so its output does NOT start with it.
-      const isFallback = subPrompts.every(p => typeof p === 'string' && p.startsWith(task.prompt));
+      const isFallback = !subPrompts || subPrompts.length !== task.pageCount || subPrompts.every(p => typeof p === 'string' && (p.includes('dari cerita berikut:') || p.includes('dari konsep cerita berikut:') || p.startsWith(task.prompt)));
+      task.isAiSplitFallback = !!isFallback;
+
       if (isFallback && task.pageCount > 1) {
-        task.logs += `  [INFO] Layanan AI Split sedang mengalami gangguan (HTTP 503/RTO). Menggunakan konsep cerita asli untuk setiap halaman (fallback).\n`;
+        task.logs += `  [PERINGATAN] Layanan AI Split mengalami gangguan (HTTP 503/RTO). Menerapkan pemecahan babak terarah per halaman (Fallback deterministik: Pembuka -> Demo/Penggunaan -> Penutup).\n`;
       } else {
         for (let i = 0; i < subPrompts.length; i++) {
           task.logs += `  Halaman ${i+1}: ${subPrompts[i].substring(0, 100)}...\n`;
@@ -342,10 +341,13 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
        // severe layout leakage and visual bleeding (inception) of previous scenes into the new panels.
        let pageRefPath = task.finalRefImagePath || '';
 
-      // Check if we already have batch information (resume scenario)
       let taskInfo = task.currentTaskInfo;
       if (!taskInfo) {
-        const pageConcept = (task.subPrompts && task.subPrompts[pageIdx]) ? task.subPrompts[pageIdx] : task.prompt;
+        let pageConcept = (task.subPrompts && task.subPrompts[pageIdx]) ? task.subPrompts[pageIdx] : task.prompt;
+        if ((!task.subPrompts || task.subPrompts.length !== task.pageCount || pageConcept === task.prompt) && task.pageCount > 1) {
+          const spec = getStyleSpec(task.style);
+          pageConcept = buildFallbackConceptForPage(task.prompt, pageIdx, task.pageCount, task.secondsPerPage, !!spec.independentScenes);
+        }
 
         // Describe the reference product ONCE (bounded: async read, ~15s timeout)
         // so the prompt can lock the exact product identity across panels. Falls
@@ -399,6 +401,7 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
         task.pagePromptsManifest[pageIdx] = {
           pageNum,
           promptSource,
+          isAiSplitFallback: !!task.isAiSplitFallback,
           fullPrompt: pagePrompt,
           createdAt: new Date().toISOString(),
         };
@@ -983,8 +986,18 @@ async function regenerateStoryboardPage(req, res) {
           error: null
         };
 
+        const spec = getStyleSpec(style);
         const subPrompts = await splitStoryboardPromptWithAI(storyboard.prompt, pageCount, db, secondsPerPage, style);
-        const pageConcept = (subPrompts && subPrompts[pageIdx]) ? subPrompts[pageIdx] : storyboard.prompt;
+        const isFallback = !subPrompts || subPrompts.length !== pageCount || subPrompts.every(p => typeof p === 'string' && (p.includes('dari cerita berikut:') || p.includes('dari konsep cerita berikut:') || p.startsWith(storyboard.prompt)));
+
+        let pageConcept = (subPrompts && subPrompts[pageIdx]) ? subPrompts[pageIdx] : null;
+        if (!pageConcept || pageConcept === storyboard.prompt) {
+          pageConcept = buildFallbackConceptForPage(storyboard.prompt, pageIdx, pageCount, secondsPerPage, !!spec.independentScenes);
+        }
+
+        if (isFallback && pageCount > 1) {
+          task.logs += `[PERINGATAN] Layanan AI Split mengalami gangguan — halaman ${pageIdx + 1} diregenerasi dengan fokus babak terarah (fallback deterministik).\n`;
+        }
         
         const startScene = pageIdx * Number(gridCount) + 1;
         
