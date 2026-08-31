@@ -1327,7 +1327,13 @@ export default function Dashboard({ setTab }) {
                   key={sb.id}
                   onClick={() => {
                     if (isProcessing) {
-                      toast.info('Storyboard sedang dalam proses pembuatan di latar belakang. Silakan tunggu hingga selesai.');
+                      if (sb.task_id) {
+                        try { localStorage.setItem('activeTaskId', sb.task_id); } catch (e) {}
+                        toast.info('Membuka status live proses pembuatan storyboard...', { icon: '⏳' });
+                        if (setTab) setTab('generator');
+                      } else {
+                        toast.info('Storyboard sedang dalam proses pembuatan di latar belakang. Silakan tunggu hingga selesai.');
+                      }
                       return;
                     }
                     if (isFailed) {
@@ -1349,7 +1355,7 @@ export default function Dashboard({ setTab }) {
                     setVideoPromptError('');
                   }}
                   className={`bg-[#1a1918]/60 border rounded-2xl overflow-hidden hover:border-[#cfae80]/40 transition-all duration-300 group flex flex-col relative ${
-                    isSelectedForExport ? 'ring-2 ring-[#cfae80] border-[#cfae80]' : isProcessing ? 'border-[#cfae80]/20 cursor-wait' : isFailed ? 'border-red-500/20 cursor-default' : 'border-[#2a2725] cursor-pointer'
+                    isSelectedForExport ? 'ring-2 ring-[#cfae80] border-[#cfae80]' : isProcessing ? 'border-[#cfae80]/40 cursor-pointer hover:border-[#cfae80] hover:shadow-lg hover:shadow-[#cfae80]/10' : isFailed ? 'border-red-500/20 cursor-default' : 'border-[#2a2725] cursor-pointer'
                   }`}
                 >
                   {/* Selection Checkbox Overlay */}
@@ -1377,9 +1383,12 @@ export default function Dashboard({ setTab }) {
                   {/* Thumbnail Container (4:3 ratio) */}
                   <div className="aspect-[4/3] bg-black/40 relative overflow-hidden flex items-center justify-center border-b border-[#2a2725]">
                     {isProcessing ? (
-                      <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-1.5 p-1 text-center">
-                        <Loader className="animate-spin text-[#cfae80] w-4.5 h-4.5" />
-                        <span className="text-[6.5px] font-bold text-slate-400 uppercase tracking-widest animate-pulse">Membuat...</span>
+                      <div className="absolute inset-0 bg-black/75 flex flex-col items-center justify-center gap-1 p-1 text-center group-hover:bg-black/90 transition-colors">
+                        <Loader className="animate-spin text-[#cfae80] w-5 h-5" />
+                        <span className="text-[7px] font-bold text-[#cfae80] uppercase tracking-widest animate-pulse">Sedang Dibuat</span>
+                        <span className="text-[6.5px] font-semibold text-slate-300 underline opacity-90 group-hover:opacity-100 flex items-center gap-0.5">
+                          <Eye className="w-2 h-2 inline" /> Buka Progres
+                        </span>
                       </div>
                     ) : isFailed ? (
                       <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-1.5 p-1 text-center">
@@ -1425,7 +1434,9 @@ export default function Dashboard({ setTab }) {
                         {sb.api_key_label ? ` · API: ${sb.api_key_label}` : ''}
                       </span>
                       {isProcessing ? (
-                        <span className="text-[#cfae80] font-bold uppercase tracking-wider text-[7px] animate-pulse">Proses</span>
+                        <span className="text-[#cfae80] font-bold uppercase tracking-wider text-[7px] animate-pulse flex items-center gap-0.5">
+                          <Loader className="animate-spin w-2 h-2 inline" /> Proses
+                        </span>
                       ) : isFailed ? (
                         <button
                           onClick={(e) => {

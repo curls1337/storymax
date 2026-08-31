@@ -271,6 +271,7 @@ export default function Generator({ setTab, selectedCharacter, setSelectedCharac
     if (savedTaskId) {
       setCurrentTaskId(savedTaskId);
       setGenerating(true);
+      setShowLogModal(true);
       setTaskLogs('Menyambungkan kembali ke proses latar belakang...\n');
       startPolling(savedTaskId);
     }

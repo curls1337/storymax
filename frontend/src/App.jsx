@@ -10,14 +10,62 @@ import SeedanceStudio from './pages/SeedanceStudio';
 import { Home, Sparkles, Settings as SettingsIcon, ShieldAlert, LogOut, Loader, User, Zap, Menu, X, Box, UserCheck, Film } from 'lucide-react';
 import api from './utils/api';
 
+const VALID_TABS = ['dashboard', 'generator', 'characters', 'settings', 'admin', 'seedance', '3d'];
+
+function getInitialTab() {
+  try {
+    const hash = window.location.hash.replace(/^#\/?/, '').toLowerCase();
+    if (hash && VALID_TABS.includes(hash)) {
+      return hash;
+    }
+    const saved = localStorage.getItem('activeTab');
+    if (saved && VALID_TABS.includes(saved)) {
+      return saved;
+    }
+  } catch (e) {}
+  return 'dashboard';
+}
+
 export default function App() {
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [user, setUser] = useState(null);
-  const [tab, setTab] = useState('dashboard');
+  const [tab, setTabState] = useState(getInitialTab);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedCharacter, setSelectedCharacter] = useState(null);
   const mainRef = useRef(null);
+
+  const setTab = (newTab) => {
+    const target = VALID_TABS.includes(newTab) ? newTab : 'dashboard';
+    setTabState(target);
+    try {
+      localStorage.setItem('activeTab', target);
+      if (window.location.hash !== `#${target}`) {
+        window.history.replaceState(null, '', `#${target}`);
+      }
+    } catch (e) {}
+  };
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace(/^#\/?/, '').toLowerCase();
+      if (hash && VALID_TABS.includes(hash)) {
+        setTabState(hash);
+        try { localStorage.setItem('activeTab', hash); } catch (e) {}
+      }
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  // Sync hash on mount if none was set
+  useEffect(() => {
+    try {
+      if (!window.location.hash) {
+        window.history.replaceState(null, '', `#${tab}`);
+      }
+    } catch (e) {}
+  }, []);
 
   const fetchProfile = async () => {
     try {
@@ -43,15 +91,23 @@ export default function App() {
   const handleLoginSuccess = (userData) => {
     setUser(userData);
     setToken(localStorage.getItem('token'));
-    setTab('dashboard');
+    try {
+      localStorage.setItem('activeTab', 'dashboard');
+      window.history.replaceState(null, '', '#dashboard');
+    } catch (e) {}
+    setTabState('dashboard');
   };
 
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    localStorage.removeItem('activeTab');
+    try {
+      window.history.replaceState(null, '', window.location.pathname);
+    } catch (e) {}
     setToken(null);
     setUser(null);
-    setTab('dashboard');
+    setTabState('dashboard');
   };
 
   useEffect(() => {
