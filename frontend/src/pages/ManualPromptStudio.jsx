@@ -3,7 +3,7 @@ import api from '../utils/api';
 import {
   Film, Sparkles, Upload, Loader, CheckCircle2, Play, RefreshCw,
   AlertCircle, Image as ImageIcon, Ratio, Clock, Monitor, ShieldCheck,
-  Wallet, Download, Trash2, X, Plus, ExternalLink, Video
+  Wallet, Download, Trash2, X, Plus, ExternalLink, Video, Terminal
 } from 'lucide-react';
 import { toast } from '../utils/toast';
 
@@ -26,6 +26,7 @@ export default function ManualPromptStudio() {
   const [statusMessage, setStatusMessage] = useState('');
   const [error, setError] = useState('');
   const [successResult, setSuccessResult] = useState(null);
+  const [logs, setLogs] = useState([]);
 
   // History list
   const [jobs, setJobs] = useState([]);
@@ -33,6 +34,17 @@ export default function ManualPromptStudio() {
   const [deletingId, setDeletingId] = useState(null);
 
   const fileInputRef = useRef(null);
+  const logContainerRef = useRef(null);
+
+  const appendLog = (msg) => {
+    setLogs(prev => [...prev, `[${new Date().toLocaleTimeString('id-ID')}] ${msg}`]);
+  };
+
+  useEffect(() => {
+    if (logContainerRef.current) {
+      logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
+    }
+  }, [logs, generating]);
 
   // Fetch catalog & models
   const fetchModels = async (keyId = selectedKeyId) => {
@@ -140,7 +152,16 @@ export default function ManualPromptStudio() {
     setGenerating(true);
     setError('');
     setSuccessResult(null);
+    setLogs([]);
     setStatusMessage('Mengunggah parameter & menghubungi Scenario Cloud...');
+
+    appendLog('Memulai proses render video manual...');
+    appendLog(`Model AI: ${activeModel?.name || selectedModelId}`);
+    appendLog(`Konfigurasi: Durasi ${duration}s, Rasio ${aspectRatio}, Resolusi ${resolution}`);
+    if (referenceImages.length > 0) {
+      appendLog(`Menyiapkan ${referenceImages.length} gambar referensi untuk diunggah...`);
+    }
+    appendLog('Mengirim request render ke Scenario Cloud API...');
 
     try {
       const payload = {
@@ -156,6 +177,12 @@ export default function ManualPromptStudio() {
 
       const res = await api.post('/manual-video/generate', payload);
       setSuccessResult(res.data);
+      appendLog(`[Scenario ✅] Video berhasil dirender! (Job ID: ${res.data.jobId || 'N/A'})`);
+      appendLog(`URL Video: ${res.data.url}`);
+      if (res.data.cost != null) {
+        appendLog(`[Billing ⚡] Konsumsi kuota: ${res.data.cost} CU`);
+      }
+      appendLog('[Selesai 🎉] Video siap diputar dan diunduh.');
       toast.success('Video manual berhasil dibuat!');
       fetchJobs();
       fetchModels(selectedKeyId);
@@ -163,6 +190,7 @@ export default function ManualPromptStudio() {
       console.error('Error generating manual video:', err);
       const msg = err.response?.data?.message || err.message || 'Gagal membuat video manual.';
       setError(msg);
+      appendLog(`[ERROR ❌] ${msg}`);
       toast.error(msg);
     } finally {
       setGenerating(false);
@@ -489,6 +517,57 @@ export default function ManualPromptStudio() {
               )}
             </button>
           </form>
+
+          {/* Live Process Logs Console */}
+          {(generating || logs.length > 0) && (
+            <div className="bg-[#131211] border border-[#2a2725] rounded-2xl p-4 space-y-2 backdrop-blur-md animate-fadeIn">
+              <div className="flex items-center justify-between border-b border-[#2a2725]/60 pb-2">
+                <div className="flex items-center gap-2">
+                  <Terminal className="w-3.5 h-3.5 text-[#cfae80]" />
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-300">
+                    Live Process Logs
+                  </span>
+                  {generating && (
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setLogs([])}
+                  className="text-[9px] text-slate-500 hover:text-slate-300 font-mono transition-colors cursor-pointer"
+                >
+                  Clear Logs
+                </button>
+              </div>
+              <div
+                ref={logContainerRef}
+                className="bg-black/80 border border-[#2a2725]/60 rounded-xl p-3.5 h-44 overflow-y-auto font-mono text-[10px] text-emerald-400/90 leading-relaxed scrollbar-thin space-y-1"
+              >
+                {logs.map((logLine, idx) => (
+                  <div
+                    key={idx}
+                    className={
+                      logLine.includes('[ERROR')
+                        ? 'text-red-400 font-bold'
+                        : logLine.includes('[Scenario ✅') || logLine.includes('[Selesai')
+                        ? 'text-[#cfae80] font-bold'
+                        : logLine.includes('[Billing')
+                        ? 'text-sky-300'
+                        : ''
+                    }
+                  >
+                    {logLine}
+                  </div>
+                ))}
+                {generating && (
+                  <div className="flex items-center gap-2 text-slate-400 pt-1">
+                    <Loader className="w-3 h-3 animate-spin text-[#cfae80]" />
+                    <span className="animate-pulse">Sedang memproses di Scenario Cloud API (mohon tunggu)...</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Results & History Column */}
