@@ -304,11 +304,15 @@ export default function ManualPromptStudio() {
                 className="w-full bg-black/50 border border-[#2a2725] rounded-xl px-3 py-2 text-white text-xs focus:outline-none focus:border-[#cfae80] transition-all font-medium"
               >
                 {videoModels.length > 0 ? (
-                  videoModels.map(m => (
-                    <option key={m.id} value={m.id}>
-                      {m.name} {m.plan ? `(${m.plan})` : ''}
-                    </option>
-                  ))
+                  videoModels.map(m => {
+                    const isI2v = m.id.includes('i2v') || m.id.includes('grok-imagine') || m.id.includes('seedance') || m.id.includes('minimax') || m.id.includes('pixverse');
+                    const typeTag = isI2v ? '🎬 [I2V - Animasikan Foto]' : '✨ [Multi-Ref / T2V]';
+                    return (
+                      <option key={m.id} value={m.id}>
+                        {m.name} {m.plan ? `(${m.plan})` : ''} — {typeTag}
+                      </option>
+                    );
+                  })
                 ) : (
                   <option value="model_google-omni-flash">Gemini Omni (Google) (Semua Plan)</option>
                 )}
@@ -366,7 +370,7 @@ export default function ManualPromptStudio() {
                       </button>
                     </div>
                     <span className="absolute bottom-1 left-1 bg-black/80 px-1 py-0.5 rounded text-[8px] text-slate-300 font-mono">
-                      #{idx + 1}
+                      {idx === 0 ? 'Utama / Frame 1' : `#${idx + 1}`}
                     </span>
                   </div>
                 ))}
@@ -383,6 +387,10 @@ export default function ManualPromptStudio() {
                   </button>
                 )}
               </div>
+
+              <p className="text-[8.5px] text-slate-500 mt-1.5 leading-relaxed">
+                💡 <span className="text-slate-400 font-semibold">Foto #1 akan dijadikan frame awal (First Frame)</span> yang digerakkan oleh AI. Untuk animasi yang 100% persis bentuk &amp; warnanya dari foto, gunakan model dengan tag <span className="text-[#cfae80]">[I2V - Animasikan Foto]</span> seperti Grok Imagine, Seedance, Kling, atau Wan I2V.
+              </p>
 
               <input
                 ref={fileInputRef}

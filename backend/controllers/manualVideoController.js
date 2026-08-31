@@ -127,6 +127,7 @@ async function submitManualVideoJob(req, res) {
           params.duration = (numDur === 5 || numDur === 8 || numDur === 10) ? numDur : 5;
           params.aspectRatio = aspectRatio === '9:16' ? '9:16' : '16:9';
           if (assetIds.length > 0) {
+            params.image = assetIds[0];
             params.referenceImages = assetIds;
           }
         } else if (targetModelId === 'model_xai-grok-imagine-video-1-5') {
@@ -134,6 +135,7 @@ async function submitManualVideoJob(req, res) {
           params.aspectRatio = aspectRatio === 'adaptive' || aspectRatio === 'auto' ? '16:9' : (aspectRatio || '16:9');
           params.resolution = resolution || '720p';
           if (assetIds.length > 0) {
+            params.image = assetIds[0];
             params.referenceImages = assetIds;
           }
         } else if (targetModelId === 'model_kling-v3-i2v-pro') {
