@@ -823,7 +823,7 @@ export default function Dashboard({ setTab }) {
 
   const handleGenerateVideo = async () => {
     if (!selectedStoryboard || isGeneratingVideo || isGeneratingAllVideos) return;
-    if (videoVoiceOver && !videoGenerateAudio && userProvider !== 'magica') {
+    if (videoVoiceOver && !videoGenerateAudio && userProvider !== 'magica' && userProvider !== 'scenario') {
       toast.error('Aktifkan Audio Native agar Voice Over dari prompt dapat dirender provider.');
       return;
     }
@@ -874,7 +874,7 @@ export default function Dashboard({ setTab }) {
 
   const handleGenerateAllVideos = async () => {
     if (!selectedStoryboard || isGeneratingVideo || isGeneratingAllVideos) return;
-    if (videoVoiceOver && !videoGenerateAudio && userProvider !== 'magica') {
+    if (videoVoiceOver && !videoGenerateAudio && userProvider !== 'magica' && userProvider !== 'scenario') {
       toast.error('Aktifkan Audio Native agar Voice Over dari prompt dapat dirender provider.');
       return;
     }
@@ -2818,45 +2818,28 @@ export default function Dashboard({ setTab }) {
                           </div>
                         </div>
 
-                        {(() => {
-                          const mm = userProvider === 'magica' ? (magicaCatalog?.videoModels || []).find(x => x.nodeType === magicaVideoModel) : null;
-                          const mt = mm && (mm.methods || []).find(x => x.category === magicaVideoMethod);
-                          const sm = userProvider === 'scenario' ? scenarioVM : null;
-                          const audioUnavailable = Boolean(
-                            (userProvider === 'magica' && mt && mt.hasAudio === false) ||
-                            (userProvider === 'scenario' && sm && sm.hasAudio === false)
-                          );
-                          const canForceVo = userProvider === 'magica' || userProvider === 'scenario';
-
-                          return (
-                            <>
-                              <label className={`flex items-center gap-2 select-none border-t border-[#2a2725]/40 pt-2 pb-1 ${audioUnavailable ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
-                                <input
-                                  type="checkbox"
-                                  checked={videoGenerateAudio}
-                                  disabled={audioUnavailable}
-                                  onChange={(e) => setVideoGenerateAudio(e.target.checked)}
-                                  className="rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5"
-                                />
-                                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-350">
-                                  Audio Native <span className="text-slate-500 normal-case font-normal">({audioUnavailable ? 'model ini tidak menyediakan switch audio' : 'mengirim setting audio ke provider'})</span>
-                                </span>
-                              </label>
-                              <label className={`flex items-center gap-2 select-none pb-1 ${(!videoGenerateAudio && !canForceVo) ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
-                                <input
-                                  type="checkbox"
-                                  checked={videoVoiceOver}
-                                  disabled={!videoGenerateAudio && !canForceVo}
-                                  onChange={(e) => setVideoVoiceOver(e.target.checked)}
-                                  className="rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5"
-                                />
-                                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-350">
-                                  Voice Over <span className="text-slate-500 normal-case font-normal">(arahan narasi via prompt{canForceVo && !videoGenerateAudio ? ' — tetap dikirim meskipun audio native off' : ''})</span>
-                                </span>
-                              </label>
-                            </>
-                          );
-                        })()}
+                        <label className="flex items-center gap-2 select-none border-t border-[#2a2725]/40 pt-2 pb-1 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={videoGenerateAudio}
+                            onChange={(e) => setVideoGenerateAudio(e.target.checked)}
+                            className="rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5"
+                          />
+                          <span className="text-[9px] font-bold uppercase tracking-wider text-slate-350">
+                            Audio Native <span className="text-slate-500 normal-case font-normal">(mengirim setting audio ke provider)</span>
+                          </span>
+                        </label>
+                        <label className="flex items-center gap-2 select-none pb-1 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={videoVoiceOver}
+                            onChange={(e) => setVideoVoiceOver(e.target.checked)}
+                            className="rounded border-[#2a2725] bg-black text-[#cfae80] focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5"
+                          />
+                          <span className="text-[9px] font-bold uppercase tracking-wider text-slate-350">
+                            Voice Over <span className="text-slate-500 normal-case font-normal">(arahan narasi via prompt)</span>
+                          </span>
+                        </label>
 
                         <label className="flex items-center gap-2 cursor-pointer select-none pb-1">
                           <input
