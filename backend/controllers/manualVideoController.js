@@ -44,16 +44,12 @@ async function getManualVideoModels(req, res) {
       plan_name: k.plan_name || 'Standard'
     }));
 
-    const videoModels = (scenarioGen.SCENARIO_CATALOG?.videoModels || []).map(m => {
-      const isMultiRef = m.id.includes('reference-to-video') || m.id.includes('grok-imagine') || m.id.includes('aleph') || m.id.includes('seedance');
-      const isI2v = m.id.includes('i2v') || isMultiRef;
-      return {
-        ...m,
-        isSupported: (m.tier || 0) <= detectedTier,
-        badge: (m.tier || 0) > detectedTier ? `Perlu ${m.plan}` : 'Didukung',
-        maxReferences: isMultiRef ? 7 : (isI2v ? 1 : 0)
-      };
-    });
+    const videoModels = (scenarioGen.SCENARIO_CATALOG?.videoModels || []).map(m => ({
+      ...m,
+      isSupported: (m.tier || 0) <= detectedTier,
+      badge: (m.tier || 0) > detectedTier ? `Perlu ${m.plan}` : 'Didukung',
+      maxReferences: 7
+    }));
 
     res.json({
       keys: publicKeys,
@@ -136,21 +132,71 @@ async function submitManualVideoJob(req, res) {
       }
     }
 
-    // Construct generation parameters
+    // Construct model-compliant generation parameters
     const params = {
       prompt: String(prompt || '').trim()
     };
 
-    if (aspectRatio && aspectRatio !== 'auto') params.aspectRatio = aspectRatio;
-    if (duration !== undefined && duration !== 'auto') params.duration = Number(duration);
-    if (resolution) params.resolution = resolution;
-    if (generateAudio !== undefined) params.generateAudio = !!generateAudio;
-
-    if (assetIds.length > 0) {
-      params.referenceImages = assetIds;
-      params.image = assetIds[0];
-      params.startImage = assetIds[0];
-      params.firstFrameImage = assetIds[0];
+    if (targetModelId === 'model_google-omni-flash') {
+      params.duration = Number(duration) === -1 ? 5 : Number(duration || 5);
+      params.aspectRatio = aspectRatio === '9:16' ? '9:16' : '16:9';
+      if (assetIds.length > 0) {
+        params.referenceImages = assetIds;
+      }
+    } else if (targetModelId === 'model_xai-grok-imagine-video-1-5') {
+      params.duration = Number(duration) === -1 ? 5 : Number(duration || 5);
+      params.aspectRatio = aspectRatio === 'adaptive' || aspectRatio === 'auto' ? '16:9' : (aspectRatio || '16:9');
+      params.resolution = resolution || '720p';
+      if (assetIds.length > 0) {
+        params.referenceImages = assetIds;
+      }
+    } else if (targetModelId === 'model_kling-v3-i2v-pro') {
+      params.duration = String(Number(duration) === -1 ? '5' : (duration || '5'));
+      params.aspectRatio = aspectRatio === 'adaptive' || aspectRatio === 'auto' ? '16:9' : (aspectRatio || '16:9');
+      if (generateAudio !== undefined) params.generateAudio = !!generateAudio;
+      if (assetIds.length > 0) {
+        params.image = assetIds[0];
+        params.startImage = assetIds[0];
+      }
+    } else if (targetModelId === 'model_kling-v3-omni-video') {
+      params.duration = Number(duration) === -1 ? 5 : Number(duration || 5);
+      params.aspectRatio = aspectRatio === '9:16' ? '9:16' : (aspectRatio === '1:1' ? '1:1' : '16:9');
+      if (generateAudio !== undefined) params.generateAudio = !!generateAudio;
+      if (assetIds.length > 0) {
+        params.referenceImages = assetIds;
+      }
+    } else if (targetModelId.includes('minimax')) {
+      params.duration = Number(duration) === -1 ? 6 : Number(duration || 6);
+      params.resolution = resolution === '1080p' || resolution === '4k' ? '2K' : '768P';
+      params.aspectRatio = aspectRatio || '16:9';
+      if (assetIds.length > 0) {
+        params.firstFrameImage = assetIds[0];
+      }
+    } else if (targetModelId.includes('pixverse')) {
+      params.duration = Number(duration) === -1 ? 5 : Number(duration || 5);
+      params.resolution = resolution || '720p';
+      params.aspectRatio = aspectRatio || '16:9';
+      if (generateAudio !== undefined) params.generateAudioSwitch = !!generateAudio;
+      if (assetIds.length > 0) {
+        params.image = assetIds[0];
+      }
+    } else if (targetModelId.includes('p-avatar')) {
+      params.voiceScript = params.prompt;
+      params.videoPrompt = params.prompt;
+      params.resolution = resolution || '720p';
+      if (assetIds.length > 0) {
+        params.image = assetIds[0];
+      }
+    } else {
+      // Seedance 2.5, Seedance 2.0, Seedance Fast, Seedance Mini, Wan 2.7, Wan 2.5, LTX Pro, LTX Fast, Veo 3.1
+      if (aspectRatio && aspectRatio !== 'auto') params.aspectRatio = aspectRatio;
+      if (duration !== undefined && duration !== 'auto') params.duration = Number(duration) === -1 ? -1 : Number(duration);
+      if (resolution) params.resolution = resolution;
+      if (generateAudio !== undefined) params.generateAudio = !!generateAudio;
+      if (assetIds.length > 0) {
+        params.referenceImages = assetIds;
+        params.image = assetIds[0];
+      }
     }
 
     // Submit custom generation job directly to Scenario

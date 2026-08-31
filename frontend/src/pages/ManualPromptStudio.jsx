@@ -72,7 +72,7 @@ export default function ManualPromptStudio() {
 
   // Update available options when model changes
   const activeModel = videoModels.find(m => m.id === selectedModelId) || null;
-  const maxRefImages = activeModel?.maxReferences !== undefined ? activeModel.maxReferences : 7;
+  const maxRefImages = 7;
 
   useEffect(() => {
     if (activeModel) {
