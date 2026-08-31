@@ -7,10 +7,11 @@ import Characters from './pages/Characters';
 import Settings from './pages/Settings';
 import AdminPanel from './pages/AdminPanel';
 import SeedanceStudio from './pages/SeedanceStudio';
+import ManualPromptStudio from './pages/ManualPromptStudio';
 import { Home, Sparkles, Settings as SettingsIcon, ShieldAlert, LogOut, Loader, User, Zap, Menu, X, Box, UserCheck, Film } from 'lucide-react';
 import api from './utils/api';
 
-const VALID_TABS = ['dashboard', 'generator', 'characters', 'settings', 'admin', 'seedance', '3d'];
+const VALID_TABS = ['dashboard', 'generator', 'characters', 'settings', 'admin', 'seedance', '3d', 'manual-prompt'];
 
 function getInitialTab() {
   try {
@@ -330,6 +331,21 @@ export default function App() {
               {tab === 'characters' && <div className="w-1.5 h-1.5 rounded-full bg-[#cfae80] shadow-sm shadow-[#cfae80]"></div>}
             </button>
 
+            <button
+              onClick={() => { setTab('manual-prompt'); setSidebarOpen(false); }}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-[10px] font-semibold tracking-widest uppercase transition-all duration-350 border ${
+                tab === 'manual-prompt'
+                  ? 'text-white bg-[#cfae80]/5 border-[#cfae80]/30'
+                  : 'text-slate-400 hover:text-white border-transparent hover:bg-white/[0.01]'
+              }`}
+            >
+              <span className="flex items-center gap-3">
+                <Film className="w-3.5 h-3.5 text-[#cfae80]" />
+                Manual Prompt
+              </span>
+              {tab === 'manual-prompt' && <div className="w-1.5 h-1.5 rounded-full bg-[#cfae80] shadow-sm shadow-[#cfae80]"></div>}
+            </button>
+
             {/* Temporarily hidden: SeedDance (Freebeat) & Studio 3D (Magica) */}
             {/*
             {canUseSeedance && (
@@ -437,6 +453,7 @@ export default function App() {
           {tab === 'dashboard' && <Dashboard setTab={setTab} />}
           {tab === 'generator' && <Generator setTab={setTab} selectedCharacter={selectedCharacter} setSelectedCharacter={setSelectedCharacter} />}
           {tab === 'characters' && <Characters setTab={setTab} onSelectCharacterForStoryboard={(char) => { setSelectedCharacter(char); setTab('generator'); }} />}
+          {tab === 'manual-prompt' && <ManualPromptStudio />}
           {tab === 'seedance' && (canUseSeedance ? <SeedanceStudio /> : <Dashboard setTab={setTab} />)}
           {tab === '3d' && <ThreeD />}
           {tab === 'settings' && <Settings onLogout={handleLogout} />}
@@ -486,6 +503,15 @@ export default function App() {
         >
           <UserCheck className="w-4.5 h-4.5" />
           <span className="text-[7.5px] font-bold uppercase tracking-widest mt-0.5">Karakter</span>
+        </button>
+        <button 
+          onClick={() => setTab('manual-prompt')} 
+          className={`flex flex-col items-center justify-center gap-1 w-16 py-1.5 transition-all duration-200 ${
+            tab === 'manual-prompt' ? 'text-[#cfae80]' : 'text-slate-400'
+          }`}
+        >
+          <Film className="w-4.5 h-4.5" />
+          <span className="text-[7.5px] font-bold uppercase tracking-widest mt-0.5">Manual</span>
         </button>
         {/*
         <button

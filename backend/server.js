@@ -44,6 +44,7 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/videos', videoRoutes);
 app.use('/api/seedance', seedanceRoutes);
 app.use('/api/scenario', scenarioRoutes);
+app.use('/api/manual-video', require('./routes/manualVideoRoutes'));
 // Public Magica webhook (no JWT) — MUST be mounted before the authenticated /api/magica router.
 app.use('/api/magica/webhook', magicaWebhookRoutes);
 app.use('/api/magica', magicaRoutes);

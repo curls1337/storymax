@@ -566,6 +566,21 @@ async function initDb() {
   try { await db.exec('ALTER TABLE storyboards ADD COLUMN scenario_key_id INTEGER'); } catch (e) { /* exists */ }
   try { await db.exec('ALTER TABLE generated_videos ADD COLUMN scenario_key_id INTEGER'); } catch (e) { /* exists */ }
 
+  // Create Manual Video Jobs Table
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS manual_video_jobs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      prompt TEXT,
+      model_id TEXT,
+      job_id TEXT,
+      video_url TEXT,
+      cost REAL DEFAULT 0,
+      status TEXT DEFAULT 'completed',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   // Seed default admin if no users exist
   const adminExists = await db.get('SELECT * FROM users WHERE role = "admin"');
   if (!adminExists && SEED_DEFAULT_ADMIN) {
