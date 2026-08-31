@@ -67,7 +67,7 @@ async function getManualVideoModels(req, res) {
  */
 async function submitManualVideoJob(req, res) {
   try {
-    const { prompt, modelId, aspectRatio, duration, resolution, generateAudio, referenceImageUrls, keyId } = req.body;
+    const { prompt, modelId, aspectRatio, duration, resolution, generateAudio, referenceImageUrls, keyId, generationMethod } = req.body;
 
     if (!prompt && (!referenceImageUrls || referenceImageUrls.length === 0)) {
       return res.status(400).json({ message: 'Prompt teks atau gambar referensi wajib diisi.' });
@@ -77,13 +77,14 @@ async function submitManualVideoJob(req, res) {
     const db = getDb();
 
     const specificKeyId = (keyId && keyId !== 'auto') ? keyId : undefined;
+    const isTextOnly = generationMethod === 'text';
 
     const { result, keyRecord: targetKey } = await scenarioGen.executeWithScenarioFailover(
       db,
       async (keyRec) => {
-        // Upload reference images if any
+        // Upload reference images if any (unless text-only mode is chosen)
         const assetIds = [];
-        if (Array.isArray(referenceImageUrls) && referenceImageUrls.length > 0) {
+        if (!isTextOnly && Array.isArray(referenceImageUrls) && referenceImageUrls.length > 0) {
           for (let i = 0; i < Math.min(referenceImageUrls.length, 7); i++) {
             const item = referenceImageUrls[i];
             if (!item) continue;

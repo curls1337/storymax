@@ -14,6 +14,7 @@ export default function ManualPromptStudio() {
   const [selectedModelId, setSelectedModelId] = useState('model_google-omni-flash');
 
   // Form states
+  const [generationMethod, setGenerationMethod] = useState('reference'); // 'reference' | 'image' | 'text'
   const [prompt, setPrompt] = useState('');
   const [aspectRatio, setAspectRatio] = useState('16:9');
   const [duration, setDuration] = useState('5');
@@ -84,7 +85,7 @@ export default function ManualPromptStudio() {
 
   // Update available options when model changes
   const activeModel = videoModels.find(m => m.id === selectedModelId) || null;
-  const maxRefImages = 7;
+  const maxRefImages = generationMethod === 'image' ? 1 : 7;
 
   useEffect(() => {
     if (activeModel) {
@@ -98,7 +99,7 @@ export default function ManualPromptStudio() {
           setResolution(activeModel.defaultResolution || activeModel.resolutions[0]);
         }
       }
-      if (activeModel.aspectRatios && activeModel.aspectRatios.length > 0) {
+      if (activeModel.aspectRatios && activeModel.aspectRatios.includes(aspectRatio)) {
         if (!activeModel.aspectRatios.includes(aspectRatio)) {
           setAspectRatio(activeModel.defaultAspectRatio || activeModel.aspectRatios[0]);
         }
@@ -144,8 +145,8 @@ export default function ManualPromptStudio() {
   // Submit job
   const handleGenerate = async (e) => {
     e.preventDefault();
-    if (!prompt.trim() && referenceImages.length === 0) {
-      toast.error('Masukkan prompt teks atau upload minimal 1 gambar referensi.');
+    if (!prompt.trim() && (generationMethod === 'text' || referenceImages.length === 0)) {
+      toast.error(generationMethod === 'text' ? 'Masukkan prompt teks visual.' : 'Masukkan prompt teks atau upload gambar.');
       return;
     }
 
@@ -156,9 +157,10 @@ export default function ManualPromptStudio() {
     setStatusMessage('Mengunggah parameter & menghubungi Scenario Cloud...');
 
     appendLog('Memulai proses render video manual...');
+    appendLog(`Metode: ${generationMethod === 'reference' ? 'Reference-to-Video (Multi-Ref)' : generationMethod === 'image' ? 'Image-to-Video (First Frame)' : 'Text-to-Video (Murni Teks)'}`);
     appendLog(`Model AI: ${activeModel?.name || selectedModelId}`);
     appendLog(`Konfigurasi: Durasi ${duration}s, Rasio ${aspectRatio}, Resolusi ${resolution}`);
-    if (referenceImages.length > 0) {
+    if (generationMethod !== 'text' && referenceImages.length > 0) {
       appendLog(`Menyiapkan ${referenceImages.length} gambar referensi untuk diunggah...`);
     }
     appendLog('Mengirim request render ke Scenario Cloud API...');
@@ -171,7 +173,8 @@ export default function ManualPromptStudio() {
         duration: duration === 'auto' ? undefined : Number(duration),
         resolution,
         generateAudio,
-        referenceImageUrls: referenceImages.map(img => img.dataUri),
+        generationMethod,
+        referenceImageUrls: generationMethod === 'text' ? [] : referenceImages.map(img => img.dataUri),
         keyId: selectedKeyId
       };
 
@@ -235,7 +238,7 @@ export default function ManualPromptStudio() {
               Studio Video <span className="text-[#cfae80] font-normal">Prompt Bebas</span>
             </h1>
             <p className="text-xs text-slate-400 mt-1 max-w-2xl">
-              Render video langsung dengan prompt teks murni dan multi-referensi gambar (hingga 7 gambar) tanpa melalui pipeline AI Split.
+              Render video langsung dengan prompt teks murni dan multi-referensi gambar tanpa melalui pipeline AI Split.
             </p>
           </div>
 
@@ -246,22 +249,27 @@ export default function ManualPromptStudio() {
               title="Segarkan data"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loadingJobs ? 'animate-spin' : ''}`} />
-              <span>Refresh</span>
+              <span>Segarkan</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Main Grid: Form Left / Results & History Right */}
+      {/* Main Studio Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Form Column */}
+        {/* Creation Form Column */}
         <div className="lg:col-span-7 space-y-5">
-          <form onSubmit={handleGenerate} className="bg-[#1a1918]/80 border border-[#2a2725] rounded-2xl p-5 space-y-4 backdrop-blur-md">
-            {/* API Key Selector */}
+          <form onSubmit={handleGenerate} className="bg-[#1a1918]/80 border border-[#2a2725] rounded-2xl p-5 md:p-6 space-y-4 backdrop-blur-md">
+            {/* Scenario API Key Selector */}
             <div>
-              <label className="block text-[9px] font-bold uppercase tracking-widest text-[#38bdf8] mb-1.5">
-                API Key Scenario
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-[9px] font-bold uppercase tracking-widest text-[#38bdf8] flex items-center gap-1.5">
+                  <ShieldCheck className="w-3 h-3 text-[#38bdf8]" /> API Key Scenario
+                </label>
+                <span className="text-[9px] text-slate-400 font-mono">
+                  {keys.length} Key Aktif di Pool
+                </span>
+              </div>
               <select
                 value={selectedKeyId}
                 onChange={(e) => {
@@ -282,6 +290,32 @@ export default function ManualPromptStudio() {
                 ) : (
                   <option value="" disabled>Belum ada API Key Scenario aktif</option>
                 )}
+              </select>
+            </div>
+
+            {/* Metode Pembuatan Selector */}
+            <div>
+              <label className="text-[9px] font-bold uppercase tracking-widest text-[#cfae80] block mb-1.5">
+                Metode Pembuatan
+              </label>
+              <select
+                value={generationMethod}
+                onChange={(e) => {
+                  const newMethod = e.target.value;
+                  setGenerationMethod(newMethod);
+                  if (newMethod === 'image') {
+                    const i2v = videoModels.find(m => m.id.includes('i2v') || m.id.includes('seedance') || m.id.includes('grok-imagine'));
+                    if (i2v && (!selectedModelId.includes('i2v') && !selectedModelId.includes('grok-imagine') && !selectedModelId.includes('seedance'))) {
+                      setSelectedModelId(i2v.id);
+                    }
+                  }
+                }}
+                disabled={generating}
+                className="w-full bg-black/50 border border-[#2a2725] rounded-xl px-3 py-2 text-white text-xs focus:outline-none focus:border-[#cfae80] transition-all font-medium"
+              >
+                <option value="reference">Reference-to-Video (Referensi Karakter / Multi-Foto)</option>
+                <option value="image">Image-to-Video (I2V - Animasikan Foto Utama / First Frame)</option>
+                <option value="text">Text-to-Video (T2V - Teks Murni Tanpa Foto)</option>
               </select>
             </div>
 
@@ -339,68 +373,79 @@ export default function ManualPromptStudio() {
               />
             </div>
 
-            {/* Reference Images Upload (Multi-angle / Reference-to-Video) */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-[9px] font-bold uppercase tracking-widest text-slate-350 flex items-center gap-1.5">
-                  <ImageIcon className="w-3 h-3 text-[#cfae80]" />
-                  <span>Gambar Referensi</span>
-                  <span className="text-slate-500 normal-case font-normal">
-                    (Maksimal {maxRefImages} gambar)
-                  </span>
-                </label>
-                <span className="text-[9px] text-slate-400 font-mono">
-                  {referenceImages.length}/{maxRefImages}
-                </span>
+            {/* Reference Images Upload */}
+            {generationMethod === 'text' ? (
+              <div className="bg-[#131211] border border-[#2a2725] rounded-xl p-3.5 flex items-center gap-2.5 text-slate-400 text-xs">
+                <Sparkles className="w-4 h-4 text-[#cfae80] shrink-0" />
+                <span>Mode <strong>Text-to-Video (T2V)</strong> aktif. Video akan dirender murni dari prompt teks visual tanpa menggunakan gambar referensi.</span>
               </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                {referenceImages.map((img, idx) => (
-                  <div key={idx} className="relative group bg-black/60 border border-[#2a2725] rounded-xl overflow-hidden aspect-video flex items-center justify-center">
-                    <img src={img.dataUri} alt={img.name} className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => removeReferenceImage(idx)}
-                        disabled={generating}
-                        className="bg-red-500/80 hover:bg-red-600 text-white p-1 rounded-lg transition-all cursor-pointer"
-                        title="Hapus gambar"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                    <span className="absolute bottom-1 left-1 bg-black/80 px-1 py-0.5 rounded text-[8px] text-slate-300 font-mono">
-                      {idx === 0 ? 'Utama / Frame 1' : `#${idx + 1}`}
+            ) : (
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-[9px] font-bold uppercase tracking-widest text-slate-350 flex items-center gap-1.5">
+                    <ImageIcon className="w-3 h-3 text-[#cfae80]" />
+                    <span>{generationMethod === 'image' ? 'Gambar Utama (First Frame)' : 'Gambar Referensi'}</span>
+                    <span className="text-slate-500 normal-case font-normal">
+                      (Maksimal {maxRefImages} gambar)
                     </span>
-                  </div>
-                ))}
+                  </label>
+                  <span className="text-[9px] text-slate-400 font-mono">
+                    {referenceImages.length}/{maxRefImages}
+                  </span>
+                </div>
 
-                {referenceImages.length < maxRefImages && (
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={generating}
-                    className="border border-dashed border-[#2a2725] hover:border-[#cfae80]/50 rounded-xl aspect-video flex flex-col items-center justify-center gap-1 text-slate-400 hover:text-white transition-all bg-black/20 hover:bg-black/40 cursor-pointer"
-                  >
-                    <Plus className="w-4 h-4 text-[#cfae80]" />
-                    <span className="text-[9px] font-bold tracking-wider uppercase">Tambah Foto</span>
-                  </button>
-                )}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  {referenceImages.slice(0, maxRefImages).map((img, idx) => (
+                    <div key={idx} className="relative group bg-black/60 border border-[#2a2725] rounded-xl overflow-hidden aspect-video flex items-center justify-center">
+                      <img src={img.dataUri} alt={img.name} className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => removeReferenceImage(idx)}
+                          disabled={generating}
+                          className="bg-red-500/80 hover:bg-red-600 text-white p-1 rounded-lg transition-all cursor-pointer"
+                          title="Hapus gambar"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <span className="absolute bottom-1 left-1 bg-black/80 px-1 py-0.5 rounded text-[8px] text-slate-300 font-mono">
+                        {idx === 0 ? 'Utama / Frame 1' : `#${idx + 1}`}
+                      </span>
+                    </div>
+                  ))}
+
+                  {referenceImages.length < maxRefImages && (
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={generating}
+                      className="border border-dashed border-[#2a2725] hover:border-[#cfae80]/50 rounded-xl aspect-video flex flex-col items-center justify-center gap-1 text-slate-400 hover:text-white transition-all bg-black/20 hover:bg-black/40 cursor-pointer"
+                    >
+                      <Plus className="w-4 h-4 text-[#cfae80]" />
+                      <span className="text-[9px] font-bold tracking-wider uppercase">Tambah Foto</span>
+                    </button>
+                  )}
+                </div>
+
+                <p className="text-[8.5px] text-slate-500 mt-1.5 leading-relaxed">
+                  💡 {generationMethod === 'image' ? (
+                    <>Foto di atas menjadi <strong className="text-slate-300">titik awal animasi (First Frame)</strong> yang digerakkan sesuai instruksi prompt.</>
+                  ) : (
+                    <>Foto #1 dijadikan frame awal utama, foto tambahan digunakan sebagai referensi visual sudut pandang/karakter.</>
+                  )}
+                </p>
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple={generationMethod !== 'image'}
+                  onChange={handleFilesSelected}
+                  className="hidden"
+                />
               </div>
-
-              <p className="text-[8.5px] text-slate-500 mt-1.5 leading-relaxed">
-                💡 <span className="text-slate-400 font-semibold">Foto #1 akan dijadikan frame awal (First Frame)</span> yang digerakkan oleh AI. Untuk animasi yang 100% persis bentuk &amp; warnanya dari foto, gunakan model dengan tag <span className="text-[#cfae80]">[I2V - Animasikan Foto]</span> seperti Grok Imagine, Seedance, Kling, atau Wan I2V.
-              </p>
-
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={handleFilesSelected}
-                className="hidden"
-              />
-            </div>
+            )}
 
             {/* Video Parameters Grid */}
             <div className="grid grid-cols-3 gap-2.5 pt-2 border-t border-[#2a2725]/60">
