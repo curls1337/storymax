@@ -996,7 +996,7 @@ async function regenerateStoryboardPage(req, res) {
         }
 
         if (isFallback && pageCount > 1) {
-          task.logs += `[PERINGATAN] Layanan AI Split mengalami gangguan — halaman ${pageIdx + 1} diregenerasi dengan fokus babak terarah (fallback deterministik).\n`;
+          activeTasks[taskId].logs += `[PERINGATAN] Layanan AI Split mengalami gangguan — halaman ${pageIdx + 1} diregenerasi dengan fokus babak terarah (fallback deterministik).\n`;
         }
         
         const startScene = pageIdx * Number(gridCount) + 1;
@@ -1014,7 +1014,6 @@ async function regenerateStoryboardPage(req, res) {
           }
         } catch (e) {}
 
-        const spec = getStyleSpec(style);
         const faceMode = normalizeFaceMode(genParams.faceMode, showFace, style);
 
         let subjectDesc = genParams.subjectDescriptor;
