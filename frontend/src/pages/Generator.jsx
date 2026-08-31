@@ -983,6 +983,8 @@ export default function Generator({ setTab, selectedCharacter, setSelectedCharac
             {userProvider === 'scenario' ? (
               <select value={scenarioImageModel} onChange={(e) => setScenarioImageModel(e.target.value)} className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#38bdf8] transition-all text-xs" disabled={generating}>
                 {((scenarioCatalog && scenarioCatalog.imageModels) || [
+                  { id: 'model_bfl-flux-2-klein-9b', name: 'FLUX 2 Klein 9B' },
+                  { id: 'model_microsoft-mai-image-2-5', name: 'MAI Image 2.5' },
                   { id: 'model_openai-gpt-image-2', name: 'OpenAI GPT Image 2' },
                   { id: 'model_bfl-flux-2-dev', name: 'FLUX.2 Dev' },
                   { id: 'model_bytedance-seedream-5-0-pro', name: 'ByteDance SeaDream 5.0 Pro' },
@@ -1144,51 +1146,24 @@ export default function Generator({ setTab, selectedCharacter, setSelectedCharac
           {mode === 'tokopedia' && renderRefImagesSection()}
 
           {userProvider === 'scenario' ? (
-            <div className="space-y-3">
-              <div>
-                <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Pilih API Key Scenario</label>
-                <select
-                  value={scenarioKeyId}
-                  onChange={(e) => setScenarioKeyId(e.target.value)}
-                  disabled={generating}
-                  className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#38bdf8] transition-all text-xs"
-                >
-                  <option value="auto">Pilih Otomatis (Auto-detect &amp; Failover)</option>
-                  {(((scenarioCatalog && scenarioCatalog.keys) || []).length)
-                    ? scenarioCatalog.keys.map((k) => (
-                      <option key={k.id} value={k.id}>
-                        {k.label} (Key: {String(k.key_value || '').substring(0, 8)}•••• | ⚡ {k.total_usage || 0}x Digunakan{k.consumption_cu != null ? ` · 🌐 ${k.consumption_cu} CU` : ''})
-                      </option>
-                    ))
-                    : <option value="" disabled>Belum ada API Key Scenario aktif</option>}
-                </select>
-                <p className="text-[8px] text-slate-500 mt-1">Provider: Scenario API — "Auto" memilih key aktif dengan failover otomatis.</p>
-              </div>
-
-              <div>
-                <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Pilih Model Gambar (Scenario)</label>
-                <select
-                  value={scenarioImageModel}
-                  onChange={(e) => setScenarioImageModel(e.target.value)}
-                  disabled={generating}
-                  className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#38bdf8] transition-all text-xs"
-                >
-                  {((scenarioCatalog && scenarioCatalog.imageModels) || [
-                    { id: 'model_bfl-flux-2-klein-9b', name: 'FLUX 2 Klein 9B' },
-                    { id: 'model_microsoft-mai-image-2-5', name: 'MAI Image 2.5' },
-                    { id: 'model_openai-gpt-image-2', name: 'GPT Image 2 (OpenAI)' },
-                    { id: 'model_bfl-flux-2-dev', name: 'FLUX 2 Dev' },
-                    { id: 'model_bytedance-seedream-5-0-pro', name: 'Seedream 5.0 Pro' },
-                    { id: 'model_google-gemini-3-1-flash', name: 'Gemini 3.1 Flash' },
-                    { id: 'model_xai-grok-imagine-image-2-0', name: 'Grok Imagine 2.0' },
-                    { id: 'model_ideogram-v4', name: 'Ideogram V4' }
-                  ]).map(m => (
-                    <option key={m.id} value={m.id}>
-                      {m.name} {m.plan ? `(${m.plan})` : ''}
+            <div>
+              <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest mb-1">Pilih API Key Scenario</label>
+              <select
+                value={scenarioKeyId}
+                onChange={(e) => setScenarioKeyId(e.target.value)}
+                disabled={generating}
+                className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#38bdf8] transition-all text-xs"
+              >
+                <option value="auto">Pilih Otomatis (Auto-detect &amp; Failover)</option>
+                {(((scenarioCatalog && scenarioCatalog.keys) || []).length)
+                  ? scenarioCatalog.keys.map((k) => (
+                    <option key={k.id} value={k.id}>
+                      {k.label} (Key: {String(k.key_value || '').substring(0, 8)}•••• | ⚡ {k.total_usage || 0}x Digunakan{k.consumption_cu != null ? ` · 🌐 ${k.consumption_cu} CU` : ''})
                     </option>
-                  ))}
-                </select>
-              </div>
+                  ))
+                  : <option value="" disabled>Belum ada API Key Scenario aktif</option>}
+              </select>
+              <p className="text-[8px] text-slate-500 mt-1">Provider: Scenario API — "Auto" memilih key aktif dengan failover otomatis.</p>
             </div>
           ) : userProvider === 'magica' ? (
             <div>
