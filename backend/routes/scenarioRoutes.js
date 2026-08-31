@@ -122,7 +122,11 @@ router.post('/keys', async (req, res) => {
 });
 
 // Bulk add Scenario keys
-// Format per baris: apiKey:apiSecret,Label ATAU apiKey,apiSecret,Label
+// Format per baris yang didukung:
+// 1. email/label,apiKey,apiSecret,https://... (link tempmail diabaikan/auto-strip)
+// 2. email/label,apiKey,apiSecret
+// 3. apiKey,apiSecret,email/label
+// 4. apiKey:apiSecret,Label atau apiKey:apiSecret
 router.post('/keys/bulk', async (req, res) => {
   const { data } = req.body || {};
   if (!data || typeof data !== 'string') {
@@ -142,29 +146,65 @@ router.post('/keys/bulk', async (req, res) => {
   try {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
+      if (line.startsWith('#') || line.startsWith('//')) continue;
+
       let keyVal = '';
       let secretVal = '';
-      let labelVal = `Scenario Bulk ${Date.now()}-${i + 1}`;
+      let labelVal = `Scenario Key ${Date.now()}-${i + 1}`;
 
-      // Check if line format is apiKey:apiSecret,Label
-      if (line.includes(':')) {
-        const colonIdx = line.indexOf(':');
-        keyVal = line.slice(0, colonIdx).trim();
-        const rest = line.slice(colonIdx + 1).trim();
-        if (rest.includes(',')) {
-          const commaIdx = rest.indexOf(',');
-          secretVal = rest.slice(0, commaIdx).trim();
-          labelVal = rest.slice(commaIdx + 1).trim() || labelVal;
+      // Check delimiters
+      let rawTokens = [];
+      if (line.includes(',')) {
+        rawTokens = line.split(',').map(t => t.trim()).filter(Boolean);
+      } else if (line.includes('\t')) {
+        rawTokens = line.split('\t').map(t => t.trim()).filter(Boolean);
+      } else if (line.includes(';')) {
+        rawTokens = line.split(';').map(t => t.trim()).filter(Boolean);
+      } else if (line.includes('|')) {
+        rawTokens = line.split('|').map(t => t.trim()).filter(Boolean);
+      } else if (line.includes(':')) {
+        rawTokens = line.split(':').map(t => t.trim()).filter(Boolean);
+      } else {
+        rawTokens = [line];
+      }
+
+      // If any token has a colon that wasn't split yet (e.g. key:secret in a comma-separated line)
+      let tokens = [];
+      for (const tok of rawTokens) {
+        if (!/^https?:\/\//i.test(tok) && tok.includes(':')) {
+          tokens.push(...tok.split(':').map(t => t.trim()).filter(Boolean));
         } else {
-          secretVal = rest;
+          tokens.push(tok);
         }
-      } else if (line.includes(',')) {
-        const parts = line.split(',').map(p => p.trim()).filter(Boolean);
-        if (parts.length >= 2) {
-          keyVal = parts[0];
-          secretVal = parts[1];
-          if (parts[2]) labelVal = parts[2];
+      }
+
+      // Auto-strip/ignore URLs (e.g. https://m.mangatuh.xyz/share/...)
+      const cleanTokens = tokens.filter(tok => !/^https?:\/\//i.test(tok));
+
+      if (cleanTokens.length >= 3) {
+        const [t0, t1, t2] = cleanTokens;
+        // If t0 contains '@' (email) or t1 starts with 'api_'
+        if (t0.includes('@') || /^api_/i.test(t1) || /^key_/i.test(t1)) {
+          labelVal = t0;
+          keyVal = t1;
+          secretVal = t2;
+        } else if (/^api_/i.test(t0) || /^key_/i.test(t0)) {
+          keyVal = t0;
+          secretVal = t1;
+          labelVal = t2;
+        } else if (t2.includes('@')) {
+          keyVal = t0;
+          secretVal = t1;
+          labelVal = t2;
+        } else {
+          labelVal = t0;
+          keyVal = t1;
+          secretVal = t2;
         }
+      } else if (cleanTokens.length === 2) {
+        keyVal = cleanTokens[0];
+        secretVal = cleanTokens[1];
+        labelVal = `Scenario Key ${Date.now()}-${i + 1}`;
       }
 
       if (!keyVal || !secretVal) {

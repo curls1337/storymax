@@ -39,6 +39,7 @@ export default function AdminPanel() {
   const [scenarioBulk, setScenarioBulk] = useState('');
   const [scenarioTest, setScenarioTest] = useState(null);
   const [scenarioTestLoading, setScenarioTestLoading] = useState(false);
+  const [copiedScenarioLabels, setCopiedScenarioLabels] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [sortBy, setSortBy] = useState('date_desc');
@@ -562,6 +563,18 @@ const PRESET_AI_MODELS = [
 
   const handleToggleScenarioKeySelect = (id) => {
     setSelectedScenarioKeyIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  };
+
+  const handleCopySelectedScenarioLabels = () => {
+    if (selectedScenarioKeyIds.length === 0) return;
+    const selected = scenarioKeys.filter((k) => selectedScenarioKeyIds.includes(k.id));
+    const labels = selected.map((k) => k.label).filter(Boolean).join('\n');
+    if (labels) {
+      navigator.clipboard.writeText(labels);
+      setCopiedScenarioLabels(true);
+      setTimeout(() => setCopiedScenarioLabels(false), 2000);
+      toast.success(`${selected.length} label/email Scenario berhasil disalin!`);
+    }
   };
 
   const scenarioSelectAll = () => {
@@ -2104,14 +2117,25 @@ const PRESET_AI_MODELS = [
             </div>
             <div className="flex flex-wrap gap-1.5 items-center shrink-0">
               {selectedScenarioKeyIds.length > 0 && (
-                <button
-                  type="button"
-                  onClick={handleDeleteSelectedScenario}
-                  className="bg-red-950/40 border border-red-500/40 hover:bg-red-600 text-white font-bold py-1.5 px-3 rounded-lg flex items-center transition-all shadow-lg text-[9px] uppercase tracking-wider cursor-pointer animate-fadeIn"
-                >
-                  <Trash2 className="w-3.5 h-3.5 mr-1" />
-                  Hapus Terpilih ({selectedScenarioKeyIds.length})
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={handleCopySelectedScenarioLabels}
+                    className="bg-[#38bdf8]/20 border border-[#38bdf8]/50 hover:bg-[#38bdf8] hover:text-black text-[#7dd3fc] font-bold py-1.5 px-3 rounded-lg flex items-center transition-all shadow-lg text-[9px] uppercase tracking-wider cursor-pointer animate-fadeIn"
+                    title="Salin semua label/email dari key yang dicentang"
+                  >
+                    {copiedScenarioLabels ? <Check className="w-3.5 h-3.5 mr-1 text-green-400" /> : <Copy className="w-3.5 h-3.5 mr-1" />}
+                    {copiedScenarioLabels ? 'Tersalin!' : `Copy Label (${selectedScenarioKeyIds.length})`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDeleteSelectedScenario}
+                    className="bg-red-950/40 border border-red-500/40 hover:bg-red-600 text-white font-bold py-1.5 px-3 rounded-lg flex items-center transition-all shadow-lg text-[9px] uppercase tracking-wider cursor-pointer animate-fadeIn"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 mr-1" />
+                    Hapus Terpilih ({selectedScenarioKeyIds.length})
+                  </button>
+                </>
               )}
               {scenarioKeys.length > 0 && (
                 <button
@@ -2220,8 +2244,8 @@ const PRESET_AI_MODELS = [
               <button type="submit" className="bg-[#38bdf8] hover:bg-[#0284c7] text-black font-bold py-2 px-3 rounded-lg text-[9px] uppercase tracking-wider flex items-center gap-1 cursor-pointer"><Plus className="w-3.5 h-3.5" /> Tambah Scenario Key</button>
             </form>
             <form onSubmit={handleScenarioBulk} className="bg-[#131211]/50 border border-[#2a2725] rounded-xl p-3 space-y-2">
-              <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest">Bulk Import (Format: apiKey:apiSecret,Label atau apiKey:apiSecret per baris)</label>
-              <textarea value={scenarioBulk} onChange={(e)=>setScenarioBulk(e.target.value)} rows={4} placeholder={"api_key1:api_sec1,Scenario Key 1\napi_key2:api_sec2,Scenario Key 2"} className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-3 py-2 text-white text-[11px] font-mono resize-none focus:outline-none focus:border-[#38bdf8]" />
+              <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest">Bulk Import (Format: email,apiKey,apiSecret[,url_tempmail] atau apiKey:apiSecret,Label per baris)</label>
+              <textarea value={scenarioBulk} onChange={(e)=>setScenarioBulk(e.target.value)} rows={4} placeholder={"scen_user1@hypersul.xyz,api_CAiXeFR...,dB3Yfgpj...,https://m.mangatuh.xyz/share/330f...\nscen_user2@samkirta.bond,api_FyY4jb...,RFyrmTeh..."} className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-3 py-2 text-white text-[11px] font-mono resize-none focus:outline-none focus:border-[#38bdf8]" />
               <button type="submit" className="bg-black/40 border border-[#2a2725] hover:bg-[#38bdf8] hover:text-black text-slate-300 font-bold py-2 px-3 rounded-lg text-[9px] uppercase tracking-wider flex items-center gap-1 cursor-pointer"><Database className="w-3.5 h-3.5" /> Import Bulk</button>
             </form>
           </div>
