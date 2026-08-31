@@ -257,7 +257,7 @@ async function detectKeyTier(apiKey, apiSecret) {
  */
 const SCENARIO_CATALOG = {
   imageModels: [
-    { id: 'model_openai-gpt-image-2', name: 'GPT Image 2 (OpenAI)', tier: 50, plan: 'Pro / Team Plan', tags: ['Featured', 'High Quality', 'Editing'] },
+    { id: 'model_openai-gpt-image-2', name: 'GPT Image 2 (OpenAI)', tier: 0, plan: 'Semua Plan', tags: ['Featured', 'High Quality', 'Editing'] },
     { id: 'model_bfl-flux-2-dev', name: 'FLUX 2 Dev (Black Forest Labs)', tier: 50, plan: 'Pro / Team Plan', tags: ['Photorealism', 'Detail'] },
     { id: 'model_bytedance-seedream-5-0-pro', name: 'Seedream 5.0 Pro (ByteDance)', tier: 50, plan: 'Pro / Team Plan', tags: ['Fast', 'Stylized'] },
     { id: 'model_google-gemini-3-1-flash', name: 'Gemini 3.1 Flash (Google)', tier: 50, plan: 'Pro / Team Plan', tags: ['Multimodal', 'Prompt Adherence'] },

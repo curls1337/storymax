@@ -75,7 +75,7 @@ export default function Generator({ setTab, selectedCharacter, setSelectedCharac
   const [magicaCatalog, setMagicaCatalog] = useState(null);
   const [magicaImageModel, setMagicaImageModel] = useState('');
   const [scenarioCatalog, setScenarioCatalog] = useState(null);
-  const [scenarioImageModel, setScenarioImageModel] = useState('model_bfl-flux-2-klein-9b');
+  const [scenarioImageModel, setScenarioImageModel] = useState('model_openai-gpt-image-2');
   const [scenarioKeyId, setScenarioKeyId] = useState('auto');
 
   const getEffectivePromptMax = () => {
@@ -264,8 +264,8 @@ export default function Generator({ setTab, selectedCharacter, setSelectedCharac
       setScenarioCatalog(c.data);
       const imgs = (c.data && c.data.imageModels) || [];
       const supp = imgs.filter(m => m.isSupported !== false);
-      const def = supp[0]?.id || imgs[0]?.id || 'model_bfl-flux-2-klein-9b';
-      setScenarioImageModel(def);
+      const def = imgs.find(m => m.id === 'model_openai-gpt-image-2')?.id || supp.find(m => m.id === 'model_openai-gpt-image-2')?.id || supp[0]?.id || imgs[0]?.id || 'model_openai-gpt-image-2';
+      setScenarioImageModel(prev => (prev && imgs.some(m => m.id === prev)) ? prev : def);
     }).catch(() => {});
     const savedTaskId = localStorage.getItem('activeTaskId');
     if (savedTaskId) {
@@ -991,10 +991,10 @@ export default function Generator({ setTab, selectedCharacter, setSelectedCharac
             {userProvider === 'scenario' ? (
               <select value={scenarioImageModel} onChange={(e) => setScenarioImageModel(e.target.value)} className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#38bdf8] transition-all text-xs" disabled={generating}>
                 {((scenarioCatalog && scenarioCatalog.imageModels) || [
-                  { id: 'model_bfl-flux-2-klein-9b', name: 'FLUX 2 Klein 9B' },
-                  { id: 'model_microsoft-mai-image-2-5', name: 'MAI Image 2.5' },
                   { id: 'model_openai-gpt-image-2', name: 'OpenAI GPT Image 2' },
                   { id: 'model_bfl-flux-2-dev', name: 'FLUX.2 Dev' },
+                  { id: 'model_bfl-flux-2-klein-9b', name: 'FLUX 2 Klein 9B' },
+                  { id: 'model_microsoft-mai-image-2-5', name: 'MAI Image 2.5' },
                   { id: 'model_bytedance-seedream-5-0-pro', name: 'ByteDance SeaDream 5.0 Pro' },
                   { id: 'model_google-gemini-3-1-flash', name: 'Google Gemini 3.1 Flash' },
                   { id: 'model_xai-grok-imagine-image-2-0', name: 'xAI Grok Imagine 2.0' },
