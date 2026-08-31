@@ -62,7 +62,7 @@ function buildMasterPrompt(spec, ctx = {}) {
   const winEnd = winStart + perPage;
   const dur = fmtDuration(pageCount > 1 ? perPage : (totalDuration || perPage));
   const windowBadge = pageCount > 1 ? ` 'TIME ${winStart}-${winEnd}s'` : '';
-  const independentScenes = !spec.independentScenes;
+  const independentScenes = !!spec.independentScenes;
 
   // Distribute the style arc across ALL pages
   const totalScenes = (Number(pageCount) || 1) * gc;
@@ -83,9 +83,7 @@ function buildMasterPrompt(spec, ctx = {}) {
 
   const face = faceClause(faceMode);
   const photoreal = isPhotoreal(spec.id);
-  const realNote = photoreal
-    ? ' Render every panel as a PHOTOREALISTIC PHOTOGRAPH — real camera, real lighting, sharp focus, lifelike materials — never a sketch, drawing, painting or concept art.'
-    : '';
+  const realNote = photoreal ? ' Photorealistic photo panels.' : '';
 
   const looseRef = hasRefImage && STYLIZED_REF_STYLES.has(spec.id);
 

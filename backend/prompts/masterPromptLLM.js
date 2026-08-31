@@ -83,9 +83,9 @@ async function generateMasterPromptWithAI(spec, ctx, db) {
         totalPages: pageCount,
         hasReferenceImage: !!hasRefImage,
         stylizedReference: stylized,
-        independentScenes: !spec.independentScenes,
-        textOnScreen: !textOnScreen,
-        voiceOver: !voiceOver,
+        independentScenes: !!spec.independentScenes,
+        textOnScreen: !!textOnScreen,
+        voiceOver: !!voiceOver,
         voLanguage,
       },
     };

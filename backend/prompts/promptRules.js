@@ -2,7 +2,7 @@
 // definitions shared between the deterministic builder (masterPrompt.js) and the LLM
 // prompt generator (masterPromptLLM.js). Prevents logic and constraint drift.
 
-const { faceClause, normalizeFaceMode } = require('./faceMode');
+const { faceClause, faceNegative, normalizeFaceMode } = require('./faceMode');
 
 // Styles that are INTENTIONALLY illustrated (not photographic).
 const ILLUSTRATION_STYLES = new Set([
@@ -73,7 +73,8 @@ function getReferenceProseNote(hasRefImage, looseRef) {
 }
 
 // Builds positive, natural rendering quality & constraint instructions without
-// using literal "NEGATIVE:" syntax, ensuring compatibility with prompt-only models.
+// using literal "NEGATIVE:" syntax, while preserving all style-specific (spec.negatives)
+// and face-mode (faceNegative) restrictions.
 function buildRenderingConstraints({
   spec = {},
   faceMode = 'full',
@@ -91,19 +92,10 @@ function buildRenderingConstraints({
     parts.push(`Render in authentic ${spec.name || 'stylized'} art style.`);
   }
 
-  // 2. Face / Human presence constraints
-  if (faceMode === 'no_people') {
-    parts.push('Zero human presence; no hands, fingers, or arms.');
-  } else if (faceMode === 'chin_max') {
-    parts.push('Show people strictly from nose down; no eyes, full faces, or direct gaze.');
-  } else if (faceMode === 'faceless') {
-    parts.push('Focus on hands and product; no faces from the neck up.');
-  }
-
-  // 3. Product & Reference consistency
+  // 2. Product & Reference consistency
   if (hasRefImage) {
     if (looseRef) {
-      parts.push("Keep subject recognizable with matching colors transformed into the style's shape (no flat 1:1 copy).");
+      parts.push("Keep subject recognizable with matching colors transformed into style's shape (no 1:1 copy).");
     } else {
       parts.push('100% exact product fidelity across panels (same shape, buttons, branding, materials, colors; no redesigns).');
     }
@@ -111,9 +103,32 @@ function buildRenderingConstraints({
     parts.push('Maintain identical product features and colors across panels.');
   }
 
-  // 4. Character consistency
+  // 3. Character consistency
   if (characterDescriptor) {
     parts.push('Keep character identity (face, hair, ethnicity, body) 100% consistent across panels.');
+  }
+
+  // 4. Style-specific exclusions and face negatives preserved in natural sentence form
+  const rawStyleNegs = looseRef
+    ? (spec.negatives || []).filter((n) => !/redesign|rename|keep the reference|matches the reference|1:1/i.test(String(n)))
+    : (spec.negatives || []);
+
+  const fNeg = faceNegative(faceMode);
+  const faceNegTerms = fNeg ? fNeg.split(',').map(s => s.trim()).filter(Boolean) : [];
+
+  const specificTerms = dedupeList(
+    [...rawStyleNegs, ...faceNegTerms].filter(n =>
+      !/^(garbled or misspelled text|panels bleeding into the background|layout drifting between panels|the product changing design between panels|text paragraphs inside panels)$/i.test(String(n))
+    )
+  );
+
+  if (specificTerms.length > 0) {
+    let avoidStr = specificTerms.join(', ');
+    if (avoidStr.length > 140) {
+      const cut = avoidStr.lastIndexOf(', ', 140);
+      avoidStr = avoidStr.slice(0, cut > 0 ? cut : 140);
+    }
+    parts.push(`Avoid: ${avoidStr}.`);
   }
 
   // 5. Clean composition and typography
@@ -134,5 +149,6 @@ module.exports = {
   getReferenceProseNote,
   buildRenderingConstraints,
   faceClause,
+  faceNegative,
   normalizeFaceMode,
 };
