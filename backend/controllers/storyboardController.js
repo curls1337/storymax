@@ -96,9 +96,11 @@ async function generateStoryboard(req, res) {
   const selectedEngine = videoEngine || 'seedance';
 
   let secondsPerPage = 15;
-  if (selectedEngine === 'omni') {
+  if (selectedEngine === 'seedance25') {
+    secondsPerPage = 30;
+  } else if (selectedEngine === 'omni') {
     secondsPerPage = 10;
-  } else if (selectedEngine === 'veo') {
+  } else if (selectedEngine === 'veo' || selectedEngine.startsWith('veo')) {
     secondsPerPage = 8;
   }
 

@@ -18,7 +18,7 @@ RULES:
 2. SUBJECT FIDELITY & MULTI-PAGE ANCHORING (highest priority) — EVERY page (Page 1, Page 2, Page 3, Page 4) MUST maintain 100% identical physical product features verbatim from SUBJECT_DESCRIPTOR: same button shape, same lid design, same base proportions, same branding/logo. NEVER alter, redesign, replace, or simplify ANY product detail between pages. Reference handling: (a) if PARAMS.hasReferenceImage is true AND PARAMS.stylizedReference is FALSE, this is an image-edit — every panel must reproduce the product EXACTLY as in the attached reference (same shape, proportions, colors, materials, logo/text); never rename, restyle, redesign, replace or add/remove features. (b) if PARAMS.stylizedReference is TRUE, use the reference ONLY as inspiration for the subject's identity and colors — do NOT copy it 1:1; re-render the subject TRANSFORMED into STYLE_SPEC's own form (cube/box, pod, toy, miniature, jelly, soundstage miniature), clearly recognizable with the same color identity but obviously stylized, never a photo-exact replica.
 2b. CHARACTER IDENTITY ANCHOR — if CHARACTER_DESCRIPTOR is provided (non-null), that ONE human character's physical identity (gender, approximate age, ethnicity/skin tone, hair color/length/style, face shape, body type) MUST stay 100% IDENTICAL in EVERY panel on EVERY page, verbatim from CHARACTER_DESCRIPTOR. Only wardrobe, setting and activity may change per page to match that page's own CONCEPT. NEVER swap in a different-looking person between panels or pages. Place this CHARACTER identity description as its OWN short line IMMEDIATELY after the opening sheet/style description sentence — before the SUBJECT/product description — so it appears as early as possible in the final prompt text.
 3. ONE global camera grammar from STYLE_SPEC.camera; keep background, palette & lighting identical across panels and vary only the shot per scene.
-4. Number every scene starting at PARAMS.sceneStart and give each a short timecode derived from PARAMS.duration / PARAMS.panelCount. Use PARAMS.duration and PARAMS.aspectRatio verbatim; never invent other durations or ratios.
+4. Number every scene starting at PARAMS.sceneStart and give each a short timecode (derived from this page's duration PARAMS.duration, spanning PARAMS.timeWindow, divided across PARAMS.panelCount). Use PARAMS.duration and PARAMS.aspectRatio verbatim in badges; never invent other durations or ratios.
 5. VISUAL CONTINUITY & PROGRESSION — Progress the panels along STYLE_SPEC.arc and this page's CONCEPT. If PARAMS.totalPages > 1: when PARAMS.independentScenes is FALSE, this page is a DIRECT CONTINUATION of the sequence. You MUST maintain absolute consistency in background setting, lighting, and character wardrobe from previous pages — DO NOT restart or change the environment. When PARAMS.independentScenes is TRUE, each page is a standalone moment, but the character's core identity, face, and personal aesthetic must remain 100% identical across all pages.
 6. OVERALL STRUCTURE — You MUST follow STYLE_SPEC.layoutHint to define the sheet's geometry. If it mentions "magazine", use a high-end catalog layout with varied large hero images; if "table", use a strict professional production table with columns; if "infographic" or "playful", use a dynamic layout with varied panel sizes and decorative icons. DO NOT default to a basic 2x3 grid. Include a compact header banner + badges (from STYLE_SPEC.header) and tiny per-panel tags (CAM, LIGHT + a duration chip). Keep ALL on-sheet text short, minimal and correctly spelled — no paragraphs inside panels, no garbled text.
 6b. TEXT ON SCREEN — if PARAMS.textOnScreen is TRUE, ALSO burn ONE stylized ON-SCREEN TEXT element into each panel (choose between a clean feature callout badge, a floating sticker caption bubble, or bold kinetic social lettering acting as a feature explanation, e.g. "Lembut macam awan", "Praktis & Hemat Tempat", "Ujung Runcing Menjangkau Sudut") with crisp high-contrast outlines and soft drop shadows, always correctly spelled. If PARAMS.textOnScreen is FALSE, do NOT add any decorative captions.
@@ -42,10 +42,18 @@ async function generateMasterPromptWithAI(spec, ctx, db) {
       gridCount = 6, startScene = 1, totalDuration = 15, aspectRatio, model,
       pageNum = 1, pageCount = 1, hasRefImage = false, textOnScreen = false,
       voiceOver = false, voLanguage = 'Bahasa Indonesia', characterDescriptor = '',
+      secondsPerPage,
     } = ctx;
 
     const photoreal = isPhotoreal(spec.id);
     const stylized = !!hasRefImage && STYLIZED_REF_STYLES.has(spec.id);
+
+    const perPage = Number(secondsPerPage) > 0
+      ? Number(secondsPerPage)
+      : (pageCount > 1 ? Math.max(1, Math.round(Number(totalDuration || 15) / pageCount)) : Number(totalDuration || 15));
+    const winStart = (pageNum - 1) * perPage;
+    const winEnd = winStart + perPage;
+    const pageDuration = perPage;
 
     const renderingConstraints = buildRenderingConstraints({
       spec,
@@ -76,7 +84,9 @@ async function generateMasterPromptWithAI(spec, ctx, db) {
           ? 'a PHOTOREALISTIC photograph (real camera, real lighting, sharp focus, lifelike materials; NOT a sketch, drawing, painting or CGI-cartoon)'
           : `a stylized ${spec.name} illustration, fully committed to that art style`,
         aspectRatio: fmtRatio(aspectRatio || spec.format, model),
-        duration: fmtDuration(totalDuration),
+        duration: fmtDuration(pageDuration),
+        timeWindow: `${winStart}-${winEnd}s`,
+        totalProjectDuration: fmtDuration(totalDuration),
         panelCount: gridCount,
         sceneStart: startScene,
         page: pageNum,

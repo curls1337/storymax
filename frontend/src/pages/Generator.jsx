@@ -478,7 +478,7 @@ export default function Generator({ setTab, selectedCharacter, setSelectedCharac
 
   const handleEngineChange = (engine) => {
     setVideoEngine(engine);
-    const defaults = { seedance: 30, omni: 30, veo: 32 };
+    const defaults = { seedance25: 30, seedance: 15, omni: 10, veo: 8 };
     setDuration(defaults[engine] || 15);
   };
 

@@ -509,9 +509,11 @@ Gunakan kombinasi pengarahan matriks ideasi acak berikut:
     // Calculate pageCount and totalPanels based on video engine and duration
     let secondsPerPage = 15;
     const engine = videoEngine || 'seedance';
-    if (engine === 'omni') {
+    if (engine === 'seedance25') {
+      secondsPerPage = 30;
+    } else if (engine === 'omni') {
       secondsPerPage = 10;
-    } else if (engine === 'veo') {
+    } else if (engine === 'veo' || engine.startsWith('veo')) {
       secondsPerPage = 8;
     }
     const durVal = duration ? Number(duration) : 15;

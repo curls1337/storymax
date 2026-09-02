@@ -940,9 +940,11 @@ async function regenerateStoryboardPage(req, res) {
     const videoEngine = genParams.videoEngine || 'seedance';
 
     let secondsPerPage = 15;
-    if (videoEngine === 'omni') {
+    if (videoEngine === 'seedance25') {
+      secondsPerPage = 30;
+    } else if (videoEngine === 'omni') {
       secondsPerPage = 10;
-    } else if (videoEngine === 'veo') {
+    } else if (videoEngine === 'veo' || videoEngine.startsWith('veo')) {
       secondsPerPage = 8;
     }
     const pageCount = imagePaths.length;
