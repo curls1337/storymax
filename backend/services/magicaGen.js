@@ -383,11 +383,19 @@ function buildInput(fields, vals) {
     const opts = f.options;
     let v;
 
-    if (lname === 'prompt') {
+    if (lname === 'prompt' || lname === 'text_prompt') {
       v = String(vals.prompt || '');
-      if (f.max) v = v.slice(0, f.max);
+      const maxLen = f.max || f.maxLength || 2000;
+      if (v.length > maxLen) v = v.slice(0, maxLen);
+    } else if (lname === 'negative_prompt') {
+      if (vals.negativePrompt) {
+        v = String(vals.negativePrompt);
+        const maxLen = f.max || f.maxLength || 2000;
+        if (v.length > maxLen) v = v.slice(0, maxLen);
+      }
     } else if (isImageArrayField(f)) {
-      if (imageUrls.length) v = imageUrls.slice(0, f.maxImages || 10);
+      const maxItems = f.maxItems || f.maxImages || f.max || 5;
+      if (imageUrls.length) v = imageUrls.slice(0, maxItems);
       else if (f.required) continue; // Skip if required but no images (avoid 400 too_small)
     } else if (isSingleImageField(f)) {
       if (imageUrls[0]) v = imageUrls[0];
@@ -549,7 +557,10 @@ async function generateOneImageMagica(apiKey, prompt, opts = {}) {
   let fields = [];
   try { fields = ((await getSchemaCached(apiKey, subModelId || nodeType)) || {}).fields || []; } catch (e) {}
   const input = buildInput(fields, { prompt, aspect: opts.aspectRatio, imageUrls: refUrls });
-  if (!('prompt' in input) && prompt) input.prompt = String(prompt);
+  if (!('prompt' in input) && prompt) input.prompt = String(prompt).slice(0, 2000);
+  if (input.prompt && typeof input.prompt === 'string' && input.prompt.length > 2500) {
+    input.prompt = input.prompt.slice(0, 2500);
+  }
 
   onLog(`[Magica] Gambar via ${nodeType}${subModelId ? ' / ' + subModelId : ''} (fields: ${Object.keys(input).join(', ')})...`);
   const runId = await magica.runModel(apiKey, nodeType, subModelId, input);
@@ -620,7 +631,10 @@ async function generateVideoMagica(apiKey, params = {}) {
     generateAudio: !!params.generateAudio,
     imageUrls: combinedImageUrls,
   });
-  if (!('prompt' in input) && params.prompt) input.prompt = String(params.prompt);
+  if (!('prompt' in input) && params.prompt) input.prompt = String(params.prompt).slice(0, 2000);
+  if (input.prompt && typeof input.prompt === 'string' && input.prompt.length > 2500) {
+    input.prompt = input.prompt.slice(0, 2500);
+  }
 
   // Pre-flight: fail FAST when this key cannot afford THIS job. Without it an
   // unaffordable/expensive render either 403s or waits a long time before failing —
