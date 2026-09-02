@@ -962,25 +962,43 @@ Write the title and caption per the TONE and rules above, based strictly on this
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ],
-      temperature: 0.7,
-      response_format: { type: "json_object" }
+      temperature: 0.7
     };
 
     const response = await callAi(apiHost, apiToken, payload);
-    if (response.statusCode === 200) {
-      const parsedRes = JSON.parse(response.body);
-      const contentStr = parsedRes.choices?.[0]?.message?.content;
+    if (response && response.statusCode === 200) {
+      const { parseAiContent } = require('../prompts/aiClient');
+      let contentStr = parseAiContent(response.body);
+      if (!contentStr) {
+        try {
+          const parsedRes = JSON.parse(response.body);
+          contentStr = parsedRes.choices?.[0]?.message?.content || parsedRes.choices?.[0]?.delta?.content || '';
+        } catch (e) {}
+      }
       if (contentStr) {
-        const data = JSON.parse(contentStr.trim());
-        const { capText } = require('../prompts/marketingTone');
-        return {
-          // Hard safeguards above the prompt targets (80 / 450) in case the model overshoots.
-          title: capText(data.title || '', 100),
-          description: capText(data.description || '', 600)
-        };
+        let clean = contentStr.trim();
+        if (clean.startsWith('```')) {
+          clean = clean.replace(/^```[a-zA-Z]*\n?/, '').replace(/\n?```$/, '');
+        }
+        let data = null;
+        try {
+          data = JSON.parse(clean.trim());
+        } catch (e) {
+          const m = clean.match(/\{[\s\S]*\}/);
+          if (m) {
+            try { data = JSON.parse(m[0]); } catch (e2) {}
+          }
+        }
+        if (data && (data.title || data.description)) {
+          const { capText } = require('../prompts/marketingTone');
+          return {
+            title: capText(data.title || '', 100),
+            description: capText(data.description || '', 600)
+          };
+        }
       }
     }
-    console.error("AI response error:", response.statusCode, response.body);
+    console.error("AI response error:", response?.statusCode, response?.body);
     return null;
   } catch (err) {
     console.error("Failed to generate marketing copy internally:", err);

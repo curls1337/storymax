@@ -103,7 +103,7 @@ export default function Dashboard({ setTab }) {
       setSelectedStoryboard(prev => prev ? { ...prev, marketing_title: res.data.marketing_title, marketing_description: res.data.marketing_description } : prev);
     } catch (err) {
       console.error("Error regenerating marketing copy:", err);
-      toast.error('Gagal membuat ulang deskripsi promosi.');
+      toast.error(err.response?.data?.message || 'Gagal membuat ulang deskripsi promosi.');
     } finally {
       setRegeneratingCopyId(null);
     }
@@ -141,7 +141,7 @@ export default function Dashboard({ setTab }) {
       });
     } catch (err) {
       console.error("Error regenerating storyboard marketing copy:", err);
-      toast.error('Gagal membuat naskah promosi.');
+      toast.error(err.response?.data?.message || 'Gagal membuat naskah promosi.');
     } finally {
       setGeneratingStoryboardCopy(false);
     }

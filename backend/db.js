@@ -619,6 +619,7 @@ async function initDb() {
   // Auto-migrate all existing users to Magica provider and disable Scenario
   try {
     await db.run("UPDATE users SET preferred_provider = 'magica', can_use_magica = 1, can_use_scenario = 0 WHERE preferred_provider != 'magica' OR preferred_provider IS NULL OR can_use_magica != 1 OR can_use_scenario != 0");
+    await db.run("UPDATE ai_settings SET llm_provider = 'default' WHERE llm_provider = 'magica' OR llm_provider IS NULL");
   } catch (e) {
     // safe to ignore
   }

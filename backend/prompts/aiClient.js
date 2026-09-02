@@ -99,12 +99,15 @@ async function chatCompletion(messages, opts = {}) {
   const { db, temperature = 0.6, timeoutMs } = opts;
   const cfg = await getAiConfig(db);
 
-  // Route requests strictly to Magica when the admin selected it (NO fallback to Antigravity).
   if (cfg.provider === 'magica') {
-    const magicaGen = require('../services/magicaGen');
-    return await magicaGen.magicaChatCompletion(db, messages, {
-      model: cfg.magicaModel, temperature, timeoutMs,
-    });
+    try {
+      const magicaGen = require('../services/magicaGen');
+      return await magicaGen.magicaChatCompletion(db, messages, {
+        model: cfg.magicaModel, temperature, timeoutMs,
+      });
+    } catch (magicaErr) {
+      console.warn('[AI Client] Magica LLM error, falling back to default proxy:', magicaErr.message);
+    }
   }
 
   if (!cfg.token) throw new Error('No AI api_key configured');
@@ -122,20 +125,23 @@ async function chatCompletion(messages, opts = {}) {
 
 // Drop-in for existing callers that build their own OpenAI payload and parse the raw
 // HTTP response. Returns { statusCode, body } shaped exactly like /chat/completions.
-// When provider is 'magica', routes strictly to Magica LLM with zero fallback to Antigravity.
 async function llmChatViaSettings(payload, opts = {}) {
   const { db, timeoutMs } = opts;
   const cfg = await getAiConfig(db);
   const messages = (payload && payload.messages) || [];
 
   if (cfg.provider === 'magica') {
-    const magicaGen = require('../services/magicaGen');
-    const content = await magicaGen.magicaChatCompletion(db, messages, {
-      model: cfg.magicaModel,
-      temperature: payload.temperature,
-      timeoutMs,
-    });
-    return { statusCode: 200, body: JSON.stringify({ choices: [{ message: { content } }] }) };
+    try {
+      const magicaGen = require('../services/magicaGen');
+      const content = await magicaGen.magicaChatCompletion(db, messages, {
+        model: cfg.magicaModel,
+        temperature: payload.temperature,
+        timeoutMs,
+      });
+      return { statusCode: 200, body: JSON.stringify({ choices: [{ message: { content } }] }) };
+    } catch (magicaErr) {
+      console.warn('[AI Client] Magica LLM error, falling back to default proxy:', magicaErr.message);
+    }
   }
 
   return postJson(
