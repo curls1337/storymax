@@ -346,7 +346,7 @@ export default function App() {
               {tab === 'manual-prompt' && <div className="w-1.5 h-1.5 rounded-full bg-[#cfae80] shadow-sm shadow-[#cfae80]"></div>}
             </button>
 
-            {/* Temporarily hidden: SeedDance (Freebeat) & Studio 3D (Magica) */}
+            {/* Temporarily hidden: SeedDance (Freebeat) */}
             {/*
             {canUseSeedance && (
               <button
@@ -364,6 +364,7 @@ export default function App() {
                 {tab === 'seedance' && <div className="w-1.5 h-1.5 rounded-full bg-[#06b6d4] shadow-sm shadow-[#06b6d4]"></div>}
               </button>
             )}
+            */}
 
             <button
               onClick={() => { setTab('3d'); setSidebarOpen(false); }}
@@ -379,7 +380,6 @@ export default function App() {
               </span>
               {tab === '3d' && <div className="w-1.5 h-1.5 rounded-full bg-[#a855f7] shadow-sm shadow-[#a855f7]"></div>}
             </button>
-            */}
 
             <button
               onClick={() => { setTab('settings'); setSidebarOpen(false); }}

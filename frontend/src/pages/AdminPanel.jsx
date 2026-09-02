@@ -999,30 +999,6 @@ const PRESET_AI_MODELS = [
           Manajemen User ({users.length})
         </button>
         <button
-          onClick={() => { setActiveTab('scenario'); setError(''); setMessage(''); }}
-          className={`py-2.5 px-3.5 flex items-center font-bold text-[9px] uppercase tracking-wider border-b-2 transition-all shrink-0 relative ${
-            activeTab === 'scenario'
-              ? 'border-[#cfae80] text-white'
-              : 'border-transparent text-slate-400 hover:text-white'
-          }`}
-        >
-          <Sparkles className="w-3.5 h-3.5 mr-1.5 text-[#38bdf8]" />
-          API Scenario ({scenarioKeys.length})
-        </button>
-        {/* Temporarily hidden: Freebeat keys, Magica, SeedDance */}
-        {/*
-        <button
-          onClick={() => { setActiveTab('keys'); setError(''); setMessage(''); }}
-          className={`py-2.5 px-3.5 flex items-center font-bold text-[9px] uppercase tracking-wider border-b-2 transition-all shrink-0 relative ${
-            activeTab === 'keys'
-              ? 'border-[#cfae80] text-white'
-              : 'border-transparent text-slate-400 hover:text-white'
-          }`}
-        >
-          <Key className="w-3.5 h-3.5 mr-1.5 text-[#eab308]" />
-          Kolam API Key ({keys.length})
-        </button>
-        <button
           onClick={() => { setActiveTab('magica'); setError(''); setMessage(''); }}
           className={`py-2.5 px-3.5 flex items-center font-bold text-[9px] uppercase tracking-wider border-b-2 transition-all shrink-0 relative ${
             activeTab === 'magica'
@@ -1033,18 +1009,6 @@ const PRESET_AI_MODELS = [
           <Sparkles className="w-3.5 h-3.5 mr-1.5 text-[#a855f7]" />
           API Magica ({magicaKeys.length})
         </button>
-        <button
-          onClick={() => { setActiveTab('seedance'); setError(''); setMessage(''); }}
-          className={`py-2.5 px-3.5 flex items-center font-bold text-[9px] uppercase tracking-wider border-b-2 transition-all shrink-0 relative ${
-            activeTab === 'seedance'
-              ? 'border-[#cfae80] text-white'
-              : 'border-transparent text-slate-400 hover:text-white'
-          }`}
-        >
-          <Film className="w-3.5 h-3.5 mr-1.5 text-[#06b6d4]" />
-          SeedDance 2.5 ({seedanceCookies.length})
-        </button>
-        */}
         <button
           onClick={() => { setActiveTab('ai-settings'); setError(''); setMessage(''); }}
           className={`py-2.5 px-3.5 flex items-center font-bold text-[9px] uppercase tracking-wider border-b-2 transition-all shrink-0 relative ${
@@ -1346,6 +1310,13 @@ const PRESET_AI_MODELS = [
                       </span>
                     </td>
                     <td className="py-2.5 px-3 text-right space-x-1.5 whitespace-nowrap">
+                      <button
+                        onClick={() => handleToggleUserMagica(u)}
+                        title="Izin memakai provider Magica"
+                        className={`py-1 px-2 rounded-md text-[9px] font-bold uppercase tracking-wider transition-all cursor-pointer border ${u.can_use_magica ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/25' : 'bg-black/40 text-slate-500 border-[#2a2725] hover:text-slate-300'}`}
+                      >
+                        Magica: {u.can_use_magica ? 'ON' : 'OFF'}
+                      </button>
                       <button
                         onClick={() => handleToggleUserScenario(u)}
                         title="Izin memakai provider Scenario"

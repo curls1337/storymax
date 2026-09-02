@@ -131,24 +131,24 @@ export default function Settings({ onLogout }) {
       </div>
 
       <div className="space-y-4 md:space-y-6">
-        {/* Provider Card - Freebeat & Magica hidden, Scenario active */}
+        {/* Provider Card - Magica active */}
         <div className="bg-[#1a1918]/60 border border-[#2a2725] rounded-2xl p-4 md:p-6 relative backdrop-blur-md">
-          <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#38bdf8]/25 to-transparent"></div>
+          <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#a855f7]/25 to-transparent"></div>
           <h3 className="text-[9px] font-bold text-white uppercase tracking-widest mb-1 flex items-center border-b border-[#2a2725] pb-2">
-            <Sparkles className="w-3.5 h-3.5 mr-1.5 text-[#38bdf8]" />
+            <Sparkles className="w-3.5 h-3.5 mr-1.5 text-[#a855f7]" />
             Provider AI Aktif
           </h3>
           <p className="text-slate-400 text-[10px] mt-2 mb-3 leading-relaxed">
-            Layanan AI utama saat ini difokuskan pada Scenario AI untuk pembuatan gambar storyboard &amp; video.
+            Layanan AI utama saat ini menggunakan <strong>Magica AI</strong> untuk pembuatan gambar storyboard 8K, video, dan studio 3D.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-1 gap-3 max-w-sm">
-            <div className="p-3.5 rounded-xl border border-[#38bdf8] bg-[#38bdf8]/10 shadow-[0_0_15px_rgba(56,189,248,0.15)] text-left">
+            <div className="p-3.5 rounded-xl border border-[#a855f7] bg-[#a855f7]/10 shadow-[0_0_15px_rgba(168,85,247,0.15)] text-left">
               <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-[#38bdf8]" />
-                Scenario AI
+                <Sparkles className="w-3.5 h-3.5 text-[#a855f7]" />
+                Magica AI
               </div>
-              <div className="text-[9px] text-slate-400 mt-0.5">GPT Image / FLUX / Seedance Video</div>
-              <div className="text-[8px] text-[#38bdf8] font-bold uppercase tracking-widest mt-2 flex items-center gap-1">
+              <div className="text-[9px] text-slate-400 mt-0.5">REST API Pool · Gambar 8K · Video · Studio 3D</div>
+              <div className="text-[8px] text-[#a855f7] font-bold uppercase tracking-widest mt-2 flex items-center gap-1">
                 <CheckCircle2 className="w-3 h-3" /> Aktif
               </div>
             </div>

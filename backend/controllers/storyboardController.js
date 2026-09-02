@@ -53,8 +53,8 @@ async function generateStoryboard(req, res) {
 
   // Provider routing: Magica / Scenario users generate via their own key pool
   const userRow = await db.get('SELECT preferred_provider AS pp, can_use_magica AS cum, can_use_scenario AS cus FROM users WHERE id = ?', [req.user.id]);
-  const useMagica = !!(userRow && userRow.pp === 'magica' && userRow.cum);
-  const useScenario = !useMagica;
+  const useScenario = !!(userRow && userRow.pp === 'scenario' && userRow.cus === 1);
+  const useMagica = !useScenario;
 
   let keyRecord = null;
   if (useScenario) {

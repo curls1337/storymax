@@ -281,7 +281,7 @@ export default function Dashboard({ setTab }) {
   const [videoBacksound, setVideoBacksound] = useState(false);
   const [apiKeys, setApiKeys] = useState([]);
   const [selectedApiKeyId, setSelectedApiKeyId] = useState('auto');
-  const [userProvider, setUserProvider] = useState('scenario');
+  const [userProvider, setUserProvider] = useState('magica');
   const [magicaCatalog, setMagicaCatalog] = useState(null);
   const [magicaVideoModel, setMagicaVideoModel] = useState('');
   const [magicaVideoMethod, setMagicaVideoMethod] = useState('');
@@ -295,13 +295,21 @@ export default function Dashboard({ setTab }) {
   useEffect(() => {
     api.get('/auth/me').then((r) => {
       setCurrentUser(r.data);
-      setUserProvider('scenario');
-      api.get(`/scenario/catalog?keyId=${scenarioKeyId || 'auto'}`).then((c) => {
-        setScenarioCatalog(c.data);
+      setUserProvider('magica');
+      api.get('/magica/catalog').then((c) => {
+        setMagicaCatalog(c.data);
         const vids = (c.data && c.data.videoModels) || [];
-        const supp = vids.filter(m => m.isSupported !== false);
-        const def = supp[0]?.id || vids[0]?.id || 'model_bytedance-seedance-2-0';
-        setScenarioVideoModel(def);
+        const refPref = ['seedance_2_0_reference', 'seedance_2_0_fast_reference', 'happy_horse_reference'];
+        const def = refPref.map((nt) => vids.find((m) => m.nodeType === nt)).find(Boolean)
+          || vids.find((m) => (m.methods || []).some((x) => x.category === 'reference-to-video'))
+          || vids.find((m) => m.nodeType === 'seedance_2_0') || vids[0];
+        if (def) {
+          setMagicaVideoModel(def.nodeType);
+          const pref = (def.methods || []).find((x) => x.category === 'reference-to-video')
+            || (def.methods || []).find((x) => x.category === 'image-to-video')
+            || (def.methods || [])[0];
+          if (pref) setMagicaVideoMethod(pref.category);
+        }
       }).catch(() => {});
     }).catch(() => {});
   }, []);

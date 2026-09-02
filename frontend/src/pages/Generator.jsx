@@ -71,7 +71,7 @@ export default function Generator({ setTab, selectedCharacter, setSelectedCharac
   const dropdownRef = useRef(null);
   
   const [selectedRefImages, setSelectedRefImages] = useState([]);
-  const [userProvider, setUserProvider] = useState('scenario');
+  const [userProvider, setUserProvider] = useState('magica');
   const [magicaCatalog, setMagicaCatalog] = useState(null);
   const [magicaImageModel, setMagicaImageModel] = useState('');
   const [scenarioCatalog, setScenarioCatalog] = useState(null);
@@ -259,13 +259,12 @@ export default function Generator({ setTab, selectedCharacter, setSelectedCharac
 
   useEffect(() => {
     fetchKeys();
-    setUserProvider('scenario');
-    api.get(`/scenario/catalog?keyId=${scenarioKeyId || 'auto'}`).then((c) => {
-      setScenarioCatalog(c.data);
+    setUserProvider('magica');
+    api.get('/magica/catalog').then((c) => {
+      setMagicaCatalog(c.data);
       const imgs = (c.data && c.data.imageModels) || [];
-      const supp = imgs.filter(m => m.isSupported !== false);
-      const def = imgs.find(m => m.id === 'model_openai-gpt-image-2')?.id || supp.find(m => m.id === 'model_openai-gpt-image-2')?.id || supp[0]?.id || imgs[0]?.id || 'model_openai-gpt-image-2';
-      setScenarioImageModel(prev => (prev && imgs.some(m => m.id === prev)) ? prev : def);
+      const def = imgs.find((m) => m.nodeType === 'gpt_image_2') || imgs[0];
+      if (def) setMagicaImageModel(def.nodeType);
     }).catch(() => {});
     const savedTaskId = localStorage.getItem('activeTaskId');
     if (savedTaskId) {

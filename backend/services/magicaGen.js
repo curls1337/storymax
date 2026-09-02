@@ -285,8 +285,8 @@ async function isMagicaForStoryboard(db, storyboardId) {
       'SELECT u.preferred_provider AS pp, u.can_use_magica AS cum FROM storyboards s JOIN users u ON u.id = s.user_id WHERE s.id = ?',
       [storyboardId]
     );
-    return !!(row && row.pp === 'magica' && row.cum);
-  } catch (e) { return false; }
+    return row ? (row.pp === 'magica' || (row.pp !== 'scenario' && row.cum !== 0)) : true;
+  } catch (e) { return true; }
 }
 
 // --- Model catalog + schema (cached ~5 min) ---
