@@ -464,6 +464,21 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
             task.logs += `[Halaman ${pageNum}] Selesai (Scenario).\n`;
             await saveTaskState(db, storyboardId, task);
           } catch (scErr) {
+            const scErrStr = String(scErr.message || scErr);
+            const isPolicyErr = /CONTENT_POLICY|POLICY_VIOLATION|CONTENT_FILTER|SAFETY|PROFANITY|NSFW|MODERATION|SENSITIVE|BLOCKED/i.test(scErrStr);
+            const isAllKeysFailed = /Semua API Key/i.test(scErrStr);
+            if (isPolicyErr || isAllKeysFailed) {
+              task.status = 'failed';
+              task.error = isPolicyErr
+                ? `Gagal: Konten ditolak oleh sistem keamanan AI (${scErr.message}). Silakan periksa prompt atau gambar referensi Anda.`
+                : `Gagal: ${scErr.message}`;
+              task.logs += `\n[ERROR FATAL] Proses dihentikan sepenuhnya: ${task.error}\n`;
+              task.imagePaths[pageIdx] = 'failed';
+              task.currentTaskInfo = null;
+              await db.run('UPDATE storyboards SET status = ? WHERE id = ?', ['failed', storyboardId]);
+              await saveTaskState(db, storyboardId, task);
+              return;
+            }
             task.logs += `[WARNING][Halaman ${pageNum}] Scenario gagal (${scErr.message}). Melanjutkan ke halaman berikutnya...\n`;
             task.imagePaths[pageIdx] = 'failed';
             task.currentTaskInfo = null;
@@ -516,6 +531,21 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
             task.logs += `[Halaman ${pageNum}] Selesai (Magica).\n`;
             await saveTaskState(db, storyboardId, task);
           } catch (mErr) {
+            const mErrStr = String(mErr.message || mErr);
+            const isPolicyErr = /CONTENT_POLICY|POLICY_VIOLATION|CONTENT_FILTER|SAFETY|PROFANITY|NSFW|MODERATION|SENSITIVE|BLOCKED/i.test(mErrStr);
+            const isAllKeysFailed = /Semua API Key/i.test(mErrStr);
+            if (isPolicyErr || isAllKeysFailed) {
+              task.status = 'failed';
+              task.error = isPolicyErr
+                ? `Gagal: Konten ditolak oleh sistem keamanan AI (${mErr.message}). Silakan periksa prompt atau gambar referensi Anda.`
+                : `Gagal: ${mErr.message}`;
+              task.logs += `\n[ERROR FATAL] Proses dihentikan sepenuhnya: ${task.error}\n`;
+              task.imagePaths[pageIdx] = 'failed';
+              task.currentTaskInfo = null;
+              await db.run('UPDATE storyboards SET status = ? WHERE id = ?', ['failed', storyboardId]);
+              await saveTaskState(db, storyboardId, task);
+              return;
+            }
             task.logs += `[WARNING][Halaman ${pageNum}] Magica gagal (${mErr.message}). Melanjutkan ke halaman berikutnya...\n`;
             task.imagePaths[pageIdx] = 'failed';
             task.currentTaskInfo = null;

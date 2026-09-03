@@ -243,21 +243,27 @@ async function executeWithMagicaFailover(db, preferredId, renderFn, onLog) {
       return { result, keyRecord };
     } catch (err) {
       lastError = err;
-      const errStr = String(err.message || err);
-      const isBalanceErr = /insufficient|balance|credit|quota|400|402|429/i.test(errStr);
-      if (isBalanceErr) {
-        await disableMagicaKey(db, keyRecord.id, errStr);
-        if (onLog) onLog(`[Magica Auto-Switch ⚠️] Key #${keyRecord.id} saldo habis / error (${errStr}). Key telah dinonaktifkan otomatis.`);
-      } else {
-        if (onLog) onLog(`[Magica Auto-Switch ⚠️] Key #${keyRecord.id} gagal: ${errStr}.`);
+      // 1. Content Policy / Safety violations MUST stop immediately — changing keys will NOT fix prompt/image rejection!
+      const isContentPolicy = /CONTENT_POLICY|POLICY_VIOLATION|CONTENT_FILTER|SAFETY|PROFANITY|NSFW|MODERATION|SENSITIVE|BLOCKED/i.test(errStr);
+      if (isContentPolicy) {
+        if (onLog) onLog(`[Magica 🛑] Dihentikan: Prompt atau gambar referensi melanggar kebijakan konten AI (${errStr}). Tidak mencoba key lain.`);
+        throw new Error(`CONTENT_POLICY_VIOLATION: Prompt atau gambar referensi ditolak oleh sistem keamanan AI (${errStr})`);
       }
 
-      // Stop immediately on fatal errors (Internal Server Error or content issues)
-      // Retry ONLY on balance/quota/network-related issues.
-      const isFatal = /INTERNAL_SERVER_ERROR|BAD_REQUEST|INVALID_REQUEST|CONTENT_FILTER|SAFETY/i.test(errStr);
+      // 2. Fatal client request errors (Bad parameters / internal server)
+      const isFatal = /INTERNAL_SERVER_ERROR|BAD_REQUEST|INVALID_REQUEST|INVALID_PARAM/i.test(errStr);
       if (isFatal) {
         if (onLog) onLog(`[Magica 🛑] Menghentikan percobaan karena error fatal: ${errStr}`);
         throw err;
+      }
+
+      // 3. Balance / quota errors -> disable this key and failover to next key
+      const isBalanceErr = /insufficient|balance|credit|quota|402|out of credits|run out of credits/i.test(errStr);
+      if (isBalanceErr) {
+        await disableMagicaKey(db, keyRecord.id, errStr);
+        if (onLog) onLog(`[Magica Auto-Switch ⚠️] Key #${keyRecord.id} saldo habis / limit (${errStr}). Key telah dinonaktifkan otomatis.`);
+      } else {
+        if (onLog) onLog(`[Magica Auto-Switch ⚠️] Key #${keyRecord.id} gagal: ${errStr}.`);
       }
 
       if (i < keys.length - 1) {

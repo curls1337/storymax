@@ -180,6 +180,13 @@ async function executeWithScenarioFailover(db, fn, { onLog, specificKeyId } = {}
       lastError = err;
       const errStr = String(err.message || err);
       
+      // Stop immediately on content policy / safety violation — do NOT switch keys!
+      const isContentPolicy = /CONTENT_POLICY|POLICY_VIOLATION|CONTENT_FILTER|SAFETY|PROFANITY|NSFW|MODERATION|SENSITIVE|BLOCKED/i.test(errStr);
+      if (isContentPolicy) {
+        if (onLog) onLog(`[Scenario 🛑] Dihentikan: Prompt atau gambar referensi melanggar kebijakan konten AI (${errStr}). Tidak mencoba key lain.`);
+        throw new Error(`CONTENT_POLICY_VIOLATION: Prompt atau gambar referensi ditolak oleh sistem keamanan AI (${errStr})`);
+      }
+
       const isPermanentlyInvalid = /unauthorized|401|invalid api key|api_key_invalid/i.test(errStr);
       const isPlanRestriction = /not allowed to use this model|403/i.test(errStr);
       const isQuotaLimit = /429|quota|credit|insufficient|reached your plan's limit/i.test(errStr);
