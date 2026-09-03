@@ -84,6 +84,7 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
       try {
         const char = await db.get('SELECT * FROM characters WHERE id = ?', [task.characterId]);
         if (char) {
+          task.characterName = char.name || '';
           let originalRefs = [];
           try { originalRefs = Array.isArray(char.reference_images) ? char.reference_images : JSON.parse(char.reference_images || '[]'); } catch (e) {}
           const characterImageUrl = originalRefs.find(Boolean) || char.sheet_image_url || '';
@@ -361,15 +362,18 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
           // Analyze a separate product reference when available; never turn character
           // appearance into text that can conflict with the reference image.
           const subjectImagePath = task.productRefImagePath || (task.characterId ? '' : task.finalRefImagePath);
+          const productFallback = (storyboard && storyboard.title && !/^proyek|untitled|storyboard/i.test(storyboard.title))
+            ? storyboard.title
+            : (task.prompt || 'the product');
           task.subjectDescriptor = subjectImagePath
             ? await analyzeSubject({ imagePath: subjectImagePath, ideaText: task.prompt }, db)
-            : (task.characterId ? 'the product' : task.prompt);
+            : (task.characterId ? productFallback : task.prompt);
           await saveTaskState(db, storyboardId, task);
         }
         const faceMode = normalizeFaceMode(task.faceMode, task.showFace, task.style);
         const spec = getStyleSpec(task.style);
         const genCtx = {
-          subject: task.subjectDescriptor || (task.characterId ? 'the product' : task.prompt),
+          subject: task.subjectDescriptor || (task.characterId ? (storyboard?.title || 'the product') : task.prompt),
           concept: pageConcept,
           faceMode,
           gridCount: Number(task.gridCount) || 6,
@@ -388,6 +392,7 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
           // Pass a brief character anchor if characterId is present, to help the model
           // identify who the person in the reference image is without verbose prose.
           characterDescriptor: task.characterId ? 'the main character' : '',
+          characterName: task.characterName || '',
         };
         // Try the LLM generator first; it returns null on ANY failure (no AI key,
         // timeout, bad output) so we always fall back to the deterministic builder.
@@ -1018,22 +1023,35 @@ async function regenerateStoryboardPage(req, res) {
 
         const faceMode = normalizeFaceMode(genParams.faceMode, showFace, style);
 
+        let characterName = '';
+        if (storyboard.character_id) {
+          try {
+            const charRow = await db.get('SELECT name FROM characters WHERE id = ?', [storyboard.character_id]);
+            if (charRow) characterName = charRow.name || '';
+          } catch (e) {}
+        }
+
         let subjectDesc = genParams.subjectDescriptor;
         if (subjectDesc === undefined) {
           const subjectImagePath = productRefImagePath || (storyboard.character_id ? '' : finalRefImagePath);
+          const productFallback = (storyboard.title && !/^proyek|untitled|storyboard/i.test(storyboard.title))
+            ? storyboard.title
+            : storyboard.prompt;
           subjectDesc = subjectImagePath
             ? await analyzeSubject({ imagePath: subjectImagePath, ideaText: storyboard.prompt }, db)
-            : storyboard.prompt;
+            : (storyboard.character_id ? productFallback : storyboard.prompt);
         }
 
         const genCtx = {
-          subject: subjectDesc || storyboard.prompt, concept: pageConcept, faceMode,
+          subject: subjectDesc || (storyboard.title || storyboard.prompt), concept: pageConcept, faceMode,
           gridCount: Number(gridCount) || 6, startScene,
           totalDuration: genParams.duration || (pageCount * secondsPerPage),
           aspectRatio, model, pageNum: pageIdx + 1, pageCount, hasRefImage: !!finalRefImagePath, secondsPerPage,
           textOnScreen: !!genParams.textOnScreen,
           voiceOver: !!genParams.enableVo, voLanguage: genParams.voLanguage || 'Bahasa Indonesia',
           referenceKind: storyboard.character_id ? 'character' : 'subject',
+          characterDescriptor: storyboard.character_id ? 'the main character' : '',
+          characterName,
         };
         // Try the LLM generator first; it falls back to the deterministic builder
         // (returns null on any failure) so generation never breaks.

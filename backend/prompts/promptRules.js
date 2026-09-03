@@ -59,9 +59,12 @@ function dedupeList(arr) {
 }
 
 // Character identity anchor clause
-function getCharacterAnchor(characterDescriptor) {
-  if (!characterDescriptor) return '';
-  return `CHARACTER (SAME physical identity in EVERY panel & page — face, gender, ethnicity, hair color/style and body type must NEVER change; only wardrobe, setting & activity may vary): ${characterDescriptor}.`;
+function getCharacterAnchor(characterDescriptor, characterName) {
+  if (!characterDescriptor && !characterName) return '';
+  const brandNote = characterName
+    ? ` Note: "${characterName}" is the human model, NOT a product brand; never print "${characterName}" on products.`
+    : '';
+  return `CHARACTER (SAME physical identity in EVERY panel & page — face, gender, ethnicity, hair color/style and body type must NEVER change; only wardrobe, setting & activity may vary): ${characterDescriptor || 'the main character'}.${brandNote}`;
 }
 
 // Reference reproduction note (prose in subject line for strict styles)
@@ -81,6 +84,7 @@ function buildRenderingConstraints({
   hasRefImage = false,
   looseRef = false,
   characterDescriptor = '',
+  characterName = '',
   photoreal = true,
 }) {
   const parts = [];
@@ -103,9 +107,12 @@ function buildRenderingConstraints({
     parts.push('Maintain identical product features and colors across panels.');
   }
 
-  // 3. Character consistency
+  // 3. Character consistency & Anti-Brand Confusion
   if (characterDescriptor) {
     parts.push('Keep character identity (face, hair, ethnicity, body) 100% consistent across panels.');
+  }
+  if (characterName) {
+    parts.push(`"${characterName}" is the human model, NOT a product brand; never write or print "${characterName}" on product packaging or labels.`);
   }
 
   // 4. Style-specific exclusions and face negatives preserved in natural sentence form

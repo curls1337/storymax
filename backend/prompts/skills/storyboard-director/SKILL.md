@@ -94,6 +94,16 @@ Model Magica (`gpt_image_2`) sangat sensitif terhadap perintah teks yang menumpu
 - DILARANG meminta narasi panjang, paragraf penjelasan fitur, atau deskripsi bertumpuk di dalam panel.
 </text_and_badge_hygiene>
 
+<character_vs_product_distinction>
+## 5. PEMISAHAN NAMA KARAKTER VS NAMA/MEREK PRODUK (ANTI-BRAND CONFUSION)
+Jika storyboard menampilkan Karakter Konsisten / Talent Manusia (misal karakter bernama "Michi", "Sarah", "Rian", dll):
+- **LARANGAN KERAS:**
+  DILARANG KERAS mencetak, mengukir, menempelkan, atau menuliskan NAMA KARAKTER pada kemasan produk, botol, tube, wadah, stiker, atau logo produk!
+  Nama karakter adalah identitas MANUSIA / TALENT / KREATOR yang memakai atau memegang produk, BUKAN nama merek produk.
+- **Identitas Produk Independen:**
+  Produk memiliki nama/merek tersendiri sesuai judul/deskripsi produk (misal: "Matte Lip Cream", "Sonifer Hand Blender", "Insulated Tumbler"). Jika produk tidak memiliki merek spesifik, tampilkan kemasan minimalis polos yang elegan TANPA mencatut nama karakter.
+</character_vs_product_distinction>
+
 <video_prompts_director>
 ## 5. PANDUAN PENGARAHAN VIDEO (IMAGE-TO-VIDEO & VOICEOVER CONTINUITY)
 Untuk engine video (SeedDance, Kling, Wan, Omni, Veo):

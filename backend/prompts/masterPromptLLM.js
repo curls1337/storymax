@@ -44,7 +44,7 @@ async function generateMasterPromptWithAI(spec, ctx, db) {
       gridCount = 6, startScene = 1, totalDuration = 15, aspectRatio, model,
       pageNum = 1, pageCount = 1, hasRefImage = false, textOnScreen = false,
       voiceOver = false, voLanguage = 'Bahasa Indonesia', characterDescriptor = '',
-      secondsPerPage,
+      characterName = '', secondsPerPage,
     } = ctx;
 
     const gc = Number(gridCount) || 6;
@@ -68,6 +68,7 @@ async function generateMasterPromptWithAI(spec, ctx, db) {
       hasRefImage: !!hasRefImage,
       looseRef: stylized,
       characterDescriptor,
+      characterName,
       photoreal,
     });
 
@@ -79,7 +80,11 @@ async function generateMasterPromptWithAI(spec, ctx, db) {
 
     const payload = {
       SUBJECT_DESCRIPTOR: subject,
-      CHARACTER_DESCRIPTOR: characterDescriptor || null,
+      CHARACTER_NAME: characterName || null,
+      CHARACTER_DESCRIPTOR: characterDescriptor || (characterName ? `human model/creator ${characterName}` : null),
+      BRAND_SAFETY_DIRECTIVE: characterName
+        ? `CRITICAL: "${characterName}" is the personal name of the HUMAN MODEL / CREATOR, NOT the product brand. Under NO circumstances should "${characterName}" be printed, embossed, or written onto the product packaging, bottle, label, or logo.`
+        : null,
       CONCEPT: trimToWordBoundary(concept, 500),
       GRID_GEOMETRY: {
         totalPanels: gc,

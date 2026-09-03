@@ -300,10 +300,11 @@ async function generateAiAssistant(req, res, forcedMode) {
 
     if (characterInfo) {
       const hasCharImage = !!characterInfo.imageUrl;
-      referenceDirective += `\nCHARACTER CONTEXT:\n- The user has selected a character: "${characterInfo.name}".\n- Character Description: ${characterInfo.description}\n- You MUST include this character in the storyboard description as the primary person interacting with the product.\n`;
+      referenceDirective += `\nCHARACTER CONTEXT:\n- The user has selected a character: "${characterInfo.name}".\n- Character Description: ${characterInfo.description}\n- You MUST include this character in the storyboard description as the primary person/creator interacting with the product.\n`;
+      referenceDirective += `- ATURAN MUTLAK ANTI-SALAH MEREK: "${characterInfo.name}" adalah NAMA TALENT / KREATOR (manusia), BUKAN nama merek produk! DILARANG KERAS menuliskan atau mengaitkan nama "${characterInfo.name}" sebagai merek produk (misal: JANGAN menulis "${characterInfo.name} Lip Cream" atau mengarahkan agar kemasan produk bertuliskan "${characterInfo.name}"). Produk memiliki identitas produknya sendiri.\n`;
       
       if (hasCharImage) {
-        referenceDirective += `- IMPORTANT: The character's visual details are ALREADY in the reference image. DO NOT repeat long physical descriptions (age, glasses, clothes, etc.) in every panel. Refer to them simply as "${characterInfo.name}" or "the character" and focus on their actions.\n`;
+        referenceDirective += `- IMPORTANT: The character's visual details are ALREADY in the reference image. DO NOT repeat long physical descriptions (age, glasses, clothes, etc.) in every panel. Refer to them simply as "${characterInfo.name}" or "the creator" and focus on their actions.\n`;
       } else {
         referenceDirective += `- Ensure the character's appearance and actions are consistent with the description provided.\n`;
       }

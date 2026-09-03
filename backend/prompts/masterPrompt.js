@@ -49,6 +49,7 @@ function buildMasterPrompt(spec, ctx = {}) {
     voiceOver = false,
     voLanguage = 'Bahasa Indonesia',
     characterDescriptor = '',
+    characterName = '',
   } = ctx;
 
   const gc = Number(gridCount) || 6;
@@ -108,7 +109,7 @@ function buildMasterPrompt(spec, ctx = {}) {
             : `PAGE ${pageNum}/${pageCount} (scenes ${startScene}-${endScene}) — DIRECT CONTINUATION from Page ${pageNum - 1}. ${CONT} `))
     : '';
 
-  const characterClause = getCharacterAnchor(characterDescriptor);
+  const characterClause = getCharacterAnchor(characterDescriptor, characterName);
 
   const renderingConstraints = buildRenderingConstraints({
     spec,
@@ -116,6 +117,7 @@ function buildMasterPrompt(spec, ctx = {}) {
     hasRefImage,
     looseRef,
     characterDescriptor,
+    characterName,
     photoreal,
   });
 
