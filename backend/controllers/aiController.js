@@ -327,17 +327,18 @@ PENTING & LARANGAN KERAS:
    - Jika ide pengguna BUKAN tentang produk, LEWATI aturan ini sepenuhnya — jangan menambahkan produk apa pun yang tidak ada di ide asli.
 3. KONSISTENSI FISIK SUBJEK (SUBJECT LOCKING):
    - Warna, bentuk, bodi, aksen material subjek/produk (jika ada), serta model/presenter/karakter (jika ada) WAJIB DISATUKAN & DIKUNCI SAMA 100% dari Panel 1 sampai Panel terakhir. DILARANG berubah warna atau beda orang!
-4. VARIASI AKSI & KAMERA (TIDAK BOLEH ADEGAN SAMA):
-   - Panel 1: Opening Hook & Pengenalan Subjek / Masalah / Situasi Cerita.
-   - Panel Tengah: Perkembangan Aksi Nyata 1 & Aksi/Fitur Utama 2 (gunakan sudut kamera berbeda: Wide Shot, Medium Shot, Macro Close-Up).
-   - Panel Terakhir: Hasil Akhir / Resolusi Cerita + (HANYA jika ide memang tentang produk) Call To Action (CTA) Menjual.
+4. FORMULA STRUKTUR NASKAH IKLAN PROFESIONAL (PAIN-POINT HOOK & BATTLE-CARD ADVANTAGE):
+   - Opening Hook (Panel 1–2): Awali dengan masalah atau frustrasi nyata yang relevan bagi audiens saat memakai barang biasa/konvensional, atau visual magnet yang memikat perhatian di 3 detik pertama.
+   - Battle-Card Demonstration (Panel Tengah): Perlihatkan keunggulan nyata produk pengguna beraksi mengatasi masalah tersebut secara praktis, higienis, dan memuaskan.
+   - Payoff & Hero Beauty Shot (Panel Akhir): Tampilkan kepuasan emosional hasil akhir yang sempurna, tekstur/detail produk yang memukau, dan resolusi cerita yang meyakinkan.
+   - Pembagian Alur Multi-Halaman: Jika storyboard terdiri dari 2 atau 3 halaman (30–45 detik), pastikan babak cerita berkembang kronologis: Halaman 1 untuk Masalah & Pengenalan, Halaman 2 untuk Uji Fitur & Aksi Mendalam, Halaman 3 untuk Hasil Akhir & Payoff Penuh.
    - DILARANG KERAS mengulang sudut kamera atau aksi visual yang sama di antar panel!
 5. PEMBERSIHAN TOTAL SAMPAH INFORMASI TOKO / TRANSAKSI MARKETPLACE:
    - DILARANG KERAS memunculkan nomor kontak/WhatsApp/telepon, email, link URL marketplace/sosial media (IG/TikTok), alamat toko fisik, nama kurir/ekspedisi.
    - DILARANG KERAS memunculkan kata-kata transaksional toko seperti: garansi resmi, syarat video unboxing, retur/komplain, COD/bayar di tempat, gratis ongkir, bubble wrap tebal, voucher diskon, checkout sekarang, atau keranjang kuning.
    - Hasil 'title' dan 'description' HANYA memuat informasi subjek produk, fitur/spesifikasi fisik, aksi visual, dan manfaat nyata bagi audiens.
 6. HANYA TEKS VISUAL MURNI:
-   - DILARANG KERAS menyertakan awalan meta-header teknis seperti "storyboard seedance...", "cube_box_transform:", atau nama layout di dalam teks 'description'.
+   - DILARANG KERAS menyertakan awalan meta-header teknis seperti "storyboard seedance...", "cube_box_transform:", atau nama gaya di dalam teks 'description'.
 7. PANJANG TEKS: Total panjang 'description' HARUS DI BAWAH 10000 karakter. Jangan bertele-tele.
 `;
 
@@ -346,7 +347,7 @@ PENTING & LARANGAN KERAS:
 Jika "Ide Kasar Pengguna" terlihat seperti salinan deskripsi toko (seperti Tokopedia/Shopee) yang berantakan, tugas utama Anda adalah MEMBERSIHKANNYA terlebih dahulu: buang informasi pengiriman, garansi, nomor WA, dan kebijakan toko. Fokuslah hanya pada FITUR UTAMA PRODUK dan MANFAATNYA bagi pengguna.
 Tugas Anda adalah memfasilitasi ideasi rencana storyboard kreatif (creative brief / storyboard plan) pengguna berdasarkan PERSIS apa yang pengguna tulis di "Ide Kasar Pengguna", dan menghasilkan:
 1. 'title': Judul Proyek yang padat dan sinematik, SESUAI TEMA ASLI ide pengguna (jika ide pengguna memang tentang sebuah produk, contoh: "Sonifer 5-in-1 Hand Blender Pro"; jika BUKAN tentang produk, buat judul yang mencerminkan tema/cerita aslinya — JANGAN memaksakan nama produk yang tidak ada. Maksimal 5 kata).
-2. 'description': Rencana naskah storyboard rinci per panel (Creative Brief / Storyboard Plan per panel berisi visual, aksi, dan sudut kamera) yang setia mengikuti ide asli pengguna tanpa menambahkan produk/elemen fiktif, diselaraskan dengan gaya layout storyboard: "${style}". (Catatan: Ini adalah rencana/brief naskah, bukan master prompt final yang nanti dirakit oleh engine prompt per halaman).
+2. 'description': Rencana naskah storyboard rinci per panel (Creative Brief / Storyboard Plan per panel berisi visual, aksi, dan sudut kamera) yang setia mengikuti ide asli pengguna tanpa menambahkan produk/elemen fiktif, diselaraskan dengan gaya visual iklan: "${style}". (Catatan: Ini adalah rencana/brief naskah, bukan master prompt final yang nanti dirakit oleh engine prompt per halaman).
 3. 'layout': Wajib bernilai "${style}" (karena pengguna telah memilih gaya ini).
 
 ${strictRules}
@@ -364,7 +365,7 @@ Jika "Ide Kasar Pengguna" terlihat seperti salinan deskripsi toko (seperti Tokop
 Tugas Anda adalah memfasilitasi ideasi rencana storyboard kreatif (creative brief / storyboard plan) pengguna berdasarkan PERSIS apa yang pengguna tulis di "Ide Kasar Pengguna", dan menghasilkan:
 1. 'title': Judul Proyek yang padat dan sinematik, SESUAI TEMA ASLI ide pengguna (jika ide pengguna memang tentang sebuah produk, contoh: "Sonifer 5-in-1 Hand Blender Pro"; jika BUKAN tentang produk, buat judul yang mencerminkan tema/cerita aslinya — JANGAN memaksakan nama produk yang tidak ada. Maksimal 5 kata).
 2. 'description': Rencana naskah storyboard rinci per panel (Creative Brief / Storyboard Plan per panel berisi visual, aksi, dan sudut kamera) yang setia mengikuti ide asli pengguna tanpa menambahkan produk/elemen fiktif. (Catatan: Ini adalah rencana/brief naskah, bukan master prompt final yang nanti dirakit oleh engine prompt per halaman).
-3. 'layout': Memilih satu kode Gaya Layout Storyboard yang PALING COCOK dan paling presisi untuk jenis produk tersebut. PANDUAN KATEGORI PRODUK:
+3. 'layout': Memilih satu kode Gaya Visual Iklan (Commercial Visual Style) yang PALING COCOK dan paling berdaya jual tinggi untuk jenis produk tersebut. PANDUAN KATEGORI PRODUK:
 - Alat Dapur, Blender, Masak, Makanan & Minuman Racikan: WAJIB pilih "recipe_asmr" atau "professional_tutorial".
 - Skincare, Serum, Parfum, Minuman Dingin, Sabun Cair (cairan/botol): WAJIB pilih "liquid_splash" atau "luxury_mood".
 - Gadget Elektronik, Drone, Smartwatch, Peralatan Mekanik/Otomotif: WAJIB pilih "mechanical_transform" atau "product_assembly".
@@ -373,7 +374,7 @@ Tugas Anda adalah memfasilitasi ideasi rencana storyboard kreatif (creative brie
 - Kebutuhan Harian, Produk Viral TikTok, Solusi Rumah Tangga: WAJIB pilih "ugc_creator" atau "social_stylized_text".
 - Mainan Edukasi, Anak-anak, Maskot Lucu: WAJIB pilih "kawaii_playful".
 - Iklan Komersial Mewah / Hero Shot Umum: WAJIB pilih "product_hero" atau "cinematic_ad".
-Daftar kode gaya layout yang tersedia:
+Daftar kode gaya visual iklan yang tersedia:
 ${layoutListText}
 
 ${strictRules}

@@ -859,7 +859,7 @@ export default function Generator({ setTab, selectedCharacter, setSelectedCharac
 
           <div className={`relative ${dropdownOpen ? 'z-50' : 'z-10'}`} ref={dropdownRef}>
             <div className="flex items-center justify-between mb-1">
-              <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest">Gaya Layout Storyboard</label>
+              <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest">Gaya Visual Iklan</label>
               <label className="flex items-center gap-1.5 cursor-pointer select-none">
                 <input
                   type="checkbox"
@@ -873,21 +873,21 @@ export default function Generator({ setTab, selectedCharacter, setSelectedCharac
             <button type="button" onClick={() => { setDropdownOpen(!dropdownOpen); setStyleSearch(''); }} className={`w-full bg-black/40 border rounded-xl px-3.5 py-2.5 text-white focus:outline-none transition-all text-xs text-left flex justify-between items-center ${autoLayout ? 'border-[#cfae80]/40 bg-[#cfae80]/5' : 'border-[#2a2725] focus:border-[#cfae80]'}`} disabled={generating}>
               <span className="truncate flex items-center gap-1.5">
                 {autoLayout && <Sparkles className="w-3 h-3 text-[#cfae80] inline shrink-0" />}
-                {LAYOUT_STYLES.find(opt => opt.value === style)?.label || 'Pilih Gaya Layout'}
+                {LAYOUT_STYLES.find(opt => opt.value === style)?.label || 'Pilih Gaya Visual Iklan'}
                 {autoLayout && <span className="text-[9px] text-[#cfae80] font-normal italic">(Dipilih Otomatis AI)</span>}
               </span>
               <ChevronRight className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${dropdownOpen ? 'rotate-90' : ''}`} />
             </button>
             {dropdownOpen && (
               <div className="absolute left-0 mt-1.5 w-full bg-[#1a1918] border border-[#2a2725] rounded-xl shadow-2xl z-50 flex flex-col max-h-72">
-                {/* Search box to filter layout styles by name / description / category */}
+                {/* Search box to filter visual styles by name / description / category */}
                 <div className="p-2 border-b border-[#2a2725] shrink-0">
                   <input
                     type="text"
                     autoFocus
                     value={styleSearch}
                     onChange={(e) => setStyleSearch(e.target.value)}
-                    placeholder="Cari gaya layout… (mis. edukasi, iklan, ASMR)"
+                    placeholder="Cari gaya visual iklan… (mis. UGC, ASMR, sinematik, before-after)"
                     className="w-full bg-black/40 border border-[#2a2725] rounded-lg px-2.5 py-1.5 text-white text-[11px] focus:outline-none focus:border-[#cfae80] transition-all"
                   />
                 </div>
@@ -920,6 +920,7 @@ export default function Generator({ setTab, selectedCharacter, setSelectedCharac
             
 
 
+
             {(style === 'capsule_transform' || style === 'capsule_toss_transform') && (
               <div className="mt-3 space-y-1.5 animate-fadeIn">
                 <label className="block text-slate-350 text-[9px] font-bold uppercase tracking-widest">Bentuk Wadah Awal (Kotak/Kapsul)</label>
@@ -941,7 +942,7 @@ export default function Generator({ setTab, selectedCharacter, setSelectedCharac
 
             {aiMatchedLayout && (
               <p className="text-[9px] text-[#cfae80] mt-2 font-medium flex items-center gap-1 animate-fadeIn">
-                <span>✨</span> Ide mengikuti gaya layout: <strong className="underline">{aiMatchedLayout}</strong>
+                <span>✨</span> Ide mengikuti gaya visual: <strong className="underline">{aiMatchedLayout}</strong>
               </p>
             )}
           </div>
@@ -1348,7 +1349,7 @@ export default function Generator({ setTab, selectedCharacter, setSelectedCharac
             </label>
             {textOnScreen && (
               <p className="text-[9px] text-slate-500 leading-relaxed animate-fadeIn">
-                AI menambahkan caption bergaya (bold, warna &amp; font bervariasi) di tiap panel, menyesuaikan gaya layout — cocok untuk iklan/edukasi ala TikTok. Berlaku untuk Freebeat &amp; Magica.
+                AI menambahkan caption bergaya (bold, warna &amp; font bervariasi) di tiap panel, menyesuaikan gaya visual iklan — cocok untuk iklan/edukasi ala TikTok. Berlaku untuk Freebeat &amp; Magica.
               </p>
             )}
           </div>

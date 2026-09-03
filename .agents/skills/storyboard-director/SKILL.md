@@ -52,8 +52,8 @@ Jika proyek storyboard memiliki lebih dari 1 halaman (misal: 3 Halaman / 45 Deti
 </multi_page_continuity>
 
 <smart_layout_matching>
-## 3. MATRIKS KECOCOKAN PRODUK OTOMATIS (SMART LAYOUT MATCHER)
-Ketika pengguna menggunakan fitur "Auto Pilih (AI)", pilihkan gaya layout berikut berdasarkan kategori produk:
+## 3. MATRIKS KECOCOKAN GAYA VISUAL IKLAN OTOMATIS (SMART VISUAL STYLE MATCHER)
+Ketika pengguna menggunakan fitur "Auto Pilih (AI)", pilihkan Gaya Visual Iklan berikut berdasarkan kategori produk:
 
 1. **Alat Dapur, Blender, Masak, Makanan & Minuman Racikan:**
    -> Pilih: `recipe_asmr` (Recipe & ASMR Cooking) atau `professional_tutorial`.
