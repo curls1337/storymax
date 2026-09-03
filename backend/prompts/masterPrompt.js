@@ -139,7 +139,7 @@ ${renderingConstraints}`;
     ? ` Also print a small 'Voiceover:' note under each panel — a VERY SHORT 2-4 word voice-over cue for that scene in ${voLanguage} (super concise, 2-4 plain words, NO quotes, NO symbols like 'x', e.g. 'Langkah awal', 'Kualitas terbaik', 'Dapatkan sekarang').`
     : '';
 
-  const L4 = `Layout: ${layout}, numbered SCENE ${startScene}–${endScene}; each panel: a short SCENE TITLE, one-line action, tiny 'CAM'/'LIGHT' tags + a duration chip. Keep on-sheet text short & correctly spelled; vary the camera per scene; keep card layout, palette & background identical.${textClause}${voClause}`;
+  const L4 = `Layout: ${layout}, cleanly numbered SCENE ${startScene}–${endScene}. Keep all panels visually pristine with zero text paragraphs or garbled writing inside the image; vary camera angles dynamically per scene; keep lighting, palette & background identical across all panels.${textClause}${voClause}`;
   let cameraText = spec.camera ? capAtWordBoundary(spec.camera, 140) : 'cinematic coverage';
   let lightText = spec.lighting ? capAtWordBoundary(spec.lighting, 100) : 'clean studio light';
 

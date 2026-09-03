@@ -48,7 +48,7 @@ const STYLES = {
   asmr_unboxing_premium: {
     name: 'ASMR Unboxing Premium', desc: 'Unboxing kelas atas dengan sarung tangan hitam, fokus pada detail mikro (macro), tekstur material, dan bunyi mekanis yang memuaskan.',
     category: 'Transformasi & Reveal', format: '9:16', faceMode: 'faceless', bg: 'dark',
-    layoutHint: 'a grid of {N} macro panels on a dark minimalist background; each panel features "TACTILE FOCUS" and "SOUND CUE" tags',
+    layoutHint: 'a strict symmetrical grid of {N} equal macro panels on a dark minimalist sheet',
     camera: 'extreme macro (1:1) focus on textures, hands in black nitrile gloves, slow rhythmic movements, top-down and 45-degree angles',
     lighting: 'moody dark studio lighting, dramatic rim lights, sharp specular highlights on metallic/glossy parts', header: 'STORYBOARD — ASMR UNBOXING',
     arc: ['hands in black gloves gently touch the premium box', 'macro of the seal being sliced or peeled', 'slow reveal of the product nestled in foam', 'extreme close-up of a button click or wheel turn', 'product glowing under accent lights in a dark void'],
@@ -57,7 +57,7 @@ const STYLES = {
   mechanic_transform_gauntlet: {
     name: 'Mechanic Transformation (Gauntlet)', desc: 'Transformasi mekanis kompleks dari pod kecil menjadi perangkat canggih (seperti sarung tangan mekanik). Fokus pada interlocking plates dan gir.',
     category: 'Transformasi & Reveal', format: '9:16', faceMode: 'faceless', bg: 'textured',
-    layoutHint: 'a technical grid of {N} panels showing mechanical assembly; each panel includes "INTERLOCKING DETAIL" and "GEAR RATIO" notes',
+    layoutHint: 'a strict symmetrical grid of {N} equal technical panels showing mechanical progression',
     camera: 'locked-off top-down workshop perspective, focus on rapid unfolding of mechanical plates and gears sliding into place',
     lighting: 'cool industrial workshop lighting, metallic reflections, glowing internal power cores', header: 'STORYBOARD — MECHANIC TRANSFORM',
     arc: ['a compact mechanical pod sits on a workbench', 'a finger presses the central trigger core', 'plates burst open and gears begin to spin', 'the device telescopes and wraps around a hand/arm', 'the fully deployed mechanical gauntlet performs a movement'],
@@ -66,7 +66,7 @@ const STYLES = {
   before_after: {
     name: 'Before–After', desc: 'Perbandingan visual langsung antara masalah (sebelum) dan solusi produk (sesudah). Sangat efektif untuk bukti hasil.',
     category: 'Transformasi & Reveal', format: '9:16', faceMode: 'chin_max', bg: 'light',
-    layoutHint: 'a grid of {N} panels; each panel is clearly split or paired with "BEFORE" and "AFTER" labels',
+    layoutHint: 'a strict symmetrical grid of {N} equal numbered panels comparing problem states and product solutions',
     camera: 'matched static framing so before and after align perfectly, split or side-by-side comparison',
     lighting: 'even neutral lighting for honest comparison', header: 'STORYBOARD — BEFORE / AFTER',
     arc: ['the BEFORE state / problem clearly shown', 'applying or using the product', 'transition wipe between states', 'the AFTER state highlighting the improvement'],
@@ -77,7 +77,7 @@ const STYLES = {
   ugc_creator: {
     name: 'UGC Creator Style', desc: 'Gaya influencer autentik berbicara ke kamera, demo produk di rumah, dan reaksi jujur. Relatable & terpercaya.',
     category: 'UGC & Social', format: '9:16', faceMode: 'chin_max', bg: 'light',
-    layoutHint: 'a grid of {N} vertical panels like a TikTok/Reels feed; each panel has "CREATOR NOTES" and duration chips',
+    layoutHint: 'a strict symmetrical grid of {N} equal vertical panels with an authentic creator aesthetic',
     camera: 'natural handheld selfie framing, close-up lifestyle angles, authentic influencer aesthetic',
     lighting: 'soft natural daylight, authentic everyday environment', header: 'STORYBOARD — UGC CREATOR',
     arc: ['relatable hook grabbing attention', 'introducing the product', 'demonstrating it in use', 'showing the satisfying result', 'call-to-action with a buy badge'],
@@ -86,7 +86,7 @@ const STYLES = {
   social_stylized_text: {
     name: 'Social Media (Stylized Text)', desc: 'Fokus pada teks overlay besar, stiker, dan balon penjelasan fitur (callout) yang artistik di dalam gambar. Sangat viral.',
     category: 'UGC & Social', format: '9:16', faceMode: 'chin_max', bg: 'light',
-    layoutHint: 'a grid of {N} numbered panels; EACH panel features BOLD stylized captions, feature badges, and sticker-style callouts inside the scene',
+    layoutHint: 'a strict symmetrical grid of {N} equal numbered panels with bold visual product feature callouts',
     camera: 'clean cinematic product photography, ~35mm, shallow depth of field, ONE clear subject per panel',
     lighting: 'warm cinematic softbox light, appetizing & premium', header: 'STORYBOARD — SOCIAL STYLIZED',
     arc: ['scroll-stopping hook with bold text', 'reveal product feature with a stylized badge', 'action shot with floating feature text', 'social proof / result with sticker caption', 'clear CTA with a stylized button'],
@@ -96,7 +96,7 @@ const STYLES = {
     name: 'Social Lifestyle (Independent)', desc: 'Satu karakter dalam berbagai aktivitas berbeda per halaman (lari, makan, gym, dll). Identitas tetap konsisten, momen berbeda.',
     category: 'UGC & Social', format: '9:16', faceMode: 'full', bg: 'light',
     independentScenes: true,
-    layoutHint: 'a grid of {N} numbered lifestyle photo panels, like an Instagram feed preview',
+    layoutHint: 'a strict symmetrical grid of {N} equal numbered lifestyle photo panels on a clean sheet',
     camera: 'candid handheld smartphone-camera framing, natural imperfect composition, amateur angles',
     lighting: 'real-world ambient lighting matched to the location (daylight, restaurant, gym, etc.)', header: 'STORYBOARD — LIFESTYLE',
     arc: ['candid opening moment of the activity', 'mid-action unposed moment', 'detail candid shot (expression or object)', 'relaxed closing moment of the activity'],
@@ -105,7 +105,7 @@ const STYLES = {
   jelly_character_asmr: {
     name: 'Jelly Character ASMR', desc: 'Figurin jeli transparan karakter yang digenggam; tubuh terisi cairan/gelembung saat "minum". Lucu & memuaskan.',
     category: 'UGC & Social', format: '9:16', faceMode: 'faceless', bg: 'textured',
-    layoutHint: 'a grid of {N} macro panels with a soft aesthetic; each panel highlights "TACTILE DETAIL"',
+    layoutHint: 'a strict symmetrical grid of {N} equal macro panels with a soft aesthetic',
     camera: 'intimate macro; figurine held in palm; soft shallow focus; whole figurine in frame',
     lighting: 'soft natural daylight, glossy specular highlights on translucent jelly', header: 'STORYBOARD — JELLY ASMR',
     arc: ['translucent jelly character in palm', 'playful anticipation with a mini prop', 'satisfying drink/fill with rising bubbles', 'happy expression and jelly wobble', 'satisfied character settles in palm'],
@@ -116,7 +116,7 @@ const STYLES = {
   timelapse_process: {
     name: 'Timelapse Process', desc: 'Proses dipercepat dari awal sampai hasil akhir dengan sudut kamera yang tidak berubah. Sangat memuaskan ditonton.',
     category: 'Proses & Edukasi', format: '16:9', faceMode: 'faceless', bg: 'light',
-    layoutHint: 'a grid of {N} panels showing a fixed-angle progression; each panel has a "TIMELAPSE" timecode',
+    layoutHint: 'a strict symmetrical grid of {N} equal panels showing a seamless fixed-angle progression',
     camera: 'a static lock-off wide shot from the exact same fixed position; only the subject progresses',
     lighting: 'consistent daylight shifting subtly over time', header: 'STORYBOARD — TIMELAPSE',
     arc: ['the starting/empty state', 'early progress', 'mid-way build-up', 'the finished result'],
