@@ -106,7 +106,7 @@ export default function Generator({ setTab, selectedCharacter, setSelectedCharac
   const [taskLogs, setTaskLogs] = useState('');
   const [showLogModal, setShowLogModal] = useState(true);
   const [voMode, setVoMode] = useState('off'); // 'off' | 'script' | 'image'
-  const [voMaxWords, setVoMaxWords] = useState(10);
+  const [voMaxWords, setVoMaxWords] = useState(18);
   const [voLanguage, setVoLanguage] = useState('Bahasa Indonesia');
   const [voTone, setVoTone] = useState('casual');
   const [textOnScreen, setTextOnScreen] = useState(false); // burn stylized on-screen captions into each storyboard panel
@@ -1284,8 +1284,8 @@ export default function Generator({ setTab, selectedCharacter, setSelectedCharac
                       className="w-full bg-black/40 border border-[#2a2725] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#cfae80] focus:ring-1 focus:ring-[#cfae80]/10 transition-all text-xs font-semibold"
                       disabled={generating}
                     >
-                      {[8, 9, 10, 11, 12, 13, 14, 15].map(w => (
-                        <option key={w} value={w}>{w} Kata Maksimal</option>
+                      {[10, 12, 15, 18, 20, 25, 30].map(w => (
+                        <option key={w} value={w}>{w} Kata {w === 18 ? '(Standar 15s - Rekomendasi)' : (w === 30 ? '(Durasi Panjang 30s)' : 'Maksimal')}</option>
                       ))}
                     </select>
                   </div>

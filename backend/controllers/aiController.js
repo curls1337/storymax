@@ -832,14 +832,17 @@ async function generateVideoPromptsInternal({ storyboardId, promptType, regenera
   else if (gridCount === 9) gridDescText = "exactly 9 panels arranged in a clean symmetrical 3x3 grid";
   else if (gridCount === 12) gridDescText = "exactly 12 panels arranged in a clean symmetrical 4x3 grid";
 
-  const maxWordsAllowed = voMaxWords ? Math.min(Math.max(Number(voMaxWords), 8), 15) : 10;
+  const durVal = videoDuration || 'auto';
+  const durNum = durVal !== 'auto' && Number(durVal) > 0 ? Number(durVal) : 15;
+  const defaultMaxWords = durNum >= 30 ? 40 : (durNum >= 15 ? 24 : 12);
+  const minWordsRecommended = durNum >= 30 ? 20 : (durNum >= 15 ? 12 : 6);
+  const maxWordsAllowed = voMaxWords ? Math.min(Math.max(Number(voMaxWords), 8), 60) : defaultMaxWords;
 
   let durationClause = '';
-  const durVal = videoDuration || 'auto';
   const _durTxt = durVal === 'auto'
     ? (targetType === 'image-to-video' ? 'Kling/SeedDance: 15s, Omni: 10s, Gemini: 8s' : '15 seconds')
     : `${Number(durVal)} seconds`;
-  durationClause = `Each individual scene/panel video has a target duration of: ${_durTxt}. If Voiceover (VO) is enabled, keep the narration SHORT — about 6 to ${maxWordsAllowed} words per scene, HARD MAX ${maxWordsAllowed} words — one punchy line at a natural pace, not rushed.`;
+  durationClause = `Each individual scene/panel video has a target duration of: ${_durTxt}. If Voiceover (VO) is enabled, write natural, engaging narration of about ${minWordsRecommended} to ${maxWordsAllowed} words per scene (HARD MAX ${maxWordsAllowed} words). Deliver at a smooth, natural conversational pace (~1.5 words per second) that flows gracefully and concludes cleanly 1-2 seconds before the scene ends, leaving no awkward silence and zero rushed speech.`;
 
   let toneClause = '';
   if (enableVo && voTone) {
@@ -996,22 +999,22 @@ For each page (scene):
 3. "narration": A voiceover narration script paragraph in the language: "${voLanguage || 'Bahasa Indonesia'}". ${toneClause} The narration must fit the page duration and align with the chronological visual action of that page.
 
 CRITICAL SPEECH PACING, TEMPO & PRONUNCIATION RULES (Strictly prevents fast, rushed, garbled, or mispronounced voiceover):
-- EJAAN NALAR & PHONETIC (HINDARI BELAPOTAN): Tulis narasi 100% dalam BAHASA PERCAKAPAN MANUSIA YANG ALAMI. DILARANG KERAS menggunakan singkatan, simbol, atau istilah teknis yang membuat TTS membaca belepotan:
+- EJAAN NALAR & PHONETIC (HINDARI BELEPOTAN): Tulis narasi 100% dalam BAHASA PERCAKAPAN MANUSIA YANG ALAMI. DILARANG KERAS menggunakan singkatan, simbol, atau istilah teknis yang membuat TTS membaca belepotan:
   * Tulis kata secara UTUH (contoh: "kilogram" BUKAN "kg", "sentimeter" BUKAN "cm", "seratus persen" BUKAN "100%", "berat badan" BUKAN "BB", "Rupiah" BUKAN "Rp").
   * DILARANG memakai simbol atau karakter khusus seperti %, &, +, /, #, ( ), atau tanda minus (-).
   * Terjemahkan istilah asing ke kata bahasa Indonesia percakapan yang halus (contoh: "tahan air" BUKAN "waterproof", "tas ransel" BUKAN "backpack").
-- TEMPO & PACING: Write narration to be spoken at a clear, relaxed, natural conversational pace (about 1.5 words per second) that FILLS most of the scene — continuous enough to avoid long silent gaps, but never rushed or crammed. Insert commas & periods between short phrases for natural breathing pauses.
-- WORD COUNT PER SCENE — keep it SHORT: about 6 to 10 words TOTAL, HARD MAX 10 words. One punchy line, never more.
-- Keep phrases short, rhythmic and well-spaced; finish about 1 second before the scene ends. Do NOT cram or rush.
+- TEMPO & PACING: Write narration to be spoken at a clear, relaxed, natural conversational pace (about 1.5 words per second) that FILLS the scene nicely (~${minWordsRecommended}-${maxWordsAllowed} words). Insert commas & periods between short phrases for natural breathing pauses.
+- TARGET PANJANG KATA PER SCENE: Tulis sekitar ${minWordsRecommended} hingga ${maxWordsAllowed} kata (BATAS MAKSIMAL ${maxWordsAllowed} KATA). Jangan terlalu pendek (di bawah ${minWordsRecommended} kata membuat video hening terlalu lama), dan jangan lebih dari ${maxWordsAllowed} kata agar tidak terburu-buru.
+- KAYA KOSAKATA & ANTI-KLISE (DILARANG KALIMAT MONOTON):
+  * DILARANG membuat kalimat promosi klise yang berulang (contoh DILARANG: "produk terbaik yang wajib kamu punya", "jangan sampai kehabisan buruan beli sekarang").
+  * WAJIB menyebutkan MANFAAT SPESIFIK atau SENSASI NYATA dari produk: bahan, tekstur, kemudahan, aroma, kepraktisan, atau solusi dari masalah pengguna.
+  * Tulis kalimat yang bernyawa, natural, dan berkarakter sesuai Tone yang dipilih.
 
 CRITICAL NARRATION FLOW & STRUCTURE:
 The voiceover narrations across all the ${totalScenes} pages must combine to form one single, continuously flowing script from the first page to the last. Do not treat each page as a standalone video!
-- Page 1 (scene_idx = 0): Must start with the opening hook to grab attention. Strictly DO NOT include any conclusion, promo details, or Call to Action (CTA) phrases like "klik keranjang kuning" or "checkout sekarang" here.
-- Middle Pages (scene_idx between 1 and ${totalScenes - 2}): Focus strictly on detailed features, demonstrations, or benefits. Ensure the sentences connect naturally from the previous page. DO NOT write any CTA or ending here.
-- Final Page (scene_idx = ${totalScenes - 1}): This is the absolute ending of the video. Conclude the narrative smoothly:
-  * For commercial/product ads: End with a strong, natural Call to Action (CTA) tailored to the product (e.g. "Dapatkan sekarang sebelum promo berakhir!", "Pesan milikmu hari ini!").
-  * For Action, Cinematic, Drama, Storytelling, Animation, or Educational videos: End with a powerful cinematic climax, dramatic punchline, or satisfying story resolution (DO NOT include any sales pitch, shop link, or commercial CTA).
-  Adapt the ending naturally to match the genre and tone of the user's prompt.
+- Page 1 (scene_idx = 0): Opening Hook yang memikat perhatian dalam 3 detik pertama — angkat rasa penasaran, masalah nyata sehari-hari, atau situasi relatable. Strictly DO NOT include any conclusion, promo details, or Call to Action (CTA) phrases like "klik keranjang kuning" or "checkout sekarang" here.
+- Middle Pages (scene_idx between 1 and ${totalScenes - 2}): Fokus pada demonstrasi nyata, sensasi menggunakan produk, atau transformasi fitur. Hubungkan kalimat secara mengalir dari halaman sebelumnya ("Bukan cuma itu...", "Begitu dipakai...", "Kuncinya ada pada..."). DO NOT write any CTA or ending here.
+- Final Page (scene_idx = ${totalScenes - 1}): Penutup narasi yang kuat dan memuaskan. Berikan ajakan atau kesimpulan yang segar dan relevan dengan cerita produk, BUKAN sekadar kalimat template copy-paste.
 This prevents premature endings and duplicate CTAs in the middle of the storyboard flow.
 
 You MUST return the output strictly in this JSON format (do not wrap in markdown \`\`\`json blocks):
@@ -1080,8 +1083,15 @@ Ensure there are exactly ${totalScenes} items in the "scenes" array correspondin
         content: [
           {
             type: 'text',
-            text: `Project Title: ${storyboard.title}
-Main Project Description: ${storyboard.prompt}
+            text: `PROJECT BRIEF & STORYBOARD DETAILS:
+- Project Title: ${storyboard.title || 'Untitled Project'}
+- Creative Visual Style: ${styleSpec.name}
+- Voiceover Language: ${voLanguage || 'Bahasa Indonesia'}
+- Voiceover Tone Style: ${voTone || 'casual'}
+- Target Duration per Scene: ${_durTxt}
+- Target Word Count: ${minWordsRecommended} to ${maxWordsAllowed} words per scene
+- Detailed Script & Scene Breakdown:
+${storyboard.prompt}
 
 Please analyze the provided image sheet(s) carefully. Generate the requested JSON output containing scenes array.`
           },

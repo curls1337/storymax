@@ -135,9 +135,9 @@ ${renderingConstraints}`;
     ? " ALSO burn ONE stylized ON-SCREEN TEXT element into each panel — choose between a clean feature callout badge, a floating sticker caption bubble, or bold kinetic social lettering (e.g. 'Lembut macam awan', 'Praktis & Hemat Tempat', 'Ujung Runcing Menjangkau Sudut') rendered with crisp high-contrast outlines, soft drop shadows, and varied sticker shapes per panel to act as clear product feature explanations, perfectly spelled."
     : '';
 
-  const voClause = voiceOver
-    ? ` Also print a small 'Voiceover:' note under each panel — a VERY SHORT 2-4 word voice-over cue for that scene in ${voLanguage} (super concise, 2-4 plain words, NO quotes, NO symbols like 'x', e.g. 'Langkah awal', 'Kualitas terbaik', 'Dapatkan sekarang').`
-    : '';
+  // Voiceover narration is strictly audio for video generation (TTS), never drawn onto
+  // the storyboard image canvas to prevent OCR hallucination, garbled letters, and audio leaks.
+  const voClause = '';
 
   const L4 = `Layout: ${layout}, cleanly numbered SCENE ${startScene}–${endScene}. Keep all panels visually pristine with zero text paragraphs or garbled writing inside the image; vary camera angles dynamically per scene; keep lighting, palette & background identical across all panels.${textClause}${voClause}`;
   let cameraText = spec.camera ? capAtWordBoundary(spec.camera, 140) : 'cinematic coverage';
