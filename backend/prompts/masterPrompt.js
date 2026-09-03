@@ -90,19 +90,15 @@ function buildMasterPrompt(spec, ctx = {}) {
   const layout = (spec.layoutHint || 'a grid of {N} numbered panels on one sheet').replace('{N}', String(gc));
   const partLabel = pageCount > 1 ? ` PART ${pageNum}/${pageCount}` : '';
 
-  const layoutStructure = layout.toLowerCase().includes('magazine')
-    ? ' OVERALL STRUCTURE: A high-end MAGAZINE CATALOG layout with large hero images and elegant typography.'
-    : (layout.toLowerCase().includes('table')
-        ? ' OVERALL STRUCTURE: A professional PRODUCTION TABLE layout with strict columns.'
-        : (layout.toLowerCase().includes('infographic') || layout.toLowerCase().includes('playful')
-            ? ' OVERALL STRUCTURE: A dynamic PLAYFUL INFOGRAPHIC layout with varied panel sizes.'
-            : ''));
+  const cols = (gc === 6 && (ratio === '9:16' || spec.format === '9:16')) ? 2 : (gc === 4 ? 2 : (gc === 8 ? 4 : 3));
+  const rows = Math.ceil(gc / cols);
+  const layoutStructure = ` OVERALL STRUCTURE: A strict symmetrical ${cols}x${rows} grid of ${gc} equal numbered rectangular panels with clean borders, no overlapping.`;
 
   const refNote = getReferenceProseNote(hasRefImage, looseRef);
 
   const CONT = independentScenes
     ? "VISUAL CONTINUITY: Keep SAME character identity 100% consistent across pages."
-    : "VISUAL CONTINUITY: Keep SAME setting, lighting, wardrobe & palette across pages.";
+    : "VISUAL CONTINUITY: Keep SAME setting, lighting, wardrobe & palette, and exact same symmetrical grid structure across pages.";
 
   const pageScope = pageCount > 1
     ? (independentScenes
@@ -208,7 +204,12 @@ ${renderingConstraints}`;
   }
 
   let body = assemble(subj, conceptText, arc, refNoteCur, cameraText, lightText);
-  return body + '\n' + tail;
+  let res = body + '\n' + tail;
+  if (res.length > LIMIT) {
+    const { safeClampPrompt } = require('./clamp');
+    res = safeClampPrompt(res, LIMIT);
+  }
+  return res;
 }
 
 module.exports = {

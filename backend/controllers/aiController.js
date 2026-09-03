@@ -363,16 +363,25 @@ Jika "Ide Kasar Pengguna" terlihat seperti salinan deskripsi toko (seperti Tokop
 Tugas Anda adalah memfasilitasi ideasi rencana storyboard kreatif (creative brief / storyboard plan) pengguna berdasarkan PERSIS apa yang pengguna tulis di "Ide Kasar Pengguna", dan menghasilkan:
 1. 'title': Judul Proyek yang padat dan sinematik, SESUAI TEMA ASLI ide pengguna (jika ide pengguna memang tentang sebuah produk, contoh: "Sonifer 5-in-1 Hand Blender Pro"; jika BUKAN tentang produk, buat judul yang mencerminkan tema/cerita aslinya — JANGAN memaksakan nama produk yang tidak ada. Maksimal 5 kata).
 2. 'description': Rencana naskah storyboard rinci per panel (Creative Brief / Storyboard Plan per panel berisi visual, aksi, dan sudut kamera) yang setia mengikuti ide asli pengguna tanpa menambahkan produk/elemen fiktif. (Catatan: Ini adalah rencana/brief naskah, bukan master prompt final yang nanti dirakit oleh engine prompt per halaman).
-3. 'layout': Memilih satu Gaya Layout Storyboard yang PALING COCOK dan paling presisi untuk ide/konsep tersebut dari daftar gaya berikut:
+3. 'layout': Memilih satu kode Gaya Layout Storyboard yang PALING COCOK dan paling presisi untuk jenis produk tersebut. PANDUAN KATEGORI PRODUK:
+- Alat Dapur, Blender, Masak, Makanan & Minuman Racikan: WAJIB pilih "recipe_asmr" atau "professional_tutorial".
+- Skincare, Serum, Parfum, Minuman Dingin, Sabun Cair (cairan/botol): WAJIB pilih "liquid_splash" atau "luxury_mood".
+- Gadget Elektronik, Drone, Smartwatch, Peralatan Mekanik/Otomotif: WAJIB pilih "mechanical_transform" atau "product_assembly".
+- Sepatu Sneakers, Tas Kulit, Unboxing Mewah, Aksesoris Fashion: WAJIB pilih "asmr_unboxing_premium" atau "unboxing".
+- Pembersih Noda, Solusi Masalah Nyata, Skincare Jerawat/Kusam: WAJIB pilih "before_after".
+- Kebutuhan Harian, Produk Viral TikTok, Solusi Rumah Tangga: WAJIB pilih "ugc_creator" atau "social_stylized_text".
+- Mainan Edukasi, Anak-anak, Maskot Lucu: WAJIB pilih "kawaii_playful".
+- Iklan Komersial Mewah / Hero Shot Umum: WAJIB pilih "product_hero" atau "cinematic_ad".
+Daftar kode gaya layout yang tersedia:
 ${layoutListText}
 
 ${strictRules}
 ${referenceDirective}
-Anda harus mengembalikan respon hanya dalam format JSON mentah dengan key 'title', 'description', 'layout', dan 'referenceSummary' (diisi dengan value/kode dari layout yang Anda pilih). Jangan bungkus dalam markdown (jangan pakai \`\`\`json). Contoh output:
+Anda harus mengembalikan respon hanya dalam format JSON mentah dengan key 'title', 'description', 'layout', dan 'referenceSummary' (diisi dengan kode layout yang Anda pilih di atas). Jangan bungkus dalam markdown (jangan pakai \`\`\`json). Contoh output:
 {
   "title": "Judul Elegan",
   "description": "Panel 1: ...\nPanel 2: ...\nPanel 3: ...\nPanel 4: ...",
-  "layout": "premium_vertical_row",
+  "layout": "recipe_asmr",
   "referenceSummary": "Ringkasan objek yang benar-benar terlihat, atau string kosong bila tidak ada gambar."
 }`;
     }
@@ -815,15 +824,11 @@ async function generateVideoPromptsInternal({ storyboardId, promptType, regenera
   }
 
   let gridDescText = `exactly ${gridCount} panels`;
-  if (storyboard.style === 'premium_vertical_row') {
-    gridDescText = `exactly ${gridCount} widescreen panels arranged in a vertical stack (from top to bottom)`;
-  } else {
-    if (gridCount === 4) gridDescText = "exactly 4 panels arranged in a 2x2 grid (from top-left, top-right, bottom-left, to bottom-right)";
-    else if (gridCount === 6) gridDescText = "exactly 6 panels arranged in a 3x2 grid (3 columns, 2 rows)";
-    else if (gridCount === 8) gridDescText = "exactly 8 panels arranged in a 4x2 grid (4 columns, 2 rows)";
-    else if (gridCount === 9) gridDescText = "exactly 9 panels arranged in a 3x3 grid (3 columns, 3 rows)";
-    else if (gridCount === 12) gridDescText = "exactly 12 panels arranged in a 4x3 grid (4 columns, 3 rows)";
-  }
+  if (gridCount === 4) gridDescText = "exactly 4 panels arranged in a clean symmetrical 2x2 grid";
+  else if (gridCount === 6) gridDescText = "exactly 6 panels arranged in a clean symmetrical 3x2 grid (or 2x3 on vertical format)";
+  else if (gridCount === 8) gridDescText = "exactly 8 panels arranged in a clean symmetrical 4x2 grid";
+  else if (gridCount === 9) gridDescText = "exactly 9 panels arranged in a clean symmetrical 3x3 grid";
+  else if (gridCount === 12) gridDescText = "exactly 12 panels arranged in a clean symmetrical 4x3 grid";
 
   const maxWordsAllowed = voMaxWords ? Math.min(Math.max(Number(voMaxWords), 8), 15) : 10;
 

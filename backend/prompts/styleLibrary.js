@@ -12,7 +12,7 @@ const STYLES = {
   mechanical_transform: {
     name: 'Mechanical Transformation', desc: 'Wadah mekanis premium (kubus/bola/silinder) mekar & morph mulus otomatis jadi produk. Kamera lebar, fotorealistis sinematik, fokus pada presisi mekanik.',
     category: 'Transformasi & Reveal', format: '9:16', faceMode: 'faceless', bg: 'light',
-    layoutHint: 'a grid of {N} numbered panels on a clean catalog-style sheet; each panel features a "MECHANICAL DETAIL" badge and a duration chip',
+    layoutHint: 'a strict symmetrical grid of {N} equal numbered panels on a clean sheet',
     camera: 'cinematic photorealistic reveal on ONE stable, WIDE, locked-off camera; armored panels slide & telescope outward smoothly, mechanically connected, no loose parts; shallow DOF',
     lighting: 'natural cinematic light matched to the setting, realistic reflections, subtle bokeh', header: 'STORYBOARD — MECHANICAL TRANSFORM',
     arc: ['a premium mechanical container rests on a surface', 'the container activates as its panels begin to slide and unfold', 'panels telescope outward smoothly, revealing the inner mechanism', 'the mechanism seamlessly forms the product itself', 'the finished product in a premium hero shot'],
@@ -21,7 +21,7 @@ const STYLES = {
   product_assembly: {
     name: 'Product Assembly', desc: 'Bagian-bagian produk beterbangan secara presisi dan menyatu menjadi produk utuh di tengah layar. Gaya futuristik & teknis.',
     category: 'Transformasi & Reveal', format: '9:16', faceMode: 'faceless', bg: 'dark',
-    layoutHint: 'a grid of {N} numbered panels with a dark technical background; each panel includes "ASSEMBLY PHASE" tags',
+    layoutHint: 'a strict symmetrical grid of {N} equal numbered panels on a dark technical sheet',
     camera: 'static hero shot, exploded-view parts floating then converging to center',
     lighting: 'dramatic rim studio lighting, high contrast', header: 'STORYBOARD — PRODUCT ASSEMBLY',
     arc: ['exploded parts floating in space', 'parts drifting toward the center', 'components snapping together', 'the complete product fully assembled, glowing hero shot'],
@@ -30,7 +30,7 @@ const STYLES = {
   liquid_splash: {
     name: 'Liquid / Splash Reveal', desc: 'Produk muncul secara dramatis dari cipratan cairan, asap, atau bubuk yang membeku di udara. Sangat artistik & segar.',
     category: 'Transformasi & Reveal', format: '9:16', faceMode: 'faceless', bg: 'dark',
-    layoutHint: 'a grid of {N} panels with a sleek dark aesthetic; each panel features "HIGH-SPEED CAPTURE" annotations',
+    layoutHint: 'a symmetrical grid of {N} equal panels with a sleek dark aesthetic',
     camera: 'static high-speed macro capture of splash frozen in motion',
     lighting: 'high-contrast studio light with specular highlights', header: 'STORYBOARD — SPLASH REVEAL',
     arc: ['calm surface before impact', 'liquid or powder bursting upward', 'product emerging from within the splash', 'product settled, droplets suspended around it'],
@@ -39,7 +39,7 @@ const STYLES = {
   unboxing: {
     name: 'Cinematic Unboxing', desc: 'Pembukaan kemasan dramatis dengan fokus pada pengalaman "first look", tekstur kotak, dan reveal produk.',
     category: 'Transformasi & Reveal', format: '9:16', faceMode: 'faceless', bg: 'light',
-    layoutHint: 'a grid of {N} numbered panels ala premium lifestyle catalog; each panel has a "FIRST LOOK" badge',
+    layoutHint: 'a strict symmetrical grid of {N} equal numbered panels on a clean lifestyle sheet',
     camera: 'handheld top-down and close-up shots with gentle natural movement',
     lighting: 'soft dramatic product studio light', header: 'STORYBOARD — UNBOXING',
     arc: ['sealed package resting on a surface', 'hands opening the box lid', 'lifting the product out of the packaging', 'macro close-up of product details', 'product placed upright in a clean hero angle'],
@@ -125,7 +125,7 @@ const STYLES = {
   professional_tutorial: {
     name: 'Professional Tutorial', desc: 'Panduan langkah demi langkah teknis dengan label nomor, durasi, dan fokus pada tangan/alat yang bekerja.',
     category: 'Proses & Edukasi', format: '9:16', faceMode: 'faceless', bg: 'light',
-    layoutHint: 'a professional table-style layout with columns for "VISUAL", "ACTION", and "TOOLS"',
+    layoutHint: 'a strict instructional grid of {N} equal numbered rectangular panels with clean step dividers',
     camera: 'clean top-down and close-up on hands performing each step',
     lighting: 'bright even instructional lighting, clear and shadow-free', header: 'STORYBOARD — TUTORIAL',
     arc: ['tools/materials laid out', 'step 1 action', 'following steps in sequence', 'the finished result'],
@@ -134,7 +134,7 @@ const STYLES = {
   recipe_asmr: {
     name: 'Recipe & ASMR Cooking', desc: 'Langkah memasak dengan fokus pada tekstur makanan, uap, dan suara. Sangat menggugah selera.',
     category: 'Proses & Edukasi', format: '9:16', faceMode: 'faceless', bg: 'light',
-    layoutHint: 'a grid of {N} macro panels; each panel includes "SOUND/SFX" notes and duration',
+    layoutHint: 'a symmetrical grid of {N} equal macro panels with appetizing detail and clean borders',
     camera: 'top-down and macro close-ups of cooking actions, steam and sizzle focus',
     lighting: 'warm appetizing food-studio light, rich colors', header: 'STORYBOARD — RECIPE ASMR',
     arc: ['fresh ingredients prepared', 'chopping / mixing step', 'cooking with sizzle and steam', 'plating the finished dish'],
@@ -143,7 +143,7 @@ const STYLES = {
   infographic_explainer: {
     name: 'Infographic Explainer', desc: 'Menjelaskan konsep dengan ikon, diagram bersih, dan panah petunjuk. Cocok untuk produk edukasi/teknis.',
     category: 'Proses & Edukasi', format: '16:9', faceMode: 'faceless', bg: 'light',
-    layoutHint: 'a grid of {N} infographic panels; each panel uses icons, arrows, and callouts to explain concepts',
+    layoutHint: 'a clean modern grid of {N} equal numbered rectangular infographic panels with minimalist accents',
     camera: 'flat clean graphic composition with icons, arrows and callouts',
     lighting: 'even flat lighting, vibrant infographic palette', header: 'STORYBOARD — EXPLAINER',
     arc: ['the concept introduced', 'breaking it into parts with icons', 'a concrete example', 'summary with key takeaway'],
@@ -154,7 +154,7 @@ const STYLES = {
   cinematic_ad: {
     name: 'Cinematic TV Commercial', desc: 'Gaya iklan TV premium dengan layout katalog bersih, tipografi elegan, dan fokus pada estetika produk kelas atas.',
     category: 'Cinematic & Art', format: '16:9', faceMode: 'full', bg: 'light',
-    layoutHint: 'a professional magazine-style sheet with large hero images, elegant typography, and "VISUAL UTAMA" / "TEKS OVERLAY" sections',
+    layoutHint: 'a strict symmetrical grid of {N} equal numbered rectangular panels on an elegant commercial poster sheet',
     camera: 'cinematic coverage varying wide, medium and close-up shots with intentional composition',
     lighting: 'high-end commercial lighting, soft rim lights, shallow depth of field', header: 'STORYBOARD — CINEMATIC TVC',
     arc: ['atmospheric establishing shot', 'macro texture and detail shots', 'the product in a lifestyle context', 'the hero beauty shot', 'brand tag / CTA'],
@@ -163,7 +163,7 @@ const STYLES = {
   anime_manga: {
     name: 'Anime / Manga Storyboard', desc: 'Gaya ilustrasi tangan (Anime/Manga) dengan panel dinamis, action lines, dan ekspresi karakter yang kuat.',
     category: 'Cinematic & Art', format: '9:16', faceMode: 'full', bg: 'textured',
-    layoutHint: 'a grid of dynamic comic panels with action lines, varied shot sizes, and ink-shaded borders',
+    layoutHint: 'a clean comic storyboard grid of {N} equal numbered rectangular panels with crisp ink borders and action lines',
     camera: 'dynamic comic panels with action lines and varied shot sizes',
     lighting: 'bold cel-shaded ink-and-tone rendering', header: 'STORYBOARD — ANIME / MANGA',
     arc: ['character intro panel', 'the conflict/challenge', 'the product as a dramatic turning point', 'triumphant resolution panel'],
@@ -172,7 +172,7 @@ const STYLES = {
   kawaii_playful: {
     name: 'Kawaii / Playful Layout', desc: 'Gaya lucu dengan elemen stiker, warna pastel ceria, ikon imut, dan balon teks yang menyenangkan.',
     category: 'Cinematic & Art', format: '9:16', faceMode: 'full', bg: 'light',
-    layoutHint: 'a playful grid of rounded numbered cards with cute mascots, star icons, and friendly callouts',
+    layoutHint: 'a bright cheerful grid of {N} equal rounded numbered cards with pastel borders',
     camera: 'bright playful flat-illustrated composition with cute cartoon characters, big rounded shapes and friendly icons',
     lighting: 'bright cheerful even lighting, vibrant candy palette', header: 'STORYBOARD — KAWAII PLAYFUL',
     arc: ['cheerful mascot hook', 'introduce concept with cute icons', 'fun relatable example', 'benefit celebration', 'happy recap and CTA'],
@@ -181,7 +181,7 @@ const STYLES = {
   luxury_mood: {
     name: 'Luxury / Premium Mood', desc: 'Eksklusif, gelap, dramatis. Fokus pada kemewahan material dan pencahayaan yang misterius.',
     category: 'Cinematic & Art', format: '9:16', faceMode: 'faceless', bg: 'dark',
-    layoutHint: 'a minimalist dark premium sheet with high-contrast panels and gold accents',
+    layoutHint: 'a minimalist dark premium sheet with a symmetrical grid of {N} high-contrast equal panels and gold accents',
     camera: 'slow elegant push-ins, dramatic negative space, macro of premium materials',
     lighting: 'chiaroscuro low-key lighting, gold and deep tones', header: 'STORYBOARD — LUXURY MOOD',
     arc: ['dark atmospheric intro', 'product revealed in a pool of light', 'macro of premium materials', 'elegant logo close'],
@@ -190,7 +190,7 @@ const STYLES = {
   product_hero: {
     name: 'Product Hero Showcase', desc: 'Hero shot produk premium yang bersih dan fokus pada sudut pandang terbaik produk.',
     category: 'Cinematic & Art', format: '1:1', faceMode: 'faceless', bg: 'light',
-    layoutHint: 'a clean product showcase grid with minimal annotations and pure white background',
+    layoutHint: 'a clean product showcase grid with {N} equal rectangular panels and pure white background',
     camera: 'static center-framed hero shots rotating angles of the product',
     lighting: 'clean premium studio light, soft reflections', header: 'STORYBOARD — PRODUCT HERO',
     arc: ['front hero angle', 'side profile', 'macro detail', 'top-down flat lay', 'lifestyle context'],
@@ -199,7 +199,7 @@ const STYLES = {
   cinematic_fpv_nature: {
     name: 'Cinematic FPV Nature', desc: 'Gaya drone FPV kecepatan tinggi melewati pemandangan alam (air terjun, hutan). Sangat dinamis, luas, dan petualang.',
     category: 'Cinematic & Art', format: '9:16', faceMode: 'faceless', bg: 'light',
-    layoutHint: 'a dynamic grid of {N} landscape-oriented panels on a vertical sheet; each panel features "DRONE TRAJECTORY" and "SPEED" badges',
+    layoutHint: 'a symmetrical grid of {N} equal numbered panels on a clean sheet with dynamic outdoor vistas',
     camera: 'fast-paced FPV drone flight path, weaving through obstacles (trees, rocks), diving towards water, expansive wide vistas',
     lighting: 'vibrant natural sunlight, golden hour glow, rainbows in mist, realistic water reflections', header: 'STORYBOARD — FPV NATURE',
     arc: ['drone dives through a canopy of trees', 'skimming the surface of a rushing river', 'soaring over the edge of a massive waterfall', 'flying through a rainbow in the mist', 'pulling back to reveal a breathtaking mountain vista'],
