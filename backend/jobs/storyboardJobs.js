@@ -362,8 +362,8 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
           // Analyze a separate product reference when available; never turn character
           // appearance into text that can conflict with the reference image.
           const subjectImagePath = task.productRefImagePath || (task.characterId ? '' : task.finalRefImagePath);
-          const productFallback = (storyboard && storyboard.title && !/^proyek|untitled|storyboard/i.test(storyboard.title))
-            ? storyboard.title
+          const productFallback = (task.title && !/^proyek|untitled|storyboard/i.test(task.title))
+            ? task.title
             : (task.prompt || 'the product');
           task.subjectDescriptor = subjectImagePath
             ? await analyzeSubject({ imagePath: subjectImagePath, ideaText: task.prompt }, db)
@@ -373,7 +373,7 @@ async function runStoryboardGeneratorBackground(taskId, storyboardId) {
         const faceMode = normalizeFaceMode(task.faceMode, task.showFace, task.style);
         const spec = getStyleSpec(task.style);
         const genCtx = {
-          subject: task.subjectDescriptor || (task.characterId ? (storyboard?.title || 'the product') : task.prompt),
+          subject: task.subjectDescriptor || (task.characterId ? (task.title || 'the product') : task.prompt),
           concept: pageConcept,
           faceMode,
           gridCount: Number(task.gridCount) || 6,
